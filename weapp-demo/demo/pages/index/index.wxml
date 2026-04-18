@@ -1,0 +1,8 @@
+<view class="page">
+  <view class="card">
+    <text class="title">微信小程序 Demo</text>
+    <text class="desc">环境已经跑通，这是一个可直接打开的最小示例。</text>
+    <button class="btn" bindtap="onTap">点我测试</button>
+    <text class="tip">{{message}}</text>
+  </view>
+</view>
