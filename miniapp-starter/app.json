@@ -1,8 +1,8 @@
 {
   "pages": ["pages/home/index"],
   "window": {
-    "navigationBarTitleText": "小程序起步项目",
-    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTitleText": "作业小管家",
+    "navigationBarBackgroundColor": "#eef4ff",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f5f7fb",
     "backgroundTextStyle": "light"

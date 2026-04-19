@@ -1,16 +1,134 @@
 <view class="page">
-  <view class="hero">
-    <text class="eyebrow">Mini Program Starter</text>
-    <text class="title">{{title}}</text>
-    <text class="subtitle">{{status}}</text>
-    <button class="primary-btn" bindtap="handlePrimaryAction">点我检查运行状态</button>
+  <view class="hero card">
+    <view class="hero-top">
+      <view>
+        <text class="eyebrow">作业小管家 Beta</text>
+        <text class="title">今晚作业安排好了</text>
+      </view>
+      <view class="pet-badge">
+        <text class="pet-emoji">🐮</text>
+        <text class="pet-level">Lv.{{pet.level}}</text>
+      </view>
+    </view>
+
+    <view class="summary-grid">
+      <view class="summary-item highlight">
+        <text class="summary-value">{{overview.pendingCount}}</text>
+        <text class="summary-label">待完成作业</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-value">{{overview.todayCoins}}</text>
+        <text class="summary-label">今日金币</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-value">{{overview.completedMinutes}}</text>
+        <text class="summary-label">已完成分钟</text>
+      </view>
+      <view class="summary-item">
+        <text class="summary-value">{{overview.streakDays}}</text>
+        <text class="summary-label">连续打卡</text>
+      </view>
+    </view>
+
+    <view class="hero-actions">
+      <button class="primary-btn" bindtap="handleAddHomework">+ 新增作业</button>
+      <button class="ghost-btn" bindtap="handlePhotoImport">📷 拍照识别</button>
+    </view>
   </view>
 
-  <view class="panel">
-    <text class="panel-title">下一步建议</text>
-    <view wx:for="{{nextSteps}}" wx:key="index" class="todo-item">
-      <text class="todo-index">{{index + 1}}</text>
-      <text class="todo-text">{{item}}</text>
+  <view class="card section-card">
+    <view class="section-header">
+      <text class="section-title">今日排期</text>
+      <text class="section-desc">先易后难，孩子更容易进入状态</text>
+    </view>
+
+    <view class="timeline">
+      <view wx:for="{{tasks}}" wx:key="id" class="task-item {{item.status}}">
+        <view class="timeline-dot"></view>
+        <view class="task-main">
+          <view class="task-row">
+            <text class="task-subject">{{item.subject}}</text>
+            <text class="task-status status-{{item.status}}">{{item.statusText}}</text>
+          </view>
+          <text class="task-content">{{item.content}}</text>
+          <view class="task-meta">
+            <text>{{item.planStart}} - {{item.planEnd}}</text>
+            <text>预计 {{item.estimatedMinutes}} 分钟</text>
+          </view>
+          <view wx:if="{{item.actualStart || item.actualEnd}}" class="task-actual">
+            <text>实际：{{item.actualStart || '--:--'}} - {{item.actualEnd || '--:--'}}</text>
+          </view>
+          <view class="task-actions">
+            <button wx:if="{{item.status === 'todo'}}" size="mini" class="mini-btn start-btn" data-id="{{item.id}}" bindtap="handleStartTask">开始</button>
+            <button wx:if="{{item.status === 'doing'}}" size="mini" class="mini-btn finish-btn" data-id="{{item.id}}" bindtap="handleFinishTask">完成</button>
+            <button size="mini" class="mini-btn plain-btn" data-id="{{item.id}}" bindtap="handleEditTask">编辑</button>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card section-card reward-card">
+    <view class="section-header">
+      <text class="section-title">奖励中心</text>
+      <text class="coin-balance">金币 {{coins}}</text>
+    </view>
+
+    <view class="reward-rules">
+      <view wx:for="{{rewardRules}}" wx:key="title" class="reward-rule">
+        <text class="rule-title">{{item.title}}</text>
+        <text class="rule-value">+{{item.coins}}</text>
+      </view>
+    </view>
+
+    <view class="reward-note">今天全部作业完成后，再额外奖励 {{bonusCoins}} 金币。</view>
+  </view>
+
+  <view class="card section-card pet-card">
+    <view class="section-header">
+      <text class="section-title">电子宠物</text>
+      <text class="section-desc">坚持写作业，宠物会一起长大</text>
+    </view>
+
+    <view class="pet-panel">
+      <view class="pet-visual">
+        <text class="pet-avatar">{{pet.emoji}}</text>
+        <text class="pet-name">{{pet.name}}</text>
+        <text class="pet-growth">成长值 {{pet.growth}} / {{pet.nextLevelGrowth}}</text>
+      </view>
+      <view class="pet-stats">
+        <view class="pet-stat">
+          <text class="pet-stat-label">开心值</text>
+          <progress percent="{{pet.happiness}}" stroke-width="8" activeColor="#ffb648" backgroundColor="#f1f3f5" />
+        </view>
+        <view class="pet-stat">
+          <text class="pet-stat-label">饱腹值</text>
+          <progress percent="{{pet.fullness}}" stroke-width="8" activeColor="#07c160" backgroundColor="#f1f3f5" />
+        </view>
+      </view>
+    </view>
+
+    <view class="shop-list">
+      <view wx:for="{{shopItems}}" wx:key="id" class="shop-item">
+        <view>
+          <text class="shop-name">{{item.emoji}} {{item.name}}</text>
+          <text class="shop-effect">{{item.effect}}</text>
+        </view>
+        <button size="mini" class="mini-btn buy-btn" data-id="{{item.id}}" bindtap="handleBuyItem">{{item.price}} 金币</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="card section-card social-card">
+    <view class="section-header">
+      <text class="section-title">轻社交预留</text>
+      <text class="section-desc">V2 建议先做鼓励，不做速度羞辱</text>
+    </view>
+    <view class="social-tags">
+      <text class="tag">今日完成分享</text>
+      <text class="tag">宠物成长展示</text>
+      <text class="tag">连续打卡榜</text>
+      <text class="tag disabled">谁写得快（暂不建议）</text>
     </view>
   </view>
 </view>

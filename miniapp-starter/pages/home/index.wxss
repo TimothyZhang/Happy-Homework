@@ -1,83 +1,378 @@
 .page {
   min-height: 100vh;
-  padding: 32rpx;
+  padding: 24rpx;
   box-sizing: border-box;
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
 }
 
-.hero,
-.panel {
+.card {
   background: #ffffff;
-  border-radius: 24rpx;
-  padding: 32rpx;
-  box-shadow: 0 12rpx 40rpx rgba(31, 35, 41, 0.08);
+  border-radius: 28rpx;
+  padding: 28rpx;
+  box-shadow: 0 16rpx 48rpx rgba(31, 35, 41, 0.08);
 }
 
-.panel {
+.section-card {
   margin-top: 24rpx;
+}
+
+.hero-top,
+.section-header,
+.task-row,
+.task-meta,
+.task-actions,
+.shop-item,
+.reward-rule,
+.hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .eyebrow {
   display: block;
-  font-size: 24rpx;
-  color: #4e5969;
-  text-transform: uppercase;
-  margin-bottom: 12rpx;
+  font-size: 22rpx;
+  color: #7b8794;
 }
 
 .title {
   display: block;
-  font-size: 44rpx;
-  line-height: 1.3;
-  font-weight: 600;
+  margin-top: 10rpx;
+  font-size: 42rpx;
+  font-weight: 700;
   color: #1f2329;
 }
 
-.subtitle {
-  display: block;
-  margin-top: 16rpx;
-  font-size: 28rpx;
-  line-height: 1.6;
-  color: #4e5969;
+.pet-badge {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 32rpx;
+  background: linear-gradient(180deg, #fff6d8 0%, #ffe29a 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
-.primary-btn {
-  margin-top: 32rpx;
-  background: #07c160;
-  color: #ffffff;
+.pet-emoji {
+  font-size: 46rpx;
+}
+
+.pet-level {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #8a5b00;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16rpx;
+  margin-top: 28rpx;
+}
+
+.summary-item {
+  padding: 22rpx;
+  border-radius: 22rpx;
+  background: #f7f8fa;
+}
+
+.summary-item.highlight {
+  background: linear-gradient(180deg, #eaf5ff 0%, #d7ebff 100%);
+}
+
+.summary-value {
+  display: block;
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.summary-label {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #6b7785;
+}
+
+.hero-actions {
+  gap: 16rpx;
+  margin-top: 28rpx;
+}
+
+.primary-btn,
+.ghost-btn {
+  flex: 1;
+  border-radius: 999rpx;
+  font-size: 28rpx;
   border: none;
 }
 
-.panel-title {
-  display: block;
-  font-size: 30rpx;
-  font-weight: 600;
-  margin-bottom: 20rpx;
+.primary-btn {
+  background: #07c160;
+  color: #ffffff;
 }
 
-.todo-item {
+.ghost-btn {
+  background: #eef4ff;
+  color: #245bdb;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.section-desc,
+.coin-balance,
+.reward-note,
+.task-actual,
+.shop-effect {
+  font-size: 24rpx;
+  color: #6b7785;
+}
+
+.timeline {
+  position: relative;
+  margin-top: 24rpx;
+}
+
+.task-item {
   display: flex;
-  align-items: center;
-  padding: 18rpx 0;
-  border-top: 1rpx solid #edf0f3;
+  position: relative;
+  padding-bottom: 28rpx;
 }
 
-.todo-item:first-of-type {
+.task-item:last-child {
+  padding-bottom: 0;
+}
+
+.timeline-dot {
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 50%;
+  background: #cad3dd;
+  margin-top: 20rpx;
+  position: relative;
+}
+
+.task-item:not(:last-child) .timeline-dot::after {
+  content: '';
+  position: absolute;
+  top: 20rpx;
+  left: 8rpx;
+  width: 2rpx;
+  height: calc(100% + 14rpx);
+  background: #e5e9ef;
+}
+
+.task-item.doing .timeline-dot {
+  background: #ffb648;
+}
+
+.task-item.done .timeline-dot {
+  background: #07c160;
+}
+
+.task-main {
+  flex: 1;
+  margin-left: 20rpx;
+  padding: 20rpx;
+  border-radius: 24rpx;
+  background: #f8fafc;
+}
+
+.task-subject {
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.task-status {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+}
+
+.status-todo {
+  background: #edf0f3;
+  color: #5f6b7a;
+}
+
+.status-doing {
+  background: #fff1d6;
+  color: #b26a00;
+}
+
+.status-done {
+  background: #e8f7ee;
+  color: #067647;
+}
+
+.task-content {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+  color: #1f2329;
+}
+
+.task-meta {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: #6b7785;
+}
+
+.task-actions {
+  margin-top: 18rpx;
+  justify-content: flex-start;
+  gap: 16rpx;
+}
+
+.mini-btn {
+  margin: 0;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  border: none;
+}
+
+.start-btn {
+  background: #245bdb;
+  color: #ffffff;
+}
+
+.finish-btn {
+  background: #07c160;
+  color: #ffffff;
+}
+
+.plain-btn {
+  background: #edf0f3;
+  color: #44505e;
+}
+
+.reward-card {
+  background: linear-gradient(180deg, #fffdf6 0%, #fff7df 100%);
+}
+
+.reward-rules {
+  margin-top: 22rpx;
+}
+
+.reward-rule {
+  padding: 18rpx 0;
+  border-top: 1rpx solid rgba(138, 91, 0, 0.08);
+}
+
+.reward-rule:first-child {
   border-top: none;
 }
 
-.todo-index {
-  width: 40rpx;
-  height: 40rpx;
-  border-radius: 20rpx;
-  background: #e8f7ee;
-  color: #07c160;
-  text-align: center;
-  line-height: 40rpx;
-  font-size: 24rpx;
-  margin-right: 16rpx;
+.rule-title {
+  font-size: 28rpx;
+  color: #4c3b19;
 }
 
-.todo-text {
+.rule-value {
   font-size: 28rpx;
+  font-weight: 700;
+  color: #b26a00;
+}
+
+.pet-panel {
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  margin-top: 24rpx;
+}
+
+.pet-visual {
+  width: 220rpx;
+  min-height: 220rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(180deg, #fef3c7 0%, #fde68a 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20rpx;
+  box-sizing: border-box;
+}
+
+.pet-avatar {
+  font-size: 88rpx;
+}
+
+.pet-name {
+  margin-top: 14rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #7c5200;
+}
+
+.pet-growth {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #8a5b00;
+  text-align: center;
+}
+
+.pet-stats {
+  flex: 1;
+}
+
+.pet-stat + .pet-stat {
+  margin-top: 22rpx;
+}
+
+.pet-stat-label {
+  display: block;
+  margin-bottom: 10rpx;
+  font-size: 24rpx;
+  color: #44505e;
+}
+
+.shop-list {
+  margin-top: 24rpx;
+}
+
+.shop-item {
+  padding: 20rpx 0;
+  border-top: 1rpx solid #edf0f3;
+}
+
+.shop-item:first-child {
+  border-top: none;
+}
+
+.shop-name {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 600;
   color: #1f2329;
+}
+
+.buy-btn {
+  background: #1f2329;
+  color: #ffffff;
+}
+
+.social-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+  margin-top: 22rpx;
+}
+
+.tag {
+  padding: 14rpx 22rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  color: #245bdb;
+  background: #eef4ff;
+}
+
+.tag.disabled {
+  color: #8c959f;
+  background: #f1f3f5;
 }
