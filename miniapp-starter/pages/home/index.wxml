@@ -11,6 +11,14 @@
       </view>
     </view>
 
+    <view class="progress-strip">
+      <view>
+        <text class="progress-label">今日完成进度</text>
+        <text class="progress-value">{{overview.doneCount}} / {{overview.totalCount}} 项，{{overview.progressPercent}}%</text>
+      </view>
+      <progress percent="{{overview.progressPercent}}" stroke-width="8" activeColor="#245bdb" backgroundColor="#dfe7f5" />
+    </view>
+
     <view class="summary-grid">
       <view class="summary-item highlight">
         <text class="summary-value">{{overview.pendingCount}}</text>
@@ -66,6 +74,14 @@
         </view>
       </view>
     </view>
+  </view>
+
+  <view wx:if="{{lastReward && lastReward.reward}}" class="card section-card reward-flash-card">
+    <view class="section-header">
+      <text class="section-title">刚刚获得奖励</text>
+      <text class="coin-balance">+{{lastReward.reward}} 金币</text>
+    </view>
+    <text class="reward-note">{{lastReward.leveledUp ? '宠物刚升了一级，成长反馈已经触发。' : '继续完成下一项，金币和成长值会继续累积。'}}</text>
   </view>
 
   <view class="card section-card reward-card">

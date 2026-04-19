@@ -14,8 +14,11 @@
     </view>
     <progress percent="{{progressPercent}}" stroke-width="10" activeColor="#245bdb" backgroundColor="#edf0f3" />
     <view class="stats-row">
-      <text>已完成 {{overview.completedMinutes}} 分钟</text>
+      <text>已完成 {{overview.completedMinutes}} / {{overview.totalMinutes}} 分钟</text>
       <text>今日金币 {{overview.todayCoins}}</text>
+    </view>
+    <view wx:if="{{overview.pendingCount === 0 && tasks.length}}" class="finish-banner">
+      <text>今晚作业已经全部完成，可以去宠物页领奖励啦。</text>
     </view>
   </view>
 

@@ -64,6 +64,27 @@
   color: #8a5b00;
 }
 
+.progress-strip {
+  margin-top: 24rpx;
+  padding: 22rpx;
+  border-radius: 22rpx;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.progress-label {
+  display: block;
+  font-size: 24rpx;
+  color: #5e6b79;
+}
+
+.progress-value {
+  display: block;
+  margin: 10rpx 0 16rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -249,6 +270,10 @@
 .plain-btn {
   background: #edf0f3;
   color: #44505e;
+}
+
+.reward-flash-card {
+  background: linear-gradient(180deg, #eefbf3 0%, #dbf7e7 100%);
 }
 
 .reward-card {

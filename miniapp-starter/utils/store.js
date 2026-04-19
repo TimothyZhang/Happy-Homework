@@ -97,14 +97,19 @@ function getCurrentTime() {
 
 function calcOverview(state) {
   const pendingCount = state.tasks.filter((task) => task.status !== 'done').length
-  const completedMinutes = state.tasks
-    .filter((task) => task.status === 'done')
-    .reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0)
+  const doneTasks = state.tasks.filter((task) => task.status === 'done')
+  const completedMinutes = doneTasks.reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0)
+  const totalMinutes = state.tasks.reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0)
+  const progressPercent = state.tasks.length ? Math.round((doneTasks.length / state.tasks.length) * 100) : 0
 
   return {
     pendingCount,
     todayCoins: state.coins,
     completedMinutes,
+    totalMinutes,
+    progressPercent,
+    doneCount: doneTasks.length,
+    totalCount: state.tasks.length,
     streakDays: state.streakDays
   }
 }
@@ -147,6 +152,7 @@ function startTask(taskId) {
 function finishTask(taskId) {
   return updateState((state) => {
     let reward = 8
+    let leveledUp = false
     state.tasks = state.tasks.map((task) => {
       if (task.id === taskId) {
         return {
@@ -164,8 +170,23 @@ function finishTask(taskId) {
     }
 
     state.coins += reward
-    state.pet.growth = Math.min(state.pet.growth + 6, state.pet.nextLevelGrowth)
+    state.pet.growth += 6
     state.pet.happiness = Math.min(state.pet.happiness + 6, 100)
+
+    if (state.pet.growth >= state.pet.nextLevelGrowth) {
+      state.pet.level += 1
+      state.pet.growth = state.pet.growth - state.pet.nextLevelGrowth
+      state.pet.nextLevelGrowth += 20
+      state.pet.fullness = Math.min(state.pet.fullness + 10, 100)
+      leveledUp = true
+    }
+
+    state.lastReward = {
+      reward,
+      leveledUp,
+      taskId,
+      finishedAt: Date.now()
+    }
     return state
   })
 }

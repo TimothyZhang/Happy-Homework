@@ -8,10 +8,15 @@ Page({
     rewardRules: [],
     pet: {},
     shopItems: [],
+    lastReward: null,
     overview: {
       pendingCount: 0,
       todayCoins: 0,
       completedMinutes: 0,
+      totalMinutes: 0,
+      progressPercent: 0,
+      doneCount: 0,
+      totalCount: 0,
       streakDays: 0
     }
   },
@@ -67,7 +72,7 @@ Page({
     const reward = state.coins - before.coins
     this.setData(state)
     wx.showToast({
-      title: `+${reward} 金币`,
+      title: state.lastReward && state.lastReward.leveledUp ? `+${reward} 金币，升级啦` : `+${reward} 金币`,
       icon: 'success'
     })
   },
