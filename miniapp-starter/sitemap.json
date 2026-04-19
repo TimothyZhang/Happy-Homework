@@ -1,4 +1,9 @@
 {
-  "desc": "demo sitemap",
-  "rules": []
+  "desc": "小程序默认 sitemap 配置",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
 }

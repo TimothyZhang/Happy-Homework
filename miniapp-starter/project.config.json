@@ -11,11 +11,12 @@
     "enhance": true,
     "postcss": true,
     "minified": false,
-    "compileHotReLoad": true
+    "compileHotReLoad": true,
+    "minifyWXML": true
   },
   "compileType": "miniprogram",
   "libVersion": "3.7.10",
-  "appid": "touristappid",
+  "appid": "wxbeb577a30f67f7a8",
   "projectname": "miniapp-starter",
   "simulatorType": "wechat",
   "condition": {}
