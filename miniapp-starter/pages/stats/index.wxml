@@ -1,0 +1,51 @@
+<view class="page">
+  <view class="card">
+    <view class="section-header">
+      <text class="section-title">学习统计</text>
+      <text class="tag">V1+</text>
+    </view>
+    <text class="subtle">先做家长真正关心的统计：完成数、耗时、金币、连续性。</text>
+  </view>
+
+  <view class="card section-card">
+    <view class="stats-grid">
+      <view class="stat-card">
+        <text class="stat-value">{{stats.totalTasks}}</text>
+        <text class="stat-label">今日总作业</text>
+      </view>
+      <view class="stat-card">
+        <text class="stat-value">{{stats.doneTasks}}</text>
+        <text class="stat-label">已完成</text>
+      </view>
+      <view class="stat-card">
+        <text class="stat-value">{{stats.totalMinutes}}</text>
+        <text class="stat-label">预计总分钟</text>
+      </view>
+      <view class="stat-card">
+        <text class="stat-value">{{stats.coins}}</text>
+        <text class="stat-label">当前金币</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="card section-card">
+    <view class="section-header">
+      <text class="section-title">完成记录</text>
+      <text class="subtle">已完成的作业会沉淀在这里</text>
+    </view>
+
+    <view wx:if="{{doneTasks.length}}">
+      <view wx:for="{{doneTasks}}" wx:key="id" class="history-item">
+        <view class="row-between">
+          <text class="history-title">{{item.subject}}</text>
+          <text class="status-badge status-done">已完成</text>
+        </view>
+        <text class="task-content">{{item.content}}</text>
+        <text class="subtle">计划 {{item.planStart}} - {{item.planEnd}}，实际 {{item.actualStart || '--:--'}} - {{item.actualEnd || '--:--'}}</text>
+      </view>
+    </view>
+    <view wx:else class="empty-block">
+      <text class="tip-text">还没有完成记录，先去排期页打卡一项看看。</text>
+    </view>
+  </view>
+</view>

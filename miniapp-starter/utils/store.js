@@ -4,6 +4,7 @@ const defaultState = {
   coins: 36,
   streakDays: 4,
   bonusCoins: 10,
+  editTaskId: null,
   rewardRules: [
     { title: '完成单项作业', coins: 5 },
     { title: '按计划完成', coins: 3 },
@@ -193,8 +194,46 @@ function addTask(task) {
       statusText: '未开始',
       actualStart: '',
       actualEnd: '',
+      createdAt: Date.now(),
       ...task
     })
+    return state
+  })
+}
+
+function updateTask(taskId, updates) {
+  return updateState((state) => {
+    state.tasks = state.tasks.map((task) => {
+      if (task.id === taskId) {
+        return {
+          ...task,
+          ...updates,
+          estimatedMinutes: Number(updates.estimatedMinutes || task.estimatedMinutes)
+        }
+      }
+      return task
+    })
+    return state
+  })
+}
+
+function deleteTask(taskId) {
+  return updateState((state) => {
+    state.tasks = state.tasks.filter((task) => task.id !== taskId)
+    return state
+  })
+}
+
+function setEditTaskId(taskId) {
+  return updateState((state) => {
+    state.editTaskId = taskId
+    return state
+  })
+}
+
+function clearEditTaskId() {
+  return updateState((state) => {
+    state.editTaskId = null
     return state
   })
 }
@@ -206,5 +245,9 @@ module.exports = {
   finishTask,
   buyItem,
   addTask,
+  updateTask,
+  deleteTask,
+  setEditTaskId,
+  clearEditTaskId,
   getCurrentTime
 }

@@ -9,7 +9,7 @@
 
   <view class="card form-card">
     <view class="section-header">
-      <text class="section-title">新增作业</text>
+      <text class="section-title">{{editingId ? '编辑作业' : '新增作业'}}</text>
       <text class="subtle">V1 先做手动录入</text>
     </view>
 
@@ -47,8 +47,9 @@
       </picker>
     </view>
 
-    <button class="save-btn" bindtap="handleSaveTask">保存这项作业</button>
-    <button class="ghost-btn" bindtap="handleMockPhoto">拍照识别（下一步接 OCR）</button>
+    <button class="save-btn" bindtap="handleSaveTask">{{editingId ? '保存修改' : '保存这项作业'}}</button>
+    <button wx:if="{{editingId}}" class="ghost-btn" bindtap="handleCancelEdit">取消编辑</button>
+    <button wx:else class="ghost-btn" bindtap="handleMockPhoto">拍照识别（下一步接 OCR）</button>
   </view>
 
   <view class="card task-card">
@@ -67,6 +68,10 @@
         <text>{{item.planStart}} - {{item.planEnd}}</text>
         <text>{{item.estimatedMinutes}} 分钟</text>
         <text>优先级 {{item.priority}}</text>
+      </view>
+      <view class="task-actions-inline">
+        <button class="mini-btn plain-btn" size="mini" data-id="{{item.id}}" bindtap="handleEditTask">编辑</button>
+        <button class="mini-btn danger-btn" size="mini" data-id="{{item.id}}" bindtap="handleDeleteTask">删除</button>
       </view>
     </view>
   </view>

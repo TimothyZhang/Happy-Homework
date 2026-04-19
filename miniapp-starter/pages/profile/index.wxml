@@ -35,10 +35,19 @@
 
   <view class="card section-card">
     <view class="section-header">
+      <text class="section-title">学习统计</text>
+    </view>
+    <view class="empty-block" bindtap="goStats">
+      <text class="tip-text">点我查看今日完成情况、金币和历史记录</text>
+    </view>
+  </view>
+
+  <view class="card section-card">
+    <view class="section-header">
       <text class="section-title">下一步我建议</text>
     </view>
     <view class="empty-block">
-      <text class="tip-text">1. 接 OCR 拍照识别\n2. 做作业编辑与删除\n3. 做本地统计页\n4. 再决定社交要做多重</text>
+      <text class="tip-text">1. 接 OCR 拍照识别\n2. 接云开发同步\n3. 做周报/月报\n4. 再决定社交要做多重</text>
     </view>
   </view>
 </view>

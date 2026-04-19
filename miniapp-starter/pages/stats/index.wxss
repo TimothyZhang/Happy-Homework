@@ -1,0 +1,36 @@
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16rpx;
+}
+
+.stat-card {
+  padding: 24rpx;
+  border-radius: 24rpx;
+  background: #f8fafc;
+}
+
+.stat-value {
+  display: block;
+  font-size: 38rpx;
+  font-weight: 700;
+}
+
+.stat-label {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #6b7785;
+}
+
+.history-item {
+  margin-top: 20rpx;
+  padding: 24rpx;
+  border-radius: 24rpx;
+  background: #f8fafc;
+}
+
+.history-title {
+  font-size: 30rpx;
+  font-weight: 700;
+}

@@ -4,7 +4,8 @@
     "pages/tasks/index",
     "pages/plan/index",
     "pages/pet/index",
-    "pages/profile/index"
+    "pages/profile/index",
+    "pages/stats/index"
   ],
   "window": {
     "navigationBarTitleText": "作业小管家",

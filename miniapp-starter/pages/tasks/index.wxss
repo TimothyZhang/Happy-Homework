@@ -7,6 +7,22 @@
   margin-top: 24rpx;
 }
 
+.task-actions-inline {
+  margin-top: 18rpx;
+  display: flex;
+  gap: 16rpx;
+}
+
+.plain-btn {
+  background: #edf0f3;
+  color: #44505e;
+}
+
+.danger-btn {
+  background: #fff1f0;
+  color: #d4380d;
+}
+
 .task-item-card {
   margin-top: 20rpx;
   padding: 24rpx;
