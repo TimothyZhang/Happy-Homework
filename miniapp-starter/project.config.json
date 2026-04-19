@@ -1,0 +1,22 @@
+{
+  "description": "微信小程序 demo",
+  "packOptions": {
+    "ignore": []
+  },
+  "setting": {
+    "bundle": false,
+    "userConfirmedBundleSwitch": false,
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": false,
+    "compileHotReLoad": true
+  },
+  "compileType": "miniprogram",
+  "libVersion": "3.7.10",
+  "appid": "touristappid",
+  "projectname": "miniapp-starter",
+  "simulatorType": "wechat",
+  "condition": {}
+}

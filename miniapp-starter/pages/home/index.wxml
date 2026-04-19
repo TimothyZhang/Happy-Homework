@@ -1,0 +1,16 @@
+<view class="page">
+  <view class="hero">
+    <text class="eyebrow">Mini Program Starter</text>
+    <text class="title">{{title}}</text>
+    <text class="subtitle">{{status}}</text>
+    <button class="primary-btn" bindtap="handlePrimaryAction">点我检查运行状态</button>
+  </view>
+
+  <view class="panel">
+    <text class="panel-title">下一步建议</text>
+    <view wx:for="{{nextSteps}}" wx:key="index" class="todo-item">
+      <text class="todo-index">{{index + 1}}</text>
+      <text class="todo-text">{{item}}</text>
+    </view>
+  </view>
+</view>
