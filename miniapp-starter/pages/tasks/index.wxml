@@ -1,0 +1,73 @@
+<view class="page">
+  <view class="card">
+    <view class="section-header">
+      <text class="section-title">作业管理</text>
+      <text class="tag">共 {{tasks.length}} 项</text>
+    </view>
+    <text class="subtle">先把作业录清楚，后面排期和奖励才会顺。</text>
+  </view>
+
+  <view class="card form-card">
+    <view class="section-header">
+      <text class="section-title">新增作业</text>
+      <text class="subtle">V1 先做手动录入</text>
+    </view>
+
+    <view class="field">
+      <text class="field-label">科目</text>
+      <picker mode="selector" range="{{subjectOptions}}" bindchange="handleSubjectChange">
+        <view class="picker">{{form.subject || '请选择科目'}}</view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <text class="field-label">作业内容</text>
+      <textarea class="input textarea" placeholder="例如：完成口算练习 2 页" value="{{form.content}}" bindinput="handleContentInput"></textarea>
+    </view>
+
+    <view class="field">
+      <text class="field-label">预计耗时（分钟）</text>
+      <input class="input" type="number" placeholder="例如：20" value="{{form.estimatedMinutes}}" bindinput="handleMinutesInput" />
+    </view>
+
+    <view class="field">
+      <text class="field-label">计划开始时间</text>
+      <input class="input" placeholder="例如：19:00" value="{{form.planStart}}" bindinput="handlePlanStartInput" />
+    </view>
+
+    <view class="field">
+      <text class="field-label">计划结束时间</text>
+      <input class="input" placeholder="例如：19:20" value="{{form.planEnd}}" bindinput="handlePlanEndInput" />
+    </view>
+
+    <view class="field">
+      <text class="field-label">优先级</text>
+      <picker mode="selector" range="{{priorityOptions}}" bindchange="handlePriorityChange">
+        <view class="picker">{{form.priority || '请选择优先级'}}</view>
+      </picker>
+    </view>
+
+    <button class="save-btn" bindtap="handleSaveTask">保存这项作业</button>
+    <button class="ghost-btn" bindtap="handleMockPhoto">拍照识别（下一步接 OCR）</button>
+  </view>
+
+  <view class="card task-card">
+    <view class="section-header">
+      <text class="section-title">今日作业列表</text>
+      <text class="subtle">已完成 {{doneCount}} / {{tasks.length}}</text>
+    </view>
+
+    <view wx:for="{{tasks}}" wx:key="id" class="task-item-card">
+      <view class="task-row">
+        <text class="task-title">{{item.subject}}</text>
+        <text class="status-badge status-{{item.status}}">{{item.statusText}}</text>
+      </view>
+      <text class="task-content">{{item.content}}</text>
+      <view class="task-meta">
+        <text>{{item.planStart}} - {{item.planEnd}}</text>
+        <text>{{item.estimatedMinutes}} 分钟</text>
+        <text>优先级 {{item.priority}}</text>
+      </view>
+    </view>
+  </view>
+</view>

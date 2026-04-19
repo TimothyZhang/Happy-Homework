@@ -1,0 +1,21 @@
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 22rpx 0;
+  border-top: 1rpx solid #edf0f3;
+}
+
+.setting-row:first-child {
+  border-top: none;
+}
+
+.setting-label {
+  font-size: 28rpx;
+  color: #44505e;
+}
+
+.setting-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1f2329;
+}

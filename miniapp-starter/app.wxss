@@ -3,3 +3,137 @@ page {
   color: #1f2329;
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
 }
+
+.page {
+  min-height: 100vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 28rpx;
+  padding: 28rpx;
+  box-shadow: 0 16rpx 48rpx rgba(31, 35, 41, 0.08);
+}
+
+.section-card {
+  margin-top: 24rpx;
+}
+
+.section-header,
+.row-between,
+.hero-actions,
+.task-row,
+.task-meta,
+.task-actions,
+.shop-item,
+.reward-rule,
+.form-row,
+.stat-grid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.section-desc,
+.subtle,
+.coin-balance,
+.reward-note,
+.task-actual,
+.shop-effect,
+.field-label,
+.tip-text {
+  font-size: 24rpx;
+  color: #6b7785;
+}
+
+.primary-btn,
+.ghost-btn,
+.mini-btn,
+.save-btn {
+  border-radius: 999rpx;
+  border: none;
+}
+
+.primary-btn,
+.save-btn {
+  background: #245bdb;
+  color: #ffffff;
+}
+
+.ghost-btn {
+  background: #eef4ff;
+  color: #245bdb;
+}
+
+.mini-btn {
+  margin: 0;
+  font-size: 22rpx;
+}
+
+.tag {
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  background: #eef4ff;
+  color: #245bdb;
+  font-size: 22rpx;
+}
+
+.status-badge {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+}
+
+.status-todo {
+  background: #edf0f3;
+  color: #5f6b7a;
+}
+
+.status-doing {
+  background: #fff1d6;
+  color: #b26a00;
+}
+
+.status-done {
+  background: #e8f7ee;
+  color: #067647;
+}
+
+.progress-card,
+.task-card,
+.form-card,
+.pet-card {
+  margin-top: 24rpx;
+}
+
+.empty-block {
+  margin-top: 20rpx;
+  padding: 28rpx;
+  border-radius: 20rpx;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.input,
+.picker {
+  margin-top: 12rpx;
+  min-height: 84rpx;
+  padding: 22rpx 24rpx;
+  border-radius: 20rpx;
+  background: #f7f8fa;
+  font-size: 28rpx;
+  box-sizing: border-box;
+}
+
+.textarea {
+  min-height: 160rpx;
+}

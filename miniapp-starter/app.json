@@ -1,11 +1,45 @@
 {
-  "pages": ["pages/home/index"],
+  "pages": [
+    "pages/home/index",
+    "pages/tasks/index",
+    "pages/plan/index",
+    "pages/pet/index",
+    "pages/profile/index"
+  ],
   "window": {
     "navigationBarTitleText": "作业小管家",
     "navigationBarBackgroundColor": "#eef4ff",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f5f7fb",
     "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "color": "#7b8794",
+    "selectedColor": "#245bdb",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/tasks/index",
+        "text": "作业"
+      },
+      {
+        "pagePath": "pages/plan/index",
+        "text": "排期"
+      },
+      {
+        "pagePath": "pages/pet/index",
+        "text": "宠物"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的"
+      }
+    ]
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"

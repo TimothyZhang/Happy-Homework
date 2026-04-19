@@ -1,0 +1,45 @@
+.pet-hero {
+  margin-top: 24rpx;
+  padding: 28rpx;
+  border-radius: 28rpx;
+  background: linear-gradient(180deg, #fff6d8 0%, #ffe29a 100%);
+  text-align: center;
+}
+
+.pet-avatar {
+  display: block;
+  font-size: 92rpx;
+}
+
+.pet-name {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #7c5200;
+}
+
+.pet-stat-block {
+  margin-top: 22rpx;
+}
+
+.shop-item-card {
+  margin-top: 20rpx;
+  padding: 24rpx;
+  border-radius: 24rpx;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.shop-name {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.buy-btn {
+  background: #1f2329;
+  color: #ffffff;
+}

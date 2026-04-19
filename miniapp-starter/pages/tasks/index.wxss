@@ -1,0 +1,36 @@
+.field + .field {
+  margin-top: 20rpx;
+}
+
+.save-btn,
+.ghost-btn {
+  margin-top: 24rpx;
+}
+
+.task-item-card {
+  margin-top: 20rpx;
+  padding: 24rpx;
+  border-radius: 24rpx;
+  background: #f8fafc;
+}
+
+.task-title {
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.task-content {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+
+.task-meta {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  color: #6b7785;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}

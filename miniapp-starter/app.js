@@ -1,8 +1,5 @@
 App({
-  globalData: {
-    userInfo: null
-  },
   onLaunch() {
-    console.log('miniapp-starter launched')
+    console.log('作业小管家 launched')
   }
 })

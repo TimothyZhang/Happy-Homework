@@ -1,0 +1,48 @@
+<view class="page">
+  <view class="card">
+    <view class="section-header">
+      <text class="section-title">时间排期</text>
+      <text class="tag">{{overview.pendingCount}} 项待完成</text>
+    </view>
+    <text class="subtle">把今晚作业拆成一段一段，孩子更容易坚持下去。</text>
+  </view>
+
+  <view class="card progress-card">
+    <view class="section-header">
+      <text class="section-title">今晚进度</text>
+      <text class="subtle">已完成 {{completedCount}} / {{tasks.length}}</text>
+    </view>
+    <progress percent="{{progressPercent}}" stroke-width="10" activeColor="#245bdb" backgroundColor="#edf0f3" />
+    <view class="stats-row">
+      <text>已完成 {{overview.completedMinutes}} 分钟</text>
+      <text>今日金币 {{overview.todayCoins}}</text>
+    </view>
+  </view>
+
+  <view class="card task-card">
+    <view class="section-header">
+      <text class="section-title">时间轴</text>
+      <text class="subtle">建议顺序：先简单，再需要专注的</text>
+    </view>
+
+    <view wx:for="{{tasks}}" wx:key="id" class="timeline-item">
+      <view class="time-col">
+        <text class="time-start">{{item.planStart}}</text>
+        <text class="time-end">{{item.planEnd}}</text>
+      </view>
+      <view class="timeline-body">
+        <view class="task-row">
+          <text class="task-title">{{item.subject}}</text>
+          <text class="status-badge status-{{item.status}}">{{item.statusText}}</text>
+        </view>
+        <text class="task-content">{{item.content}}</text>
+        <text class="subtle">预计 {{item.estimatedMinutes}} 分钟，优先级 {{item.priority}}</text>
+        <text wx:if="{{item.actualStart || item.actualEnd}}" class="subtle">实际 {{item.actualStart || '--:--'}} - {{item.actualEnd || '--:--'}}</text>
+        <view class="task-actions">
+          <button wx:if="{{item.status === 'todo'}}" class="mini-btn start-btn" size="mini" data-id="{{item.id}}" bindtap="handleStartTask">开始</button>
+          <button wx:if="{{item.status === 'doing'}}" class="mini-btn finish-btn" size="mini" data-id="{{item.id}}" bindtap="handleFinishTask">完成</button>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>
