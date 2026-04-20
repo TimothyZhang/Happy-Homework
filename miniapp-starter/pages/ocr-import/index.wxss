@@ -45,6 +45,26 @@
   background: #ffffff;
 }
 
+.mock-preview {
+  height: 360rpx;
+  border-radius: 20rpx;
+  background: linear-gradient(180deg, #f7faff 0%, #eef4ff 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.mock-preview-icon {
+  font-size: 72rpx;
+}
+
+.mock-preview-text {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  color: #44505e;
+}
+
 .preview-note,
 .empty-desc {
   display: block;

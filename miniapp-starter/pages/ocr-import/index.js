@@ -1,5 +1,7 @@
 const store = require('../../utils/store')
 
+const CLOUD_PATH_PREFIX = 'homework-register'
+
 const mockRawText = `语文：抄写第3课生字两遍
 数学：练习册第12页第1-5题
 英语：背诵单词1-20
@@ -45,6 +47,7 @@ Page({
     imagePath: '',
     isRecognizing: false,
     canUseCloud: typeof wx.cloud !== 'undefined',
+    useMockData: false,
     tips: [
       '尽量正面拍整页，避免裁掉边缘',
       '光线充足，减少阴影和反光',
@@ -74,33 +77,73 @@ Page({
   },
 
   handleUseMockImage() {
-    this.setData({ imagePath: '/assets/mock-homework-register.jpg' })
+    this.setData({ imagePath: '', useMockData: true })
     wx.showToast({ title: '已载入演示数据', icon: 'none' })
   },
 
-  handleStartRecognize() {
-    if (!this.data.imagePath) {
+  async handleStartRecognize() {
+    if (!this.data.imagePath && !this.data.useMockData) {
       wx.showToast({ title: '先选择一张登记本照片', icon: 'none' })
       return
     }
 
     this.setData({ isRecognizing: true })
 
-    if (!this.data.canUseCloud) {
+    if (this.data.useMockData || !this.data.canUseCloud) {
       this.runMockRecognition()
       return
     }
 
-    // 下一步：这里接 wx.cloud.uploadFile + wx.cloud.callFunction
-    // 现在先保留到 mock fallback，确保流程继续可用。
-    this.runMockRecognition()
+    try {
+      const uploadRes = await wx.cloud.uploadFile({
+        cloudPath: `${CLOUD_PATH_PREFIX}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`,
+        filePath: this.data.imagePath
+      })
+
+      const callRes = await wx.cloud.callFunction({
+        name: 'homeworkOCR',
+        data: {
+          imageFileID: uploadRes.fileID,
+          imagePath: this.data.imagePath
+        }
+      })
+
+      const result = (callRes && callRes.result) || {}
+      if (!result.ok) {
+        throw new Error(result.error || '云函数返回失败')
+      }
+
+      store.setCurrentOcrJob({
+        imagePath: this.data.imagePath,
+        rawText: result.rawText || '',
+        drafts: result.drafts || [],
+        source: result.source || 'cloud-function',
+        imageFileID: uploadRes.fileID
+      })
+
+      this.setData({ isRecognizing: false })
+      wx.navigateTo({
+        url: '/pages/ocr-result/index'
+      })
+    } catch (error) {
+      console.error('OCR recognize failed', error)
+      this.setData({ isRecognizing: false })
+      wx.showModal({
+        title: '识别失败',
+        content: '真实 OCR 还没完全跑通，先回退到演示识别结果，保证你能继续看流程。',
+        confirmText: '继续',
+        showCancel: false,
+        success: () => {
+          this.runMockRecognition()
+        }
+      })
+    }
   },
 
   runMockRecognition() {
-    
     setTimeout(() => {
       store.setCurrentOcrJob({
-        imagePath: this.data.imagePath,
+        imagePath: this.data.imagePath || '/mock/homework-register-demo.jpg',
         rawText: mockRawText,
         drafts: mockDrafts
       })

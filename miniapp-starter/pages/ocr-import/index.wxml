@@ -11,9 +11,13 @@
       <text class="subtle">建议只拍单页</text>
     </view>
 
-    <view wx:if="{{imagePath}}" class="preview-box">
-      <image class="preview-image" src="{{imagePath}}" mode="aspectFit" />
-      <text class="preview-note">已选图片：{{imagePath}}</text>
+    <view wx:if="{{imagePath || useMockData}}" class="preview-box">
+      <image wx:if="{{imagePath}}" class="preview-image" src="{{imagePath}}" mode="aspectFit" />
+      <view wx:else class="mock-preview">
+        <text class="mock-preview-icon">🧾</text>
+        <text class="mock-preview-text">当前使用演示登记本数据</text>
+      </view>
+      <text class="preview-note">{{imagePath ? '已选图片：' + imagePath : '当前未上传真实图片，识别时会走演示数据'}}</text>
     </view>
     <view wx:else class="empty-box">
       <text class="empty-icon">📝</text>

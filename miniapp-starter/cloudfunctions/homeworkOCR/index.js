@@ -1,5 +1,14 @@
 'use strict'
 
+let cloud
+
+try {
+  cloud = require('wx-server-sdk')
+  cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
+} catch (error) {
+  cloud = null
+}
+
 /**
  * homeworkOCR 云函数骨架
  *
@@ -12,15 +21,31 @@
  */
 
 exports.main = async (event) => {
-  const rawText = `语文：抄写第3课生字两遍\n数学：练习册第12页第1-5题\n英语：背诵单词1-20\n带彩纸一张，周三手工课用`
+  const rawText = await recognizeRegisterText(event)
 
   return {
     ok: true,
-    source: 'mock-cloud-function',
+    source: 'cloud-function-mock-ocr',
     imageFileID: event.imageFileID || '',
     rawText,
     drafts: parseHomeworkRegister(rawText)
   }
+}
+
+async function recognizeRegisterText(event) {
+  if (event && event.mockRawText) {
+    return String(event.mockRawText)
+  }
+
+  if (event && event.imageFileID && cloud) {
+    try {
+      await cloud.getTempFileURL({ fileList: [event.imageFileID] })
+    } catch (error) {
+      console.warn('getTempFileURL failed, fallback to mock text', error)
+    }
+  }
+
+  return `语文：抄写第3课生字两遍\n数学：练习册第12页第1-5题\n英语：背诵单词1-20\n带彩纸一张，周三手工课用`
 }
 
 function parseHomeworkRegister(rawText) {
