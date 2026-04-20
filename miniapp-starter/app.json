@@ -1,6 +1,8 @@
 {
   "pages": [
     "pages/home/index",
+    "pages/ocr-import/index",
+    "pages/ocr-result/index",
     "pages/tasks/index",
     "pages/plan/index",
     "pages/pet/index",

@@ -37,10 +37,8 @@ Page({
   },
 
   handlePhotoImport() {
-    wx.showModal({
-      title: '拍照识别作业',
-      content: '下一步我会把 OCR 接进这里。目前先确保录入、排期、奖励、宠物这条链路顺。',
-      showCancel: false
+    wx.navigateTo({
+      url: '/pages/ocr-import/index'
     })
   },
 

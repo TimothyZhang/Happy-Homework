@@ -5,6 +5,8 @@ const defaultState = {
   streakDays: 4,
   bonusCoins: 10,
   editTaskId: null,
+  ocrCurrentJob: null,
+  ocrJobs: [],
   rewardRules: [
     { title: '完成单项作业', coins: 5 },
     { title: '按计划完成', coins: 3 },
@@ -259,6 +261,41 @@ function clearEditTaskId() {
   })
 }
 
+function setCurrentOcrJob(job) {
+  return updateState((state) => {
+    const normalizedJob = {
+      id: job.id || Date.now(),
+      imagePath: job.imagePath || '',
+      rawText: job.rawText || '',
+      drafts: (job.drafts || []).map((draft, index) => ({
+        id: draft.id || `${Date.now()}-${index}`,
+        subject: draft.subject || '',
+        content: draft.content || '',
+        rawText: draft.rawText || '',
+        confidence: draft.confidence || '中',
+        needsConfirm: typeof draft.needsConfirm === 'boolean' ? draft.needsConfirm : true
+      })),
+      createdAt: job.createdAt || Date.now()
+    }
+
+    state.ocrCurrentJob = normalizedJob
+    state.ocrJobs = [normalizedJob, ...(state.ocrJobs || []).filter((item) => item.id !== normalizedJob.id)].slice(0, 10)
+    return state
+  })
+}
+
+function getCurrentOcrJob() {
+  const state = loadState()
+  return state.ocrCurrentJob || null
+}
+
+function clearCurrentOcrJob() {
+  return updateState((state) => {
+    state.ocrCurrentJob = null
+    return state
+  })
+}
+
 module.exports = {
   defaultState,
   getStateWithComputed,
@@ -270,5 +307,8 @@ module.exports = {
   deleteTask,
   setEditTaskId,
   clearEditTaskId,
+  setCurrentOcrJob,
+  getCurrentOcrJob,
+  clearCurrentOcrJob,
   getCurrentTime
 }

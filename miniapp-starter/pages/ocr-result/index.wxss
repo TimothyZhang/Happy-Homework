@@ -1,0 +1,102 @@
+.result-hero,
+.drafts-card {
+  margin-bottom: 24rpx;
+}
+
+.result-image {
+  width: 100%;
+  height: 320rpx;
+  border-radius: 24rpx;
+  margin-top: 20rpx;
+  background: #f8fafc;
+}
+
+.raw-title {
+  display: block;
+  margin-top: 24rpx;
+  font-size: 26rpx;
+  color: #44505e;
+  font-weight: 600;
+}
+
+.raw-text {
+  display: block;
+  margin-top: 12rpx;
+  white-space: pre-wrap;
+  line-height: 1.8;
+  color: #5d6776;
+  font-size: 26rpx;
+  background: #f8fafc;
+  border-radius: 20rpx;
+  padding: 20rpx;
+}
+
+.draft-card {
+  margin-top: 20rpx;
+  padding: 24rpx;
+  border-radius: 24rpx;
+  background: #f8fafc;
+}
+
+.draft-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.draft-index {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1f2d3d;
+}
+
+.confidence {
+  font-size: 22rpx;
+  padding: 8rpx 14rpx;
+  border-radius: 999rpx;
+}
+
+.confidence-高 {
+  background: #f6ffed;
+  color: #389e0d;
+}
+
+.confidence-中 {
+  background: #fff7e6;
+  color: #d48806;
+}
+
+.confidence-低 {
+  background: #fff1f0;
+  color: #cf1322;
+}
+
+.field + .field {
+  margin-top: 18rpx;
+}
+
+.raw-fragment {
+  margin-top: 18rpx;
+  padding: 16rpx 20rpx;
+  border-radius: 18rpx;
+  background: #ffffff;
+}
+
+.fragment-label {
+  font-size: 22rpx;
+  color: #7b8794;
+}
+
+.fragment-text {
+  display: block;
+  margin-top: 8rpx;
+  color: #44505e;
+  line-height: 1.6;
+  font-size: 24rpx;
+}
+
+.plain-add-btn {
+  margin-top: 24rpx;
+  background: #edf2ff;
+  color: #245bdb;
+}

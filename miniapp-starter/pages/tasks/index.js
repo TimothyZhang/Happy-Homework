@@ -134,10 +134,8 @@ Page({
   },
 
   handleMockPhoto() {
-    wx.showModal({
-      title: '拍照识别',
-      content: '下一步我会把 OCR 接进这里。现在先把作业闭环做完整。',
-      showCancel: false
+    wx.navigateTo({
+      url: '/pages/ocr-import/index'
     })
   }
 })

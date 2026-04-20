@@ -1,0 +1,47 @@
+<view class="page">
+  <view class="card hero-card">
+    <text class="eyebrow">作业登记本 OCR</text>
+    <text class="title">拍一张登记本，拆成多条作业</text>
+    <text class="desc">这一版先把“拍照 -> 识别 -> 编辑确认 -> 导入作业”这条链路跑通。</text>
+  </view>
+
+  <view class="card upload-card">
+    <view class="section-header">
+      <text class="section-title">1. 选择登记本照片</text>
+      <text class="subtle">建议只拍单页</text>
+    </view>
+
+    <view wx:if="{{imagePath}}" class="preview-box">
+      <image class="preview-image" src="{{imagePath}}" mode="aspectFit" />
+      <text class="preview-note">已选图片：{{imagePath}}</text>
+    </view>
+    <view wx:else class="empty-box">
+      <text class="empty-icon">📝</text>
+      <text class="empty-title">还没有选择图片</text>
+      <text class="empty-desc">可以直接拍照，也可以从相册导入</text>
+    </view>
+
+    <view class="action-row">
+      <button class="primary-btn" bindtap="handleTakePhoto">拍照</button>
+      <button class="ghost-btn" bindtap="handleChooseFromAlbum">相册导入</button>
+    </view>
+
+    <button class="link-btn" bindtap="handleUseMockImage">没有样例图，先用演示数据看流程</button>
+  </view>
+
+  <view class="card tips-card">
+    <view class="section-header">
+      <text class="section-title">2. 拍摄建议</text>
+      <text class="subtle">提高识别成功率</text>
+    </view>
+
+    <view wx:for="{{tips}}" wx:key="*this" class="tip-item">
+      <text class="tip-dot">•</text>
+      <text class="tip-text">{{item}}</text>
+    </view>
+  </view>
+
+  <view class="bottom-bar">
+    <button class="save-btn" loading="{{isRecognizing}}" bindtap="handleStartRecognize">开始识别登记本</button>
+  </view>
+</view>
