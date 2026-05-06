@@ -3,6 +3,25 @@
   margin-bottom: 24rpx;
 }
 
+.source-tag {
+  display: inline-block;
+  margin-top: 16rpx;
+  padding: 6rpx 18rpx;
+  font-size: 22rpx;
+  color: #245bdb;
+  background: #edf2ff;
+  border-radius: 999rpx;
+}
+
+.provider-warning {
+  margin-top: 12rpx;
+  padding: 12rpx 18rpx;
+  font-size: 24rpx;
+  color: #d48806;
+  background: #fff7e6;
+  border-radius: 16rpx;
+}
+
 .result-image {
   width: 100%;
   height: 320rpx;

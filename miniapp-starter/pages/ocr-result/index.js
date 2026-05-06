@@ -8,6 +8,20 @@ function getConfidenceClass(confidence) {
   return 'low'
 }
 
+const SOURCE_LABELS = {
+  'openai-vision-ocr': 'OpenAI Vision',
+  'tencent-cloud-general-handwriting-ocr': '腾讯云手写 OCR',
+  'tencent-cloud-general-accurate-ocr': '腾讯云精准印刷 OCR',
+  'tencent-cloud-general-basic-ocr': '腾讯云通用 OCR',
+  'wechat-openapi-printed-text-ocr': '微信 OpenAPI 印刷 OCR',
+  'builtin-ocr-tesseract': '云函数内置 Tesseract',
+  'mock-event': '演示数据(mock)'
+}
+
+function getSourceLabel(source) {
+  return SOURCE_LABELS[source] || source || '未知通道'
+}
+
 Page({
   data: {
     imagePath: '',
@@ -33,6 +47,7 @@ Page({
       imagePath: job.imagePath,
       rawText: job.rawText,
       source: job.source || '',
+      sourceLabel: getSourceLabel(job.source),
       providerWarning: job.providerWarning || '',
       drafts: (job.drafts || []).map((draft) => ({
         ...draft,

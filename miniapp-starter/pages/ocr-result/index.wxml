@@ -5,6 +5,9 @@
       <text class="subtle">先自动拆分，再人工校对</text>
     </view>
 
+    <view wx:if="{{sourceLabel}}" class="source-tag">识别通道：{{sourceLabel}}</view>
+    <view wx:if="{{providerWarning}}" class="provider-warning">⚠️ {{providerWarning}}</view>
+
     <image wx:if="{{imagePath}}" class="result-image" src="{{imagePath}}" mode="aspectFit" />
     <text class="raw-title">OCR 原始文本</text>
     <text class="raw-text">{{rawText}}</text>
