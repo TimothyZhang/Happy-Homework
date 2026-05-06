@@ -132,7 +132,8 @@ function getRecognizeFailureMessage(error) {
     return '当前小程序还没有绑定正确的云开发环境，云函数调用没有落到可用环境。'
   }
 
-  return `真实 OCR 还没完全跑通。\n${message || '请查看开发者工具控制台日志。'}${requestId}`
+  const codeLine = code ? `[${code}]\n` : ''
+  return `真实 OCR 还没完全跑通。\n${codeLine}${message || '请查看开发者工具控制台日志。'}${requestId}`
 }
 
 Page({
