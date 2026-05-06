@@ -81,23 +81,24 @@
 ### 云函数
 - `cloudfunctions/homeworkOCR`
   - OCR 云函数入口
-  - 当前返回 mock 文本
+  - 已接入腾讯云 OCR 调用逻辑
   - 已内置一版整页文本拆分逻辑
 
 ## 当前实现状态
 
 ### OCR 当前状态
-目前已经打通到“前端真实上传 + 调用真实云函数入口”，但云函数内仍返回 mock 文本。
+目前已经打通到“前端真实上传 + 调用真实云函数入口 + 云函数调用真实 OCR”的代码路径。
 
 也就是说，当前进度不是纯前端假流程，而是已经完成了：
 - `wx.cloud.init`
 - `wx.cloud.uploadFile`
 - `wx.cloud.callFunction({ name: 'homeworkOCR' })`
+- 云函数内 `GeneralAccurateOCR` 调用逻辑
 
 真正还差的是：
 - 在微信开发者工具中绑定云环境
 - 部署 `cloudfunctions/homeworkOCR`
-- 在云函数中接入真实 OCR 服务
+- 为云函数配置可用的 OCR 凭证
 
 ## 本地打开方式
 

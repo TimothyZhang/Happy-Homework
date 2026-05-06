@@ -2,13 +2,21 @@ const store = require('../../utils/store')
 
 const subjectOptions = ['未识别', '语文', '数学', '英语', '科学', '道法', '美术', '音乐', '体育', '其他']
 
+function getConfidenceClass(confidence) {
+  if (confidence === '高') return 'high'
+  if (confidence === '中') return 'medium'
+  return 'low'
+}
+
 Page({
   data: {
     imagePath: '',
     rawText: '',
     drafts: [],
     subjectOptions,
-    importedCount: 0
+    importedCount: 0,
+    source: '',
+    providerWarning: ''
   },
 
   onShow() {
@@ -24,8 +32,21 @@ Page({
     this.setData({
       imagePath: job.imagePath,
       rawText: job.rawText,
-      drafts: (job.drafts || []).map((draft) => ({ ...draft }))
+      source: job.source || '',
+      providerWarning: job.providerWarning || '',
+      drafts: (job.drafts || []).map((draft) => ({
+        ...draft,
+        confidenceClass: getConfidenceClass(draft.confidence)
+      }))
     })
+
+    if (job.source === 'builtin-ocr-tesseract') {
+      wx.showToast({
+        title: '当前走内置 OCR，请重点确认识别结果',
+        icon: 'none',
+        duration: 2200
+      })
+    }
   },
 
   handleSubjectChange(event) {
@@ -54,6 +75,7 @@ Page({
       content: '',
       rawText: '',
       confidence: '低',
+      confidenceClass: 'low',
       needsConfirm: true
     })
     this.setData({ drafts })

@@ -19,7 +19,7 @@
     <view wx:for="{{drafts}}" wx:key="id" class="draft-card">
       <view class="draft-top">
         <text class="draft-index">作业 {{index + 1}}</text>
-        <text class="confidence confidence-{{item.confidence}}">{{item.confidence}}置信度</text>
+        <text class="confidence confidence-{{item.confidenceClass || 'low'}}">{{item.confidence}}置信度</text>
       </view>
 
       <view class="field">

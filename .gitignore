@@ -1,0 +1,14 @@
+.claude/
+.codex-output/
+
+# 杂项：之前在仓库根目录被开发者工具误生成的配置和 Tesseract 训练数据
+/project.config.json
+/project.private.config.json
+chi_sim.traineddata
+eng.traineddata
+
+# 云函数依赖（部署时通过 npm 安装或随 deploy 上传）
+miniapp-starter/cloudfunctions/*/node_modules/
+
+# 本地秘钥
+.secrets.env

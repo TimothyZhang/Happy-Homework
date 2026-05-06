@@ -56,17 +56,17 @@
   border-radius: 999rpx;
 }
 
-.confidence-高 {
+.confidence-high {
   background: #f6ffed;
   color: #389e0d;
 }
 
-.confidence-中 {
+.confidence-medium {
   background: #fff7e6;
   color: #d48806;
 }
 
-.confidence-低 {
+.confidence-low {
   background: #fff1f0;
   color: #cf1322;
 }

@@ -267,6 +267,8 @@ function setCurrentOcrJob(job) {
       id: job.id || Date.now(),
       imagePath: job.imagePath || '',
       rawText: job.rawText || '',
+      source: job.source || '',
+      providerWarning: job.providerWarning || '',
       drafts: (job.drafts || []).map((draft, index) => ({
         id: draft.id || `${Date.now()}-${index}`,
         subject: draft.subject || '',

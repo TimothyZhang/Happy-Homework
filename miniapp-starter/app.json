@@ -16,6 +16,12 @@
     "backgroundColor": "#f5f7fb",
     "backgroundTextStyle": "light"
   },
+  "networkTimeout": {
+    "request": 60000,
+    "connectSocket": 60000,
+    "uploadFile": 60000,
+    "downloadFile": 60000
+  },
   "tabBar": {
     "color": "#7b8794",
     "selectedColor": "#245bdb",
