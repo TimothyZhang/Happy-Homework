@@ -193,59 +193,42 @@ async function recognizeWithOpenAiOcr(imageFileID) {
 
   const imageBuffer = await downloadImageBuffer(imageFileID)
   const dataUrl = `data:${detectImageMimeType(imageBuffer)};base64,${imageBuffer.toString('base64')}`
-  const response = await callOpenAiChatCompletion(apiKey, {
+
+  const systemInstructions = [
+    '你是一个中文小学生作业登记本智能识别引擎。',
+    '任务：从作业登记本照片里识别每一条作业，返回严格 JSON。',
+    '只输出 JSON 对象本身，不要解释、不要 Markdown、不要 ```。'
+  ].join('\n')
+
+  const userPromptText = [
+    '识别这张作业登记本照片中的所有作业项，按下面 JSON schema 输出：',
+    '{',
+    '  "rawText": "整页识别到的原文，按行换行",',
+    '  "drafts": [',
+    '    {',
+    '      "subject": "科目（语文/数学/英语/科学/道法/美术/音乐/体育/劳动/其他；不确定时给空字符串）",',
+    '      "content": "作业的完整内容",',
+    '      "rawText": "对应的原文片段",',
+    '      "confidence": "高/中/低",',
+    '      "needsConfirm": false',
+    '    }',
+    '  ]',
+    '}',
+    '',
+    '关键规则：',
+    '1. 表格里"语文/数学/英语/..."栏目对应同一行右边的内容，要合并成一条 draft（不要按 cell 切碎）。',
+    '2. 不要把模板字段（上学时间、家长签名、体温记录、到家时间、离校时间、上午/下午、周/星期/日期 等）当作业输出。',
+    '3. 没有识别出作业时 drafts 返回空数组。',
+    '4. content 里保留页码、题号、范围等关键信息（如"第12页 1-5题"）。',
+    '5. 字迹模糊或 subject 为空时把 needsConfirm 设为 true，confidence 给"低"。',
+    '6. 不确定的字用最可能的中文原文，不要编造内容。'
+  ].join('\n')
+
+  const response = await callOpenAiVision(apiKey, {
     model: getOpenAiModel(),
-    temperature: 0,
-    max_tokens: getOpenAiMaxTokens(),
-    response_format: { type: 'json_object' },
-    messages: [
-      {
-        role: 'system',
-        content: [
-          '你是一个中文小学生作业登记本智能识别引擎。',
-          '任务：从作业登记本照片里识别每一条作业，返回严格 JSON。',
-          '只输出 JSON 对象本身，不要解释、不要 Markdown、不要 ```。'
-        ].join('\n')
-      },
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: [
-              '识别这张作业登记本照片中的所有作业项，按下面 JSON schema 输出：',
-              '{',
-              '  "rawText": "整页识别到的原文，按行换行",',
-              '  "drafts": [',
-              '    {',
-              '      "subject": "科目（语文/数学/英语/科学/道法/美术/音乐/体育/劳动/其他；不确定时给空字符串）",',
-              '      "content": "作业的完整内容",',
-              '      "rawText": "对应的原文片段",',
-              '      "confidence": "高/中/低",',
-              '      "needsConfirm": false',
-              '    }',
-              '  ]',
-              '}',
-              '',
-              '关键规则：',
-              '1. 表格里"语文/数学/英语/..."栏目对应同一行右边的内容，要合并成一条 draft（不要按 cell 切碎）。',
-              '2. 不要把模板字段（上学时间、家长签名、体温记录、到家时间、离校时间、上午/下午、周/星期/日期 等）当作业输出。',
-              '3. 没有识别出作业时 drafts 返回空数组。',
-              '4. content 里保留页码、题号、范围等关键信息（如"第12页 1-5题"）。',
-              '5. 字迹模糊或 subject 为空时把 needsConfirm 设为 true，confidence 给"低"。',
-              '6. 不确定的字用最可能的中文原文，不要编造内容。'
-            ].join('\n')
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: dataUrl,
-              detail: 'high'
-            }
-          }
-        ]
-      }
-    ]
+    systemInstructions,
+    userPromptText,
+    imageDataUrl: dataUrl
   })
 
   return extractOpenAiStructuredResult(response)
@@ -479,19 +462,123 @@ function loadTesseract() {
   }
 }
 
-async function callOpenAiChatCompletion(apiKey, payload) {
-  // 走官方 openai SDK,它自动处理 OpenAI 和 Azure 的 URL/header/auth 差异。
-  // - OpenAI:  Authorization: Bearer; URL: {base}/chat/completions; body 里的 model = 实际模型名
-  // - Azure:   api-key 头; URL: {endpoint}/openai/deployments/{deployment}/...; deployment 由 SDK 注入
+async function callOpenAiVision(apiKey, options) {
+  // 走官方 openai SDK,自动处理 OpenAI / Azure 的 URL/header/auth 差异。
+  // 默认使用 Responses API(Azure 上是 /openai/responses,新模型如 gpt-5.x 系列只走这个);
+  // 老的 Chat Completions 路径(/chat/completions 或 Azure 的 /openai/deployments/{dep}/chat/completions)
+  // 仍然保留,用 OPENAI_USE_CHAT_COMPLETIONS=true 可强制切回。
   const client = getOpenAiClient(apiKey)
+
+  if (shouldUseChatCompletions()) {
+    return callOpenAiChatCompletion(client, options)
+  }
+
+  try {
+    return await callOpenAiResponses(client, options)
+  } catch (error) {
+    // Responses API 在某些 Azure 部署上可能不可用 ——
+    // 命中 404 / model_not_found 时自动退回 Chat Completions,避免硬失败。
+    if (isResponsesEndpointUnavailable(error)) {
+      console.warn('Responses API not available, falling back to Chat Completions', {
+        code: error && error.code,
+        status: error && error.status,
+        message: error && error.message
+      })
+      return callOpenAiChatCompletion(client, options)
+    }
+    const code = normalizeOpenAiErrorCode(error)
+    const detail = error && error.message ? error.message : 'unknown error'
+    throw createError(code, `OpenAI OCR 调用失败(Responses)：${detail}`)
+  }
+}
+
+async function callOpenAiResponses(client, options) {
+  if (!client.responses || typeof client.responses.create !== 'function') {
+    const fallbackError = new Error('当前 openai SDK 不支持 Responses API,请升级到 4.55+')
+    fallbackError.code = 'OPENAI_SDK_NO_RESPONSES'
+    throw fallbackError
+  }
+
+  const payload = {
+    model: options.model,
+    max_output_tokens: getOpenAiMaxTokens(),
+    text: { format: { type: 'json_object' } },
+    input: [
+      {
+        role: 'system',
+        content: [{ type: 'input_text', text: options.systemInstructions }]
+      },
+      {
+        role: 'user',
+        content: [
+          { type: 'input_text', text: options.userPromptText },
+          { type: 'input_image', image_url: options.imageDataUrl, detail: 'high' }
+        ]
+      }
+    ]
+  }
+
+  // 推理类(o-series / gpt-5 reasoning)模型不接受 temperature !== 1;非推理模型让识别尽量确定。
+  if (!isReasoningModel(options.model)) {
+    payload.temperature = 0
+  }
+
+  return await client.responses.create(payload)
+}
+
+async function callOpenAiChatCompletion(client, options) {
+  const payload = {
+    model: options.model,
+    max_tokens: getOpenAiMaxTokens(),
+    response_format: { type: 'json_object' },
+    messages: [
+      {
+        role: 'system',
+        content: options.systemInstructions
+      },
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: options.userPromptText },
+          { type: 'image_url', image_url: { url: options.imageDataUrl, detail: 'high' } }
+        ]
+      }
+    ]
+  }
+
+  if (!isReasoningModel(options.model)) {
+    payload.temperature = 0
+  }
 
   try {
     return await client.chat.completions.create(payload)
   } catch (error) {
     const code = normalizeOpenAiErrorCode(error)
     const detail = error && error.message ? error.message : 'unknown error'
-    throw createError(code, `OpenAI OCR 调用失败：${detail}`)
+    throw createError(code, `OpenAI OCR 调用失败(ChatCompletions)：${detail}`)
   }
+}
+
+function shouldUseChatCompletions() {
+  const flag = String(getFirstEnv(['OPENAI_USE_CHAT_COMPLETIONS', 'OPENAI_FORCE_CHAT_COMPLETIONS']) || '').toLowerCase()
+  return flag === 'true' || flag === '1' || flag === 'yes'
+}
+
+function isReasoningModel(model) {
+  const name = String(model || '').toLowerCase()
+  // o1/o3/o4 reasoning 系列,以及 gpt-5 系列(目前 gpt-5.x 表现像 reasoning model,
+  // 默认 temperature 必须为 1,否则 Azure / OpenAI 都会拒)。
+  return /^o\d/.test(name) || /^gpt-5/.test(name)
+}
+
+function isResponsesEndpointUnavailable(error) {
+  if (!error) return false
+  const status = Number(error.status || (error.response && error.response.status) || 0)
+  if (status === 404) return true
+  const code = String(error.code || '').toLowerCase()
+  if (code === 'model_not_found' || code === 'unknown_endpoint') return true
+  const message = String(error.message || '').toLowerCase()
+  return message.includes('not found') && message.includes('responses')
 }
 
 function loadOpenAiSdk() {
@@ -584,7 +671,8 @@ function getAzureOpenAiDeployment() {
 }
 
 function getAzureOpenAiApiVersion() {
-  return getFirstEnv(['AZURE_OPENAI_API_VERSION']) || '2024-08-01-preview'
+  // Responses API 需要相对新的 api-version;2025-04-01-preview 是 GPT-5 类模型默认建议值。
+  return getFirstEnv(['AZURE_OPENAI_API_VERSION']) || '2025-04-01-preview'
 }
 
 function postJson(urlString, headers, payload, timeoutMs) {
@@ -749,23 +837,10 @@ function extractRawText(response) {
 }
 
 function extractOpenAiStructuredResult(response) {
-  // 提取 message content(可能是 string 或 [{type: 'text', text}] 数组)。
-  const message = response && response.choices && response.choices[0] && response.choices[0].message
-  const content = message && message.content
-  let textContent = ''
-
-  if (Array.isArray(content)) {
-    textContent = content
-      .map((item) => {
-        if (!item) return ''
-        if (typeof item === 'string') return item
-        return item.text || ''
-      })
-      .filter(Boolean)
-      .join('')
-  } else {
-    textContent = String(content || '')
-  }
+  // 同时兼容 Responses API 和 Chat Completions 的返回结构 ——
+  // - Responses:        response.output_text 或 response.output[].content[].text
+  // - ChatCompletions:  response.choices[0].message.content (string 或 [{type, text}] 数组)
+  const textContent = extractOpenAiTextContent(response)
 
   if (!textContent.trim()) {
     throw createError('OCR_EMPTY_RESULT', 'OpenAI OCR 已调用成功，但没有返回内容')
@@ -798,6 +873,52 @@ function extractOpenAiStructuredResult(response) {
   const effectiveRawText = rawText || drafts.map((draft) => draft.rawText || draft.content).join('\n')
 
   return { rawText: effectiveRawText, drafts }
+}
+
+function extractOpenAiTextContent(response) {
+  if (!response) return ''
+
+  // Responses API: SDK 把 output 的所有 text 拼到 output_text 字段(便利字段)。
+  if (typeof response.output_text === 'string' && response.output_text.trim()) {
+    return response.output_text
+  }
+
+  // Responses API 原始结构:output 是一个数组,里头是 message / reasoning / function_call 等条目;
+  // 每个 message 的 content 又是一个数组,里头有 output_text / refusal 等。
+  if (Array.isArray(response.output)) {
+    const collected = []
+    for (const item of response.output) {
+      if (!item) continue
+      if (Array.isArray(item.content)) {
+        for (const piece of item.content) {
+          if (!piece) continue
+          if (typeof piece === 'string') {
+            collected.push(piece)
+          } else if (piece.type === 'output_text' || piece.type === 'text') {
+            if (typeof piece.text === 'string') collected.push(piece.text)
+          }
+        }
+      } else if (typeof item.text === 'string') {
+        collected.push(item.text)
+      }
+    }
+    if (collected.length > 0) return collected.join('')
+  }
+
+  // Chat Completions:choices[0].message.content
+  const message = response.choices && response.choices[0] && response.choices[0].message
+  const content = message && message.content
+  if (Array.isArray(content)) {
+    return content
+      .map((item) => {
+        if (!item) return ''
+        if (typeof item === 'string') return item
+        return item.text || ''
+      })
+      .filter(Boolean)
+      .join('')
+  }
+  return String(content || '')
 }
 
 function normalizeOpenAiDraft(draft, index) {
