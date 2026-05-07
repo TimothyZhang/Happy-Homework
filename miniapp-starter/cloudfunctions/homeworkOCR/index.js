@@ -644,7 +644,11 @@ function isResponsesEndpointUnavailable(error) {
   const code = String(error.code || '').toLowerCase()
   if (code === 'model_not_found' || code === 'unknown_endpoint') return true
   const message = String(error.message || '').toLowerCase()
-  return message.includes('not found') && message.includes('responses')
+  if (message.includes('not found') && message.includes('responses')) return true
+  // Azure 在 api-version 太老时报 400 + "Responses API is enabled only for api-version ..."
+  // 这种情况下 Chat Completions 仍然能跑,落过去。
+  if (status === 400 && message.includes('responses api') && message.includes('api-version')) return true
+  return false
 }
 
 function loadOpenAiSdk() {
@@ -737,8 +741,21 @@ function getAzureOpenAiDeployment() {
 }
 
 function getAzureOpenAiApiVersion() {
-  // Responses API 需要相对新的 api-version;2025-04-01-preview 是 GPT-5 类模型默认建议值。
-  return getFirstEnv(['AZURE_OPENAI_API_VERSION']) || '2025-04-01-preview'
+  // Responses API 在 Azure 上需要 >= 2025-03-01-preview。用户配的若太老,强制用一个安全的版本,
+  // 不然 Responses 直接 400 "Responses API is enabled only for api-version 2025-03-01-preview and later"。
+  const FLOOR = '2025-03-01'
+  const SAFE_DEFAULT = '2025-04-01-preview'
+  const userVer = getFirstEnv(['AZURE_OPENAI_API_VERSION'])
+  if (!userVer) return SAFE_DEFAULT
+  // 字符串比较对 ISO 日期前缀有效("2024-12" < "2025-03")。
+  if (String(userVer).slice(0, 7) < FLOOR.slice(0, 7)) {
+    console.warn('AZURE_OPENAI_API_VERSION too old for Responses API, overriding', {
+      configured: userVer,
+      using: SAFE_DEFAULT
+    })
+    return SAFE_DEFAULT
+  }
+  return userVer
 }
 
 function postJson(urlString, headers, payload, timeoutMs) {
