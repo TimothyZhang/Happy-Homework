@@ -38,6 +38,9 @@ try {
  * 2. 传入 mockRawText，便于本地联调拆分逻辑
  */
 async function main(event = {}) {
+  if (event && event.diagnose === true) {
+    return collectDiagnostics()
+  }
   try {
     const recognition = await recognizeRegisterText(event)
     // Provider(主要是 OpenAI Vision)若已经直接吐出结构化 drafts,直接用,
@@ -70,6 +73,66 @@ async function main(event = {}) {
       requestId: error.requestId || '',
       canFallback: isBuiltinOcrFallbackEnabled()
     }
+  }
+}
+
+function collectDiagnostics() {
+  // 把 env vars / SDK 版本 / provider 选取这些状态打包返回,前端不需要重部署就能拿到。
+  const presentEnv = [
+    'OPENAI_API_KEY', 'AZURE_OPENAI_API_KEY', 'AZURE_API_KEY', 'OPENAI_KEY',
+    'AZURE_OPENAI_ENDPOINT', 'OPENAI_BASE_URL', 'OPENAI_API_BASE_URL',
+    'AZURE_OPENAI_DEPLOYMENT', 'AZURE_OPENAI_DEPLOYMENT_NAME',
+    'AZURE_OPENAI_API_VERSION',
+    'OPENAI_OCR_MODEL', 'OPENAI_MODEL',
+    'OPENAI_API_TYPE',
+    'OPENAI_USE_CHAT_COMPLETIONS', 'OPENAI_FORCE_CHAT_COMPLETIONS',
+    'OCR_PROVIDER', 'OCR_ENGINE',
+    'ENABLE_OPENAI_OCR', 'OCR_ENABLE_OPENAI',
+    'ENABLE_TENCENT_OCR', 'OCR_ENABLE_TENCENT',
+    'ENABLE_WECHAT_OPENAPI_OCR', 'OCR_ENABLE_WECHAT_OPENAPI',
+    'ENABLE_BUILTIN_OCR', 'OCR_ENABLE_BUILTIN',
+    'TENCENTCLOUD_SECRET_ID', 'TENCENTCLOUD_SECRETID',
+    'TENCENTCLOUD_SECRET_KEY', 'TENCENTCLOUD_SECRETKEY',
+    'OCR_SECRET_ID', 'OCR_SECRET_KEY'
+  ].filter((name) => !!process.env[name])
+
+  let sdkVersion = null
+  let hasResponses = null
+  try {
+    sdkVersion = require('openai/package.json').version
+  } catch (e) {
+    sdkVersion = `load failed: ${e.message}`
+  }
+  try {
+    const openaiSdk = require('openai')
+    const Cls = openaiSdk.AzureOpenAI || openaiSdk.OpenAI || openaiSdk.default
+    if (Cls) {
+      const tmp = new Cls({ apiKey: 'x', endpoint: 'https://x.openai.azure.com', apiVersion: '2025-04-01-preview', deployment: 'x' })
+      hasResponses = !!(tmp.responses && typeof tmp.responses.create === 'function')
+    }
+  } catch (e) {
+    hasResponses = `probe failed: ${e.message}`
+  }
+
+  return {
+    ok: true,
+    diagnose: true,
+    nodeVersion: process.version,
+    openaiSdkVersion: sdkVersion,
+    sdkSupportsResponses: hasResponses,
+    azureDetected: isAzureOpenAi(),
+    openaiOcrEnabled: isOpenAiOcrEnabled(),
+    openaiKeyPresent: !!getOpenAiApiKey(),
+    azureEndpoint: getAzureOpenAiEndpoint() || null,
+    azureDeployment: getAzureOpenAiDeployment(),
+    azureApiVersion: getAzureOpenAiApiVersion(),
+    model: getOpenAiModel(),
+    forceChatCompletions: shouldUseChatCompletions(),
+    tencentOcrEnabled: isTencentOcrEnabled(),
+    wechatOpenapiOcrEnabled: isWechatOpenapiOcrEnabled(),
+    builtinOcrEnabled: isBuiltinOcrFallbackEnabled(),
+    providerMode: getOcrProviderMode(),
+    envVarsPresent: presentEnv
   }
 }
 
