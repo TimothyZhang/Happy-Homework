@@ -3,7 +3,7 @@
 const http = require('http')
 const https = require('https')
 
-const DEFAULT_OPENAI_MODEL = 'gpt-4o-mini'
+const DEFAULT_OPENAI_MODEL = 'gpt-4o'
 const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
 
 const DEFAULT_MOCK_RAW_TEXT = `语文：抄写第3课生字两遍
@@ -573,6 +573,9 @@ function isReasoningModel(model) {
 
 function isResponsesEndpointUnavailable(error) {
   if (!error) return false
+  // SDK 太老,完全没暴露 client.responses ——这种情况也走 chat completions 兜底
+  // (4.77 之前的 openai SDK 没有 Responses API)。
+  if (error.code === 'OPENAI_SDK_NO_RESPONSES') return true
   const status = Number(error.status || (error.response && error.response.status) || 0)
   if (status === 404) return true
   const code = String(error.code || '').toLowerCase()
@@ -1057,7 +1060,8 @@ function getOcrProviderMode() {
 }
 
 function getOpenAiApiKey() {
-  return getFirstEnv(['OPENAI_API_KEY', 'OPENAI_KEY'])
+  // 同时接受 Azure 命名(AZURE_OPENAI_API_KEY/AZURE_API_KEY)和官方命名(OPENAI_API_KEY)。
+  return getFirstEnv(['OPENAI_API_KEY', 'AZURE_OPENAI_API_KEY', 'AZURE_API_KEY', 'OPENAI_KEY'])
 }
 
 function getOpenAiModel() {
