@@ -58,7 +58,7 @@
           </view>
           <text class="task-content">{{item.content}}</text>
           <view class="task-meta">
-            <text>计划 {{item.planStart}} - {{item.planEnd}}</text>
+            <text wx:if="{{item.planStart && item.planEnd}}">计划 {{item.planStart}} - {{item.planEnd}}</text>
             <text>预计 {{item.estimatedMinutes}} 分钟</text>
           </view>
           <view wx:if="{{item.actualStart || item.actualEnd}}" class="task-actual">
@@ -66,11 +66,10 @@
             <text wx:if="{{item.elapsedDisplay}}" class="task-elapsed">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
           </view>
           <view class="task-actions">
-            <button wx:if="{{item.status === 'todo'}}" size="mini" class="mini-btn start-btn" data-id="{{item.id}}" bindtap="handleStartTask">开始</button>
-            <button wx:if="{{item.status === 'doing'}}" size="mini" class="mini-btn pause-btn" data-id="{{item.id}}" bindtap="handlePauseTask">暂停</button>
-            <button wx:if="{{item.status === 'paused'}}" size="mini" class="mini-btn resume-btn" data-id="{{item.id}}" bindtap="handleResumeTask">继续</button>
-            <button wx:if="{{item.status === 'doing' || item.status === 'paused'}}" size="mini" class="mini-btn finish-btn" data-id="{{item.id}}" bindtap="handleFinishTask">完成</button>
-            <button size="mini" class="mini-btn plain-btn" data-id="{{item.id}}" bindtap="handleEditTask">编辑</button>
+            <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" bindtap="handleStartTask" aria-label="开始">▶</view>
+            <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" bindtap="handlePauseTask" aria-label="暂停">❚❚</view>
+            <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" bindtap="handleResumeTask" aria-label="继续">▶</view>
+            <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" bindtap="handleFinishTask" aria-label="完成">✓</view>
           </view>
         </view>
       </view>
@@ -78,6 +77,7 @@
 
     <view class="add-row">
       <button class="add-task-btn" bindtap="handleAddHomework">+ 新增作业</button>
+      <button class="edit-task-btn" bindtap="handleManageTasks">✏️ 编辑</button>
       <button class="ocr-task-btn" bindtap="handlePhotoImport">📷 拍照识别</button>
     </view>
   </view>

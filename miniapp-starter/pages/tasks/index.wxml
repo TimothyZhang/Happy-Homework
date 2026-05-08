@@ -30,23 +30,6 @@
       <input class="input" type="number" placeholder="例如：20" value="{{form.estimatedMinutes}}" bindinput="handleMinutesInput" />
     </view>
 
-    <view class="field">
-      <text class="field-label">计划开始时间</text>
-      <input class="input" placeholder="例如：19:00" value="{{form.planStart}}" bindinput="handlePlanStartInput" />
-    </view>
-
-    <view class="field">
-      <text class="field-label">计划结束时间</text>
-      <input class="input" placeholder="例如：19:20" value="{{form.planEnd}}" bindinput="handlePlanEndInput" />
-    </view>
-
-    <view class="field">
-      <text class="field-label">优先级</text>
-      <picker mode="selector" range="{{priorityOptions}}" bindchange="handlePriorityChange">
-        <view class="picker">{{form.priority || '请选择优先级'}}</view>
-      </picker>
-    </view>
-
     <button class="save-btn" bindtap="handleSaveTask">{{editingId ? '保存修改' : '保存这项作业'}}</button>
     <button wx:if="{{editingId}}" class="ghost-btn" bindtap="handleCancelEdit">取消编辑</button>
     <button wx:else class="ghost-btn" bindtap="handleMockPhoto">拍照识别（下一步接 OCR）</button>
@@ -65,9 +48,7 @@
       </view>
       <text class="task-content">{{item.content}}</text>
       <view class="task-meta">
-        <text>{{item.planStart}} - {{item.planEnd}}</text>
-        <text>{{item.estimatedMinutes}} 分钟</text>
-        <text>优先级 {{item.priority}}</text>
+        <text>预计 {{item.estimatedMinutes}} 分钟</text>
       </view>
       <view class="task-actions-inline">
         <button class="mini-btn plain-btn" size="mini" data-id="{{item.id}}" bindtap="handleEditTask">编辑</button>

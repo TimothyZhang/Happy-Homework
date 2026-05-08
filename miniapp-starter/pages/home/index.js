@@ -145,21 +145,15 @@ Page({
     })
   },
 
-  handlePhotoImport() {
-    wx.navigateTo({
-      url: '/pages/ocr-import/index'
+  handleManageTasks() {
+    wx.switchTab({
+      url: '/pages/tasks/index'
     })
   },
 
-  handleEditTask(event) {
-    const { id } = event.currentTarget.dataset
-    const task = this.data.tasks.find((item) => item.id === id)
-    const elapsedLine = task.elapsedDisplay ? `\n实际${task.status === 'done' ? '花费' : '已用'} ${task.elapsedDisplay}` : ''
-    wx.showModal({
-      title: `${task.subject} 作业详情`,
-      content: `${task.content}\n\n计划 ${task.planStart} - ${task.planEnd}\n预计 ${task.estimatedMinutes} 分钟${elapsedLine}`,
-      showCancel: false,
-      confirmText: '知道了'
+  handlePhotoImport() {
+    wx.navigateTo({
+      url: '/pages/ocr-import/index'
     })
   },
 

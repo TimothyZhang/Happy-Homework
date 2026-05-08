@@ -114,7 +114,8 @@
   margin-top: 28rpx;
 }
 
-.ocr-task-btn {
+.ocr-task-btn,
+.edit-task-btn {
   flex: 1;
   border-radius: 999rpx;
   background: #eef4ff;
@@ -352,29 +353,33 @@
   border: none;
 }
 
-.start-btn {
-  background: #245bdb;
+.icon-btn {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  font-weight: 600;
   color: #ffffff;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
 }
 
-.pause-btn {
+.icon-btn.start-btn,
+.icon-btn.resume-btn {
+  background: #245bdb;
+}
+
+.icon-btn.pause-btn {
   background: #ffb648;
-  color: #ffffff;
+  font-size: 22rpx;
+  letter-spacing: 2rpx;
 }
 
-.resume-btn {
-  background: #245bdb;
-  color: #ffffff;
-}
-
-.finish-btn {
+.icon-btn.finish-btn {
   background: #07c160;
-  color: #ffffff;
-}
-
-.plain-btn {
-  background: #edf0f3;
-  color: #44505e;
+  font-size: 36rpx;
 }
 
 .task-elapsed {

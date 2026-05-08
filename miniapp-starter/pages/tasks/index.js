@@ -1,20 +1,18 @@
 const store = require('../../utils/store')
 
+const DEFAULT_FORM = {
+  subject: '语文',
+  content: '',
+  estimatedMinutes: ''
+}
+
 Page({
   data: {
     tasks: [],
     doneCount: 0,
     editingId: null,
     subjectOptions: ['语文', '数学', '英语', '科学', '道法', '其他'],
-    priorityOptions: ['高', '中', '低'],
-    form: {
-      subject: '语文',
-      content: '',
-      estimatedMinutes: '',
-      planStart: '19:00',
-      planEnd: '19:20',
-      priority: '中'
-    }
+    form: { ...DEFAULT_FORM }
   },
 
   onShow() {
@@ -32,19 +30,9 @@ Page({
         ? {
             subject: editingTask.subject,
             content: editingTask.content,
-            estimatedMinutes: String(editingTask.estimatedMinutes),
-            planStart: editingTask.planStart,
-            planEnd: editingTask.planEnd,
-            priority: editingTask.priority
+            estimatedMinutes: String(editingTask.estimatedMinutes)
           }
-        : {
-            subject: '语文',
-            content: '',
-            estimatedMinutes: '',
-            planStart: '19:00',
-            planEnd: '19:20',
-            priority: '中'
-          }
+        : { ...DEFAULT_FORM }
     })
   },
 
@@ -53,25 +41,12 @@ Page({
     this.setData({ 'form.subject': subject })
   },
 
-  handlePriorityChange(event) {
-    const priority = this.data.priorityOptions[event.detail.value]
-    this.setData({ 'form.priority': priority })
-  },
-
   handleContentInput(event) {
     this.setData({ 'form.content': event.detail.value })
   },
 
   handleMinutesInput(event) {
     this.setData({ 'form.estimatedMinutes': event.detail.value })
-  },
-
-  handlePlanStartInput(event) {
-    this.setData({ 'form.planStart': event.detail.value })
-  },
-
-  handlePlanEndInput(event) {
-    this.setData({ 'form.planEnd': event.detail.value })
   },
 
   handleSaveTask() {
@@ -84,10 +59,7 @@ Page({
     const payload = {
       subject: form.subject,
       content: form.content,
-      estimatedMinutes: Number(form.estimatedMinutes),
-      planStart: form.planStart,
-      planEnd: form.planEnd,
-      priority: form.priority
+      estimatedMinutes: Number(form.estimatedMinutes)
     }
 
     if (editingId) {
