@@ -1,16 +1,57 @@
 <view class="page">
-  <view class="card">
+  <view class="card header-card">
     <view class="section-header">
-      <text class="section-title">作业管理</text>
-      <text class="tag">共 {{tasks.length}} 项</text>
+      <text class="section-title">今日作业</text>
+      <text class="tag">已完成 {{doneCount}} / {{tasks.length}}</text>
     </view>
-    <text class="subtle">先把作业录清楚，后面排期和奖励才会顺。</text>
+    <view class="header-actions">
+      <button class="primary-btn" bindtap="handleShowAdd">+ 新增作业</button>
+      <button class="ghost-btn" open-type="share">📤 分享</button>
+      <button class="ghost-btn" bindtap="handleCopyToClipboard">📋 复制</button>
+    </view>
   </view>
 
-  <view class="card form-card">
+  <view wx:if="{{groupedTasks.length === 0}}" class="card">
+    <view class="empty-state">
+      <text class="empty-emoji">📝</text>
+      <text class="empty-text">还没有今日作业，点上方按钮新增一条吧</text>
+    </view>
+  </view>
+
+  <view wx:for="{{groupedTasks}}" wx:for-item="group" wx:key="subject" class="card group-card">
+    <view class="subject-header">
+      <text class="subject-label">{{group.subject}}</text>
+      <text class="subject-count">{{group.tasks.length}} 项</text>
+    </view>
+    <view wx:for="{{group.tasks}}" wx:for-item="item" wx:key="id"
+          class="mgmt-task {{item.status}} {{dragId === item.id ? 'is-dragging' : ''}}"
+          style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : ''}}"
+          bindlongpress="handleLongPress"
+          bindtouchmove="handleTouchMove"
+          bindtouchend="handleTouchEnd"
+          bindtouchcancel="handleTouchEnd"
+          data-id="{{item.id}}"
+          data-subject="{{group.subject}}">
+      <view class="mgmt-body">
+        <text class="mgmt-content">{{item.content}}</text>
+        <view class="mgmt-chips">
+          <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
+          <text wx:if="{{item.status === 'done'}}" class="chip done-chip">已完成</text>
+          <text wx:elif="{{item.status === 'doing'}}" class="chip doing-chip">进行中</text>
+          <text wx:elif="{{item.status === 'paused'}}" class="chip paused-chip">已暂停</text>
+        </view>
+      </view>
+      <view class="mgmt-actions">
+        <view class="icon-btn edit-btn" data-id="{{item.id}}" catchtap="handleEditTask">✏️</view>
+        <view class="icon-btn del-btn" data-id="{{item.id}}" catchtap="handleDeleteTask">🗑</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{formVisible || editingId}}" class="card form-card">
     <view class="section-header">
       <text class="section-title">{{editingId ? '编辑作业' : '新增作业'}}</text>
-      <text class="subtle">V1 先做手动录入</text>
+      <text class="link-btn" bindtap="handleHideForm">取消</text>
     </view>
 
     <view class="field">
@@ -31,29 +72,5 @@
     </view>
 
     <button class="save-btn" bindtap="handleSaveTask">{{editingId ? '保存修改' : '保存这项作业'}}</button>
-    <button wx:if="{{editingId}}" class="ghost-btn" bindtap="handleCancelEdit">取消编辑</button>
-    <button wx:else class="ghost-btn" bindtap="handleMockPhoto">拍照识别（下一步接 OCR）</button>
-  </view>
-
-  <view class="card task-card">
-    <view class="section-header">
-      <text class="section-title">今日作业列表</text>
-      <text class="subtle">已完成 {{doneCount}} / {{tasks.length}}</text>
-    </view>
-
-    <view wx:for="{{tasks}}" wx:key="id" class="task-item-card">
-      <view class="task-row">
-        <text class="task-title">{{item.subject}}</text>
-        <text class="status-badge status-{{item.status}}">{{item.statusText}}</text>
-      </view>
-      <text class="task-content">{{item.content}}</text>
-      <view class="task-meta">
-        <text>预计 {{item.estimatedMinutes}} 分钟</text>
-      </view>
-      <view class="task-actions-inline">
-        <button class="mini-btn plain-btn" size="mini" data-id="{{item.id}}" bindtap="handleEditTask">编辑</button>
-        <button class="mini-btn danger-btn" size="mini" data-id="{{item.id}}" bindtap="handleDeleteTask">删除</button>
-      </view>
-    </view>
   </view>
 </view>

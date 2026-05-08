@@ -2,51 +2,183 @@
   margin-top: 20rpx;
 }
 
-.save-btn,
-.ghost-btn {
+.save-btn {
   margin-top: 24rpx;
 }
 
-.task-actions-inline {
-  margin-top: 18rpx;
+.header-card {
+  position: relative;
+}
+
+.header-actions {
   display: flex;
   gap: 16rpx;
+  margin-top: 24rpx;
 }
 
-.plain-btn {
-  background: #edf0f3;
-  color: #44505e;
+.header-actions .primary-btn,
+.header-actions .ghost-btn {
+  flex: 1;
+  padding: 0 16rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  border: none;
+  white-space: nowrap;
+  margin: 0;
 }
 
-.danger-btn {
-  background: #fff1f0;
-  color: #d4380d;
+.header-actions .primary-btn {
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+  color: #ffffff;
+  box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
 }
 
-.task-item-card {
-  margin-top: 20rpx;
-  padding: 24rpx;
-  border-radius: 24rpx;
-  background: #f8fafc;
+.header-actions .ghost-btn {
+  background: #eef4ff;
+  color: #245bdb;
 }
 
-.task-title {
-  font-size: 30rpx;
-  font-weight: 700;
+.empty-state {
+  padding: 40rpx 24rpx;
+  text-align: center;
 }
 
-.task-content {
+.empty-emoji {
   display: block;
-  margin-top: 12rpx;
-  font-size: 28rpx;
-  line-height: 1.6;
+  font-size: 72rpx;
 }
 
-.task-meta {
-  margin-top: 14rpx;
-  font-size: 24rpx;
+.empty-text {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 26rpx;
   color: #6b7785;
+}
+
+.group-card {
+  margin-top: 24rpx;
+}
+
+.link-btn {
+  font-size: 26rpx;
+  color: #245bdb;
+}
+
+/* === 作业卡片(参考首页风格) === */
+.subject-group {
+  margin-top: 24rpx;
+}
+
+.subject-group:first-child {
+  margin-top: 12rpx;
+}
+
+.subject-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 4rpx 12rpx;
+}
+
+.subject-label {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #245bdb;
+}
+
+.subject-count {
+  font-size: 22rpx;
+  color: #8a96a3;
+}
+
+.mgmt-task {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  padding: 16rpx 18rpx;
+  margin-top: 10rpx;
+  border-radius: 20rpx;
+  background: #f8fafc;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.mgmt-task.is-dragging {
+  transition: none;
+  background: #ffffff;
+  box-shadow: 0 12rpx 32rpx rgba(31, 35, 41, 0.15);
+  transform: scale(1.02);
+}
+
+.mgmt-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.mgmt-content {
+  display: block;
+  font-size: 28rpx;
+  font-weight: 500;
+  color: #1f2329;
+  line-height: 1.4;
+}
+
+.mgmt-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 16rpx;
+  gap: 8rpx;
+  margin-top: 10rpx;
+}
+
+.chip {
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.est-chip {
+  background: #f7f8fa;
+  color: #6b7785;
+}
+
+.doing-chip {
+  background: #eef4ff;
+  color: #245bdb;
+}
+
+.paused-chip {
+  background: #fff3e6;
+  color: #ff8c1a;
+}
+
+.done-chip {
+  background: #e8f7ee;
+  color: #067647;
+}
+
+.mgmt-actions {
+  display: flex;
+  gap: 12rpx;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+.edit-btn {
+  background: #eef4ff;
+}
+
+.del-btn {
+  background: #fff1f0;
 }
