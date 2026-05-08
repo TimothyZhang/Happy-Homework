@@ -229,29 +229,48 @@ Page({
   handleTouchMove(event) {
     if (!this.data.dragId || !this.dragStartY) return
     const now = Date.now()
-    // 限频到 60fps,避免 setData 风暴
     if (this._lastMoveAt && now - this._lastMoveAt < 16) return
     this._lastMoveAt = now
     const t = event.touches && event.touches[0]
     if (!t) return
     const dy = t.pageY - this.dragStartY
-    if (Math.abs(dy - this.data.dragDy) >= 2) {
-      this.setData({ dragDy: dy })
-    }
+    if (Math.abs(dy - this.data.dragDy) < 2) return
+
+    const itemH = this.itemHeightPx || 140
+    const sorted = this.data.sortedTasks
+    const draggedIdx = sorted.findIndex((task) => task.id === this.data.dragId)
+    const undoneCount = sorted.filter((task) => task.status !== 'done').length
+    // 把当前位置折算到目标槽 0..(undoneCount-1)
+    const slotsDelta = Math.round(dy / itemH)
+    const hoverIdx = Math.max(0, Math.min(undoneCount - 1, draggedIdx + slotsDelta))
+
+    // 给非拖拽项算 shiftY:中间被「让位」的整体平移一格
+    const updated = sorted.map((task, i) => {
+      if (task.id === this.data.dragId) return task
+      let shiftY = 0
+      if (draggedIdx < hoverIdx && i > draggedIdx && i <= hoverIdx) {
+        shiftY = -itemH
+      } else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) {
+        shiftY = itemH
+      }
+      return { ...task, shiftY }
+    })
+    this.setData({ sortedTasks: updated, dragDy: dy })
   },
 
   handleTouchEnd() {
-    if (!this.data.dragId) return
+    if (!this.data.dragId) {
+      this.dragStartY = null
+      return
+    }
     const dragId = this.data.dragId
     const dragDy = this.data.dragDy
     const itemH = this.itemHeightPx || 140
     const sorted = this.data.sortedTasks
     const fromIdx = sorted.findIndex((t) => t.id === dragId)
-
-    // 计算落到第几格 —— 只在未完成 group 内挪;已完成的固定在尾部不可越过
     const undoneCount = sorted.filter((t) => t.status !== 'done').length
     const slotsDelta = Math.round(dragDy / itemH)
-    let toIdx = Math.max(0, Math.min(undoneCount - 1, fromIdx + slotsDelta))
+    const toIdx = Math.max(0, Math.min(undoneCount - 1, fromIdx + slotsDelta))
 
     if (fromIdx !== -1 && fromIdx !== toIdx) {
       const ids = sorted.map((t) => t.id)
@@ -260,10 +279,11 @@ Page({
       const state = store.reorderTasks(ids)
       this.applyState(state)
     } else {
-      // 没有跨槽,只重置视觉
-      this.setData({ dragId: null, dragDy: 0 })
+      // 没换槽 —— 让其它卡片从 shiftY 平滑归位
+      const reset = sorted.map((t) => ({ ...t, shiftY: 0 }))
+      this.setData({ sortedTasks: reset })
     }
     this.dragStartY = null
-    if (this.data.dragId) this.setData({ dragId: null, dragDy: 0 })
+    this.setData({ dragId: null, dragDy: 0 })
   }
 })

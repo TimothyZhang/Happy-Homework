@@ -201,7 +201,29 @@ Page({
     const t = event.touches && event.touches[0]
     if (!t) return
     const dy = t.pageY - this.dragStartY
-    if (Math.abs(dy - this.data.dragDy) >= 2) this.setData({ dragDy: dy })
+    if (Math.abs(dy - this.data.dragDy) < 2) return
+
+    const itemH = this.itemHeightPx || 140
+    const slotsDelta = Math.round(dy / itemH)
+    const subject = this.dragSubject
+    // 只在拖拽来源 group 内挪卡片让位;其它 group 完全不动
+    const updatedGroups = this.data.groupedTasks.map((g) => {
+      if (g.subject !== subject) return g
+      const draggedIdx = g.tasks.findIndex((task) => task.id === this.data.dragId)
+      const hoverIdx = Math.max(0, Math.min(g.tasks.length - 1, draggedIdx + slotsDelta))
+      const tasks = g.tasks.map((task, i) => {
+        if (task.id === this.data.dragId) return task
+        let shiftY = 0
+        if (draggedIdx < hoverIdx && i > draggedIdx && i <= hoverIdx) {
+          shiftY = -itemH
+        } else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) {
+          shiftY = itemH
+        }
+        return { ...task, shiftY }
+      })
+      return { ...g, tasks }
+    })
+    this.setData({ groupedTasks: updatedGroups, dragDy: dy })
   },
 
   handleTouchEnd() {
@@ -215,17 +237,15 @@ Page({
     const slotsDelta = Math.round(dragDy / itemH)
     const subject = this.dragSubject
 
-    // 在同科目分组内 reorder
+    let didReorder = false
     const group = this.data.groupedTasks.find((g) => g.subject === subject)
     if (group && slotsDelta !== 0) {
       const fromIdx = group.tasks.findIndex((t) => t.id === dragId)
       const toIdx = Math.max(0, Math.min(group.tasks.length - 1, fromIdx + slotsDelta))
       if (fromIdx !== -1 && fromIdx !== toIdx) {
-        // 重排该 group 内顺序
         const newGroupTasks = [...group.tasks]
         const [moved] = newGroupTasks.splice(fromIdx, 1)
         newGroupTasks.splice(toIdx, 0, moved)
-        // 拼回完整 ids 顺序:其它 group 不变,被改的 group 用新顺序
         const flatIds = []
         for (const g of this.data.groupedTasks) {
           if (g.subject === subject) {
@@ -236,7 +256,17 @@ Page({
         }
         store.reorderTasks(flatIds)
         this.refreshState()
+        didReorder = true
       }
+    }
+
+    if (!didReorder) {
+      // 没换槽 —— 把所有 shiftY 清掉,卡片平滑归位
+      const reset = this.data.groupedTasks.map((g) => ({
+        ...g,
+        tasks: g.tasks.map((t) => ({ ...t, shiftY: 0 }))
+      }))
+      this.setData({ groupedTasks: reset })
     }
 
     this.dragStartY = null

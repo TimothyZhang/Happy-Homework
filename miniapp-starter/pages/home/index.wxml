@@ -50,7 +50,7 @@
     <view class="timeline {{dragId ? 'is-reordering' : ''}}">
       <view wx:for="{{sortedTasks}}" wx:key="id"
             class="task-item {{item.status}} {{dragId === item.id ? 'is-dragging' : ''}}"
-            style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : ''}}"
+            style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
             bindlongpress="handleLongPress"
             catchtouchmove="handleTouchMove"
             catchtouchend="handleTouchEnd"
