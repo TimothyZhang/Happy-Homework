@@ -26,6 +26,21 @@ function decorateTask(task, now) {
   }
 }
 
+function formatDuration(minutes) {
+  if (!minutes || minutes < 0) return '—'
+  if (minutes < 60) return `${minutes} 分钟`
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (m === 0) return `${h} 小时`
+  return `${h}h${m}m`
+}
+
+function calcRemainingMinutes(tasks) {
+  return tasks
+    .filter((task) => task.status !== 'done')
+    .reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0)
+}
+
 function sortTasks(tasks) {
   return [...tasks].sort((a, b) => {
     const oa = STATUS_ORDER[a.status] != null ? STATUS_ORDER[a.status] : 9
@@ -43,23 +58,15 @@ Page({
   data: {
     tasks: [],
     sortedTasks: [],
-    coins: 0,
-    bonusCoins: 0,
-    rewardRules: [],
-    pet: {},
-    shopItems: [],
     lastReward: null,
     showCongrats: false,
     totalElapsedDisplay: '',
+    remainingMinutesDisplay: '—',
     overview: {
       pendingCount: 0,
-      todayCoins: 0,
-      completedMinutes: 0,
-      totalMinutes: 0,
       progressPercent: 0,
       doneCount: 0,
-      totalCount: 0,
-      streakDays: 0
+      totalCount: 0
     }
   },
 
@@ -77,15 +84,7 @@ Page({
   },
 
   refreshState() {
-    const state = store.getStateWithComputed()
-    const now = Date.now()
-    const decorated = (state.tasks || []).map((task) => decorateTask(task, now))
-    const sortedTasks = sortTasks(decorated)
-    this.setData({
-      ...state,
-      tasks: decorated,
-      sortedTasks
-    })
+    this.applyState(store.getStateWithComputed())
   },
 
   startTickerIfNeeded() {
@@ -96,7 +95,6 @@ Page({
       const now = Date.now()
       const tasks = (this.data.tasks || []).map((task) => decorateTask(task, now))
       this.setData({ tasks, sortedTasks: sortTasks(tasks) })
-      // 没有 doing 的任务了就停掉
       if (!tasks.some((task) => task.status === 'doing')) {
         this.stopTicker()
       }
@@ -114,10 +112,13 @@ Page({
     const now = Date.now()
     const decorated = (state.tasks || []).map((task) => decorateTask(task, now))
     const sortedTasks = sortTasks(decorated)
+    const remainingMinutes = calcRemainingMinutes(decorated)
     this.setData({
-      ...state,
       tasks: decorated,
-      sortedTasks
+      sortedTasks,
+      overview: state.overview || this.data.overview,
+      lastReward: state.lastReward || null,
+      remainingMinutesDisplay: formatDuration(remainingMinutes)
     })
     this.startTickerIfNeeded()
     if (opts.maybeCelebrate) this.maybeShowCongrats(decorated)
@@ -193,20 +194,5 @@ Page({
       title: state.lastReward && state.lastReward.leveledUp ? `+${reward} 金币，升级啦` : `+${reward} 金币`,
       icon: 'success'
     })
-  },
-
-  handleBuyItem(event) {
-    const { id } = event.currentTarget.dataset
-    const before = store.getStateWithComputed()
-    const item = before.shopItems.find((shopItem) => shopItem.id === id)
-
-    if (before.coins < item.price) {
-      wx.showToast({ title: '金币不够', icon: 'none' })
-      return
-    }
-
-    const state = store.buyItem(id)
-    this.applyState(state)
-    wx.showToast({ title: `${item.name} 已购买`, icon: 'success' })
   }
 })

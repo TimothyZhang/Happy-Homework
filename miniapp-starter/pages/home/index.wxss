@@ -29,6 +29,101 @@
   justify-content: space-between;
 }
 
+.hero-top {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8rpx;
+}
+
+.hero-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16rpx;
+  margin-top: 28rpx;
+}
+
+.hero-stat {
+  padding: 22rpx 16rpx;
+  border-radius: 22rpx;
+  background: #f7f8fa;
+  text-align: center;
+}
+
+.hero-stat-value {
+  display: block;
+  font-size: 44rpx;
+  font-weight: 800;
+  color: #1f2329;
+  line-height: 1.1;
+}
+
+.hero-stat-value.highlight {
+  color: #245bdb;
+}
+
+.hero-stat-label {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #6b7785;
+}
+
+.hero-empty {
+  margin-top: 28rpx;
+  padding: 28rpx;
+  border-radius: 22rpx;
+  background: #f7f8fa;
+  text-align: center;
+  color: #6b7785;
+  font-size: 26rpx;
+}
+
+.all-done-banner {
+  margin-top: 28rpx;
+  padding: 32rpx 24rpx;
+  border-radius: 24rpx;
+  background: linear-gradient(135deg, #fffaf0 0%, #fde8b9 100%);
+  text-align: center;
+}
+
+.banner-emoji {
+  display: block;
+  font-size: 72rpx;
+  line-height: 1;
+}
+
+.banner-title {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 38rpx;
+  font-weight: 800;
+  color: #c2410c;
+  letter-spacing: 1rpx;
+}
+
+.banner-sub {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 26rpx;
+  color: #7c5200;
+}
+
+.add-row {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 28rpx;
+}
+
+.ocr-task-btn {
+  flex: 1;
+  border-radius: 999rpx;
+  background: #eef4ff;
+  color: #245bdb;
+  font-size: 28rpx;
+  font-weight: 600;
+  border: none;
+}
+
 .eyebrow {
   display: block;
   font-size: 22rpx;
@@ -308,12 +403,11 @@
 
 /* === bottom inline add-task button === */
 .add-task-btn {
-  margin-top: 28rpx;
-  width: 100%;
+  flex: 1;
   border-radius: 999rpx;
   background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
   color: #ffffff;
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 600;
   border: none;
   box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
