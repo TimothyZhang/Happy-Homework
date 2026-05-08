@@ -1,14 +1,17 @@
 const store = require('../../utils/store')
 
-// 拖拽排序后保留人工顺序;只在视觉上把已完成的推到末尾。
+// 排序:进行中固定置顶 → 其它未完成(todo/paused)按人工顺序 → 已完成沉底。
+// 配合 auto-pause-others,任何时刻最多一个 doing,自动 pin 在最上方。
 function sortTasks(tasks) {
-  const undone = []
+  const doing = []
+  const others = []
   const done = []
   for (const task of tasks) {
     if (task.status === 'done') done.push(task)
-    else undone.push(task)
+    else if (task.status === 'doing') doing.push(task)
+    else others.push(task)
   }
-  return [...undone, ...done]
+  return [...doing, ...others, ...done]
 }
 
 function formatElapsed(ms) {
