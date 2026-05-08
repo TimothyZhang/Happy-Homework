@@ -36,6 +36,20 @@ Page({
     wx.showToast({ title: '已开始', icon: 'success' })
   },
 
+  handlePauseTask(event) {
+    const { id } = event.currentTarget.dataset
+    store.pauseTask(id)
+    this.refreshState()
+    wx.showToast({ title: '已暂停', icon: 'none' })
+  },
+
+  handleResumeTask(event) {
+    const { id } = event.currentTarget.dataset
+    store.resumeTask(id)
+    this.refreshState()
+    wx.showToast({ title: '继续', icon: 'success' })
+  },
+
   handleFinishTask(event) {
     const { id } = event.currentTarget.dataset
     store.finishTask(id)

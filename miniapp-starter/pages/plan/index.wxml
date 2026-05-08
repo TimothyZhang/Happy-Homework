@@ -43,7 +43,9 @@
         <text wx:if="{{item.actualStart || item.actualEnd}}" class="subtle">实际 {{item.actualStart || '--:--'}} - {{item.actualEnd || '--:--'}}</text>
         <view class="task-actions">
           <button wx:if="{{item.status === 'todo'}}" class="mini-btn start-btn" size="mini" data-id="{{item.id}}" bindtap="handleStartTask">开始</button>
-          <button wx:if="{{item.status === 'doing'}}" class="mini-btn finish-btn" size="mini" data-id="{{item.id}}" bindtap="handleFinishTask">完成</button>
+          <button wx:if="{{item.status === 'doing'}}" class="mini-btn pause-btn" size="mini" data-id="{{item.id}}" bindtap="handlePauseTask">暂停</button>
+          <button wx:if="{{item.status === 'paused'}}" class="mini-btn start-btn" size="mini" data-id="{{item.id}}" bindtap="handleResumeTask">继续</button>
+          <button wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="mini-btn finish-btn" size="mini" data-id="{{item.id}}" bindtap="handleFinishTask">完成</button>
         </view>
       </view>
     </view>

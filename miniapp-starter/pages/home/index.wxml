@@ -39,19 +39,23 @@
     </view>
 
     <view class="hero-actions">
-      <button class="primary-btn" bindtap="handleAddHomework">+ 新增作业</button>
-      <button class="ghost-btn" bindtap="handlePhotoImport">📷 拍照识别</button>
+      <button class="ghost-btn full-width" bindtap="handlePhotoImport">📷 拍照识别登记本</button>
     </view>
   </view>
 
   <view class="card section-card">
     <view class="section-header">
-      <text class="section-title">今日排期</text>
-      <text class="section-desc">先易后难，孩子更容易进入状态</text>
+      <text class="section-title">今日作业</text>
+      <text class="section-desc">未完成的在前，已完成的在后</text>
+    </view>
+
+    <view wx:if="{{sortedTasks.length === 0}}" class="empty-tip">
+      <text class="empty-emoji">📝</text>
+      <text class="empty-text">还没有今日作业，点下方按钮新增一条吧</text>
     </view>
 
     <view class="timeline">
-      <view wx:for="{{tasks}}" wx:key="id" class="task-item {{item.status}}">
+      <view wx:for="{{sortedTasks}}" wx:key="id" class="task-item {{item.status}}">
         <view class="timeline-dot"></view>
         <view class="task-main">
           <view class="task-row">
@@ -60,15 +64,18 @@
           </view>
           <text class="task-content">{{item.content}}</text>
           <view class="task-meta">
-            <text>{{item.planStart}} - {{item.planEnd}}</text>
+            <text>计划 {{item.planStart}} - {{item.planEnd}}</text>
             <text>预计 {{item.estimatedMinutes}} 分钟</text>
           </view>
           <view wx:if="{{item.actualStart || item.actualEnd}}" class="task-actual">
-            <text>实际：{{item.actualStart || '--:--'}} - {{item.actualEnd || '--:--'}}</text>
+            <text>实际 {{item.actualStart || '--:--'}} - {{item.actualEnd || '--:--'}}</text>
+            <text wx:if="{{item.elapsedDisplay}}" class="task-elapsed">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
           </view>
           <view class="task-actions">
             <button wx:if="{{item.status === 'todo'}}" size="mini" class="mini-btn start-btn" data-id="{{item.id}}" bindtap="handleStartTask">开始</button>
-            <button wx:if="{{item.status === 'doing'}}" size="mini" class="mini-btn finish-btn" data-id="{{item.id}}" bindtap="handleFinishTask">完成</button>
+            <button wx:if="{{item.status === 'doing'}}" size="mini" class="mini-btn pause-btn" data-id="{{item.id}}" bindtap="handlePauseTask">暂停</button>
+            <button wx:if="{{item.status === 'paused'}}" size="mini" class="mini-btn resume-btn" data-id="{{item.id}}" bindtap="handleResumeTask">继续</button>
+            <button wx:if="{{item.status === 'doing' || item.status === 'paused'}}" size="mini" class="mini-btn finish-btn" data-id="{{item.id}}" bindtap="handleFinishTask">完成</button>
             <button size="mini" class="mini-btn plain-btn" data-id="{{item.id}}" bindtap="handleEditTask">编辑</button>
           </view>
         </view>
@@ -132,6 +139,29 @@
         </view>
         <button size="mini" class="mini-btn buy-btn" data-id="{{item.id}}" bindtap="handleBuyItem">{{item.price}} 金币</button>
       </view>
+    </view>
+
+    <button class="add-task-btn" bindtap="handleAddHomework">+ 新增作业</button>
+  </view>
+
+  <view wx:if="{{showCongrats}}" class="congrats-overlay" bindtap="handleDismissCongrats">
+    <view class="congrats-card" catchtap="">
+      <text class="congrats-emoji">🎉</text>
+      <text class="congrats-title">Congratulations!</text>
+      <text class="congrats-subtitle">今日作业全部完成</text>
+      <view class="congrats-stats">
+        <text>用时合计 {{totalElapsedDisplay || '—'}}</text>
+        <text>+{{(lastReward && lastReward.reward) || 0}} 金币</text>
+      </view>
+      <button class="congrats-btn" bindtap="handleDismissCongrats">太棒了</button>
+    </view>
+    <view class="confetti">
+      <text class="confetti-piece c1">✨</text>
+      <text class="confetti-piece c2">🎊</text>
+      <text class="confetti-piece c3">⭐</text>
+      <text class="confetti-piece c4">🎉</text>
+      <text class="confetti-piece c5">✨</text>
+      <text class="confetti-piece c6">🌟</text>
     </view>
   </view>
 

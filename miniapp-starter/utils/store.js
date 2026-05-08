@@ -136,13 +136,55 @@ function updateState(updater) {
 
 function startTask(taskId) {
   return updateState((state) => {
+    const now = Date.now()
     state.tasks = state.tasks.map((task) => {
       if (task.id === taskId) {
         return {
           ...task,
           status: 'doing',
           statusText: '进行中',
-          actualStart: task.actualStart || getCurrentTime()
+          actualStart: task.actualStart || getCurrentTime(),
+          actualStartedAt: task.actualStartedAt || now,
+          currentSegmentStartedAt: now,
+          accumulatedMs: task.accumulatedMs || 0
+        }
+      }
+      return task
+    })
+    return state
+  })
+}
+
+function pauseTask(taskId) {
+  return updateState((state) => {
+    const now = Date.now()
+    state.tasks = state.tasks.map((task) => {
+      if (task.id === taskId && task.status === 'doing') {
+        const segMs = task.currentSegmentStartedAt ? Math.max(0, now - task.currentSegmentStartedAt) : 0
+        return {
+          ...task,
+          status: 'paused',
+          statusText: '已暂停',
+          accumulatedMs: (task.accumulatedMs || 0) + segMs,
+          currentSegmentStartedAt: null
+        }
+      }
+      return task
+    })
+    return state
+  })
+}
+
+function resumeTask(taskId) {
+  return updateState((state) => {
+    const now = Date.now()
+    state.tasks = state.tasks.map((task) => {
+      if (task.id === taskId && task.status === 'paused') {
+        return {
+          ...task,
+          status: 'doing',
+          statusText: '进行中',
+          currentSegmentStartedAt: now
         }
       }
       return task
@@ -153,15 +195,22 @@ function startTask(taskId) {
 
 function finishTask(taskId) {
   return updateState((state) => {
+    const now = Date.now()
     let reward = 8
     let leveledUp = false
     state.tasks = state.tasks.map((task) => {
       if (task.id === taskId) {
+        const segMs = task.currentSegmentStartedAt ? Math.max(0, now - task.currentSegmentStartedAt) : 0
+        const totalMs = (task.accumulatedMs || 0) + segMs
         return {
           ...task,
           status: 'done',
           statusText: '已完成',
-          actualEnd: getCurrentTime()
+          actualEnd: getCurrentTime(),
+          actualEndedAt: now,
+          accumulatedMs: totalMs,
+          elapsedMs: totalMs,
+          currentSegmentStartedAt: null
         }
       }
       return task
@@ -302,6 +351,8 @@ module.exports = {
   defaultState,
   getStateWithComputed,
   startTask,
+  pauseTask,
+  resumeTask,
   finishTask,
   buyItem,
   addTask,
