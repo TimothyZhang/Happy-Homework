@@ -286,7 +286,7 @@
   width: 18rpx;
   height: 18rpx;
   border-radius: 50%;
-  background: #cad3dd;
+  background: #e54545; /* 默认 = todo = 红 */
   margin-top: 20rpx;
   position: relative;
 }
@@ -302,7 +302,11 @@
 }
 
 .task-item.doing .timeline-dot {
-  background: #ffb648;
+  background: #245bdb;
+}
+
+.task-item.paused .timeline-dot {
+  background: #ff8c1a;
 }
 
 .task-item.done .timeline-dot {
@@ -404,13 +408,17 @@
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
 }
 
-.icon-btn.start-btn,
+/* 状态着色:未开始(▶)红 / 暂停(▶)橙 / 进行中(❚❚)蓝 / 完成(✓)绿 */
+.icon-btn.start-btn {
+  background: #e54545;
+}
+
 .icon-btn.resume-btn {
-  background: #245bdb;
+  background: #ff8c1a;
 }
 
 .icon-btn.pause-btn {
-  background: #ffb648;
+  background: #245bdb;
   font-size: 22rpx;
   letter-spacing: 2rpx;
 }
@@ -436,10 +444,6 @@
   font-size: 22rpx;
 }
 
-.task-item.paused .timeline-dot {
-  background: #ffb648;
-  opacity: 0.5;
-}
 
 .status-paused {
   background: #fff1d6;
