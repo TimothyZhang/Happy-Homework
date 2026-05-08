@@ -117,12 +117,14 @@
 .ocr-task-btn,
 .edit-task-btn {
   flex: 1;
+  padding: 0 16rpx;
   border-radius: 999rpx;
   background: #eef4ff;
   color: #245bdb;
-  font-size: 28rpx;
+  font-size: 26rpx;
   font-weight: 600;
   border: none;
+  white-space: nowrap;
 }
 
 .eyebrow {
@@ -294,50 +296,80 @@
 
 .task-main {
   flex: 1;
-  margin-left: 20rpx;
-  padding: 20rpx;
-  border-radius: 24rpx;
+  margin-left: 16rpx;
+  padding: 18rpx 18rpx;
+  border-radius: 20rpx;
   background: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
 }
 
-.task-subject {
-  font-size: 28rpx;
-  font-weight: 700;
-}
-
-.task-status {
-  padding: 8rpx 16rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
-}
-
-.status-todo {
-  background: #edf0f3;
-  color: #5f6b7a;
-}
-
-.status-doing {
-  background: #fff1d6;
-  color: #b26a00;
-}
-
-.status-done {
-  background: #e8f7ee;
-  color: #067647;
+.task-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .task-content {
   display: block;
-  margin-top: 14rpx;
   font-size: 28rpx;
-  line-height: 1.6;
+  line-height: 1.4;
   color: #1f2329;
+  font-weight: 500;
 }
 
-.task-meta {
-  margin-top: 16rpx;
-  font-size: 24rpx;
+.task-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin-top: 10rpx;
+}
+
+.chip {
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  line-height: 1.5;
+  background: #edf0f3;
+  color: #5f6b7a;
+  white-space: nowrap;
+}
+
+.subject-chip {
+  background: #eef4ff;
+  color: #245bdb;
+  font-weight: 600;
+}
+
+.est-chip {
+  background: #f7f8fa;
   color: #6b7785;
+}
+
+.elapsed-chip {
+  background: #eef4ff;
+  color: #245bdb;
+}
+
+.status-chip.status-todo {
+  background: #edf0f3;
+  color: #5f6b7a;
+}
+
+.status-chip.status-doing {
+  background: #fff1d6;
+  color: #b26a00;
+}
+
+.status-chip.status-paused {
+  background: #fff1d6;
+  color: #b26a00;
+  opacity: 0.85;
+}
+
+.status-chip.status-done {
+  background: #e8f7ee;
+  color: #067647;
 }
 
 .task-actions {
@@ -353,14 +385,21 @@
   border: none;
 }
 
+.task-actions-col {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-shrink: 0;
+}
+
 .icon-btn {
-  width: 64rpx;
-  height: 64rpx;
+  width: 60rpx;
+  height: 60rpx;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 600;
   color: #ffffff;
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
@@ -409,13 +448,15 @@
 /* === bottom inline add-task button === */
 .add-task-btn {
   flex: 1;
+  padding: 0 16rpx;
   border-radius: 999rpx;
   background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
   color: #ffffff;
-  font-size: 28rpx;
+  font-size: 26rpx;
   font-weight: 600;
   border: none;
   box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
+  white-space: nowrap;
 }
 
 .empty-tip {

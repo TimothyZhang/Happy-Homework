@@ -52,24 +52,20 @@
       <view wx:for="{{sortedTasks}}" wx:key="id" class="task-item {{item.status}}">
         <view class="timeline-dot"></view>
         <view class="task-main">
-          <view class="task-row">
-            <text class="task-subject">{{item.subject}}</text>
-            <text class="task-status status-{{item.status}}">{{item.statusText}}</text>
+          <view class="task-body">
+            <text class="task-content">{{item.content}}</text>
+            <view class="task-chips">
+              <text class="chip subject-chip">{{item.subject}}</text>
+              <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
+              <text class="chip status-chip status-{{item.status}}">{{item.statusText}}</text>
+              <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
+            </view>
           </view>
-          <text class="task-content">{{item.content}}</text>
-          <view class="task-meta">
-            <text wx:if="{{item.planStart && item.planEnd}}">计划 {{item.planStart}} - {{item.planEnd}}</text>
-            <text>预计 {{item.estimatedMinutes}} 分钟</text>
-          </view>
-          <view wx:if="{{item.actualStart || item.actualEnd}}" class="task-actual">
-            <text>实际 {{item.actualStart || '--:--'}} - {{item.actualEnd || '--:--'}}</text>
-            <text wx:if="{{item.elapsedDisplay}}" class="task-elapsed">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
-          </view>
-          <view class="task-actions">
-            <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" bindtap="handleStartTask" aria-label="开始">▶</view>
-            <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" bindtap="handlePauseTask" aria-label="暂停">❚❚</view>
-            <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" bindtap="handleResumeTask" aria-label="继续">▶</view>
-            <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" bindtap="handleFinishTask" aria-label="完成">✓</view>
+          <view class="task-actions-col">
+            <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" bindtap="handleStartTask">▶</view>
+            <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" bindtap="handlePauseTask">❚❚</view>
+            <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" bindtap="handleResumeTask">▶</view>
+            <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" bindtap="handleFinishTask">✓</view>
           </view>
         </view>
       </view>
