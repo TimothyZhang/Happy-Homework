@@ -195,10 +195,13 @@ Page({
 
   handleTouchMove(event) {
     if (!this.data.dragId || !this.dragStartY) return
+    const now = Date.now()
+    if (this._lastMoveAt && now - this._lastMoveAt < 16) return
+    this._lastMoveAt = now
     const t = event.touches && event.touches[0]
     if (!t) return
     const dy = t.pageY - this.dragStartY
-    if (dy !== this.data.dragDy) this.setData({ dragDy: dy })
+    if (Math.abs(dy - this.data.dragDy) >= 2) this.setData({ dragDy: dy })
   },
 
   handleTouchEnd() {

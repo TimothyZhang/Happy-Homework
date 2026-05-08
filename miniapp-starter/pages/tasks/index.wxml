@@ -1,3 +1,4 @@
+<page-meta page-style="{{dragId ? 'overflow: hidden;' : ''}}" />
 <view class="page">
   <view class="card header-card">
     <view class="section-header">
@@ -27,9 +28,9 @@
           class="mgmt-task {{item.status}} {{dragId === item.id ? 'is-dragging' : ''}}"
           style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : ''}}"
           bindlongpress="handleLongPress"
-          bindtouchmove="handleTouchMove"
-          bindtouchend="handleTouchEnd"
-          bindtouchcancel="handleTouchEnd"
+          catchtouchmove="handleTouchMove"
+          catchtouchend="handleTouchEnd"
+          catchtouchcancel="handleTouchEnd"
           data-id="{{item.id}}"
           data-subject="{{group.subject}}">
       <view class="mgmt-body">

@@ -1,3 +1,4 @@
+<page-meta page-style="{{dragId ? 'overflow: hidden;' : ''}}" />
 <view class="page">
   <view class="hero card">
     <view class="hero-top">
@@ -51,9 +52,9 @@
             class="task-item {{item.status}} {{dragId === item.id ? 'is-dragging' : ''}}"
             style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : ''}}"
             bindlongpress="handleLongPress"
-            bindtouchmove="handleTouchMove"
-            bindtouchend="handleTouchEnd"
-            bindtouchcancel="handleTouchEnd"
+            catchtouchmove="handleTouchMove"
+            catchtouchend="handleTouchEnd"
+            catchtouchcancel="handleTouchEnd"
             data-id="{{item.id}}"
             data-index="{{index}}">
         <view class="timeline-dot"></view>
