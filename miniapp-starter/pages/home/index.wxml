@@ -1,7 +1,6 @@
 <view class="page">
   <view class="hero card">
     <view class="hero-top">
-      <text class="eyebrow">作业小管家</text>
       <text class="title">今日作业</text>
     </view>
 
@@ -40,7 +39,6 @@
   <view class="card section-card">
     <view class="section-header">
       <text class="section-title">作业列表</text>
-      <text class="section-desc">未完成的在前，已完成的在后</text>
     </view>
 
     <view wx:if="{{sortedTasks.length === 0}}" class="empty-tip">
@@ -48,8 +46,16 @@
       <text class="empty-text">还没有今日作业，点下方按钮新增一条吧</text>
     </view>
 
-    <view class="timeline">
-      <view wx:for="{{sortedTasks}}" wx:key="id" class="task-item {{item.status}}">
+    <view class="timeline {{dragId ? 'is-reordering' : ''}}">
+      <view wx:for="{{sortedTasks}}" wx:key="id"
+            class="task-item {{item.status}} {{dragId === item.id ? 'is-dragging' : ''}}"
+            style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : ''}}"
+            bindlongpress="handleLongPress"
+            bindtouchmove="handleTouchMove"
+            bindtouchend="handleTouchEnd"
+            bindtouchcancel="handleTouchEnd"
+            data-id="{{item.id}}"
+            data-index="{{index}}">
         <view class="timeline-dot"></view>
         <view class="task-main">
           <view class="task-body">
@@ -57,7 +63,7 @@
             <view class="task-chips">
               <text class="chip subject-chip">{{item.subject}}</text>
               <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
-              <text class="chip status-chip status-{{item.status}}">{{item.statusText}}</text>
+              <text wx:if="{{item.actualTimeDisplay}}" class="chip actual-chip">{{item.actualTimeDisplay}}</text>
               <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
             </view>
           </view>
@@ -66,6 +72,7 @@
             <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" bindtap="handlePauseTask">❚❚</view>
             <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" bindtap="handleResumeTask">▶</view>
             <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" bindtap="handleFinishTask">✓</view>
+            <view wx:if="{{item.status === 'done'}}" class="icon-btn done-mark">✓</view>
           </view>
         </view>
       </view>

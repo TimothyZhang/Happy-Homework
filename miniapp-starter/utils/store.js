@@ -134,6 +134,18 @@ function updateState(updater) {
   }
 }
 
+function pauseTaskInPlace(task, now) {
+  if (task.status !== 'doing') return task
+  const segMs = task.currentSegmentStartedAt ? Math.max(0, now - task.currentSegmentStartedAt) : 0
+  return {
+    ...task,
+    status: 'paused',
+    statusText: '已暂停',
+    accumulatedMs: (task.accumulatedMs || 0) + segMs,
+    currentSegmentStartedAt: null
+  }
+}
+
 function startTask(taskId) {
   return updateState((state) => {
     const now = Date.now()
@@ -149,7 +161,8 @@ function startTask(taskId) {
           accumulatedMs: task.accumulatedMs || 0
         }
       }
-      return task
+      // 同时把别的进行中任务自动暂停 —— 一次只能开一项
+      return pauseTaskInPlace(task, now)
     })
     return state
   })
@@ -159,16 +172,7 @@ function pauseTask(taskId) {
   return updateState((state) => {
     const now = Date.now()
     state.tasks = state.tasks.map((task) => {
-      if (task.id === taskId && task.status === 'doing') {
-        const segMs = task.currentSegmentStartedAt ? Math.max(0, now - task.currentSegmentStartedAt) : 0
-        return {
-          ...task,
-          status: 'paused',
-          statusText: '已暂停',
-          accumulatedMs: (task.accumulatedMs || 0) + segMs,
-          currentSegmentStartedAt: null
-        }
-      }
+      if (task.id === taskId) return pauseTaskInPlace(task, now)
       return task
     })
     return state
@@ -187,7 +191,8 @@ function resumeTask(taskId) {
           currentSegmentStartedAt: now
         }
       }
-      return task
+      // 同时把别的进行中任务自动暂停
+      return pauseTaskInPlace(task, now)
     })
     return state
   })
@@ -296,6 +301,25 @@ function deleteTask(taskId) {
   })
 }
 
+function reorderTasks(orderedIds) {
+  return updateState((state) => {
+    const idToTask = new Map(state.tasks.map((task) => [task.id, task]))
+    const next = []
+    // 先按用户给的顺序排
+    for (const id of orderedIds) {
+      const task = idToTask.get(id)
+      if (task) {
+        next.push(task)
+        idToTask.delete(id)
+      }
+    }
+    // 兜底:不在 orderedIds 里的(理论上不会有)按原顺序补到末尾
+    for (const task of idToTask.values()) next.push(task)
+    state.tasks = next
+    return state
+  })
+}
+
 function setEditTaskId(taskId) {
   return updateState((state) => {
     state.editTaskId = taskId
@@ -354,6 +378,7 @@ module.exports = {
   pauseTask,
   resumeTask,
   finishTask,
+  reorderTasks,
   buyItem,
   addTask,
   updateTask,

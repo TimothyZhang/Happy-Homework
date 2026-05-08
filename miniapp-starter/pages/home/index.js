@@ -1,6 +1,15 @@
 const store = require('../../utils/store')
 
-const STATUS_ORDER = { doing: 0, paused: 1, todo: 2, done: 3 }
+// 拖拽排序后保留人工顺序;只在视觉上把已完成的推到末尾。
+function sortTasks(tasks) {
+  const undone = []
+  const done = []
+  for (const task of tasks) {
+    if (task.status === 'done') done.push(task)
+    else undone.push(task)
+  }
+  return [...undone, ...done]
+}
 
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
@@ -19,10 +28,17 @@ function decorateTask(task, now) {
   } else if (task.status === 'done' && task.elapsedMs) {
     elapsedMs = task.elapsedMs
   }
+  let actualTimeDisplay = ''
+  if (task.actualStart && task.actualEnd) {
+    actualTimeDisplay = `实际 ${task.actualStart}-${task.actualEnd}`
+  } else if (task.actualStart) {
+    actualTimeDisplay = `${task.actualStart} 开始`
+  }
   return {
     ...task,
     elapsedMs,
-    elapsedDisplay: elapsedMs > 0 ? formatElapsed(elapsedMs) : ''
+    elapsedDisplay: elapsedMs > 0 ? formatElapsed(elapsedMs) : '',
+    actualTimeDisplay
   }
 }
 
@@ -41,18 +57,6 @@ function calcRemainingMinutes(tasks) {
     .reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0)
 }
 
-function sortTasks(tasks) {
-  return [...tasks].sort((a, b) => {
-    const oa = STATUS_ORDER[a.status] != null ? STATUS_ORDER[a.status] : 9
-    const ob = STATUS_ORDER[b.status] != null ? STATUS_ORDER[b.status] : 9
-    if (oa !== ob) return oa - ob
-    // 同状态内：未完成的按计划开始时间正序，已完成的按完成时间倒序
-    if (a.status === 'done' && b.status === 'done') {
-      return (b.actualEndedAt || 0) - (a.actualEndedAt || 0)
-    }
-    return String(a.planStart || '').localeCompare(String(b.planStart || ''))
-  })
-}
 
 Page({
   data: {
@@ -62,6 +66,8 @@ Page({
     showCongrats: false,
     totalElapsedDisplay: '',
     remainingMinutesDisplay: '—',
+    dragId: null,
+    dragDy: 0,
     overview: {
       pendingCount: 0,
       progressPercent: 0,
@@ -188,5 +194,69 @@ Page({
       title: state.lastReward && state.lastReward.leveledUp ? `+${reward} 金币，升级啦` : `+${reward} 金币`,
       icon: 'success'
     })
+  },
+
+  // === 拖拽排序 === //
+
+  handleLongPress(event) {
+    const { id } = event.currentTarget.dataset
+    // 只允许重排未完成的任务,已完成的不参与
+    const task = this.data.sortedTasks.find((t) => t.id === id)
+    if (!task || task.status === 'done') return
+    if (event.touches && event.touches[0]) {
+      this.dragStartY = event.touches[0].pageY
+    }
+    // 测一次卡片高度,后面用来折算移动到第几项
+    if (!this.itemHeightPx) {
+      const query = wx.createSelectorQuery()
+      query.select('.task-item').boundingClientRect()
+      query.exec((rects) => {
+        if (rects && rects[0]) {
+          // 加上下方间距作为单元高度
+          this.itemHeightPx = rects[0].height + 12
+        }
+      })
+    }
+    this.setData({ dragId: id, dragDy: 0 })
+    if (wx.vibrateShort) {
+      wx.vibrateShort({ type: 'light' })
+    }
+  },
+
+  handleTouchMove(event) {
+    if (!this.data.dragId || !this.dragStartY) return
+    const t = event.touches && event.touches[0]
+    if (!t) return
+    const dy = t.pageY - this.dragStartY
+    if (dy !== this.data.dragDy) {
+      this.setData({ dragDy: dy })
+    }
+  },
+
+  handleTouchEnd() {
+    if (!this.data.dragId) return
+    const dragId = this.data.dragId
+    const dragDy = this.data.dragDy
+    const itemH = this.itemHeightPx || 140
+    const sorted = this.data.sortedTasks
+    const fromIdx = sorted.findIndex((t) => t.id === dragId)
+
+    // 计算落到第几格 —— 只在未完成 group 内挪;已完成的固定在尾部不可越过
+    const undoneCount = sorted.filter((t) => t.status !== 'done').length
+    const slotsDelta = Math.round(dragDy / itemH)
+    let toIdx = Math.max(0, Math.min(undoneCount - 1, fromIdx + slotsDelta))
+
+    if (fromIdx !== -1 && fromIdx !== toIdx) {
+      const ids = sorted.map((t) => t.id)
+      const [moved] = ids.splice(fromIdx, 1)
+      ids.splice(toIdx, 0, moved)
+      const state = store.reorderTasks(ids)
+      this.applyState(state)
+    } else {
+      // 没有跨槽,只重置视觉
+      this.setData({ dragId: null, dragDy: 0 })
+    }
+    this.dragStartY = null
+    if (this.data.dragId) this.setData({ dragId: null, dragDy: 0 })
   }
 })
