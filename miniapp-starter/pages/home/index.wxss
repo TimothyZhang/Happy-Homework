@@ -170,6 +170,19 @@
   background: #fff1f0;
 }
 
+.overdue-card .section-title {
+  color: #b42318;
+}
+
+.overdue-count {
+  font-size: 22rpx;
+  color: #b42318;
+  font-weight: 700;
+  background: #fde2e2;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+}
+
 .dot {
   width: 18rpx;
   height: 18rpx;

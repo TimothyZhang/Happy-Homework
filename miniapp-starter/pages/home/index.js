@@ -71,6 +71,7 @@ Page({
     overview: { totalCount: 0, pendingCount: 0, doneCount: 0 },
     remainingMinutesDisplay: '—',
     items: [],
+    overdueItems: [],
     showCongrats: false,
     totalElapsedDisplay: '',
     lastReward: null,
@@ -91,10 +92,18 @@ Page({
   refreshState(opts = {}) {
     const today = store.todayStr()
     const activeDate = this.data.activeDate || today
+    const isToday = activeDate === today
     const state = store.getStateWithComputed()
     const now = Date.now()
     const raw = store.tasksForDate(state, activeDate)
-    const items = sortItems(raw.map((it) => decorateItem(it, now)))
+    // Today view splits scheduled-today vs overdue-from-past so they live
+    // in separate cards.
+    const todayRaw = raw.filter((it) => !it.isOverdue)
+    const overdueRaw = isToday ? raw.filter((it) => it.isOverdue) : []
+    const items = sortItems(todayRaw.map((it) => decorateItem(it, now)))
+    const overdueItems = overdueRaw
+      .map((it) => decorateItem(it, now))
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
     const total = items.length
     const done = items.filter((it) => it.status === 'done').length
     const pending = total - done
@@ -104,10 +113,11 @@ Page({
     this.setData({
       activeDate,
       activeDateLabel: this.formatDateLabel(activeDate, today),
-      isToday: activeDate === today,
+      isToday,
       overview: { totalCount: total, pendingCount: pending, doneCount: done },
       remainingMinutesDisplay: formatDuration(remainingMinutes),
       items,
+      overdueItems,
       lastReward: state.lastReward || null
     })
     this.startTickerIfNeeded()

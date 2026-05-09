@@ -94,6 +94,35 @@
     </view>
   </view>
 
+  <view wx:if="{{isToday && overdueItems.length > 0}}" class="card section-card overdue-card">
+    <view class="section-header">
+      <text class="section-title">历史遗留作业</text>
+      <text class="overdue-count">{{overdueItems.length}} 项</text>
+    </view>
+    <view class="timeline">
+      <view wx:for="{{overdueItems}}" wx:key="id"
+            class="task-row {{item.status}} is-overdue">
+        <view class="dot"></view>
+        <view class="row-body">
+          <text class="row-content">{{item.content}}</text>
+          <view class="row-chips">
+            <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
+            <text class="chip nb-chip" data-notebook-id="{{item.notebookId}}" catchtap="handleOpenNotebook">{{item.notebookName}}</text>
+            <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
+            <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
+          </view>
+        </view>
+        <view class="row-actions">
+          <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" catchtap="handleStartTask">▶</view>
+          <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" catchtap="handlePauseTask">❚❚</view>
+          <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" catchtap="handleResumeTask">▶</view>
+          <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" catchtap="handleFinishTask">✓</view>
+          <view wx:if="{{item.status === 'done'}}" class="icon-btn done-mark">✓</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
   <view wx:if="{{showCongrats}}" class="congrats-overlay" bindtap="handleDismissCongrats">
     <view class="congrats-card" catchtap="">
       <text class="congrats-emoji">🎉</text>
