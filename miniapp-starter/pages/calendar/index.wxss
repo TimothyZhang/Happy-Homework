@@ -103,14 +103,9 @@
 }
 
 .cal-cell.is-selected {
-  background: #245bdb;
-  color: #ffffff;
-}
-
-.cal-cell.is-selected .day-num,
-.cal-cell.is-selected .count-bubble.pending,
-.cal-cell.is-selected .count-bubble.done {
-  color: #ffffff;
+  background: rgba(36, 91, 219, 0.14);
+  border: 2rpx solid rgba(36, 91, 219, 0.45);
+  padding: 2rpx;
 }
 
 .day-num {
