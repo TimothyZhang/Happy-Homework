@@ -44,40 +44,127 @@ function getCurrentTime() {
 
 function seedNotebooks() {
   const today = todayStr()
+  const y1 = addDays(today, -1)
+  const y2 = addDays(today, -2)
+  const tom = addDays(today, 1)
   return [
+    // overdue (2 days ago)
     {
-      id: 'nb_seed_1',
+      id: 'nb_seed_old2',
+      name: y2,
+      mode: 'one-shot',
+      startDate: y2,
+      endDate: y2,
+      recurrence: null,
+      createdAt: Date.now() - 172800000,
+      order: 0
+    },
+    // overdue (yesterday) — has both done and not-done tasks
+    {
+      id: 'nb_seed_old1',
+      name: y1,
+      mode: 'one-shot',
+      startDate: y1,
+      endDate: y1,
+      recurrence: null,
+      createdAt: Date.now() - 86400000,
+      order: 1
+    },
+    // today
+    {
+      id: 'nb_seed_today',
       name: today,
       mode: 'one-shot',
       startDate: today,
       endDate: today,
       recurrence: null,
       createdAt: Date.now(),
-      order: 0
+      order: 2
     },
+    // recurring daily
     {
-      id: 'nb_seed_2',
+      id: 'nb_seed_recur',
       name: '每日口算',
       mode: 'recurring',
       startDate: today,
       endDate: null,
       recurrence: { type: 'daily', weekdays: [] },
       createdAt: Date.now(),
-      order: 1
+      order: 3
+    },
+    // tomorrow (won't show today)
+    {
+      id: 'nb_seed_tom',
+      name: tom,
+      mode: 'one-shot',
+      startDate: tom,
+      endDate: tom,
+      recurrence: null,
+      createdAt: Date.now(),
+      order: 4
     }
   ]
 }
 
 function seedTasks() {
+  const now = Date.now()
   return [
+    // 2 days ago — still not done → overdue
     {
-      id: 'tk_seed_1',
-      notebookId: 'nb_seed_1',
+      id: 'tk_seed_old2_1',
+      notebookId: 'nb_seed_old2',
+      subject: '语文',
+      content: '阅读《小王子》第 3 章并写读后感',
+      estimatedMinutes: 30,
+      order: 0,
+      createdAt: now - 172800000,
+      status: 'todo',
+      startedAt: null,
+      currentSegmentStartedAt: null,
+      accumulatedMs: 0,
+      completedAt: null,
+      actualMinutes: null
+    },
+    // yesterday — one done, one overdue
+    {
+      id: 'tk_seed_old1_1',
+      notebookId: 'nb_seed_old1',
+      subject: '数学',
+      content: '应用题练习 5 道',
+      estimatedMinutes: 25,
+      order: 1,
+      createdAt: now - 86400000,
+      status: 'done',
+      startedAt: now - 86000000,
+      currentSegmentStartedAt: null,
+      accumulatedMs: 1500000,
+      completedAt: now - 80000000,
+      actualMinutes: 25
+    },
+    {
+      id: 'tk_seed_old1_2',
+      notebookId: 'nb_seed_old1',
+      subject: '英语',
+      content: 'Unit 5 单词默写',
+      estimatedMinutes: 15,
+      order: 2,
+      createdAt: now - 86400000,
+      status: 'todo',
+      startedAt: null,
+      currentSegmentStartedAt: null,
+      accumulatedMs: 0,
+      completedAt: null,
+      actualMinutes: null
+    },
+    // today
+    {
+      id: 'tk_seed_today_1',
+      notebookId: 'nb_seed_today',
       subject: '语文',
       content: '完成《春晓》抄写 2 遍，并朗读 3 次',
       estimatedMinutes: 20,
-      order: 0,
-      createdAt: Date.now(),
+      order: 3,
+      createdAt: now,
       status: 'todo',
       startedAt: null,
       currentSegmentStartedAt: null,
@@ -86,14 +173,46 @@ function seedTasks() {
       actualMinutes: null
     },
     {
-      id: 'tk_seed_2',
-      notebookId: 'nb_seed_2',
+      id: 'tk_seed_today_2',
+      notebookId: 'nb_seed_today',
+      subject: '科学',
+      content: '观察豆子发芽并记录',
+      estimatedMinutes: 10,
+      order: 4,
+      createdAt: now,
+      status: 'todo',
+      startedAt: null,
+      currentSegmentStartedAt: null,
+      accumulatedMs: 0,
+      completedAt: null,
+      actualMinutes: null
+    },
+    // recurring daily
+    {
+      id: 'tk_seed_recur_1',
+      notebookId: 'nb_seed_recur',
       subject: '数学',
       content: '口算练习 2 页',
       estimatedMinutes: 25,
-      order: 1,
-      createdAt: Date.now(),
+      order: 5,
+      createdAt: now,
       occurrences: {}
+    },
+    // tomorrow
+    {
+      id: 'tk_seed_tom_1',
+      notebookId: 'nb_seed_tom',
+      subject: '英语',
+      content: '听写课文 Unit 6',
+      estimatedMinutes: 20,
+      order: 6,
+      createdAt: now,
+      status: 'todo',
+      startedAt: null,
+      currentSegmentStartedAt: null,
+      accumulatedMs: 0,
+      completedAt: null,
+      actualMinutes: null
     }
   ]
 }
