@@ -14,10 +14,40 @@
 
 .header-card { padding-bottom: 22rpx; }
 
+.nb-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14rpx;
+}
+
 .nb-summary {
-  display: block;
+  flex: 1;
   font-size: 24rpx;
   color: #6b7785;
+}
+
+.header-icons {
+  display: flex;
+  gap: 10rpx;
+  flex-shrink: 0;
+}
+
+.icon-pill {
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.icon-pill.edit-pill {
+  background: #eef4ff;
+  color: #245bdb;
+}
+
+.icon-pill.del-pill {
+  background: #fff1f0;
+  color: #e54545;
 }
 
 .day-switcher {

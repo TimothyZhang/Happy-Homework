@@ -149,6 +149,28 @@ Page({
     this.refreshState()
   },
 
+  // === Notebook actions === //
+
+  handleEditNotebook() {
+    wx.navigateTo({ url: `/pages/notebook-edit/index?id=${this.data.notebookId}` })
+  },
+
+  handleDeleteNotebook() {
+    const nb = this.data.notebook
+    if (!nb) return
+    wx.showModal({
+      title: `删除作业本「${nb.name}」？`,
+      content: `本里 ${this.data.tasks.length} 项作业也会一起删除。`,
+      confirmColor: '#e54545',
+      success: (res) => {
+        if (res.confirm) {
+          store.deleteNotebook(this.data.notebookId)
+          setTimeout(() => wx.navigateBack(), 200)
+        }
+      }
+    })
+  },
+
   // === Task control === //
 
   handleStart(e) {
