@@ -74,11 +74,21 @@
         </view>
         <view class="row-actions">
           <block wx:if="{{isToday}}">
-            <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" catchtap="handleStartTask">▶</view>
-            <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" catchtap="handlePauseTask">❚❚</view>
-            <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" catchtap="handleResumeTask">▶</view>
-            <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" catchtap="handleFinishTask">✓</view>
-            <view wx:if="{{item.status === 'done'}}" class="icon-btn done-mark">✓</view>
+            <view wx:if="{{item.status === 'todo'}}" class="action-btn start-action" data-id="{{item.id}}" catchtap="handleStartTask">
+              <text class="action-icon">▶</text><text class="action-label">开始</text>
+            </view>
+            <view wx:if="{{item.status === 'doing'}}" class="action-btn pause-action" data-id="{{item.id}}" catchtap="handlePauseTask">
+              <text class="action-icon">❚❚</text><text class="action-label">暂停</text>
+            </view>
+            <view wx:if="{{item.status === 'paused'}}" class="action-btn resume-action" data-id="{{item.id}}" catchtap="handleResumeTask">
+              <text class="action-icon">▶</text><text class="action-label">继续</text>
+            </view>
+            <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="action-btn finish-action" data-id="{{item.id}}" catchtap="handleFinishTask">
+              <text class="action-icon">✓</text><text class="action-label">完成</text>
+            </view>
+            <view wx:if="{{item.status === 'done'}}" class="action-btn done-action">
+              <text class="action-icon">✓</text><text class="action-label">已完成</text>
+            </view>
           </block>
           <block wx:else>
             <view class="status-pill status-{{item.status}}">{{item.status === 'done' ? '完成' : (item.status === 'doing' ? '进行' : (item.status === 'paused' ? '暂停' : '未做'))}}</view>

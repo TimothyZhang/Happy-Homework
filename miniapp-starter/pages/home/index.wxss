@@ -241,24 +241,44 @@
   flex-shrink: 0;
 }
 
-.icon-btn {
-  width: 60rpx;
-  height: 60rpx;
-  border-radius: 50%;
+.action-btn {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 28rpx;
-  font-weight: 600;
+  gap: 2rpx;
+  min-width: 88rpx;
+  padding: 10rpx 14rpx;
+  border-radius: 18rpx;
   color: #ffffff;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.12);
 }
 
-.icon-btn.start-btn { background: #e54545; }
-.icon-btn.resume-btn { background: #ff8c1a; }
-.icon-btn.pause-btn { background: #245bdb; font-size: 22rpx; letter-spacing: 2rpx; }
-.icon-btn.finish-btn { background: #07c160; font-size: 36rpx; }
-.icon-btn.done-mark { background: #e8f7ee; color: #067647; box-shadow: none; font-size: 36rpx; }
+.action-icon {
+  font-size: 26rpx;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.action-label {
+  font-size: 20rpx;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: 1rpx;
+}
+
+.action-btn.start-action { background: #e54545; }
+.action-btn.resume-action { background: #ff8c1a; }
+.action-btn.pause-action { background: #245bdb; }
+.action-btn.pause-action .action-icon { font-size: 22rpx; letter-spacing: 2rpx; }
+.action-btn.finish-action { background: #07c160; }
+.action-btn.finish-action .action-icon { font-size: 30rpx; }
+.action-btn.done-action {
+  background: #e8f7ee;
+  color: #067647;
+  box-shadow: none;
+}
+.action-btn.done-action .action-icon { font-size: 30rpx; }
 
 .status-pill {
   padding: 6rpx 16rpx;

@@ -475,13 +475,16 @@ function addTask(payload) {
       }
     }
     const nb = state.notebooks.find((n) => n.id === notebookId)
-    const orderInNb = state.tasks.filter((t) => t.notebookId === notebookId).length
+    // Append to the END of the global order space so new tasks land at the
+    // bottom of the home undone list. Notebook-detail still sorts by `order`,
+    // so within a notebook this also reads as "appended at the end".
+    const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
     const base = {
       id: genId('tk'),
       notebookId,
       content: payload.content || '',
       estimatedMinutes: Number(payload.estimatedMinutes || 0),
-      order: orderInNb,
+      order: maxOrder + 1,
       createdAt: Date.now()
     }
     if (nb && nb.mode === 'recurring') {
@@ -534,6 +537,21 @@ function reorderTasksInNotebook(notebookId, orderedIds) {
     })
     for (const t of idMap.values()) next.push({ ...t, order: next.length })
     state.tasks = [...others, ...next]
+    return state
+  })
+}
+
+// Rewrite the global `order` field for the listed tasks (in given sequence),
+// leaving all other tasks' orders untouched. Used by the home page when the
+// user drags across notebooks.
+function reorderTasks(orderedIds) {
+  return updateState((state) => {
+    const idToOrder = new Map()
+    orderedIds.forEach((id, i) => idToOrder.set(id, i))
+    state.tasks = state.tasks.map((t) => {
+      if (!idToOrder.has(t.id)) return t
+      return { ...t, order: idToOrder.get(t.id) }
+    })
     return state
   })
 }
@@ -744,6 +762,7 @@ module.exports = {
   updateTask,
   deleteTask,
   reorderTasksInNotebook,
+  reorderTasks,
   setEditTaskId,
   clearEditTaskId,
   // task control

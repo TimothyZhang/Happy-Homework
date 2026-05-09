@@ -32,6 +32,9 @@ function decorateItem(item, now) {
     subject: item.notebook.subject,
     content: item.task.content,
     estimatedMinutes: item.task.estimatedMinutes,
+    order: item.task.order || 0,
+    createdAt: item.task.createdAt || 0,
+    completedAt: occ.completedAt || 0,
     status: occ.status,
     isOverdue: item.isOverdue,
     elapsedMs,
@@ -39,18 +42,23 @@ function decorateItem(item, now) {
   }
 }
 
-// Sort: doing on top, then todo/paused (by user order = order in tasksForDate),
-// then done at the bottom.
+// Undone first, in user-controlled order (task.order asc, createdAt as tiebreaker).
+// Done sinks to bottom, sorted by completedAt desc (most recently finished on top).
 function sortItems(items) {
-  const doing = []
-  const others = []
+  const undone = []
   const done = []
   for (const it of items) {
     if (it.status === 'done') done.push(it)
-    else if (it.status === 'doing') doing.push(it)
-    else others.push(it)
+    else undone.push(it)
   }
-  return [...doing, ...others, ...done]
+  undone.sort((a, b) => {
+    const oa = a.order || 0
+    const ob = b.order || 0
+    if (oa !== ob) return oa - ob
+    return (a.createdAt || 0) - (b.createdAt || 0)
+  })
+  done.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
+  return [...undone, ...done]
 }
 
 Page({
@@ -216,7 +224,7 @@ Page({
     wx.navigateTo({ url: `/pages/notebook-detail/index?id=${notebookId}` })
   },
 
-  // === Drag-reorder (today only, within their notebook) === //
+  // === Drag-reorder (today only, all undone tasks regardless of notebook) === //
 
   handleLongPress(e) {
     if (!this.data.isToday) return
@@ -224,7 +232,6 @@ Page({
     const item = this.data.items.find((it) => it.id === id)
     if (!item || item.status === 'done') return
     if (e.touches && e.touches[0]) this.dragStartY = e.touches[0].pageY
-    this.dragNotebookId = item.notebookId
     if (!this.itemHeightPx) {
       const q = wx.createSelectorQuery()
       q.select('.task-row').boundingClientRect()
@@ -245,22 +252,16 @@ Page({
     if (Math.abs(dy - this.data.dragDy) < 2) return
     const itemH = this.itemHeightPx || 140
     const list = this.data.items
+    const undoneCount = list.filter((it) => it.status !== 'done').length
     const draggedIdx = list.findIndex((it) => it.id === this.data.dragId)
-    // Only reorder among same-notebook undone items.
-    const sameNbUndone = list.filter((it) => it.notebookId === this.dragNotebookId && it.status !== 'done')
-    const localIdxOf = (id) => sameNbUndone.findIndex((it) => it.id === id)
-    const localFrom = localIdxOf(this.data.dragId)
     const slotsDelta = Math.round(dy / itemH)
-    const localTo = Math.max(0, Math.min(sameNbUndone.length - 1, localFrom + slotsDelta))
-    // Map local target back to global hover idx (idx of sameNbUndone[localTo] in list).
-    const targetGlobal = list.findIndex((it) => it.id === sameNbUndone[localTo].id)
+    const hoverIdx = Math.max(0, Math.min(undoneCount - 1, draggedIdx + slotsDelta))
     const updated = list.map((it, i) => {
       if (it.id === this.data.dragId) return it
+      if (it.status === 'done') return it
       let shiftY = 0
-      if (it.notebookId === this.dragNotebookId && it.status !== 'done') {
-        if (draggedIdx < targetGlobal && i > draggedIdx && i <= targetGlobal) shiftY = -itemH
-        else if (draggedIdx > targetGlobal && i >= targetGlobal && i < draggedIdx) shiftY = itemH
-      }
+      if (draggedIdx < hoverIdx && i > draggedIdx && i <= hoverIdx) shiftY = -itemH
+      else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) shiftY = itemH
       return { ...it, shiftY }
     })
     this.setData({ items: updated, dragDy: dy })
@@ -275,28 +276,21 @@ Page({
     const dragDy = this.data.dragDy
     const itemH = this.itemHeightPx || 140
     const list = this.data.items
-    const sameNb = list.filter((it) => it.notebookId === this.dragNotebookId && it.status !== 'done')
-    const localFrom = sameNb.findIndex((it) => it.id === dragId)
+    const undoneCount = list.filter((it) => it.status !== 'done').length
+    const fromIdx = list.findIndex((it) => it.id === dragId)
     const slotsDelta = Math.round(dragDy / itemH)
-    const localTo = Math.max(0, Math.min(sameNb.length - 1, localFrom + slotsDelta))
+    const toIdx = Math.max(0, Math.min(undoneCount - 1, fromIdx + slotsDelta))
 
-    if (localFrom !== -1 && localFrom !== localTo) {
-      // Build new sequence within this notebook (include done at original tail order).
-      const state = store.getStateWithComputed()
-      const allInNb = store.tasksOfNotebook(state, this.dragNotebookId)
-      const undoneIds = sameNb.map((it) => it.id)
-      const [moved] = undoneIds.splice(localFrom, 1)
-      undoneIds.splice(localTo, 0, moved)
-      // Keep done tasks where they were (at end).
-      const doneIds = allInNb.filter((t) => !undoneIds.includes(t.id)).map((t) => t.id)
-      const finalIds = [...undoneIds, ...doneIds]
-      store.reorderTasksInNotebook(this.dragNotebookId, finalIds)
+    if (fromIdx !== -1 && fromIdx !== toIdx && fromIdx < undoneCount) {
+      const undoneIds = list.filter((it) => it.status !== 'done').map((it) => it.id)
+      const [moved] = undoneIds.splice(fromIdx, 1)
+      undoneIds.splice(toIdx, 0, moved)
+      store.reorderTasks(undoneIds)
       this.refreshState()
     } else {
       this.setData({ items: list.map((it) => ({ ...it, shiftY: 0 })) })
     }
     this.dragStartY = null
-    this.dragNotebookId = null
     this.setData({ dragId: null, dragDy: 0 })
   }
 })
