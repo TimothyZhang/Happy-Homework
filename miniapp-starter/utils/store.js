@@ -47,8 +47,7 @@ function seedNotebooks() {
   return [
     {
       id: 'nb_seed_1',
-      name: '语文 · 春晓',
-      subject: '语文',
+      name: today,
       mode: 'one-shot',
       startDate: today,
       endDate: today,
@@ -58,8 +57,7 @@ function seedNotebooks() {
     },
     {
       id: 'nb_seed_2',
-      name: '数学 · 每日口算',
-      subject: '数学',
+      name: '每日口算',
       mode: 'recurring',
       startDate: today,
       endDate: null,
@@ -75,6 +73,7 @@ function seedTasks() {
     {
       id: 'tk_seed_1',
       notebookId: 'nb_seed_1',
+      subject: '语文',
       content: '完成《春晓》抄写 2 遍，并朗读 3 次',
       estimatedMinutes: 20,
       order: 0,
@@ -89,9 +88,10 @@ function seedTasks() {
     {
       id: 'tk_seed_2',
       notebookId: 'nb_seed_2',
+      subject: '数学',
       content: '口算练习 2 页',
       estimatedMinutes: 25,
-      order: 0,
+      order: 1,
       createdAt: Date.now(),
       occurrences: {}
     }
@@ -145,54 +145,53 @@ function migrateState(raw) {
       order: i,
       ...nb
     }))
+    // notebook.subject is no longer used; carry it down to tasks that lack one.
+    const nbSubjectById = {}
+    for (const nb of raw.notebooks) nbSubjectById[nb.id] = nb.subject || ''
     raw.tasks = raw.tasks.map((t, i) => ({
       order: i,
+      subject: t.subject || nbSubjectById[t.notebookId] || '其他',
       ...t
     }))
     raw.editNotebookId = raw.editNotebookId || null
     return raw
   }
 
-  // v1 → v2: bucket existing tasks by subject into one-shot notebooks for today
+  // v1 → v2: bucket all old tasks into one notebook for today (named by date).
+  // Subject moves onto each task.
   const today = todayStr()
   const oldTasks = Array.isArray(raw.tasks) ? raw.tasks : []
-  const subjectToNotebookId = new Map()
   const notebooks = []
   const tasks = []
-  let notebookSeq = 1
-
-  for (const old of oldTasks) {
-    const subject = old.subject || '其他'
-    let nbId = subjectToNotebookId.get(subject)
-    if (!nbId) {
-      nbId = `nb_mig_${notebookSeq++}`
-      subjectToNotebookId.set(subject, nbId)
-      notebooks.push({
-        id: nbId,
-        name: subject,
-        subject,
-        mode: 'one-shot',
-        startDate: today,
-        endDate: today,
-        recurrence: null,
-        createdAt: Date.now(),
-        order: notebooks.length
+  if (oldTasks.length) {
+    const nbId = 'nb_mig_today'
+    notebooks.push({
+      id: nbId,
+      name: today,
+      mode: 'one-shot',
+      startDate: today,
+      endDate: today,
+      recurrence: null,
+      createdAt: Date.now(),
+      order: 0
+    })
+    for (const old of oldTasks) {
+      tasks.push({
+        id: `tk_mig_${old.id || tasks.length + 1}`,
+        notebookId: nbId,
+        subject: old.subject || '其他',
+        content: old.content || '',
+        estimatedMinutes: Number(old.estimatedMinutes || 0),
+        order: tasks.length,
+        createdAt: old.createdAt || Date.now(),
+        status: old.status || 'todo',
+        startedAt: old.actualStartedAt || null,
+        currentSegmentStartedAt: old.currentSegmentStartedAt || null,
+        accumulatedMs: old.accumulatedMs || old.elapsedMs || 0,
+        completedAt: old.actualEndedAt || null,
+        actualMinutes: null
       })
     }
-    tasks.push({
-      id: `tk_mig_${old.id || tasks.length + 1}`,
-      notebookId: nbId,
-      content: old.content || '',
-      estimatedMinutes: Number(old.estimatedMinutes || 0),
-      order: tasks.length,
-      createdAt: old.createdAt || Date.now(),
-      status: old.status || 'todo',
-      startedAt: old.actualStartedAt || null,
-      currentSegmentStartedAt: old.currentSegmentStartedAt || null,
-      accumulatedMs: old.accumulatedMs || old.elapsedMs || 0,
-      completedAt: old.actualEndedAt || null,
-      actualMinutes: null
-    })
   }
 
   return {
@@ -364,8 +363,7 @@ function addNotebook(nb) {
     const order = state.notebooks.length
     const item = {
       id: genId('nb'),
-      name: nb.name || '未命名作业本',
-      subject: nb.subject || '其他',
+      name: nb.name || today,
       mode: nb.mode === 'recurring' ? 'recurring' : 'one-shot',
       startDate: nb.startDate || today,
       endDate: nb.endDate === undefined
@@ -448,21 +446,19 @@ function tasksOfNotebook(state, notebookId) {
 function addTask(payload) {
   return updateState((state) => {
     let notebookId = payload.notebookId
-    // Legacy callers may pass {subject, content, ...} without notebookId (e.g. OCR import).
-    // Auto-bucket into a today one-shot notebook per subject.
+    // Legacy callers (OCR import) may pass {subject, content, ...} without
+    // notebookId — auto-bucket into the one-shot notebook for today.
     if (!notebookId) {
       const today = todayStr()
-      const subject = payload.subject || '其他'
       const existing = state.notebooks.find(
-        (nb) => nb.mode === 'one-shot' && nb.subject === subject && (nb.endDate || nb.startDate) === today
+        (nb) => nb.mode === 'one-shot' && (nb.endDate || nb.startDate) === today
       )
       if (existing) {
         notebookId = existing.id
       } else {
         const nb = {
           id: genId('nb'),
-          name: `${subject} · 今日`,
-          subject,
+          name: today,
           mode: 'one-shot',
           startDate: today,
           endDate: today,
@@ -476,12 +472,12 @@ function addTask(payload) {
     }
     const nb = state.notebooks.find((n) => n.id === notebookId)
     // Append to the END of the global order space so new tasks land at the
-    // bottom of the home undone list. Notebook-detail still sorts by `order`,
-    // so within a notebook this also reads as "appended at the end".
+    // bottom of the home undone list.
     const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
     const base = {
       id: genId('tk'),
       notebookId,
+      subject: payload.subject || '其他',
       content: payload.content || '',
       estimatedMinutes: Number(payload.estimatedMinutes || 0),
       order: maxOrder + 1,
@@ -503,6 +499,7 @@ function updateTask(taskId, updates) {
       if (t.id !== taskId) return t
       const next = { ...t }
       if ('content' in updates) next.content = updates.content
+      if ('subject' in updates) next.subject = updates.subject
       if ('estimatedMinutes' in updates) next.estimatedMinutes = Number(updates.estimatedMinutes || 0)
       if ('notebookId' in updates && updates.notebookId !== t.notebookId) {
         next.notebookId = updates.notebookId

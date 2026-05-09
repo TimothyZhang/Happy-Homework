@@ -227,6 +227,7 @@
   white-space: nowrap;
 }
 
+.subject-chip { background: #f0e9ff; color: #6c3fdb; font-weight: 600; }
 .nb-chip { background: #eef4ff; color: #245bdb; font-weight: 600; }
 .est-chip { background: #f7f8fa; color: #6b7785; }
 .overdue-chip { background: #fde2e2; color: #b42318; font-weight: 700; }

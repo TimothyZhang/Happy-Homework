@@ -47,7 +47,7 @@ Page({
               id: `${t.id}_${dateStr}`,
               content: t.content,
               notebookName: nb.name,
-              subject: nb.subject,
+              subject: t.subject || '',
               doneOn: dateStr
             })
           }

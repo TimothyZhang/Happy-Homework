@@ -39,10 +39,18 @@ function decorateNotebook(nb, allTasks) {
       return occ && occ.status === 'done'
     }).length
   }
+  // Distinct subjects within this notebook (in the order they appear)
+  const seen = new Set()
+  const subjects = []
+  for (const t of tasks) {
+    const s = t.subject || ''
+    if (s && !seen.has(s)) { seen.add(s); subjects.push(s) }
+  }
   return {
     ...nb,
     taskCount: totalCount,
     doneCount,
+    subjects,
     progressPercent: totalCount ? Math.round((doneCount / totalCount) * 100) : 0,
     modeLabel: nb.mode === 'recurring' ? '重复' : '一次性',
     rangeLabel: describeRange(nb),

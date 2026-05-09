@@ -22,7 +22,7 @@
           <block wx:if="{{cell}}">
             <text class="day-num">{{cell.day}}</text>
             <view wx:if="{{cell.total > 0}}" class="day-counts">
-              <view class="count-bubble {{cell.pending > 0 ? 'pending' : 'done'}}">{{cell.pending > 0 ? cell.pending : '✓'}}</view>
+              <view class="count-bubble {{cell.pending > 0 ? 'pending' : 'done'}}">{{cell.pending > 0 ? cell.pending : cell.total}}</view>
               <view wx:if="{{cell.hasOverdue}}" class="overdue-dot"></view>
             </view>
           </block>
@@ -45,6 +45,7 @@
       <view class="row-body">
         <text class="row-content">{{item.content}}</text>
         <view class="row-chips">
+          <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
           <text class="chip nb-chip">{{item.notebookName}}</text>
           <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
           <text wx:if="{{item.isOverdue}}" class="chip overdue-chip">逾期</text>

@@ -1,6 +1,5 @@
 const store = require('../../utils/store')
 
-const SUBJECT_OPTIONS = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
 const MODE_OPTIONS = [
   { key: 'one-shot', label: '一次性' },
   { key: 'recurring', label: '重复' }
@@ -25,9 +24,6 @@ Page({
     isEdit: false,
     notebookId: null,
     name: '',
-    subject: '语文',
-    subjectIndex: 0,
-    subjectOptions: SUBJECT_OPTIONS,
     mode: 'one-shot',
     modeOptions: MODE_OPTIONS,
     startDate: '',
@@ -44,13 +40,10 @@ Page({
     if (options && options.id) {
       const nb = store.getNotebookById(options.id)
       if (nb) {
-        const subjIdx = Math.max(0, SUBJECT_OPTIONS.indexOf(nb.subject))
         this.setData({
           isEdit: true,
           notebookId: nb.id,
           name: nb.name,
-          subject: SUBJECT_OPTIONS[subjIdx],
-          subjectIndex: subjIdx,
           mode: nb.mode || 'one-shot',
           startDate: nb.startDate || today,
           endDate: nb.endDate || (nb.mode === 'recurring' ? '' : today),
@@ -64,6 +57,7 @@ Page({
       }
     }
     this.setData({
+      name: today,
       startDate: today,
       endDate: today
     })
@@ -72,11 +66,6 @@ Page({
 
   handleNameInput(e) {
     this.setData({ name: e.detail.value })
-  },
-
-  handleSubjectChange(e) {
-    const idx = Number(e.detail.value)
-    this.setData({ subjectIndex: idx, subject: SUBJECT_OPTIONS[idx] })
   },
 
   handleModeChange(e) {
@@ -136,7 +125,7 @@ Page({
   },
 
   handleSave() {
-    const { name, subject, mode, startDate, endDate, recurType, recurWeekdays, openEnded } = this.data
+    const { name, mode, startDate, endDate, recurType, recurWeekdays, openEnded } = this.data
     if (!name || !name.trim()) {
       wx.showToast({ title: '请填作业本名称', icon: 'none' })
       return
@@ -163,7 +152,6 @@ Page({
 
     const payload = {
       name: name.trim(),
-      subject,
       mode,
       startDate,
       endDate: mode === 'one-shot' ? endDate : (openEnded ? null : (endDate || null)),

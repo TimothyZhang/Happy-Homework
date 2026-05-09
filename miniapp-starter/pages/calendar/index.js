@@ -41,6 +41,7 @@ function decorateDayItems(items, now) {
     id: it.task.id,
     notebookId: it.notebook.id,
     notebookName: it.notebook.name,
+    subject: it.task.subject || '',
     content: it.task.content,
     estimatedMinutes: it.task.estimatedMinutes,
     status: it.occurrence.status,

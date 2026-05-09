@@ -35,6 +35,7 @@
     <view class="row-body">
       <text class="row-content">{{item.content}}</text>
       <view class="row-chips">
+        <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
         <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
         <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
       </view>
@@ -60,6 +61,12 @@
     <view class="field">
       <text class="field-label">作业内容</text>
       <textarea class="input textarea" placeholder="例：完成口算练习 2 页" value="{{formContent}}" bindinput="handleContentInput"></textarea>
+    </view>
+    <view class="field">
+      <text class="field-label">科目</text>
+      <picker mode="selector" range="{{subjectOptions}}" value="{{formSubjectIndex}}" bindchange="handleSubjectChange">
+        <view class="input picker-value">{{formSubject}}</view>
+      </picker>
     </view>
     <view class="field">
       <text class="field-label">预计耗时（分钟）</text>

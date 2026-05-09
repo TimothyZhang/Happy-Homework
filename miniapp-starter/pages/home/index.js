@@ -29,7 +29,7 @@ function decorateItem(item, now) {
     id: item.task.id,
     notebookId: item.notebook.id,
     notebookName: item.notebook.name,
-    subject: item.notebook.subject,
+    subject: item.task.subject || '',
     content: item.task.content,
     estimatedMinutes: item.task.estimatedMinutes,
     order: item.task.order || 0,
@@ -179,36 +179,24 @@ Page({
   // === Task control (locked to active date) === //
 
   handleStartTask(e) {
-    if (!this.data.isToday) {
-      wx.showToast({ title: '只能在「今日」开始计时', icon: 'none' })
-      return
-    }
+    if (!this.data.isToday) return
     store.startTask(e.currentTarget.dataset.id, this.data.activeDate)
     this.refreshState()
-    wx.showToast({ title: '开始啦', icon: 'success' })
   },
 
   handlePauseTask(e) {
     store.pauseTask(e.currentTarget.dataset.id, this.data.activeDate)
     this.refreshState()
-    wx.showToast({ title: '已暂停', icon: 'none' })
   },
 
   handleResumeTask(e) {
     store.resumeTask(e.currentTarget.dataset.id, this.data.activeDate)
     this.refreshState()
-    wx.showToast({ title: '继续', icon: 'success' })
   },
 
   handleFinishTask(e) {
-    const before = store.getStateWithComputed()
-    const after = store.finishTask(e.currentTarget.dataset.id, this.data.activeDate)
-    const reward = after.coins - before.coins
+    store.finishTask(e.currentTarget.dataset.id, this.data.activeDate)
     this.refreshState({ maybeCelebrate: true })
-    wx.showToast({
-      title: after.lastReward && after.lastReward.leveledUp ? `+${reward} 金币，升级啦` : `+${reward} 金币`,
-      icon: 'success'
-    })
   },
 
   // === Navigation === //

@@ -1,5 +1,7 @@
 const store = require('../../utils/store')
 
+const SUBJECT_OPTIONS = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
+
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
   const totalSec = Math.floor(ms / 1000)
@@ -18,6 +20,7 @@ function decorateTask(task, notebook, dateStr, now) {
   }
   return {
     ...task,
+    subject: task.subject || '',
     status: occ.status,
     elapsedMs,
     elapsedDisplay: elapsedMs > 0 ? formatElapsed(elapsedMs) : ''
@@ -37,6 +40,9 @@ Page({
     editingId: null,
     formContent: '',
     formMinutes: '',
+    formSubject: '语文',
+    formSubjectIndex: 0,
+    subjectOptions: SUBJECT_OPTIONS,
     dragId: null,
     dragDy: 0
   },
@@ -161,28 +167,36 @@ Page({
   },
 
   handleFinish(e) {
-    const before = store.getStateWithComputed()
-    const after = store.finishTask(e.currentTarget.dataset.id, this.data.activeDate)
-    const reward = after.coins - before.coins
+    store.finishTask(e.currentTarget.dataset.id, this.data.activeDate)
     this.refreshState()
-    wx.showToast({ title: `+${reward} 金币`, icon: 'success' })
   },
 
   // === Task CRUD === //
 
   handleShowAdd() {
-    this.setData({ showForm: true, editingId: null, formContent: '', formMinutes: '' })
+    this.setData({
+      showForm: true,
+      editingId: null,
+      formContent: '',
+      formMinutes: '',
+      formSubject: '语文',
+      formSubjectIndex: 0
+    })
   },
 
   handleEditTask(e) {
     const id = e.currentTarget.dataset.id
     const task = this.data.tasks.find((t) => t.id === id)
     if (!task) return
+    const subj = task.subject || '语文'
+    const subjIdx = Math.max(0, SUBJECT_OPTIONS.indexOf(subj))
     this.setData({
       showForm: true,
       editingId: id,
       formContent: task.content,
-      formMinutes: String(task.estimatedMinutes || '')
+      formMinutes: String(task.estimatedMinutes || ''),
+      formSubject: SUBJECT_OPTIONS[subjIdx],
+      formSubjectIndex: subjIdx
     })
   },
 
@@ -192,23 +206,26 @@ Page({
 
   handleContentInput(e) { this.setData({ formContent: e.detail.value }) },
   handleMinutesInput(e) { this.setData({ formMinutes: e.detail.value }) },
+  handleSubjectChange(e) {
+    const idx = Number(e.detail.value)
+    this.setData({ formSubjectIndex: idx, formSubject: SUBJECT_OPTIONS[idx] })
+  },
 
   handleSaveTask() {
-    const { formContent, formMinutes, editingId, notebookId } = this.data
+    const { formContent, formMinutes, formSubject, editingId, notebookId } = this.data
     if (!formContent || !formMinutes) {
       wx.showToast({ title: '请补全内容和时长', icon: 'none' })
       return
     }
     const payload = {
       content: formContent.trim(),
-      estimatedMinutes: Number(formMinutes)
+      estimatedMinutes: Number(formMinutes),
+      subject: formSubject
     }
     if (editingId) {
       store.updateTask(editingId, payload)
-      wx.showToast({ title: '已保存', icon: 'success' })
     } else {
       store.addTask({ ...payload, notebookId })
-      wx.showToast({ title: '已新增', icon: 'success' })
     }
     this.setData({ showForm: false, editingId: null })
     this.refreshState()
@@ -223,7 +240,6 @@ Page({
         if (res.confirm) {
           store.deleteTask(id)
           this.refreshState()
-          wx.showToast({ title: '已删除', icon: 'success' })
         }
       }
     })

@@ -35,7 +35,7 @@
           <text class="nb-mode mode-{{item.mode}}">{{item.modeLabel}}</text>
         </view>
         <view class="nb-chips">
-          <text class="chip subject-chip">{{item.subject}}</text>
+          <text wx:for="{{item.subjects}}" wx:for-item="subj" wx:key="*this" class="chip subject-chip">{{subj}}</text>
           <text wx:if="{{item.recurrenceLabel}}" class="chip rec-chip">{{item.recurrenceLabel}}</text>
           <text class="chip range-chip">{{item.rangeLabel}}</text>
           <text wx:if="{{item.activeToday}}" class="chip today-chip">今日</text>

@@ -161,6 +161,16 @@
   color: #245bdb;
 }
 
+.subject-chip {
+  background: #eef4ff;
+  color: #245bdb;
+  font-weight: 600;
+}
+
+.picker-value {
+  color: #1f2329;
+}
+
 .row-actions {
   display: flex;
   align-items: center;
