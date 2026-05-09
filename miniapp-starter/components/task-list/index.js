@@ -28,7 +28,11 @@ Component({
   data: {
     list: [],
     dragId: null,
-    dragDy: 0
+    dragDy: 0,
+    // Swipe-to-reveal "继续" on done rows
+    swipeId: null,       // id of row currently being swiped (during touchmove)
+    swipeDx: 0,          // x-translate during active swipe
+    swipeOpenId: null    // id of row whose action is currently revealed
   },
   observers: {
     'items': function (items) {
@@ -197,6 +201,71 @@ Component({
       const { notebookId } = e.currentTarget.dataset
       if (!notebookId) return
       wx.navigateTo({ url: `/pages/notebook-detail/index?id=${notebookId}` })
+    },
+
+    // === Swipe-to-reveal on done rows === //
+
+    handleSwipeStart(e) {
+      const id = e.currentTarget.dataset.id
+      if (e.touches && e.touches[0]) {
+        this.swipeStartX = e.touches[0].pageX
+        this.swipeStartY = e.touches[0].pageY
+      }
+      this.swipeDirection = null
+      this.swipeRowStartId = id
+      // If another row is open and user touches a different one, close the
+      // open one. The actual swipe-on-this-row begins on touchmove.
+      if (this.data.swipeOpenId && this.data.swipeOpenId !== id) {
+        this.setData({ swipeOpenId: null })
+      }
+    },
+    handleSwipeMove(e) {
+      const t = e.touches && e.touches[0]
+      if (!t || this.swipeStartX == null) return
+      const dx = t.pageX - this.swipeStartX
+      const dy = t.pageY - this.swipeStartY
+      // Decide gesture direction on first significant movement.
+      if (this.swipeDirection == null) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
+        this.swipeDirection = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+      }
+      if (this.swipeDirection !== 'h') return
+      const id = e.currentTarget.dataset.id
+      const isOpen = this.data.swipeOpenId === id
+      // Swipe range: -120 (revealed) ... 0 (closed).
+      const base = isOpen ? -120 : 0
+      const tx = Math.max(-120, Math.min(0, base + dx))
+      this.setData({ swipeId: id, swipeDx: tx })
+    },
+    handleSwipeEnd() {
+      if (this.swipeDirection !== 'h') {
+        this.swipeStartX = null
+        this.swipeStartY = null
+        this.swipeDirection = null
+        this.swipeRowStartId = null
+        return
+      }
+      const id = this.swipeRowStartId
+      const dx = this.data.swipeDx
+      // Threshold: open if past halfway.
+      const opened = dx <= -60
+      this.setData({
+        swipeId: null,
+        swipeDx: 0,
+        swipeOpenId: opened ? id : null
+      })
+      this.swipeStartX = null
+      this.swipeStartY = null
+      this.swipeDirection = null
+      this.swipeRowStartId = null
+    },
+    handleRevert(e) {
+      const ds = e.currentTarget.dataset
+      const taskId = ds.taskId || ds.id
+      const date = ds.occurrenceDate || this.data.activeDate
+      store.revertTask(taskId, date)
+      this.setData({ swipeOpenId: null, swipeId: null, swipeDx: 0 })
+      this.triggerEvent('changed')
     }
   }
 })

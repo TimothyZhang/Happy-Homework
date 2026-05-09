@@ -819,6 +819,28 @@ function resumeTask(taskId, dateStr) {
   })
 }
 
+// Send a done task back to undone (paused) — used for "误点完成" recovery.
+// Keeps accumulatedMs so the user picks up where they left off.
+function revertTask(taskId, dateStr) {
+  const day = dateStr || todayStr()
+  return updateState((state) => {
+    state.tasks = state.tasks.map((t) => {
+      if (t.id !== taskId) return t
+      const nb = state.notebooks.find((n) => n.id === t.notebookId)
+      if (!nb) return t
+      const cur = getTaskState(t, nb, day)
+      if (cur.status !== 'done') return t
+      return applyTaskState(t, nb, day, {
+        status: 'paused',
+        completedAt: null,
+        actualMinutes: null,
+        currentSegmentStartedAt: null
+      })
+    })
+    return state
+  })
+}
+
 function finishTask(taskId, dateStr) {
   const day = dateStr || todayStr()
   return updateState((state) => {
@@ -940,6 +962,7 @@ module.exports = {
   pauseTask,
   resumeTask,
   finishTask,
+  revertTask,
   // queries
   tasksForDate,
   tasksOfNotebook,
