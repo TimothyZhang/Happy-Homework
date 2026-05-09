@@ -764,12 +764,14 @@ function pauseInPlace(occ, now) {
 // be running at a time, regardless of date or mode. The except (taskId,
 // dateStr) pair preserves the row the user just (re)started.
 function pauseAllOtherDoing(state, exceptTaskId, exceptDateStr, now) {
+  let pausedCount = 0
   state.tasks = state.tasks.map((t) => {
     const nb = state.notebooks.find((n) => n.id === t.notebookId)
     if (!nb) return t
     if (nb.mode === 'one-shot') {
       if (t.id === exceptTaskId) return t
       if ((t.status || 'todo') !== 'doing') return t
+      pausedCount++
       return { ...t, ...pauseInPlace(t, now) }
     }
     // recurring: pause any doing occurrence
@@ -782,6 +784,7 @@ function pauseAllOtherDoing(state, exceptTaskId, exceptDateStr, now) {
       if (occ && occ.status === 'doing' && !isExcept) {
         next[d] = pauseInPlace(occ, now)
         changed = true
+        pausedCount++
       } else {
         next[d] = occ
       }
@@ -789,6 +792,7 @@ function pauseAllOtherDoing(state, exceptTaskId, exceptDateStr, now) {
     if (!changed) return t
     return { ...t, occurrences: next }
   })
+  console.log('[store] pauseAllOtherDoing except=', exceptTaskId, exceptDateStr, 'paused', pausedCount, 'task(s)')
 }
 
 function startTask(taskId, dateStr) {
