@@ -1,0 +1,124 @@
+.page {
+  min-height: 100vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 28rpx;
+  padding: 28rpx;
+  box-shadow: 0 16rpx 48rpx rgba(31, 35, 41, 0.08);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  padding: 18rpx 0;
+  border-top: 1rpx solid #edf0f3;
+}
+
+.field:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.field.row-field {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-label {
+  font-size: 26rpx;
+  color: #6b7785;
+}
+
+.input,
+.picker-value {
+  padding: 18rpx 22rpx;
+  border-radius: 18rpx;
+  background: #f7f8fa;
+  font-size: 28rpx;
+  color: #1f2329;
+  min-height: 32rpx;
+}
+
+.hint {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #8a96a3;
+}
+
+.seg {
+  display: flex;
+  background: #f3f6fa;
+  border-radius: 18rpx;
+  padding: 4rpx;
+  gap: 4rpx;
+}
+
+.seg-item {
+  flex: 1;
+  text-align: center;
+  padding: 14rpx 0;
+  border-radius: 14rpx;
+  font-size: 26rpx;
+  color: #6b7785;
+}
+
+.seg-item.active {
+  background: #ffffff;
+  color: #245bdb;
+  font-weight: 700;
+  box-shadow: 0 4rpx 10rpx rgba(36, 91, 219, 0.15);
+}
+
+.weekday-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+}
+
+.wd-chip {
+  padding: 12rpx 20rpx;
+  border-radius: 999rpx;
+  background: #f3f6fa;
+  font-size: 24rpx;
+  color: #5f6b7a;
+}
+
+.wd-chip.active {
+  background: #245bdb;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.actions {
+  margin-top: 28rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.primary-btn,
+.danger-btn {
+  border-radius: 999rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  border: none;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+  color: #ffffff;
+  box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
+}
+
+.danger-btn {
+  background: #fff1f0;
+  color: #e54545;
+}

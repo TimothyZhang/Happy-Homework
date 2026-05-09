@@ -1,14 +1,4 @@
-.field + .field {
-  margin-top: 20rpx;
-}
-
-.save-btn {
-  margin-top: 24rpx;
-}
-
-.header-card {
-  position: relative;
-}
+.header-card { position: relative; }
 
 .header-actions {
   display: flex;
@@ -56,110 +46,143 @@
   color: #6b7785;
 }
 
-.group-card {
-  margin-top: 24rpx;
-}
-
 .link-btn {
   font-size: 26rpx;
   color: #245bdb;
 }
 
-/* === 作业卡片(参考首页风格) === */
-.subject-group {
-  margin-top: 24rpx;
-}
-
-.subject-group:first-child {
-  margin-top: 12rpx;
-}
-
-.subject-header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: 0 4rpx 12rpx;
-}
-
-.subject-label {
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #245bdb;
-}
-
-.subject-count {
-  font-size: 22rpx;
-  color: #8a96a3;
-}
-
-.mgmt-task {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  padding: 16rpx 18rpx;
-  margin-top: 10rpx;
-  border-radius: 20rpx;
-  background: #f8fafc;
+/* === notebook card === */
+.notebook-card {
+  margin-top: 16rpx;
+  padding: 24rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
+  box-shadow: 0 8rpx 24rpx rgba(31, 35, 41, 0.06);
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
-.mgmt-task.is-dragging {
+.notebook-card.is-dragging {
   transition: none;
-  background: #ffffff;
-  box-shadow: 0 12rpx 32rpx rgba(31, 35, 41, 0.15);
+  box-shadow: 0 16rpx 40rpx rgba(31, 35, 41, 0.18);
   transform: scale(1.02);
 }
 
-.mgmt-body {
+.notebook-card.active-today {
+  border-left: 8rpx solid #245bdb;
+  padding-left: 18rpx;
+}
+
+.nb-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14rpx;
+}
+
+.nb-body {
   flex: 1;
   min-width: 0;
 }
 
-.mgmt-content {
-  display: block;
-  font-size: 28rpx;
-  font-weight: 500;
-  color: #1f2329;
-  line-height: 1.4;
+.nb-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
 }
 
-.mgmt-chips {
+.nb-name {
+  flex: 1;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.nb-mode {
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  white-space: nowrap;
+}
+
+.mode-one-shot {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.mode-recurring {
+  background: #ddeafd;
+  color: #1546b5;
+}
+
+.nb-chips {
   display: flex;
   flex-wrap: wrap;
   gap: 8rpx;
-  margin-top: 10rpx;
+  margin-top: 12rpx;
 }
 
 .chip {
   padding: 4rpx 14rpx;
   border-radius: 999rpx;
-  font-size: 20rpx;
+  font-size: 22rpx;
   line-height: 1.5;
+  background: #f7f8fa;
+  color: #5f6b7a;
   white-space: nowrap;
 }
 
-.est-chip {
-  background: #f7f8fa;
+.subject-chip {
+  background: #eef4ff;
+  color: #245bdb;
+  font-weight: 600;
+}
+
+.rec-chip {
+  background: #f0e9ff;
+  color: #6c3fdb;
+}
+
+.range-chip {
+  background: #f3f6fa;
   color: #6b7785;
 }
 
-.doing-chip {
-  background: #eef4ff;
-  color: #245bdb;
-}
-
-.paused-chip {
-  background: #fff3e6;
-  color: #ff8c1a;
-}
-
-.done-chip {
+.today-chip {
   background: #e8f7ee;
   color: #067647;
+  font-weight: 700;
 }
 
-.mgmt-actions {
+.nb-progress {
   display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin-top: 18rpx;
+}
+
+.progress-track {
+  flex: 1;
+  height: 12rpx;
+  background: #edf0f3;
+  border-radius: 999rpx;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #245bdb 0%, #07c160 100%);
+  border-radius: 999rpx;
+}
+
+.progress-text {
+  font-size: 22rpx;
+  color: #6b7785;
+  white-space: nowrap;
+}
+
+.nb-actions {
+  display: flex;
+  flex-direction: column;
   gap: 12rpx;
   flex-shrink: 0;
 }
@@ -175,10 +198,31 @@
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
 }
 
-.edit-btn {
-  background: #eef4ff;
+.edit-btn { background: #eef4ff; }
+.del-btn { background: #fff1f0; }
+
+.page {
+  min-height: 100vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
 }
 
-.del-btn {
-  background: #fff1f0;
+.card {
+  background: #ffffff;
+  border-radius: 28rpx;
+  padding: 28rpx;
+  box-shadow: 0 16rpx 48rpx rgba(31, 35, 41, 0.08);
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1f2329;
 }

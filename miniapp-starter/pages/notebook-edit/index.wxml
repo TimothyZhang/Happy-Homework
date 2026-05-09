@@ -1,0 +1,82 @@
+<view class="page">
+  <view class="card">
+    <view class="field">
+      <text class="field-label">作业本名称</text>
+      <input class="input" placeholder="例：语文 · 第3单元 / 数学 · 每日口算" value="{{name}}" bindinput="handleNameInput" />
+    </view>
+
+    <view class="field">
+      <text class="field-label">科目</text>
+      <picker mode="selector" range="{{subjectOptions}}" value="{{subjectIndex}}" bindchange="handleSubjectChange">
+        <view class="picker-value">{{subject}}</view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <text class="field-label">类型</text>
+      <view class="seg">
+        <view wx:for="{{modeOptions}}" wx:key="key"
+              class="seg-item {{mode === item.key ? 'active' : ''}}"
+              data-mode="{{item.key}}"
+              bindtap="handleModeChange">{{item.label}}</view>
+      </view>
+    </view>
+
+    <view class="field">
+      <text class="field-label">开始日期</text>
+      <picker mode="date" value="{{startDate}}" bindchange="handleStartDateChange">
+        <view class="picker-value">{{startDate}}</view>
+      </picker>
+    </view>
+
+    <block wx:if="{{mode === 'one-shot'}}">
+      <view class="field">
+        <text class="field-label">结束日期（截止）</text>
+        <picker mode="date" value="{{endDate}}" start="{{startDate}}" bindchange="handleEndDateChange">
+          <view class="picker-value">{{endDate}}</view>
+        </picker>
+      </view>
+      <text class="hint">作业本里每项作业都会出现在这一天的「今日作业」里。</text>
+    </block>
+
+    <block wx:if="{{mode === 'recurring'}}">
+      <view class="field">
+        <text class="field-label">重复</text>
+        <view class="seg">
+          <view wx:for="{{recurTypeOptions}}" wx:key="key"
+                class="seg-item {{recurType === item.key ? 'active' : ''}}"
+                data-type="{{item.key}}"
+                bindtap="handleRecurTypeChange">{{item.label}}</view>
+        </view>
+      </view>
+
+      <view wx:if="{{recurType === 'weekly'}}" class="field">
+        <text class="field-label">每周</text>
+        <view class="weekday-row">
+          <view wx:for="{{weekdays}}" wx:key="value"
+                class="wd-chip {{recurWeekdays.indexOf(item.value) >= 0 ? 'active' : ''}}"
+                data-value="{{item.value}}"
+                bindtap="handleToggleWeekday">周{{item.label}}</view>
+        </view>
+      </view>
+
+      <view class="field row-field">
+        <text class="field-label">长期有效</text>
+        <switch checked="{{openEnded}}" bindchange="handleToggleOpenEnded" color="#245bdb" />
+      </view>
+
+      <view wx:if="{{!openEnded}}" class="field">
+        <text class="field-label">结束日期</text>
+        <picker mode="date" value="{{endDate}}" start="{{startDate}}" bindchange="handleEndDateChange">
+          <view class="picker-value">{{endDate || '请选择'}}</view>
+        </picker>
+      </view>
+      <text class="hint">每个出现的日期都会生成一份新的「今日作业」实例，状态独立。</text>
+    </block>
+  </view>
+
+  <view class="actions">
+    <button class="primary-btn" bindtap="handleSave">{{isEdit ? '保存修改' : '新建作业本'}}</button>
+    <button wx:if="{{isEdit}}" class="danger-btn" bindtap="handleDelete">删除作业本</button>
+  </view>
+</view>

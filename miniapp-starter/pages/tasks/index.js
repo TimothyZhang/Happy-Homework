@@ -1,53 +1,61 @@
 const store = require('../../utils/store')
 
-const DEFAULT_FORM = {
-  subject: '语文',
-  content: '',
-  estimatedMinutes: ''
+const WEEKDAY_NAMES = ['一', '二', '三', '四', '五', '六', '日']
+
+function describeRecurrence(nb) {
+  if (!nb.recurrence) return '每日'
+  if (nb.recurrence.type === 'daily') return '每日'
+  if (nb.recurrence.type === 'weekly') {
+    const wds = (nb.recurrence.weekdays || []).slice().sort()
+    if (!wds.length) return '每周（未选日）'
+    return '每周' + wds.map((w) => WEEKDAY_NAMES[w - 1]).join('、')
+  }
+  return ''
 }
 
-const PRIMARY_SUBJECTS = ['语文', '数学', '英语']
-
-function groupTasksBySubject(tasks) {
-  const buckets = new Map()
-  for (const subject of PRIMARY_SUBJECTS) buckets.set(subject, [])
-  buckets.set('其他', [])
-  for (const task of tasks) {
-    const key = PRIMARY_SUBJECTS.includes(task.subject) ? task.subject : '其他'
-    buckets.get(key).push(task)
+function describeRange(nb) {
+  if (nb.mode === 'one-shot') {
+    const start = nb.startDate
+    const end = nb.endDate || nb.startDate
+    if (start === end) return `${end}`
+    return `${start} → ${end}`
   }
-  const groups = []
-  for (const [subject, items] of buckets) {
-    if (items.length === 0) continue
-    groups.push({ subject, tasks: items })
-  }
-  return groups
+  const tail = nb.endDate ? `→ ${nb.endDate}` : '→ 长期'
+  return `${nb.startDate} ${tail}`
 }
 
-function buildShareText(groups) {
-  if (!groups || groups.length === 0) return '今日还没有作业'
-  const lines = ['📚 今日作业']
-  for (const group of groups) {
-    lines.push('')
-    lines.push(`【${group.subject}】`)
-    group.tasks.forEach((task, i) => {
-      lines.push(`${i + 1}. ${task.content}`)
-    })
+function decorateNotebook(nb, allTasks) {
+  const tasks = allTasks.filter((t) => t.notebookId === nb.id)
+  const today = store.todayStr()
+  const activeToday = store.isNotebookActiveOn(nb, today)
+  // Count overall completion for one-shot, today's completion for recurring
+  let doneCount = 0
+  let totalCount = tasks.length
+  if (nb.mode === 'one-shot') {
+    doneCount = tasks.filter((t) => (t.status || 'todo') === 'done').length
+  } else {
+    doneCount = tasks.filter((t) => {
+      const occ = (t.occurrences || {})[today]
+      return occ && occ.status === 'done'
+    }).length
   }
-  return lines.join('\n')
+  return {
+    ...nb,
+    taskCount: totalCount,
+    doneCount,
+    progressPercent: totalCount ? Math.round((doneCount / totalCount) * 100) : 0,
+    modeLabel: nb.mode === 'recurring' ? '重复' : '一次性',
+    rangeLabel: describeRange(nb),
+    recurrenceLabel: nb.mode === 'recurring' ? describeRecurrence(nb) : '',
+    activeToday
+  }
 }
 
 Page({
   data: {
-    tasks: [],
-    groupedTasks: [],
-    doneCount: 0,
-    editingId: null,
-    formVisible: false,
+    notebooks: [],
     dragId: null,
-    dragDy: 0,
-    subjectOptions: ['语文', '数学', '英语', '科学', '道法', '其他'],
-    form: { ...DEFAULT_FORM }
+    dragDy: 0
   },
 
   onShow() {
@@ -56,95 +64,36 @@ Page({
 
   refreshState() {
     const state = store.getStateWithComputed()
-    const editingTask = state.tasks.find((task) => task.id === state.editTaskId)
-    this.setData({
-      tasks: state.tasks,
-      groupedTasks: groupTasksBySubject(state.tasks),
-      doneCount: state.tasks.filter((task) => task.status === 'done').length,
-      editingId: state.editTaskId,
-      form: editingTask
-        ? {
-            subject: editingTask.subject,
-            content: editingTask.content,
-            estimatedMinutes: String(editingTask.estimatedMinutes)
-          }
-        : { ...DEFAULT_FORM }
-    })
+    const sorted = [...state.notebooks].sort((a, b) => (a.order || 0) - (b.order || 0))
+    const notebooks = sorted.map((nb) => decorateNotebook(nb, state.tasks))
+    this.setData({ notebooks })
   },
 
-  handleSubjectChange(event) {
-    const subject = this.data.subjectOptions[event.detail.value]
-    this.setData({ 'form.subject': subject })
+  handleAddNotebook() {
+    wx.navigateTo({ url: '/pages/notebook-edit/index' })
   },
 
-  handleContentInput(event) {
-    this.setData({ 'form.content': event.detail.value })
-  },
-
-  handleMinutesInput(event) {
-    this.setData({ 'form.estimatedMinutes': event.detail.value })
-  },
-
-  handleShowAdd() {
-    if (this.data.editingId) store.clearEditTaskId()
-    this.setData({
-      formVisible: true,
-      editingId: null,
-      form: { ...DEFAULT_FORM }
-    })
-    setTimeout(() => wx.pageScrollTo({ scrollTop: 9999, duration: 200 }), 80)
-  },
-
-  handleHideForm() {
-    if (this.data.editingId) store.clearEditTaskId()
-    this.setData({ formVisible: false, editingId: null })
-  },
-
-  handleSaveTask() {
-    const { form, editingId } = this.data
-    if (!form.content || !form.estimatedMinutes) {
-      wx.showToast({ title: '请先补全内容和时长', icon: 'none' })
-      return
-    }
-    const payload = {
-      subject: form.subject,
-      content: form.content,
-      estimatedMinutes: Number(form.estimatedMinutes)
-    }
-    if (editingId) {
-      store.updateTask(editingId, payload)
-      store.clearEditTaskId()
-      this.setData({ formVisible: false, editingId: null })
-      this.refreshState()
-      wx.showToast({ title: '已更新', icon: 'success' })
-      return
-    }
-    store.addTask(payload)
-    this.setData({ formVisible: false })
-    this.refreshState()
-    wx.showToast({ title: '已新增', icon: 'success' })
-  },
-
-  handleEditTask(event) {
+  handleOpenNotebook(event) {
     const { id } = event.currentTarget.dataset
-    store.setEditTaskId(id)
-    this.setData({ formVisible: true })
-    this.refreshState()
-    setTimeout(() => wx.pageScrollTo({ scrollTop: 9999, duration: 200 }), 80)
+    wx.navigateTo({ url: `/pages/notebook-detail/index?id=${id}` })
   },
 
-  handleDeleteTask(event) {
+  handleEditNotebook(event) {
     const { id } = event.currentTarget.dataset
+    wx.navigateTo({ url: `/pages/notebook-edit/index?id=${id}` })
+  },
+
+  handleDeleteNotebook(event) {
+    const { id } = event.currentTarget.dataset
+    const nb = this.data.notebooks.find((n) => n.id === id)
+    if (!nb) return
     wx.showModal({
-      title: '删除作业',
-      content: '删掉后就不会出现在今天排期里了。',
+      title: `删除作业本「${nb.name}」？`,
+      content: `本里 ${nb.taskCount} 项作业也会一起删除。`,
+      confirmColor: '#e54545',
       success: (res) => {
         if (res.confirm) {
-          store.deleteTask(id)
-          if (this.data.editingId === id) {
-            store.clearEditTaskId()
-            this.setData({ formVisible: false, editingId: null })
-          }
+          store.deleteNotebook(id)
           this.refreshState()
           wx.showToast({ title: '已删除', icon: 'success' })
         }
@@ -152,41 +101,22 @@ Page({
     })
   },
 
-  // === 分享 === //
-
-  handleCopyToClipboard() {
-    const text = buildShareText(this.data.groupedTasks)
-    wx.setClipboardData({
-      data: text,
-      success: () => wx.showToast({ title: '已复制，可去微信粘贴', icon: 'success', duration: 2000 })
-    })
+  handleViewCalendar() {
+    wx.switchTab({ url: '/pages/calendar/index' })
   },
 
-  // 微信右上角「转发」+ open-type=share 都会触发这里
-  onShareAppMessage() {
-    const total = this.data.tasks.length
-    const title = total > 0 ? `今日有 ${total} 项作业` : '今日作业'
-    return {
-      title,
-      path: '/pages/tasks/index'
-    }
-  },
-
-  // === 拖拽排序(同科目内) === //
+  // === Drag-reorder notebooks === //
 
   handleLongPress(event) {
-    const { id, subject } = event.currentTarget.dataset
+    const { id } = event.currentTarget.dataset
     if (event.touches && event.touches[0]) {
       this.dragStartY = event.touches[0].pageY
     }
-    this.dragSubject = subject
     if (!this.itemHeightPx) {
-      const query = wx.createSelectorQuery()
-      query.select('.mgmt-task').boundingClientRect()
-      query.exec((rects) => {
-        if (rects && rects[0]) {
-          this.itemHeightPx = rects[0].height + 10
-        }
+      const q = wx.createSelectorQuery()
+      q.select('.notebook-card').boundingClientRect()
+      q.exec((rects) => {
+        if (rects && rects[0]) this.itemHeightPx = rects[0].height + 16
       })
     }
     this.setData({ dragId: id, dragDy: 0 })
@@ -202,28 +132,19 @@ Page({
     if (!t) return
     const dy = t.pageY - this.dragStartY
     if (Math.abs(dy - this.data.dragDy) < 2) return
-
-    const itemH = this.itemHeightPx || 140
+    const itemH = this.itemHeightPx || 200
+    const list = this.data.notebooks
+    const draggedIdx = list.findIndex((n) => n.id === this.data.dragId)
     const slotsDelta = Math.round(dy / itemH)
-    const subject = this.dragSubject
-    // 只在拖拽来源 group 内挪卡片让位;其它 group 完全不动
-    const updatedGroups = this.data.groupedTasks.map((g) => {
-      if (g.subject !== subject) return g
-      const draggedIdx = g.tasks.findIndex((task) => task.id === this.data.dragId)
-      const hoverIdx = Math.max(0, Math.min(g.tasks.length - 1, draggedIdx + slotsDelta))
-      const tasks = g.tasks.map((task, i) => {
-        if (task.id === this.data.dragId) return task
-        let shiftY = 0
-        if (draggedIdx < hoverIdx && i > draggedIdx && i <= hoverIdx) {
-          shiftY = -itemH
-        } else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) {
-          shiftY = itemH
-        }
-        return { ...task, shiftY }
-      })
-      return { ...g, tasks }
+    const hoverIdx = Math.max(0, Math.min(list.length - 1, draggedIdx + slotsDelta))
+    const updated = list.map((n, i) => {
+      if (n.id === this.data.dragId) return n
+      let shiftY = 0
+      if (draggedIdx < hoverIdx && i > draggedIdx && i <= hoverIdx) shiftY = -itemH
+      else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) shiftY = itemH
+      return { ...n, shiftY }
     })
-    this.setData({ groupedTasks: updatedGroups, dragDy: dy })
+    this.setData({ notebooks: updated, dragDy: dy })
   },
 
   handleTouchEnd() {
@@ -233,44 +154,64 @@ Page({
     }
     const dragId = this.data.dragId
     const dragDy = this.data.dragDy
-    const itemH = this.itemHeightPx || 140
+    const itemH = this.itemHeightPx || 200
+    const list = this.data.notebooks
+    const fromIdx = list.findIndex((n) => n.id === dragId)
     const slotsDelta = Math.round(dragDy / itemH)
-    const subject = this.dragSubject
+    const toIdx = Math.max(0, Math.min(list.length - 1, fromIdx + slotsDelta))
 
-    let didReorder = false
-    const group = this.data.groupedTasks.find((g) => g.subject === subject)
-    if (group && slotsDelta !== 0) {
-      const fromIdx = group.tasks.findIndex((t) => t.id === dragId)
-      const toIdx = Math.max(0, Math.min(group.tasks.length - 1, fromIdx + slotsDelta))
-      if (fromIdx !== -1 && fromIdx !== toIdx) {
-        const newGroupTasks = [...group.tasks]
-        const [moved] = newGroupTasks.splice(fromIdx, 1)
-        newGroupTasks.splice(toIdx, 0, moved)
-        const flatIds = []
-        for (const g of this.data.groupedTasks) {
-          if (g.subject === subject) {
-            for (const t of newGroupTasks) flatIds.push(t.id)
-          } else {
-            for (const t of g.tasks) flatIds.push(t.id)
-          }
-        }
-        store.reorderTasks(flatIds)
-        this.refreshState()
-        didReorder = true
-      }
+    if (fromIdx !== -1 && fromIdx !== toIdx) {
+      const ids = list.map((n) => n.id)
+      const [moved] = ids.splice(fromIdx, 1)
+      ids.splice(toIdx, 0, moved)
+      store.reorderNotebooks(ids)
+      this.refreshState()
+    } else {
+      const reset = list.map((n) => ({ ...n, shiftY: 0 }))
+      this.setData({ notebooks: reset })
     }
-
-    if (!didReorder) {
-      // 没换槽 —— 把所有 shiftY 清掉,卡片平滑归位
-      const reset = this.data.groupedTasks.map((g) => ({
-        ...g,
-        tasks: g.tasks.map((t) => ({ ...t, shiftY: 0 }))
-      }))
-      this.setData({ groupedTasks: reset })
-    }
-
     this.dragStartY = null
-    this.dragSubject = null
     this.setData({ dragId: null, dragDy: 0 })
+  },
+
+  // === Share === //
+
+  handleCopyToClipboard() {
+    const today = store.todayStr()
+    const state = store.getStateWithComputed()
+    const items = store.tasksForDate(state, today)
+    if (items.length === 0) {
+      wx.setClipboardData({
+        data: '今天还没有作业',
+        success: () => wx.showToast({ title: '已复制', icon: 'success' })
+      })
+      return
+    }
+    const lines = [`📚 ${today} 作业`]
+    const byNotebook = new Map()
+    for (const it of items) {
+      const arr = byNotebook.get(it.notebook.id) || []
+      arr.push(it)
+      byNotebook.set(it.notebook.id, arr)
+    }
+    for (const [, arr] of byNotebook) {
+      lines.push('')
+      lines.push(`【${arr[0].notebook.name}】`)
+      arr.forEach((it, i) => lines.push(`${i + 1}. ${it.task.content}`))
+    }
+    wx.setClipboardData({
+      data: lines.join('\n'),
+      success: () => wx.showToast({ title: '已复制，可粘贴分享', icon: 'success', duration: 2000 })
+    })
+  },
+
+  onShareAppMessage() {
+    const state = store.getStateWithComputed()
+    const items = store.tasksForDate(state, store.todayStr())
+    const total = items.length
+    return {
+      title: total > 0 ? `今日有 ${total} 项作业` : '今日作业',
+      path: '/pages/tasks/index'
+    }
   }
 })

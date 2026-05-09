@@ -1,0 +1,244 @@
+.page {
+  min-height: 100vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 28rpx;
+  padding: 24rpx;
+  box-shadow: 0 16rpx 48rpx rgba(31, 35, 41, 0.08);
+}
+
+.month-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f3f6fa;
+  padding: 12rpx 14rpx;
+  border-radius: 18rpx;
+}
+
+.m-btn {
+  width: 64rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 14rpx;
+  color: #245bdb;
+  font-weight: 700;
+  font-size: 22rpx;
+}
+
+.m-label {
+  flex: 1;
+  text-align: center;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.m-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12rpx;
+}
+
+.link-pill {
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  background: #eef4ff;
+  color: #245bdb;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.weekday-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4rpx;
+  margin-top: 18rpx;
+}
+
+.wh-cell {
+  text-align: center;
+  font-size: 22rpx;
+  color: #6b7785;
+  padding: 8rpx 0;
+}
+
+.cal-grid {
+  margin-top: 4rpx;
+}
+
+.cal-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4rpx;
+}
+
+.cal-cell {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fafbfd;
+  border-radius: 16rpx;
+  padding: 4rpx;
+  box-sizing: border-box;
+}
+
+.cal-cell.empty {
+  background: transparent;
+}
+
+.cal-cell.is-today {
+  background: #fff5e6;
+}
+
+.cal-cell.is-selected {
+  background: #245bdb;
+  color: #ffffff;
+}
+
+.cal-cell.is-selected .day-num,
+.cal-cell.is-selected .count-bubble.pending,
+.cal-cell.is-selected .count-bubble.done {
+  color: #ffffff;
+}
+
+.day-num {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
+.day-counts {
+  margin-top: 6rpx;
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+}
+
+.count-bubble {
+  min-width: 28rpx;
+  height: 28rpx;
+  padding: 0 8rpx;
+  border-radius: 999rpx;
+  font-size: 18rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+}
+
+.count-bubble.pending { color: #b42318; background: #fde2e2; }
+.count-bubble.done { color: #067647; background: #e8f7ee; }
+
+.overdue-dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: #b42318;
+}
+
+/* === selected day list === */
+.list-card {
+  margin-top: 24rpx;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 16rpx;
+}
+
+.list-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.list-count {
+  font-size: 22rpx;
+  color: #8a96a3;
+}
+
+.empty {
+  text-align: center;
+  padding: 40rpx 0;
+  font-size: 26rpx;
+  color: #8a96a3;
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin-top: 12rpx;
+  padding: 16rpx;
+  background: #f8fafc;
+  border-radius: 22rpx;
+}
+
+.dot {
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 50%;
+  background: #e54545;
+  flex-shrink: 0;
+}
+
+.task-row.doing .dot { background: #245bdb; }
+.task-row.paused .dot { background: #ff8c1a; }
+.task-row.done .dot { background: #07c160; }
+
+.row-body { flex: 1; min-width: 0; }
+
+.row-content {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 500;
+  color: #1f2329;
+  line-height: 1.4;
+}
+
+.row-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin-top: 8rpx;
+}
+
+.chip {
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  background: #edf0f3;
+  color: #5f6b7a;
+  white-space: nowrap;
+}
+
+.nb-chip { background: #eef4ff; color: #245bdb; font-weight: 600; }
+.est-chip { background: #f7f8fa; color: #6b7785; }
+.overdue-chip { background: #fde2e2; color: #b42318; font-weight: 700; }
+
+.status-pill {
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.status-pill.status-done { background: #e8f7ee; color: #067647; }
+.status-pill.status-doing { background: #eef4ff; color: #245bdb; }
+.status-pill.status-paused { background: #fff3e6; color: #b26a00; }
+.status-pill.status-todo { background: #ffe5e5; color: #b42318; }

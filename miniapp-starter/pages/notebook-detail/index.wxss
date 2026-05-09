@@ -1,0 +1,245 @@
+.page {
+  min-height: 100vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 28rpx;
+  padding: 28rpx;
+  box-shadow: 0 16rpx 48rpx rgba(31, 35, 41, 0.08);
+}
+
+.header-card { padding-bottom: 22rpx; }
+
+.nb-summary {
+  display: block;
+  font-size: 24rpx;
+  color: #6b7785;
+}
+
+.day-switcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14rpx;
+  padding: 12rpx 14rpx;
+  background: #f3f6fa;
+  border-radius: 18rpx;
+}
+
+.day-btn {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 14rpx;
+  font-size: 22rpx;
+  color: #245bdb;
+  font-weight: 700;
+}
+
+.day-label {
+  flex: 1;
+  text-align: center;
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.off-tag {
+  margin-top: 12rpx;
+  padding: 10rpx 14rpx;
+  background: #fff5e6;
+  color: #b26a00;
+  font-size: 22rpx;
+  border-radius: 14rpx;
+  text-align: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 18rpx;
+}
+
+.header-actions .primary-btn,
+.header-actions .ghost-btn {
+  flex: 1;
+  padding: 0 16rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  border: none;
+  margin: 0;
+}
+
+.header-actions .primary-btn {
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+  color: #ffffff;
+  box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
+}
+
+.header-actions .ghost-btn {
+  background: #eef4ff;
+  color: #245bdb;
+}
+
+.empty-state {
+  padding: 40rpx 24rpx;
+  text-align: center;
+}
+
+.empty-emoji { display: block; font-size: 72rpx; }
+.empty-text { display: block; margin-top: 16rpx; font-size: 26rpx; color: #6b7785; }
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  margin-top: 12rpx;
+  padding: 18rpx;
+  background: #ffffff;
+  border-radius: 22rpx;
+  box-shadow: 0 6rpx 18rpx rgba(31, 35, 41, 0.06);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.task-row.is-dragging {
+  transition: none;
+  transform: scale(1.02);
+  box-shadow: 0 16rpx 40rpx rgba(31, 35, 41, 0.18);
+}
+
+.dot {
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 50%;
+  background: #e54545;
+  flex-shrink: 0;
+}
+
+.task-row.doing .dot { background: #245bdb; }
+.task-row.paused .dot { background: #ff8c1a; }
+.task-row.done .dot { background: #07c160; }
+
+.row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-content {
+  display: block;
+  font-size: 28rpx;
+  color: #1f2329;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.row-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin-top: 8rpx;
+}
+
+.chip {
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  white-space: nowrap;
+  background: #f7f8fa;
+  color: #6b7785;
+}
+
+.elapsed-chip {
+  background: #eef4ff;
+  color: #245bdb;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  color: #ffffff;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
+}
+
+.icon-btn.start-btn { background: #e54545; }
+.icon-btn.resume-btn { background: #ff8c1a; }
+.icon-btn.pause-btn { background: #245bdb; letter-spacing: 1rpx; }
+.icon-btn.finish-btn { background: #07c160; font-size: 32rpx; }
+.icon-btn.done-mark { background: #e8f7ee; color: #067647; box-shadow: none; font-size: 32rpx; }
+.icon-btn.edit-btn { background: #eef4ff; color: #245bdb; }
+.icon-btn.del-btn { background: #fff1f0; color: #e54545; }
+
+.form-card {
+  margin-top: 24rpx;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.link-btn {
+  font-size: 26rpx;
+  color: #245bdb;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  margin-top: 18rpx;
+}
+
+.field-label {
+  font-size: 26rpx;
+  color: #6b7785;
+}
+
+.input,
+.textarea {
+  padding: 18rpx 22rpx;
+  border-radius: 18rpx;
+  background: #f7f8fa;
+  font-size: 28rpx;
+  color: #1f2329;
+}
+
+.textarea {
+  min-height: 96rpx;
+}
+
+.save-btn {
+  margin-top: 24rpx;
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+  color: #ffffff;
+  border-radius: 999rpx;
+  border: none;
+  font-size: 30rpx;
+  font-weight: 600;
+}

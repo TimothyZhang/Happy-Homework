@@ -1,0 +1,70 @@
+<page-meta page-style="{{dragId ? 'overflow: hidden;' : ''}}" />
+<view class="page">
+  <view class="card header-card">
+    <text class="nb-summary">{{notebookSummary}}</text>
+    <view class="day-switcher">
+      <view class="day-btn" bindtap="handlePrevDay">◀</view>
+      <picker mode="date" value="{{activeDate}}" bindchange="handlePickDate">
+        <view class="day-label">{{activeDateLabel}}</view>
+      </picker>
+      <view class="day-btn" bindtap="handleNextDay">▶</view>
+    </view>
+    <view wx:if="{{!activeOnDate}}" class="off-tag">这一天作业本不出现 · 仅供查看</view>
+    <view class="header-actions">
+      <button class="primary-btn" bindtap="handleShowAdd">+ 新增作业</button>
+      <button class="ghost-btn" bindtap="handleJumpToday">回到今日</button>
+    </view>
+  </view>
+
+  <view wx:if="{{tasks.length === 0}}" class="card">
+    <view class="empty-state">
+      <text class="empty-emoji">📝</text>
+      <text class="empty-text">作业本里还没有作业，点上方按钮新增一条吧</text>
+    </view>
+  </view>
+
+  <view wx:for="{{tasks}}" wx:key="id"
+        class="task-row {{item.status}} {{dragId === item.id ? 'is-dragging' : ''}}"
+        style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
+        bindlongpress="handleLongPress"
+        catchtouchmove="handleTouchMove"
+        catchtouchend="handleTouchEnd"
+        catchtouchcancel="handleTouchEnd"
+        data-id="{{item.id}}">
+    <view class="dot"></view>
+    <view class="row-body">
+      <text class="row-content">{{item.content}}</text>
+      <view class="row-chips">
+        <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
+        <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
+      </view>
+    </view>
+    <view class="row-actions">
+      <block wx:if="{{activeOnDate}}">
+        <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" catchtap="handleStart">▶</view>
+        <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" catchtap="handlePause">❚❚</view>
+        <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" catchtap="handleResume">▶</view>
+        <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" catchtap="handleFinish">✓</view>
+        <view wx:if="{{item.status === 'done'}}" class="icon-btn done-mark">✓</view>
+      </block>
+      <view class="icon-btn edit-btn" data-id="{{item.id}}" catchtap="handleEditTask">✏️</view>
+      <view class="icon-btn del-btn" data-id="{{item.id}}" catchtap="handleDeleteTask">🗑</view>
+    </view>
+  </view>
+
+  <view wx:if="{{showForm}}" class="card form-card">
+    <view class="section-header">
+      <text class="section-title">{{editingId ? '编辑作业' : '新增作业'}}</text>
+      <text class="link-btn" bindtap="handleHideForm">取消</text>
+    </view>
+    <view class="field">
+      <text class="field-label">作业内容</text>
+      <textarea class="input textarea" placeholder="例：完成口算练习 2 页" value="{{formContent}}" bindinput="handleContentInput"></textarea>
+    </view>
+    <view class="field">
+      <text class="field-label">预计耗时（分钟）</text>
+      <input class="input" type="number" placeholder="例：20" value="{{formMinutes}}" bindinput="handleMinutesInput" />
+    </view>
+    <button class="save-btn" bindtap="handleSaveTask">{{editingId ? '保存修改' : '保存'}}</button>
+  </view>
+</view>

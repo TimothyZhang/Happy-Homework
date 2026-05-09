@@ -1,19 +1,5 @@
 const store = require('../../utils/store')
 
-// 排序:进行中固定置顶 → 其它未完成(todo/paused)按人工顺序 → 已完成沉底。
-// 配合 auto-pause-others,任何时刻最多一个 doing,自动 pin 在最上方。
-function sortTasks(tasks) {
-  const doing = []
-  const others = []
-  const done = []
-  for (const task of tasks) {
-    if (task.status === 'done') done.push(task)
-    else if (task.status === 'doing') doing.push(task)
-    else others.push(task)
-  }
-  return [...doing, ...others, ...done]
-}
-
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
   const totalSec = Math.floor(ms / 1000)
@@ -22,27 +8,6 @@ function formatElapsed(ms) {
   if (min === 0) return `${sec} 秒`
   if (sec === 0) return `${min} 分钟`
   return `${min} 分 ${sec} 秒`
-}
-
-function decorateTask(task, now) {
-  let elapsedMs = task.accumulatedMs || 0
-  if (task.status === 'doing' && task.currentSegmentStartedAt) {
-    elapsedMs += Math.max(0, now - task.currentSegmentStartedAt)
-  } else if (task.status === 'done' && task.elapsedMs) {
-    elapsedMs = task.elapsedMs
-  }
-  let actualTimeDisplay = ''
-  if (task.actualStart && task.actualEnd) {
-    actualTimeDisplay = `实际 ${task.actualStart}-${task.actualEnd}`
-  } else if (task.actualStart) {
-    actualTimeDisplay = `${task.actualStart} 开始`
-  }
-  return {
-    ...task,
-    elapsedMs,
-    elapsedDisplay: elapsedMs > 0 ? formatElapsed(elapsedMs) : '',
-    actualTimeDisplay
-  }
 }
 
 function formatDuration(minutes) {
@@ -54,208 +19,251 @@ function formatDuration(minutes) {
   return `${h}h${m}m`
 }
 
-function calcRemainingMinutes(tasks) {
-  return tasks
-    .filter((task) => task.status !== 'done')
-    .reduce((sum, task) => sum + Number(task.estimatedMinutes || 0), 0)
+function decorateItem(item, now) {
+  const occ = item.occurrence
+  let elapsedMs = occ.accumulatedMs || 0
+  if (occ.status === 'doing' && occ.currentSegmentStartedAt) {
+    elapsedMs += Math.max(0, now - occ.currentSegmentStartedAt)
+  }
+  return {
+    id: item.task.id,
+    notebookId: item.notebook.id,
+    notebookName: item.notebook.name,
+    subject: item.notebook.subject,
+    content: item.task.content,
+    estimatedMinutes: item.task.estimatedMinutes,
+    status: occ.status,
+    isOverdue: item.isOverdue,
+    elapsedMs,
+    elapsedDisplay: elapsedMs > 0 ? formatElapsed(elapsedMs) : ''
+  }
 }
 
+// Sort: doing on top, then todo/paused (by user order = order in tasksForDate),
+// then done at the bottom.
+function sortItems(items) {
+  const doing = []
+  const others = []
+  const done = []
+  for (const it of items) {
+    if (it.status === 'done') done.push(it)
+    else if (it.status === 'doing') doing.push(it)
+    else others.push(it)
+  }
+  return [...doing, ...others, ...done]
+}
 
 Page({
   data: {
-    tasks: [],
-    sortedTasks: [],
-    lastReward: null,
+    activeDate: '',
+    activeDateLabel: '',
+    isToday: true,
+    canPrev: true,
+    canNext: true,
+    overview: { totalCount: 0, pendingCount: 0, doneCount: 0 },
+    remainingMinutesDisplay: '—',
+    items: [],
     showCongrats: false,
     totalElapsedDisplay: '',
-    remainingMinutesDisplay: '—',
+    lastReward: null,
     dragId: null,
-    dragDy: 0,
-    overview: {
-      pendingCount: 0,
-      progressPercent: 0,
-      doneCount: 0,
-      totalCount: 0
-    }
+    dragDy: 0
   },
 
   onShow() {
+    if (!this.data.activeDate) {
+      this.setData({ activeDate: store.todayStr() })
+    }
     this.refreshState()
     this.startTickerIfNeeded()
   },
+  onHide() { this.stopTicker() },
+  onUnload() { this.stopTicker() },
 
-  onHide() {
-    this.stopTicker()
+  refreshState(opts = {}) {
+    const today = store.todayStr()
+    const activeDate = this.data.activeDate || today
+    const state = store.getStateWithComputed()
+    const now = Date.now()
+    const raw = store.tasksForDate(state, activeDate)
+    const items = sortItems(raw.map((it) => decorateItem(it, now)))
+    const total = items.length
+    const done = items.filter((it) => it.status === 'done').length
+    const pending = total - done
+    const remainingMinutes = items
+      .filter((it) => it.status !== 'done')
+      .reduce((s, it) => s + Number(it.estimatedMinutes || 0), 0)
+    this.setData({
+      activeDate,
+      activeDateLabel: this.formatDateLabel(activeDate, today),
+      isToday: activeDate === today,
+      overview: { totalCount: total, pendingCount: pending, doneCount: done },
+      remainingMinutesDisplay: formatDuration(remainingMinutes),
+      items,
+      lastReward: state.lastReward || null
+    })
+    this.startTickerIfNeeded()
+    if (opts.maybeCelebrate) this.maybeShowCongrats(items)
   },
 
-  onUnload() {
-    this.stopTicker()
-  },
-
-  refreshState() {
-    this.applyState(store.getStateWithComputed())
+  formatDateLabel(date, today) {
+    if (date === today) return `今日 · ${date}`
+    if (date === store.addDays(today, -1)) return `昨日 · ${date}`
+    if (date === store.addDays(today, 1)) return `明日 · ${date}`
+    return date
   },
 
   startTickerIfNeeded() {
     this.stopTicker()
-    const hasRunning = (this.data.tasks || []).some((task) => task.status === 'doing')
+    if (!this.data.isToday) return
+    const hasRunning = (this.data.items || []).some((it) => it.status === 'doing')
     if (!hasRunning) return
     this.tickerId = setInterval(() => {
-      const now = Date.now()
-      const tasks = (this.data.tasks || []).map((task) => decorateTask(task, now))
-      this.setData({ tasks, sortedTasks: sortTasks(tasks) })
-      if (!tasks.some((task) => task.status === 'doing')) {
-        this.stopTicker()
-      }
+      const items = (this.data.items || []).map((it) => {
+        let ms = it.elapsedMs || 0
+        if (it.status === 'doing') ms += 1000
+        return { ...it, elapsedMs: ms, elapsedDisplay: formatElapsed(ms) }
+      })
+      this.setData({ items })
+      if (!items.some((it) => it.status === 'doing')) this.stopTicker()
     }, 1000)
   },
 
   stopTicker() {
-    if (this.tickerId) {
-      clearInterval(this.tickerId)
-      this.tickerId = null
-    }
+    if (this.tickerId) { clearInterval(this.tickerId); this.tickerId = null }
   },
 
-  applyState(state, opts = {}) {
-    const now = Date.now()
-    const decorated = (state.tasks || []).map((task) => decorateTask(task, now))
-    const sortedTasks = sortTasks(decorated)
-    const remainingMinutes = calcRemainingMinutes(decorated)
-    this.setData({
-      tasks: decorated,
-      sortedTasks,
-      overview: state.overview || this.data.overview,
-      lastReward: state.lastReward || null,
-      remainingMinutesDisplay: formatDuration(remainingMinutes)
-    })
-    this.startTickerIfNeeded()
-    if (opts.maybeCelebrate) this.maybeShowCongrats(decorated)
-  },
-
-  maybeShowCongrats(tasks) {
-    if (!tasks || tasks.length === 0) return
-    const allDone = tasks.every((task) => task.status === 'done')
+  maybeShowCongrats(items) {
+    if (!items || items.length === 0) return
+    if (!this.data.isToday) return
+    const allDone = items.every((it) => it.status === 'done')
     if (!allDone) return
-    const totalMs = tasks.reduce((sum, task) => sum + (task.elapsedMs || task.accumulatedMs || 0), 0)
+    const totalMs = items.reduce((s, it) => s + (it.elapsedMs || 0), 0)
     this.setData({
       showCongrats: true,
       totalElapsedDisplay: totalMs > 0 ? formatElapsed(totalMs) : ''
     })
   },
 
-  handleDismissCongrats() {
-    this.setData({ showCongrats: false })
+  handleDismissCongrats() { this.setData({ showCongrats: false }) },
+
+  // === Day switcher === //
+
+  handlePrevDay() {
+    this.setData({ activeDate: store.addDays(this.data.activeDate, -1) })
+    this.refreshState()
   },
 
-  handleAddHomework() {
-    wx.switchTab({
-      url: '/pages/tasks/index'
-    })
+  handleNextDay() {
+    this.setData({ activeDate: store.addDays(this.data.activeDate, 1) })
+    this.refreshState()
   },
 
-  handleManageTasks() {
-    wx.switchTab({
-      url: '/pages/tasks/index'
-    })
+  handleJumpToday() {
+    this.setData({ activeDate: store.todayStr() })
+    this.refreshState()
   },
 
-  handlePhotoImport() {
-    wx.navigateTo({
-      url: '/pages/ocr-import/index'
-    })
+  handleOpenCalendar() {
+    wx.switchTab({ url: '/pages/calendar/index' })
   },
 
-  handleStartTask(event) {
-    const { id } = event.currentTarget.dataset
-    const state = store.startTask(id)
-    this.applyState(state)
-    wx.showToast({ title: '已开始计时', icon: 'success' })
+  // === Task control (locked to active date) === //
+
+  handleStartTask(e) {
+    if (!this.data.isToday) {
+      wx.showToast({ title: '只能在「今日」开始计时', icon: 'none' })
+      return
+    }
+    store.startTask(e.currentTarget.dataset.id, this.data.activeDate)
+    this.refreshState()
+    wx.showToast({ title: '开始啦', icon: 'success' })
   },
 
-  handlePauseTask(event) {
-    const { id } = event.currentTarget.dataset
-    const state = store.pauseTask(id)
-    this.applyState(state)
+  handlePauseTask(e) {
+    store.pauseTask(e.currentTarget.dataset.id, this.data.activeDate)
+    this.refreshState()
     wx.showToast({ title: '已暂停', icon: 'none' })
   },
 
-  handleResumeTask(event) {
-    const { id } = event.currentTarget.dataset
-    const state = store.resumeTask(id)
-    this.applyState(state)
-    wx.showToast({ title: '继续计时', icon: 'success' })
+  handleResumeTask(e) {
+    store.resumeTask(e.currentTarget.dataset.id, this.data.activeDate)
+    this.refreshState()
+    wx.showToast({ title: '继续', icon: 'success' })
   },
 
-  handleFinishTask(event) {
-    const { id } = event.currentTarget.dataset
+  handleFinishTask(e) {
     const before = store.getStateWithComputed()
-    const state = store.finishTask(id)
-    const reward = state.coins - before.coins
-    this.applyState(state, { maybeCelebrate: true })
+    const after = store.finishTask(e.currentTarget.dataset.id, this.data.activeDate)
+    const reward = after.coins - before.coins
+    this.refreshState({ maybeCelebrate: true })
     wx.showToast({
-      title: state.lastReward && state.lastReward.leveledUp ? `+${reward} 金币，升级啦` : `+${reward} 金币`,
+      title: after.lastReward && after.lastReward.leveledUp ? `+${reward} 金币，升级啦` : `+${reward} 金币`,
       icon: 'success'
     })
   },
 
-  // === 拖拽排序 === //
+  // === Navigation === //
 
-  handleLongPress(event) {
-    const { id } = event.currentTarget.dataset
-    // 只允许重排未完成的任务,已完成的不参与
-    const task = this.data.sortedTasks.find((t) => t.id === id)
-    if (!task || task.status === 'done') return
-    if (event.touches && event.touches[0]) {
-      this.dragStartY = event.touches[0].pageY
-    }
-    // 测一次卡片高度,后面用来折算移动到第几项
-    if (!this.itemHeightPx) {
-      const query = wx.createSelectorQuery()
-      query.select('.task-item').boundingClientRect()
-      query.exec((rects) => {
-        if (rects && rects[0]) {
-          // 加上下方间距作为单元高度
-          this.itemHeightPx = rects[0].height + 12
-        }
-      })
-    }
-    this.setData({ dragId: id, dragDy: 0 })
-    if (wx.vibrateShort) {
-      wx.vibrateShort({ type: 'light' })
-    }
+  handleManageTasks() { wx.switchTab({ url: '/pages/tasks/index' }) },
+
+  handleAddHomework() { wx.switchTab({ url: '/pages/tasks/index' }) },
+
+  handlePhotoImport() { wx.navigateTo({ url: '/pages/ocr-import/index' }) },
+
+  handleOpenNotebook(e) {
+    const { notebookId } = e.currentTarget.dataset
+    wx.navigateTo({ url: `/pages/notebook-detail/index?id=${notebookId}` })
   },
 
-  handleTouchMove(event) {
+  // === Drag-reorder (today only, within their notebook) === //
+
+  handleLongPress(e) {
+    if (!this.data.isToday) return
+    const { id } = e.currentTarget.dataset
+    const item = this.data.items.find((it) => it.id === id)
+    if (!item || item.status === 'done') return
+    if (e.touches && e.touches[0]) this.dragStartY = e.touches[0].pageY
+    this.dragNotebookId = item.notebookId
+    if (!this.itemHeightPx) {
+      const q = wx.createSelectorQuery()
+      q.select('.task-row').boundingClientRect()
+      q.exec((rects) => { if (rects && rects[0]) this.itemHeightPx = rects[0].height + 12 })
+    }
+    this.setData({ dragId: id, dragDy: 0 })
+    if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
+  },
+
+  handleTouchMove(e) {
     if (!this.data.dragId || !this.dragStartY) return
     const now = Date.now()
     if (this._lastMoveAt && now - this._lastMoveAt < 16) return
     this._lastMoveAt = now
-    const t = event.touches && event.touches[0]
+    const t = e.touches && e.touches[0]
     if (!t) return
     const dy = t.pageY - this.dragStartY
     if (Math.abs(dy - this.data.dragDy) < 2) return
-
     const itemH = this.itemHeightPx || 140
-    const sorted = this.data.sortedTasks
-    const draggedIdx = sorted.findIndex((task) => task.id === this.data.dragId)
-    const undoneCount = sorted.filter((task) => task.status !== 'done').length
-    // 把当前位置折算到目标槽 0..(undoneCount-1)
+    const list = this.data.items
+    const draggedIdx = list.findIndex((it) => it.id === this.data.dragId)
+    // Only reorder among same-notebook undone items.
+    const sameNbUndone = list.filter((it) => it.notebookId === this.dragNotebookId && it.status !== 'done')
+    const localIdxOf = (id) => sameNbUndone.findIndex((it) => it.id === id)
+    const localFrom = localIdxOf(this.data.dragId)
     const slotsDelta = Math.round(dy / itemH)
-    const hoverIdx = Math.max(0, Math.min(undoneCount - 1, draggedIdx + slotsDelta))
-
-    // 给非拖拽项算 shiftY:中间被「让位」的整体平移一格
-    const updated = sorted.map((task, i) => {
-      if (task.id === this.data.dragId) return task
+    const localTo = Math.max(0, Math.min(sameNbUndone.length - 1, localFrom + slotsDelta))
+    // Map local target back to global hover idx (idx of sameNbUndone[localTo] in list).
+    const targetGlobal = list.findIndex((it) => it.id === sameNbUndone[localTo].id)
+    const updated = list.map((it, i) => {
+      if (it.id === this.data.dragId) return it
       let shiftY = 0
-      if (draggedIdx < hoverIdx && i > draggedIdx && i <= hoverIdx) {
-        shiftY = -itemH
-      } else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) {
-        shiftY = itemH
+      if (it.notebookId === this.dragNotebookId && it.status !== 'done') {
+        if (draggedIdx < targetGlobal && i > draggedIdx && i <= targetGlobal) shiftY = -itemH
+        else if (draggedIdx > targetGlobal && i >= targetGlobal && i < draggedIdx) shiftY = itemH
       }
-      return { ...task, shiftY }
+      return { ...it, shiftY }
     })
-    this.setData({ sortedTasks: updated, dragDy: dy })
+    this.setData({ items: updated, dragDy: dy })
   },
 
   handleTouchEnd() {
@@ -266,24 +274,29 @@ Page({
     const dragId = this.data.dragId
     const dragDy = this.data.dragDy
     const itemH = this.itemHeightPx || 140
-    const sorted = this.data.sortedTasks
-    const fromIdx = sorted.findIndex((t) => t.id === dragId)
-    const undoneCount = sorted.filter((t) => t.status !== 'done').length
+    const list = this.data.items
+    const sameNb = list.filter((it) => it.notebookId === this.dragNotebookId && it.status !== 'done')
+    const localFrom = sameNb.findIndex((it) => it.id === dragId)
     const slotsDelta = Math.round(dragDy / itemH)
-    const toIdx = Math.max(0, Math.min(undoneCount - 1, fromIdx + slotsDelta))
+    const localTo = Math.max(0, Math.min(sameNb.length - 1, localFrom + slotsDelta))
 
-    if (fromIdx !== -1 && fromIdx !== toIdx) {
-      const ids = sorted.map((t) => t.id)
-      const [moved] = ids.splice(fromIdx, 1)
-      ids.splice(toIdx, 0, moved)
-      const state = store.reorderTasks(ids)
-      this.applyState(state)
+    if (localFrom !== -1 && localFrom !== localTo) {
+      // Build new sequence within this notebook (include done at original tail order).
+      const state = store.getStateWithComputed()
+      const allInNb = store.tasksOfNotebook(state, this.dragNotebookId)
+      const undoneIds = sameNb.map((it) => it.id)
+      const [moved] = undoneIds.splice(localFrom, 1)
+      undoneIds.splice(localTo, 0, moved)
+      // Keep done tasks where they were (at end).
+      const doneIds = allInNb.filter((t) => !undoneIds.includes(t.id)).map((t) => t.id)
+      const finalIds = [...undoneIds, ...doneIds]
+      store.reorderTasksInNotebook(this.dragNotebookId, finalIds)
+      this.refreshState()
     } else {
-      // 没换槽 —— 让其它卡片从 shiftY 平滑归位
-      const reset = sorted.map((t) => ({ ...t, shiftY: 0 }))
-      this.setData({ sortedTasks: reset })
+      this.setData({ items: list.map((it) => ({ ...it, shiftY: 0 })) })
     }
     this.dragStartY = null
+    this.dragNotebookId = null
     this.setData({ dragId: null, dragDy: 0 })
   }
 })

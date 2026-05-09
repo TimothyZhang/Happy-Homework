@@ -1,0 +1,56 @@
+<view class="page">
+  <view class="card">
+    <view class="month-bar">
+      <view class="m-btn" bindtap="handlePrevMonth">◀</view>
+      <text class="m-label">{{monthLabel}}</text>
+      <view class="m-btn" bindtap="handleNextMonth">▶</view>
+    </view>
+    <view class="m-actions">
+      <view class="link-pill" bindtap="handleToday">回到今日</view>
+    </view>
+
+    <view class="weekday-header">
+      <text wx:for="{{weekdayHeaders}}" wx:key="*this" class="wh-cell">{{item}}</text>
+    </view>
+
+    <view class="cal-grid">
+      <view wx:for="{{weeks}}" wx:for-item="week" wx:key="index" class="cal-row">
+        <view wx:for="{{week}}" wx:for-item="cell" wx:key="day"
+              class="cal-cell {{cell ? '' : 'empty'}} {{cell.isToday ? 'is-today' : ''}} {{selectedDate === cell.dateStr ? 'is-selected' : ''}}"
+              data-date="{{cell ? cell.dateStr : ''}}"
+              bindtap="handlePickDay">
+          <block wx:if="{{cell}}">
+            <text class="day-num">{{cell.day}}</text>
+            <view wx:if="{{cell.total > 0}}" class="day-counts">
+              <view class="count-bubble {{cell.pending > 0 ? 'pending' : 'done'}}">{{cell.pending > 0 ? cell.pending : '✓'}}</view>
+              <view wx:if="{{cell.hasOverdue}}" class="overdue-dot"></view>
+            </view>
+          </block>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card list-card">
+    <view class="list-header">
+      <text class="list-title">{{selectedLabel}}</text>
+      <text class="list-count">{{selectedItems.length}} 项</text>
+    </view>
+    <view wx:if="{{selectedItems.length === 0}}" class="empty">这一天没有作业</view>
+    <view wx:for="{{selectedItems}}" wx:key="id"
+          class="task-row {{item.status}}"
+          data-notebook-id="{{item.notebookId}}"
+          bindtap="handleOpenNotebook">
+      <view class="dot"></view>
+      <view class="row-body">
+        <text class="row-content">{{item.content}}</text>
+        <view class="row-chips">
+          <text class="chip nb-chip">{{item.notebookName}}</text>
+          <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
+          <text wx:if="{{item.isOverdue}}" class="chip overdue-chip">逾期</text>
+        </view>
+      </view>
+      <view class="status-pill status-{{item.status}}">{{item.status === 'done' ? '完成' : (item.status === 'doing' ? '进行' : (item.status === 'paused' ? '暂停' : '未做'))}}</view>
+    </view>
+  </view>
+</view>

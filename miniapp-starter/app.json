@@ -1,10 +1,12 @@
 {
   "pages": [
     "pages/home/index",
+    "pages/tasks/index",
+    "pages/calendar/index",
+    "pages/notebook-edit/index",
+    "pages/notebook-detail/index",
     "pages/ocr-import/index",
     "pages/ocr-result/index",
-    "pages/tasks/index",
-    "pages/plan/index",
     "pages/pet/index",
     "pages/profile/index",
     "pages/stats/index"
@@ -34,11 +36,11 @@
       },
       {
         "pagePath": "pages/tasks/index",
-        "text": "作业"
+        "text": "作业本"
       },
       {
-        "pagePath": "pages/plan/index",
-        "text": "排期"
+        "pagePath": "pages/calendar/index",
+        "text": "日历"
       },
       {
         "pagePath": "pages/pet/index",

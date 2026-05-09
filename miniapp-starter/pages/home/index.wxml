@@ -1,15 +1,21 @@
 <page-meta page-style="{{dragId ? 'overflow: hidden;' : ''}}" />
 <view class="page">
   <view class="hero card">
-    <view class="hero-top">
-      <text class="title">今日作业</text>
+    <view class="day-switcher">
+      <view class="day-btn" bindtap="handlePrevDay">◀</view>
+      <view class="day-label">{{activeDateLabel}}</view>
+      <view class="day-btn" bindtap="handleNextDay">▶</view>
+    </view>
+    <view class="hero-actions-mini">
+      <view wx:if="{{!isToday}}" class="link-pill" bindtap="handleJumpToday">回到今日</view>
+      <view class="link-pill" bindtap="handleOpenCalendar">📅 日历</view>
     </view>
 
     <block wx:if="{{overview.totalCount > 0 && overview.pendingCount === 0}}">
       <view class="all-done-banner">
         <text class="banner-emoji">🎉</text>
         <text class="banner-title">Congratulations!</text>
-        <text class="banner-sub">今日 {{overview.totalCount}} 项作业全部完成</text>
+        <text class="banner-sub">{{isToday ? '今日' : ''}}{{overview.totalCount}} 项作业全部完成</text>
       </view>
     </block>
 
@@ -17,7 +23,7 @@
       <view class="hero-stats">
         <view class="hero-stat">
           <text class="hero-stat-value">{{overview.totalCount}}</text>
-          <text class="hero-stat-label">今日作业</text>
+          <text class="hero-stat-label">{{isToday ? '今日作业' : '当日作业'}}</text>
         </view>
         <view class="hero-stat">
           <text class="hero-stat-value highlight">{{overview.pendingCount}}</text>
@@ -32,57 +38,58 @@
 
     <block wx:else>
       <view class="hero-empty">
-        <text>还没有今日作业，点下方「新增作业」开始吧</text>
+        <text>{{isToday ? '今日没有作业，去「作业」页新建作业本吧' : '这一天没有安排作业'}}</text>
       </view>
     </block>
   </view>
 
   <view class="card section-card">
     <view class="section-header">
-      <text class="section-title">作业列表</text>
+      <text class="section-title">{{isToday ? '作业列表' : '当日作业'}}</text>
     </view>
 
-    <view wx:if="{{sortedTasks.length === 0}}" class="empty-tip">
+    <view wx:if="{{items.length === 0}}" class="empty-tip">
       <text class="empty-emoji">📝</text>
-      <text class="empty-text">还没有今日作业，点下方按钮新增一条吧</text>
+      <text class="empty-text">{{isToday ? '今日没有待办，点下方按钮去添加' : '这一天没有作业'}}</text>
     </view>
 
     <view class="timeline {{dragId ? 'is-reordering' : ''}}">
-      <view wx:for="{{sortedTasks}}" wx:key="id"
-            class="task-item {{item.status}} {{dragId === item.id ? 'is-dragging' : ''}}"
+      <view wx:for="{{items}}" wx:key="id"
+            class="task-row {{item.status}} {{item.isOverdue ? 'is-overdue' : ''}} {{dragId === item.id ? 'is-dragging' : ''}}"
             style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
             bindlongpress="handleLongPress"
             catchtouchmove="handleTouchMove"
             catchtouchend="handleTouchEnd"
             catchtouchcancel="handleTouchEnd"
-            data-id="{{item.id}}"
-            data-index="{{index}}">
-        <view class="timeline-dot"></view>
-        <view class="task-main">
-          <view class="task-body">
-            <text class="task-content">{{item.content}}</text>
-            <view class="task-chips">
-              <text class="chip subject-chip">{{item.subject}}</text>
-              <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
-              <text wx:if="{{item.actualTimeDisplay}}" class="chip actual-chip">{{item.actualTimeDisplay}}</text>
-              <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
-            </view>
+            data-id="{{item.id}}">
+        <view class="dot"></view>
+        <view class="row-body">
+          <text class="row-content">{{item.content}}</text>
+          <view class="row-chips">
+            <text class="chip nb-chip" data-notebook-id="{{item.notebookId}}" catchtap="handleOpenNotebook">{{item.notebookName}}</text>
+            <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
+            <text wx:if="{{item.isOverdue}}" class="chip overdue-chip">逾期</text>
+            <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
           </view>
-          <view class="task-actions-col">
-            <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" bindtap="handleStartTask">▶</view>
-            <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" bindtap="handlePauseTask">❚❚</view>
-            <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" bindtap="handleResumeTask">▶</view>
-            <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" bindtap="handleFinishTask">✓</view>
+        </view>
+        <view class="row-actions">
+          <block wx:if="{{isToday}}">
+            <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" catchtap="handleStartTask">▶</view>
+            <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" catchtap="handlePauseTask">❚❚</view>
+            <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" catchtap="handleResumeTask">▶</view>
+            <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" catchtap="handleFinishTask">✓</view>
             <view wx:if="{{item.status === 'done'}}" class="icon-btn done-mark">✓</view>
-          </view>
+          </block>
+          <block wx:else>
+            <view class="status-pill status-{{item.status}}">{{item.status === 'done' ? '完成' : (item.status === 'doing' ? '进行' : (item.status === 'paused' ? '暂停' : '未做'))}}</view>
+          </block>
         </view>
       </view>
     </view>
 
     <view class="add-row">
-      <button class="add-task-btn" bindtap="handleAddHomework">+ 新增作业</button>
-      <button class="edit-task-btn" bindtap="handleManageTasks">✏️ 编辑</button>
-      <button class="ocr-task-btn" bindtap="handlePhotoImport">📷 拍照识别</button>
+      <button class="add-task-btn" bindtap="handleAddHomework">+ 新建作业本</button>
+      <button class="ocr-task-btn" bindtap="handlePhotoImport">📷 拍照</button>
     </view>
   </view>
 
