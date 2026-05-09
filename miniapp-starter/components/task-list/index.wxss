@@ -1,0 +1,105 @@
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.task-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+  padding: 18rpx;
+  background: #f8fafc;
+  border-radius: 22rpx;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.task-row.is-dragging {
+  transition: none;
+  background: #ffffff;
+  box-shadow: 0 16rpx 40rpx rgba(31, 35, 41, 0.18);
+  transform: scale(1.02);
+}
+
+.task-row.is-overdue {
+  background: #fff1f0;
+}
+
+.dot {
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 50%;
+  background: #e54545;
+  flex-shrink: 0;
+}
+
+.task-row.doing .dot { background: #245bdb; }
+.task-row.paused .dot { background: #ff8c1a; }
+.task-row.done .dot { background: #07c160; }
+
+.row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.row-content {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.4;
+  color: #1f2329;
+  font-weight: 500;
+}
+
+.row-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin-top: 10rpx;
+}
+
+.chip {
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  line-height: 1.5;
+  white-space: nowrap;
+  background: #edf0f3;
+  color: #5f6b7a;
+}
+
+.subject-chip { background: #f0e9ff; color: #6c3fdb; font-weight: 600; }
+.nb-chip { background: #eef4ff; color: #245bdb; font-weight: 600; }
+.est-chip { background: #f7f8fa; color: #6b7785; }
+.elapsed-chip { background: #eef4ff; color: #245bdb; }
+.overdue-chip { background: #fde2e2; color: #b42318; font-weight: 700; }
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #ffffff;
+  box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.1);
+}
+
+.icon-btn.start-btn { background: #245bdb; }
+.icon-btn.resume-btn { background: #245bdb; }
+.icon-btn.pause-btn { background: #f5a623; font-size: 20rpx; letter-spacing: 2rpx; }
+.icon-btn.finish-btn { background: #07c160; font-size: 32rpx; }
+.icon-btn.done-mark {
+  background: #e8f7ee;
+  color: #067647;
+  box-shadow: none;
+  font-size: 32rpx;
+}

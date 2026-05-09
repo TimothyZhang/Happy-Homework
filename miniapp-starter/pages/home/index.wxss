@@ -139,192 +139,6 @@
   color: #1f2329;
 }
 
-/* === task rows === */
-.timeline {
-  margin-top: 22rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-}
-
-.task-row {
-  display: flex;
-  align-items: center;
-  gap: 14rpx;
-  padding: 18rpx;
-  background: #f8fafc;
-  border-radius: 22rpx;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
-}
-
-.task-row.is-dragging {
-  transition: none;
-  background: #ffffff;
-  box-shadow: 0 16rpx 40rpx rgba(31, 35, 41, 0.18);
-  transform: scale(1.02);
-}
-
-.timeline.is-reordering .task-row:not(.is-dragging) { opacity: 0.7; }
-
-.task-row.is-overdue {
-  background: #fff1f0;
-}
-
-.overdue-card .section-title {
-  color: #b42318;
-}
-
-.overdue-count {
-  font-size: 22rpx;
-  color: #b42318;
-  font-weight: 700;
-  background: #fde2e2;
-  padding: 4rpx 14rpx;
-  border-radius: 999rpx;
-}
-
-.dot {
-  width: 18rpx;
-  height: 18rpx;
-  border-radius: 50%;
-  background: #e54545;
-  flex-shrink: 0;
-}
-
-.task-row.doing .dot { background: #245bdb; }
-.task-row.paused .dot { background: #ff8c1a; }
-.task-row.done .dot { background: #07c160; }
-
-.row-body {
-  flex: 1;
-  min-width: 0;
-}
-
-.row-content {
-  display: block;
-  font-size: 28rpx;
-  line-height: 1.4;
-  color: #1f2329;
-  font-weight: 500;
-}
-
-.row-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8rpx;
-  margin-top: 10rpx;
-}
-
-.chip {
-  padding: 4rpx 14rpx;
-  border-radius: 999rpx;
-  font-size: 20rpx;
-  line-height: 1.5;
-  background: #edf0f3;
-  color: #5f6b7a;
-  white-space: nowrap;
-}
-
-.subject-chip {
-  background: #f0e9ff;
-  color: #6c3fdb;
-  font-weight: 600;
-}
-
-.nb-chip {
-  background: #eef4ff;
-  color: #245bdb;
-  font-weight: 600;
-}
-
-.est-chip {
-  background: #f7f8fa;
-  color: #6b7785;
-}
-
-.elapsed-chip {
-  background: #eef4ff;
-  color: #245bdb;
-}
-
-.overdue-chip {
-  background: #fde2e2;
-  color: #b42318;
-  font-weight: 700;
-}
-
-.row-actions {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-  flex-shrink: 0;
-}
-
-.icon-btn {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 26rpx;
-  font-weight: 600;
-  color: #ffffff;
-  box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.1);
-}
-
-.icon-btn.start-btn { background: #245bdb; }
-.icon-btn.resume-btn { background: #245bdb; }
-.icon-btn.pause-btn { background: #f5a623; font-size: 20rpx; letter-spacing: 2rpx; }
-.icon-btn.finish-btn { background: #07c160; font-size: 32rpx; }
-.icon-btn.done-mark {
-  background: #e8f7ee;
-  color: #067647;
-  box-shadow: none;
-  font-size: 32rpx;
-}
-
-.status-pill {
-  padding: 6rpx 16rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
-  font-weight: 600;
-}
-.status-pill.status-done { background: #e8f7ee; color: #067647; }
-.status-pill.status-doing { background: #eef4ff; color: #245bdb; }
-.status-pill.status-paused { background: #fff3e6; color: #b26a00; }
-.status-pill.status-todo { background: #ffe5e5; color: #b42318; }
-
-/* === bottom CTA === */
-.add-row {
-  display: flex;
-  gap: 16rpx;
-  margin-top: 22rpx;
-}
-
-.add-task-btn {
-  flex: 1;
-  padding: 0 16rpx;
-  border-radius: 999rpx;
-  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
-  color: #ffffff;
-  font-size: 26rpx;
-  font-weight: 600;
-  border: none;
-  box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
-}
-
-.ocr-task-btn {
-  flex: 1;
-  padding: 0 16rpx;
-  border-radius: 999rpx;
-  background: #eef4ff;
-  color: #245bdb;
-  font-size: 26rpx;
-  font-weight: 600;
-  border: none;
-}
-
 .empty-tip {
   margin-top: 28rpx;
   padding: 48rpx 32rpx;
@@ -339,6 +153,18 @@
   margin-top: 16rpx;
   font-size: 26rpx;
   color: #6b7785;
+}
+
+/* overdue section */
+.overdue-card .section-title { color: #b42318; }
+
+.overdue-count {
+  font-size: 22rpx;
+  color: #b42318;
+  font-weight: 700;
+  background: #fde2e2;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
 }
 
 /* === all-done overlay === */

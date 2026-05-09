@@ -42,8 +42,7 @@ function decorateItem(item, now) {
   }
 }
 
-// Undone first, in user-controlled order (task.order asc, createdAt as tiebreaker).
-// Done sinks to bottom, sorted by completedAt desc (most recently finished on top).
+// Undone first by user order (createdAt as tiebreaker), done by completedAt desc.
 function sortItems(items) {
   const undone = []
   const done = []
@@ -66,17 +65,13 @@ Page({
     activeDate: '',
     activeDateLabel: '',
     isToday: true,
-    canPrev: true,
-    canNext: true,
     overview: { totalCount: 0, pendingCount: 0, doneCount: 0 },
     remainingMinutesDisplay: '—',
     items: [],
     overdueItems: [],
     showCongrats: false,
     totalElapsedDisplay: '',
-    lastReward: null,
-    dragId: null,
-    dragDy: 0
+    lastReward: null
   },
 
   onShow() {
@@ -84,10 +79,7 @@ Page({
       this.setData({ activeDate: store.todayStr() })
     }
     this.refreshState()
-    this.startTickerIfNeeded()
   },
-  onHide() { this.stopTicker() },
-  onUnload() { this.stopTicker() },
 
   refreshState(opts = {}) {
     const today = store.todayStr()
@@ -96,8 +88,6 @@ Page({
     const state = store.getStateWithComputed()
     const now = Date.now()
     const raw = store.tasksForDate(state, activeDate)
-    // Today view splits scheduled-today vs overdue-from-past so they live
-    // in separate cards.
     const todayRaw = raw.filter((it) => !it.isOverdue)
     const overdueRaw = isToday ? raw.filter((it) => it.isOverdue) : []
     const items = sortItems(todayRaw.map((it) => decorateItem(it, now)))
@@ -107,7 +97,9 @@ Page({
     const total = items.length
     const done = items.filter((it) => it.status === 'done').length
     const pending = total - done
-    const remainingMinutes = items
+    // 「预计还需」covers both today's pending tasks AND any overdue carry-over,
+    // since the user owes both sets of time today.
+    const remainingMinutes = [...items, ...overdueItems]
       .filter((it) => it.status !== 'done')
       .reduce((s, it) => s + Number(it.estimatedMinutes || 0), 0)
     this.setData({
@@ -120,7 +112,6 @@ Page({
       overdueItems,
       lastReward: state.lastReward || null
     })
-    this.startTickerIfNeeded()
     if (opts.maybeCelebrate) this.maybeShowCongrats(items)
   },
 
@@ -129,26 +120,6 @@ Page({
     if (date === store.addDays(today, -1)) return `昨日 · ${date}`
     if (date === store.addDays(today, 1)) return `明日 · ${date}`
     return date
-  },
-
-  startTickerIfNeeded() {
-    this.stopTicker()
-    if (!this.data.isToday) return
-    const hasRunning = (this.data.items || []).some((it) => it.status === 'doing')
-    if (!hasRunning) return
-    this.tickerId = setInterval(() => {
-      const items = (this.data.items || []).map((it) => {
-        let ms = it.elapsedMs || 0
-        if (it.status === 'doing') ms += 1000
-        return { ...it, elapsedMs: ms, elapsedDisplay: formatElapsed(ms) }
-      })
-      this.setData({ items })
-      if (!items.some((it) => it.status === 'doing')) this.stopTicker()
-    }, 1000)
-  },
-
-  stopTicker() {
-    if (this.tickerId) { clearInterval(this.tickerId); this.tickerId = null }
   },
 
   maybeShowCongrats(items) {
@@ -164,6 +135,11 @@ Page({
   },
 
   handleDismissCongrats() { this.setData({ showCongrats: false }) },
+
+  handleTasksChanged(e) {
+    const finished = e && e.detail && e.detail.finished
+    this.refreshState({ maybeCelebrate: finished })
+  },
 
   // === Day switcher === //
 
@@ -184,129 +160,5 @@ Page({
 
   handleOpenCalendar() {
     wx.switchTab({ url: '/pages/calendar/index' })
-  },
-
-  // === Task control (locked to active date) === //
-
-  handleStartTask(e) {
-    store.startTask(e.currentTarget.dataset.id, this.data.activeDate)
-    this.refreshState()
-  },
-
-  handlePauseTask(e) {
-    store.pauseTask(e.currentTarget.dataset.id, this.data.activeDate)
-    this.refreshState()
-  },
-
-  handleResumeTask(e) {
-    store.resumeTask(e.currentTarget.dataset.id, this.data.activeDate)
-    this.refreshState()
-  },
-
-  handleFinishTask(e) {
-    store.finishTask(e.currentTarget.dataset.id, this.data.activeDate)
-    this.refreshState({ maybeCelebrate: true })
-  },
-
-  // === Navigation === //
-
-  handleManageTasks() { wx.switchTab({ url: '/pages/tasks/index' }) },
-
-  handleAddHomework() { wx.switchTab({ url: '/pages/tasks/index' }) },
-
-  handlePhotoImport() { wx.navigateTo({ url: '/pages/ocr-import/index' }) },
-
-  handleOpenNotebook(e) {
-    const { notebookId } = e.currentTarget.dataset
-    wx.navigateTo({ url: `/pages/notebook-detail/index?id=${notebookId}` })
-  },
-
-  // === Drag-reorder (today only, all undone tasks regardless of notebook) === //
-
-  handleTouchStart(e) {
-    // Cache the touch's pageY at touchstart so handleLongPress (which fires
-    // a synthesized event without `touches`) can pick it up.
-    if (e.touches && e.touches[0]) {
-      this.touchStartY = e.touches[0].pageY
-    }
-  },
-
-  handleLongPress(e) {
-    if (!this.data.isToday) return
-    const { id, list } = e.currentTarget.dataset
-    const sourceList = list === 'overdue' ? this.data.overdueItems : this.data.items
-    const item = sourceList.find((it) => it.id === id)
-    if (!item || item.status === 'done') return
-    this.dragStartY = this.touchStartY != null
-      ? this.touchStartY
-      : (e.detail && typeof e.detail.y === 'number' ? e.detail.y : 0)
-    if (!this.itemHeightPx) {
-      const q = wx.createSelectorQuery()
-      q.select('.task-row').boundingClientRect()
-      q.exec((rects) => { if (rects && rects[0]) this.itemHeightPx = rects[0].height + 12 })
-    }
-    this.dragList = list === 'overdue' ? 'overdue' : 'today'
-    this.setData({ dragId: id, dragDy: 0 })
-    if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
-  },
-
-  handleTouchMove(e) {
-    if (!this.data.dragId || this.dragStartY == null) return
-    const now = Date.now()
-    if (this._lastMoveAt && now - this._lastMoveAt < 16) return
-    this._lastMoveAt = now
-    const t = e.touches && e.touches[0]
-    if (!t) return
-    const dy = t.pageY - this.dragStartY
-    if (Math.abs(dy - this.data.dragDy) < 2) return
-    const itemH = this.itemHeightPx || 140
-    const isOverdue = this.dragList === 'overdue'
-    const listKey = isOverdue ? 'overdueItems' : 'items'
-    const list = this.data[listKey]
-    const draggedIdx = list.findIndex((it) => it.id === this.data.dragId)
-    const undoneCount = list.filter((it) => it.status !== 'done').length
-    const slotsDelta = Math.round(dy / itemH)
-    const hoverIdx = Math.max(0, Math.min(undoneCount - 1, draggedIdx + slotsDelta))
-    const updated = list.map((it, i) => {
-      if (it.id === this.data.dragId) return it
-      if (it.status === 'done') return it
-      let shiftY = 0
-      if (draggedIdx < hoverIdx && i > draggedIdx && i <= hoverIdx) shiftY = -itemH
-      else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) shiftY = itemH
-      return { ...it, shiftY }
-    })
-    this.setData({ [listKey]: updated, dragDy: dy })
-  },
-
-  handleTouchEnd() {
-    if (!this.data.dragId) {
-      this.dragStartY = null
-      this.touchStartY = null
-      return
-    }
-    const dragId = this.data.dragId
-    const dragDy = this.data.dragDy
-    const itemH = this.itemHeightPx || 140
-    const isOverdue = this.dragList === 'overdue'
-    const listKey = isOverdue ? 'overdueItems' : 'items'
-    const list = this.data[listKey]
-    const undoneCount = list.filter((it) => it.status !== 'done').length
-    const fromIdx = list.findIndex((it) => it.id === dragId)
-    const slotsDelta = Math.round(dragDy / itemH)
-    const toIdx = Math.max(0, Math.min(undoneCount - 1, fromIdx + slotsDelta))
-
-    if (fromIdx !== -1 && fromIdx !== toIdx && fromIdx < undoneCount) {
-      const undoneIds = list.filter((it) => it.status !== 'done').map((it) => it.id)
-      const [moved] = undoneIds.splice(fromIdx, 1)
-      undoneIds.splice(toIdx, 0, moved)
-      store.reorderTasks(undoneIds)
-      this.refreshState()
-    } else {
-      this.setData({ [listKey]: list.map((it) => ({ ...it, shiftY: 0 })) })
-    }
-    this.dragStartY = null
-    this.touchStartY = null
-    this.dragList = null
-    this.setData({ dragId: null, dragDy: 0 })
   }
 })

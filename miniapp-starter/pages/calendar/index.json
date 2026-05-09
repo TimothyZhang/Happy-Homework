@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "日历"
+  "navigationBarTitleText": "日历",
+  "usingComponents": {
+    "task-list": "/components/task-list/index"
+  }
 }

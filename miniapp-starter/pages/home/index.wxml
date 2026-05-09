@@ -1,4 +1,3 @@
-<page-meta page-style="{{dragId ? 'overflow: hidden;' : ''}}" />
 <view class="page">
   <view class="hero card">
     <view class="day-switcher">
@@ -45,50 +44,18 @@
 
   <view class="card section-card">
     <view class="section-header">
-      <text class="section-title">{{isToday ? '作业列表' : '当日作业'}}</text>
+      <text class="section-title">当日作业</text>
     </view>
 
     <view wx:if="{{items.length === 0}}" class="empty-tip">
       <text class="empty-emoji">📝</text>
-      <text class="empty-text">{{isToday ? '今日没有待办，点下方按钮去添加' : '这一天没有作业'}}</text>
+      <text class="empty-text">{{isToday ? '今日没有待办，去「作业本」页新建' : '这一天没有作业'}}</text>
     </view>
 
-    <view class="timeline {{dragId ? 'is-reordering' : ''}}">
-      <view wx:for="{{items}}" wx:key="id"
-            class="task-row {{item.status}} {{item.isOverdue ? 'is-overdue' : ''}} {{dragId === item.id ? 'is-dragging' : ''}}"
-            style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
-            bindtouchstart="handleTouchStart"
-            bindlongpress="handleLongPress"
-            catchtouchmove="handleTouchMove"
-            catchtouchend="handleTouchEnd"
-            catchtouchcancel="handleTouchEnd"
-            data-id="{{item.id}}"
-            data-list="today">
-        <view class="dot"></view>
-        <view class="row-body">
-          <text class="row-content">{{item.content}}</text>
-          <view class="row-chips">
-            <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
-            <text class="chip nb-chip" data-notebook-id="{{item.notebookId}}" catchtap="handleOpenNotebook">{{item.notebookName}}</text>
-            <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
-            <text wx:if="{{item.isOverdue}}" class="chip overdue-chip">逾期</text>
-            <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
-          </view>
-        </view>
-        <view class="row-actions">
-          <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" catchtap="handleStartTask">▶</view>
-          <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" catchtap="handlePauseTask">❚❚</view>
-          <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" catchtap="handleResumeTask">▶</view>
-          <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" catchtap="handleFinishTask">✓</view>
-          <view wx:if="{{item.status === 'done'}}" class="icon-btn done-mark">✓</view>
-        </view>
-      </view>
-    </view>
-
-    <view class="add-row">
-      <button class="add-task-btn" bindtap="handleAddHomework">+ 新建作业本</button>
-      <button class="ocr-task-btn" bindtap="handlePhotoImport">📷 拍照</button>
-    </view>
+    <task-list wx:if="{{items.length > 0}}"
+               items="{{items}}"
+               activeDate="{{activeDate}}"
+               bind:changed="handleTasksChanged" />
   </view>
 
   <view wx:if="{{isToday && overdueItems.length > 0}}" class="card section-card overdue-card">
@@ -96,36 +63,10 @@
       <text class="section-title">历史遗留作业</text>
       <text class="overdue-count">{{overdueItems.length}} 项</text>
     </view>
-    <view class="timeline">
-      <view wx:for="{{overdueItems}}" wx:key="id"
-            class="task-row {{item.status}} is-overdue {{dragId === item.id ? 'is-dragging' : ''}}"
-            style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
-            bindtouchstart="handleTouchStart"
-            bindlongpress="handleLongPress"
-            catchtouchmove="handleTouchMove"
-            catchtouchend="handleTouchEnd"
-            catchtouchcancel="handleTouchEnd"
-            data-id="{{item.id}}"
-            data-list="overdue">
-        <view class="dot"></view>
-        <view class="row-body">
-          <text class="row-content">{{item.content}}</text>
-          <view class="row-chips">
-            <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
-            <text class="chip nb-chip" data-notebook-id="{{item.notebookId}}" catchtap="handleOpenNotebook">{{item.notebookName}}</text>
-            <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
-            <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
-          </view>
-        </view>
-        <view class="row-actions">
-          <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" catchtap="handleStartTask">▶</view>
-          <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" catchtap="handlePauseTask">❚❚</view>
-          <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" catchtap="handleResumeTask">▶</view>
-          <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" catchtap="handleFinishTask">✓</view>
-          <view wx:if="{{item.status === 'done'}}" class="icon-btn done-mark">✓</view>
-        </view>
-      </view>
-    </view>
+    <task-list items="{{overdueItems}}"
+               activeDate="{{activeDate}}"
+               rowVariant="is-overdue"
+               bind:changed="handleTasksChanged" />
   </view>
 
   <view wx:if="{{showCongrats}}" class="congrats-overlay" bindtap="handleDismissCongrats">

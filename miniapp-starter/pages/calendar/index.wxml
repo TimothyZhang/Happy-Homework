@@ -37,21 +37,9 @@
       <text class="list-count">{{selectedItems.length}} 项</text>
     </view>
     <view wx:if="{{selectedItems.length === 0}}" class="empty">这一天没有作业</view>
-    <view wx:for="{{selectedItems}}" wx:key="id"
-          class="task-row {{item.status}}"
-          data-notebook-id="{{item.notebookId}}"
-          bindtap="handleOpenNotebook">
-      <view class="dot"></view>
-      <view class="row-body">
-        <text class="row-content">{{item.content}}</text>
-        <view class="row-chips">
-          <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
-          <text class="chip nb-chip">{{item.notebookName}}</text>
-          <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
-          <text wx:if="{{item.isOverdue}}" class="chip overdue-chip">逾期</text>
-        </view>
-      </view>
-      <view class="status-pill status-{{item.status}}">{{item.status === 'done' ? '完成' : (item.status === 'doing' ? '进行' : (item.status === 'paused' ? '暂停' : '未做'))}}</view>
-    </view>
+    <task-list wx:if="{{selectedItems.length > 0}}"
+               items="{{selectedItems}}"
+               activeDate="{{selectedDate}}"
+               bind:changed="handleTasksChanged" />
   </view>
 </view>

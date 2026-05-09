@@ -1,0 +1,30 @@
+<view class="task-list">
+  <view wx:for="{{list}}" wx:key="id"
+        class="task-row {{item.status}} {{rowVariant}} {{item.isOverdue ? 'is-overdue' : ''}} {{dragId === item.id ? 'is-dragging' : ''}}"
+        style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
+        bindtouchstart="handleTouchStart"
+        bindlongpress="handleLongPress"
+        catchtouchmove="handleTouchMove"
+        catchtouchend="handleTouchEnd"
+        catchtouchcancel="handleTouchEnd"
+        data-id="{{item.id}}">
+    <view class="dot"></view>
+    <view class="row-body">
+      <text class="row-content">{{item.content}}</text>
+      <view class="row-chips">
+        <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
+        <text class="chip nb-chip" data-notebook-id="{{item.notebookId}}" catchtap="handleOpenNotebook">{{item.notebookName}}</text>
+        <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
+        <text wx:if="{{item.isOverdue && rowVariant !== 'is-overdue'}}" class="chip overdue-chip">逾期</text>
+        <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
+      </view>
+    </view>
+    <view class="row-actions">
+      <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" catchtap="handleStart">▶</view>
+      <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" catchtap="handlePause">❚❚</view>
+      <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" catchtap="handleResume">▶</view>
+      <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" catchtap="handleFinish">✓</view>
+      <view wx:if="{{item.status === 'done'}}" class="icon-btn done-mark">✓</view>
+    </view>
+  </view>
+</view>
