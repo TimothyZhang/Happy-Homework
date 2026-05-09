@@ -36,7 +36,6 @@
           <text class="nb-mode mode-{{item.mode}}">{{item.modeLabel}}</text>
         </view>
         <view class="nb-chips">
-          <text wx:for="{{item.subjects}}" wx:for-item="subj" wx:key="*this" class="chip subject-chip">{{subj}}</text>
           <text wx:if="{{item.recurrenceLabel}}" class="chip rec-chip">{{item.recurrenceLabel}}</text>
           <text class="chip range-chip">{{item.rangeLabel}}</text>
           <text wx:if="{{item.activeToday}}" class="chip today-chip">今日</text>
@@ -47,10 +46,6 @@
           </view>
           <text class="progress-text">{{item.doneCount}} / {{item.taskCount}}</text>
         </view>
-      </view>
-      <view class="nb-actions" catchtap="">
-        <view class="icon-btn edit-btn" data-id="{{item.id}}" catchtap="handleEditNotebook">✏️</view>
-        <view class="icon-btn del-btn" data-id="{{item.id}}" catchtap="handleDeleteNotebook">🗑</view>
       </view>
     </view>
   </view>

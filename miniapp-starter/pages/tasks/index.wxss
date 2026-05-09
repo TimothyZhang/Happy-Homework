@@ -67,10 +67,7 @@
   transform: scale(1.02);
 }
 
-.notebook-card.active-today {
-  border-left: 8rpx solid #245bdb;
-  padding-left: 18rpx;
-}
+/* The 「今日」 chip below already conveys "active today"; no extra border. */
 
 .nb-row {
   display: flex;

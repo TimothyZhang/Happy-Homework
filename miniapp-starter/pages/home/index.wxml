@@ -54,7 +54,7 @@
 
     <task-list wx:if="{{items.length > 0}}"
                items="{{items}}"
-               activeDate="{{activeDate}}"
+               active-date="{{activeDate}}"
                bind:changed="handleTasksChanged" />
   </view>
 

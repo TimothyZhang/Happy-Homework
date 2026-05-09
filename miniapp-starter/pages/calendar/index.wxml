@@ -39,7 +39,7 @@
     <view wx:if="{{selectedItems.length === 0}}" class="empty">这一天没有作业</view>
     <task-list wx:if="{{selectedItems.length > 0}}"
                items="{{selectedItems}}"
-               activeDate="{{selectedDate}}"
+               active-date="{{selectedDate}}"
                bind:changed="handleTasksChanged" />
   </view>
 </view>
