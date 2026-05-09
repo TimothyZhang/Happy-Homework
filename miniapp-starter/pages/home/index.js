@@ -50,30 +50,24 @@ function decorateItem(item, now) {
   }
 }
 
-// Undone first (overdue floats to the very top within undone, oldest missed
-// first), done by completedAt desc.
-function sortItems(items) {
-  const undone = []
-  const done = []
-  for (const it of items) {
-    if (it.status === 'done') done.push(it)
-    else undone.push(it)
-  }
-  undone.sort((a, b) => {
+// Sort undone: overdue floats to top (oldest missed date first), then
+// regular tasks by user-set order.
+function sortUndone(items) {
+  return items.sort((a, b) => {
     if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1
-    if (a.isOverdue) {
-      // older missed dates first
-      if (a.occurrenceDate !== b.occurrenceDate) {
-        return a.occurrenceDate < b.occurrenceDate ? -1 : 1
-      }
+    if (a.isOverdue && a.occurrenceDate !== b.occurrenceDate) {
+      return a.occurrenceDate < b.occurrenceDate ? -1 : 1
     }
     const oa = a.order || 0
     const ob = b.order || 0
     if (oa !== ob) return oa - ob
     return (a.createdAt || 0) - (b.createdAt || 0)
   })
-  done.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
-  return [...undone, ...done]
+}
+
+// Done sorted by most recent completion first.
+function sortDone(items) {
+  return items.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
 }
 
 Page({
@@ -83,7 +77,8 @@ Page({
     isToday: true,
     overview: { totalCount: 0, pendingCount: 0, doneCount: 0 },
     remainingMinutesDisplay: '—',
-    items: [],
+    undoneItems: [],
+    doneItems: [],
     showCongrats: false,
     totalElapsedDisplay: '',
     lastReward: null
@@ -103,26 +98,23 @@ Page({
     const state = store.getStateWithComputed()
     const now = Date.now()
     const raw = store.tasksForDate(state, activeDate)
-    // One unified list — overdue items carry isOverdue flag so the row stays
-    // styled red while still being part of the same scrollable list and the
-    // same drag-reorder pool.
-    const items = sortItems(raw.map((it) => decorateItem(it, now)))
-    const total = items.length
-    const done = items.filter((it) => it.status === 'done').length
-    const pending = total - done
-    const remainingMinutes = items
-      .filter((it) => it.status !== 'done')
+    const decorated = raw.map((it) => decorateItem(it, now))
+    const undoneItems = sortUndone(decorated.filter((it) => it.status !== 'done'))
+    const doneItems = sortDone(decorated.filter((it) => it.status === 'done'))
+    const total = decorated.length
+    const remainingMinutes = undoneItems
       .reduce((s, it) => s + Number(it.estimatedMinutes || 0), 0)
     this.setData({
       activeDate,
       activeDateLabel: this.formatDateLabel(activeDate, today),
       isToday,
-      overview: { totalCount: total, pendingCount: pending, doneCount: done },
+      overview: { totalCount: total, pendingCount: undoneItems.length, doneCount: doneItems.length },
       remainingMinutesDisplay: formatDuration(remainingMinutes),
-      items,
+      undoneItems,
+      doneItems,
       lastReward: state.lastReward || null
     })
-    if (opts.maybeCelebrate) this.maybeShowCongrats(items)
+    if (opts.maybeCelebrate) this.maybeShowCongrats({ undone: undoneItems, done: doneItems })
   },
 
   formatDateLabel(date, today) {
@@ -132,12 +124,11 @@ Page({
     return date
   },
 
-  maybeShowCongrats(items) {
-    if (!items || items.length === 0) return
+  maybeShowCongrats({ undone, done }) {
     if (!this.data.isToday) return
-    const allDone = items.every((it) => it.status === 'done')
-    if (!allDone) return
-    const totalMs = items.reduce((s, it) => s + (it.elapsedMs || 0), 0)
+    if (!undone || undone.length !== 0) return
+    if (!done || done.length === 0) return
+    const totalMs = done.reduce((s, it) => s + (it.elapsedMs || 0), 0)
     this.setData({
       showCongrats: true,
       totalElapsedDisplay: totalMs > 0 ? formatElapsed(totalMs) : ''

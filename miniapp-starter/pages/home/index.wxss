@@ -139,6 +139,21 @@
   color: #1f2329;
 }
 
+.section-count {
+  font-size: 22rpx;
+  font-weight: 700;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: #eef4ff;
+  color: #245bdb;
+}
+
+.done-section .section-title { color: #067647; }
+.section-count.done-count {
+  background: #e8f7ee;
+  color: #067647;
+}
+
 .empty-tip {
   margin-top: 28rpx;
   padding: 48rpx 32rpx;

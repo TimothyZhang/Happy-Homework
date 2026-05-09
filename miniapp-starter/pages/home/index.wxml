@@ -44,17 +44,29 @@
 
   <view class="card section-card">
     <view class="section-header">
-      <text class="section-title">当日作业</text>
+      <text class="section-title">未完成</text>
+      <text wx:if="{{undoneItems.length > 0}}" class="section-count">{{undoneItems.length}}</text>
     </view>
 
-    <view wx:if="{{items.length === 0}}" class="empty-tip">
-      <text class="empty-emoji">📝</text>
-      <text class="empty-text">{{isToday ? '今日没有待办，去「作业本」页新建' : '这一天没有作业'}}</text>
+    <view wx:if="{{undoneItems.length === 0}}" class="empty-tip">
+      <text class="empty-emoji">{{doneItems.length > 0 ? '🎉' : '📝'}}</text>
+      <text class="empty-text">{{doneItems.length > 0 ? '没有未完成的作业，全部搞定！' : (isToday ? '今日没有待办，去「作业本」页新建' : '这一天没有作业')}}</text>
     </view>
 
-    <task-list wx:if="{{items.length > 0}}"
-               items="{{items}}"
+    <task-list wx:if="{{undoneItems.length > 0}}"
+               items="{{undoneItems}}"
                active-date="{{activeDate}}"
+               bind:changed="handleTasksChanged" />
+  </view>
+
+  <view wx:if="{{doneItems.length > 0}}" class="card section-card done-section">
+    <view class="section-header">
+      <text class="section-title">已完成</text>
+      <text class="section-count done-count">{{doneItems.length}}</text>
+    </view>
+    <task-list items="{{doneItems}}"
+               active-date="{{activeDate}}"
+               enable-drag="{{false}}"
                bind:changed="handleTasksChanged" />
   </view>
 
