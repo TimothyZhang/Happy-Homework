@@ -190,44 +190,4 @@ Page({
     this.setData({ dragId: null, dragDy: 0 })
   },
 
-  // === Share === //
-
-  handleCopyToClipboard() {
-    const today = store.todayStr()
-    const state = store.getStateWithComputed()
-    const items = store.tasksForDate(state, today)
-    if (items.length === 0) {
-      wx.setClipboardData({
-        data: '今天还没有作业',
-        success: () => wx.showToast({ title: '已复制', icon: 'success' })
-      })
-      return
-    }
-    const lines = [`📚 ${today} 作业`]
-    const byNotebook = new Map()
-    for (const it of items) {
-      const arr = byNotebook.get(it.notebook.id) || []
-      arr.push(it)
-      byNotebook.set(it.notebook.id, arr)
-    }
-    for (const [, arr] of byNotebook) {
-      lines.push('')
-      lines.push(`【${arr[0].notebook.name}】`)
-      arr.forEach((it, i) => lines.push(`${i + 1}. ${it.task.content}`))
-    }
-    wx.setClipboardData({
-      data: lines.join('\n'),
-      success: () => wx.showToast({ title: '已复制，可粘贴分享', icon: 'success', duration: 2000 })
-    })
-  },
-
-  onShareAppMessage() {
-    const state = store.getStateWithComputed()
-    const items = store.tasksForDate(state, store.todayStr())
-    const total = items.length
-    return {
-      title: total > 0 ? `今日有 ${total} 项作业` : '今日作业',
-      path: '/pages/tasks/index'
-    }
-  }
 })

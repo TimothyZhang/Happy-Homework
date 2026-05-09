@@ -38,12 +38,14 @@
 
 .input,
 .picker-value {
-  padding: 18rpx 22rpx;
+  padding: 22rpx;
   border-radius: 18rpx;
   background: #f7f8fa;
   font-size: 28rpx;
+  line-height: 1.4;
   color: #1f2329;
-  min-height: 32rpx;
+  min-height: 64rpx;
+  box-sizing: border-box;
 }
 
 .hint {

@@ -14,38 +14,48 @@
 
 .header-card { padding-bottom: 22rpx; }
 
-.nb-summary-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14rpx;
-}
-
 .nb-summary {
-  flex: 1;
+  display: block;
   font-size: 24rpx;
   color: #6b7785;
 }
 
-.header-icons {
+/* Bottom-of-page action stack: edit / share / copy / delete */
+.bottom-actions {
+  margin-top: 24rpx;
   display: flex;
-  gap: 10rpx;
-  flex-shrink: 0;
+  flex-direction: column;
+  gap: 14rpx;
 }
 
-.icon-pill {
-  padding: 8rpx 16rpx;
+.bottom-actions .full-btn {
+  width: 100%;
+  margin: 0;
+  height: 84rpx;
+  line-height: 84rpx;
   border-radius: 999rpx;
-  font-size: 22rpx;
+  font-size: 28rpx;
   font-weight: 600;
+  border: none;
 }
 
-.icon-pill.edit-pill {
+.bottom-actions .edit-btn {
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+  color: #ffffff;
+  box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
+}
+
+.bottom-actions .share-btn {
   background: #eef4ff;
   color: #245bdb;
 }
 
-.icon-pill.del-pill {
+.bottom-actions .copy-btn {
+  background: #f0e9ff;
+  color: #6c3fdb;
+}
+
+.bottom-actions .danger-btn {
   background: #fff1f0;
   color: #e54545;
 }

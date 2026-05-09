@@ -155,9 +155,5 @@ Page({
   handleJumpToday() {
     this.setData({ activeDate: store.todayStr() })
     this.refreshState()
-  },
-
-  handleOpenCalendar() {
-    wx.switchTab({ url: '/pages/calendar/index' })
   }
 })

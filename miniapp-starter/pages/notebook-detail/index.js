@@ -155,6 +155,37 @@ Page({
     wx.navigateTo({ url: `/pages/notebook-edit/index?id=${this.data.notebookId}` })
   },
 
+  handleCopyNotebook() {
+    const nb = this.data.notebook
+    if (!nb) return
+    const tasks = this.data.tasks || []
+    const lines = [`📚 ${nb.name}`]
+    if (this.data.notebookSummary) lines.push(this.data.notebookSummary)
+    if (tasks.length === 0) {
+      lines.push('(暂无作业)')
+    } else {
+      lines.push('')
+      tasks.forEach((t, i) => {
+        const subj = t.subject ? `[${t.subject}] ` : ''
+        lines.push(`${i + 1}. ${subj}${t.content}（预计 ${t.estimatedMinutes} 分钟）`)
+      })
+    }
+    wx.setClipboardData({
+      data: lines.join('\n'),
+      success: () => wx.showToast({ title: '已复制', icon: 'success' })
+    })
+  },
+
+  onShareAppMessage() {
+    const nb = this.data.notebook
+    if (!nb) return { title: '作业本', path: '/pages/tasks/index' }
+    const total = (this.data.tasks || []).length
+    return {
+      title: total > 0 ? `${nb.name} · ${total} 项作业` : nb.name,
+      path: `/pages/notebook-detail/index?id=${nb.id}`
+    }
+  },
+
   handleDeleteNotebook() {
     const nb = this.data.notebook
     if (!nb) return

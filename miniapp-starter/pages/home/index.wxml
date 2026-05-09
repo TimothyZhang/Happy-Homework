@@ -5,9 +5,8 @@
       <view class="day-label">{{activeDateLabel}}</view>
       <view class="day-btn" bindtap="handleNextDay">▶</view>
     </view>
-    <view class="hero-actions-mini">
-      <view wx:if="{{!isToday}}" class="link-pill" bindtap="handleJumpToday">回到今日</view>
-      <view class="link-pill" bindtap="handleOpenCalendar">📅 日历</view>
+    <view wx:if="{{!isToday}}" class="hero-actions-mini">
+      <view class="link-pill" bindtap="handleJumpToday">回到今日</view>
     </view>
 
     <block wx:if="{{overview.totalCount > 0 && overview.pendingCount === 0}}">

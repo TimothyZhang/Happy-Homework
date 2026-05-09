@@ -7,8 +7,6 @@
     </view>
     <view class="header-actions">
       <button class="primary-btn" bindtap="handleAddNotebook">+ 新建作业本</button>
-      <button class="ghost-btn" open-type="share">📤 分享</button>
-      <button class="ghost-btn" bindtap="handleCopyToClipboard">📋 复制</button>
     </view>
   </view>
 
