@@ -459,7 +459,9 @@ function tasksForDate(state, dateStr) {
     })
   }
 
-  // Today view: append every past undone recurring occurrence as its own row.
+  // Today view: surface past recurring occurrences that are either still
+  // not done (red) OR were finished today (so a freshly-cleared backlog
+  // item still appears, this time in the done section).
   if (isToday) {
     for (const task of state.tasks) {
       const nb = notebookById[task.notebookId]
@@ -477,6 +479,17 @@ function tasksForDate(state, dateStr) {
               occurrence: { ...defaultOccurrence(), ...(raw || {}) },
               occurrenceDate: d,
               isOverdue: true
+            })
+          } else if (raw && raw.completedAt &&
+                     dateToStr(new Date(raw.completedAt)) === today) {
+            // finished today off-schedule (clearing the backlog) — keep it
+            // visible in today's done section
+            items.push({
+              task,
+              notebook: nb,
+              occurrence: { ...defaultOccurrence(), ...raw },
+              occurrenceDate: d,
+              isOverdue: false
             })
           }
         }
@@ -747,18 +760,34 @@ function pauseInPlace(occ, now) {
   }
 }
 
-// Auto-pause every other doing task on the same date — only one active at a time.
-function pauseOthersOnDate(state, exceptTaskId, dateStr, now) {
-  const notebookById = {}
-  for (const nb of state.notebooks) notebookById[nb.id] = nb
+// Pause every other doing task across the whole state — only one task may
+// be running at a time, regardless of date or mode. The except (taskId,
+// dateStr) pair preserves the row the user just (re)started.
+function pauseAllOtherDoing(state, exceptTaskId, exceptDateStr, now) {
   state.tasks = state.tasks.map((t) => {
-    if (t.id === exceptTaskId) return t
-    const nb = notebookById[t.notebookId]
+    const nb = state.notebooks.find((n) => n.id === t.notebookId)
     if (!nb) return t
-    if (!isNotebookActiveOn(nb, dateStr)) return t
-    const cur = getTaskState(t, nb, dateStr)
-    if (cur.status !== 'doing') return t
-    return applyTaskState(t, nb, dateStr, pauseInPlace(cur, now))
+    if (nb.mode === 'one-shot') {
+      if (t.id === exceptTaskId) return t
+      if ((t.status || 'todo') !== 'doing') return t
+      return { ...t, ...pauseInPlace(t, now) }
+    }
+    // recurring: pause any doing occurrence
+    const occurrences = t.occurrences || {}
+    let changed = false
+    const next = {}
+    for (const d of Object.keys(occurrences)) {
+      const occ = occurrences[d]
+      const isExcept = t.id === exceptTaskId && d === exceptDateStr
+      if (occ && occ.status === 'doing' && !isExcept) {
+        next[d] = pauseInPlace(occ, now)
+        changed = true
+      } else {
+        next[d] = occ
+      }
+    }
+    if (!changed) return t
+    return { ...t, occurrences: next }
   })
 }
 
@@ -766,7 +795,7 @@ function startTask(taskId, dateStr) {
   const day = dateStr || todayStr()
   return updateState((state) => {
     const now = Date.now()
-    pauseOthersOnDate(state, taskId, day, now)
+    pauseAllOtherDoing(state, taskId, day, now)
     state.tasks = state.tasks.map((t) => {
       if (t.id !== taskId) return t
       const nb = state.notebooks.find((n) => n.id === t.notebookId)
@@ -803,7 +832,7 @@ function resumeTask(taskId, dateStr) {
   const day = dateStr || todayStr()
   return updateState((state) => {
     const now = Date.now()
-    pauseOthersOnDate(state, taskId, day, now)
+    pauseAllOtherDoing(state, taskId, day, now)
     state.tasks = state.tasks.map((t) => {
       if (t.id !== taskId) return t
       const nb = state.notebooks.find((n) => n.id === t.notebookId)
