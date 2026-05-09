@@ -29,6 +29,7 @@ function decorateItem(item, now) {
   // task is still open. Once it's done, drop the urgency styling.
   const visualOverdue = !!item.isOverdue && occ.status !== 'done'
   const occurrenceDate = item.occurrenceDate || ''
+  const rowOrder = store.getRowOrder(item.task, item.notebook, occurrenceDate)
   return {
     // composite key — same task across multiple missed dates needs distinct
     // wx:key entries
@@ -40,7 +41,7 @@ function decorateItem(item, now) {
     subject: item.task.subject || '',
     content: item.task.content,
     estimatedMinutes: item.task.estimatedMinutes,
-    order: item.task.order || 0,
+    rowOrder,
     createdAt: item.task.createdAt || 0,
     completedAt: occ.completedAt || 0,
     status: occ.status,
@@ -50,16 +51,13 @@ function decorateItem(item, now) {
   }
 }
 
-// Sort undone: overdue floats to top (oldest missed date first), then
-// regular tasks by user-set order.
+// Sort undone purely by user-controlled rowOrder. Overdue / virtual /
+// today rows all live in the same orderable pool now — the user is free
+// to interleave a missed-Monday recurring row between today's tasks.
 function sortUndone(items) {
   return items.sort((a, b) => {
-    if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1
-    if (a.isOverdue && a.occurrenceDate !== b.occurrenceDate) {
-      return a.occurrenceDate < b.occurrenceDate ? -1 : 1
-    }
-    const oa = a.order || 0
-    const ob = b.order || 0
+    const oa = a.rowOrder || 0
+    const ob = b.rowOrder || 0
     if (oa !== ob) return oa - ob
     return (a.createdAt || 0) - (b.createdAt || 0)
   })

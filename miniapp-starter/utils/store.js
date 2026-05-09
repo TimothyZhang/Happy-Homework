@@ -739,6 +739,53 @@ function reorderTasks(orderedIds) {
   })
 }
 
+// Reorder rows in the home today list — each row is identified by
+// (taskId, occurrenceDate). For one-shot tasks, the rowOrder lands on
+// task.order. For recurring tasks, the rowOrder lands on
+// occurrence[date].order so two virtual rows of the same recurring task
+// can be ordered independently.
+function reorderRows(rows) {
+  return updateState((state) => {
+    const notebookById = {}
+    for (const nb of state.notebooks) notebookById[nb.id] = nb
+    // Group target order assignments by task
+    const assignments = new Map()  // taskId → array of {date, order}
+    rows.forEach((r, i) => {
+      if (!r || !r.taskId) return
+      const list = assignments.get(r.taskId) || []
+      list.push({ date: r.occurrenceDate || '', order: i })
+      assignments.set(r.taskId, list)
+    })
+    state.tasks = state.tasks.map((t) => {
+      const list = assignments.get(t.id)
+      if (!list) return t
+      const nb = notebookById[t.notebookId]
+      if (!nb) return t
+      if (nb.mode === 'one-shot') {
+        // Use the LAST assignment (one-shot has only one logical row)
+        return { ...t, order: list[list.length - 1].order }
+      }
+      // Recurring: each match writes to its occurrence
+      const occurrences = { ...(t.occurrences || {}) }
+      for (const a of list) {
+        if (!a.date) continue
+        occurrences[a.date] = { ...defaultOccurrence(), ...occurrences[a.date], order: a.order }
+      }
+      return { ...t, occurrences }
+    })
+    return state
+  })
+}
+
+// Read the effective row order for a (task, date) pair — recurring per-
+// occurrence override beats the task-level default.
+function getRowOrder(task, notebook, dateStr) {
+  if (!notebook || notebook.mode === 'one-shot') return task.order || 0
+  const occ = (task.occurrences || {})[dateStr]
+  if (occ && typeof occ.order === 'number') return occ.order
+  return task.order || 0
+}
+
 function setEditTaskId(taskId) {
   return updateState((state) => { state.editTaskId = taskId; return state })
 }
@@ -764,14 +811,12 @@ function pauseInPlace(occ, now) {
 // be running at a time, regardless of date or mode. The except (taskId,
 // dateStr) pair preserves the row the user just (re)started.
 function pauseAllOtherDoing(state, exceptTaskId, exceptDateStr, now) {
-  let pausedCount = 0
   state.tasks = state.tasks.map((t) => {
     const nb = state.notebooks.find((n) => n.id === t.notebookId)
     if (!nb) return t
     if (nb.mode === 'one-shot') {
       if (t.id === exceptTaskId) return t
       if ((t.status || 'todo') !== 'doing') return t
-      pausedCount++
       return { ...t, ...pauseInPlace(t, now) }
     }
     // recurring: pause any doing occurrence
@@ -784,7 +829,6 @@ function pauseAllOtherDoing(state, exceptTaskId, exceptDateStr, now) {
       if (occ && occ.status === 'doing' && !isExcept) {
         next[d] = pauseInPlace(occ, now)
         changed = true
-        pausedCount++
       } else {
         next[d] = occ
       }
@@ -792,7 +836,6 @@ function pauseAllOtherDoing(state, exceptTaskId, exceptDateStr, now) {
     if (!changed) return t
     return { ...t, occurrences: next }
   })
-  console.log('[store] pauseAllOtherDoing except=', exceptTaskId, exceptDateStr, 'paused', pausedCount, 'task(s)')
 }
 
 function startTask(taskId, dateStr) {
@@ -988,6 +1031,8 @@ module.exports = {
   deleteTask,
   reorderTasksInNotebook,
   reorderTasks,
+  reorderRows,
+  getRowOrder,
   setEditTaskId,
   clearEditTaskId,
   // task control

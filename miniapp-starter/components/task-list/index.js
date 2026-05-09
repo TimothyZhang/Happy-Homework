@@ -67,20 +67,11 @@ Component({
       if (!this.data.enableDrag) return
       if (e.touches && e.touches[0]) this.touchStartY = e.touches[0].pageY
     },
-    // A row is "virtual" if it represents a past missed occurrence of a
-    // recurring task — its occurrenceDate is in the past and differs from
-    // activeDate. Virtual rows are not draggable (task.order is a single
-    // global field; reordering one missed-Monday entry doesn't make sense).
-    _isVirtual(it) {
-      return !!it.occurrenceDate && it.occurrenceDate !== this.data.activeDate
-    },
-
     handleLongPress(e) {
       if (!this.data.enableDrag) return
       const id = e.currentTarget.dataset.id
       const item = this.data.list.find((it) => it.id === id)
       if (!item || item.status === 'done') return
-      if (this._isVirtual(item)) return
       this.dragStartY = this.touchStartY != null
         ? this.touchStartY
         : (e.detail && typeof e.detail.y === 'number' ? e.detail.y : 0)
@@ -104,12 +95,11 @@ Component({
       const itemH = this.itemHeightPx || 140
       const list = this.data.list
       const draggedIdx = list.findIndex((it) => it.id === this.data.dragId)
-      // Drag zone = non-virtual undone rows. List indices outside this zone
-      // (virtual rows above, done rows below) stay put.
+      // All undone rows are in the drag zone now (virtual past-missed
+      // recurring rows included). Done rows stay put at the bottom.
       const dragZone = []
       list.forEach((it, i) => {
         if (it.status === 'done') return
-        if (this._isVirtual(it)) return
         dragZone.push(i)
       })
       if (dragZone.length === 0) return
@@ -120,7 +110,6 @@ Component({
       const updated = list.map((it, i) => {
         if (it.id === this.data.dragId) return it
         if (it.status === 'done') return it
-        if (this._isVirtual(it)) return it
         let shiftY = 0
         if (draggedIdx < hoverIdx && i > draggedIdx && i <= hoverIdx) shiftY = -itemH
         else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) shiftY = itemH
@@ -141,7 +130,6 @@ Component({
       const dragZone = []
       list.forEach((it, i) => {
         if (it.status === 'done') return
-        if (this._isVirtual(it)) return
         dragZone.push(i)
       })
       const fromIdx = list.findIndex((it) => it.id === dragId)
@@ -150,13 +138,13 @@ Component({
       const toZoneIdx = Math.max(0, Math.min(dragZone.length - 1, fromZoneIdx + slotsDelta))
 
       if (fromZoneIdx !== -1 && fromZoneIdx !== toZoneIdx) {
-        const draggableIds = dragZone.map((listIdx) => {
+        const rows = dragZone.map((listIdx) => {
           const it = list[listIdx]
-          return it.taskId || it.id
+          return { taskId: it.taskId || it.id, occurrenceDate: it.occurrenceDate || '' }
         })
-        const [moved] = draggableIds.splice(fromZoneIdx, 1)
-        draggableIds.splice(toZoneIdx, 0, moved)
-        store.reorderTasks(draggableIds)
+        const [moved] = rows.splice(fromZoneIdx, 1)
+        rows.splice(toZoneIdx, 0, moved)
+        store.reorderRows(rows)
         this.triggerEvent('changed')
       } else {
         this.setData({ list: list.map((it) => ({ ...it, shiftY: 0 })) })

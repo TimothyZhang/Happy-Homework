@@ -64,6 +64,7 @@ function decorateDayItems(items, now) {
         elapsedMs += Math.max(0, now - occ.currentSegmentStartedAt)
       }
       const occurrenceDate = it.occurrenceDate || ''
+      const rowOrder = store.getRowOrder(it.task, it.notebook, occurrenceDate)
       return {
         // composite id so multiple occurrences of the same task don't collide
         // in wx:key
@@ -75,7 +76,7 @@ function decorateDayItems(items, now) {
         subject: it.task.subject || '',
         content: it.task.content,
         estimatedMinutes: it.task.estimatedMinutes,
-        order: it.task.order || 0,
+        rowOrder,
         createdAt: it.task.createdAt || 0,
         completedAt: occ.completedAt || 0,
         status: occ.status,
@@ -85,13 +86,13 @@ function decorateDayItems(items, now) {
       }
     })
     .sort((a, b) => {
-      // Undone first by user order, done at bottom by completedAt desc.
+      // Undone first by rowOrder, done at bottom by completedAt desc.
       const da = a.status === 'done'
       const db = b.status === 'done'
       if (da !== db) return da ? 1 : -1
       if (da) return (b.completedAt || 0) - (a.completedAt || 0)
-      const oa = a.order || 0
-      const ob = b.order || 0
+      const oa = a.rowOrder || 0
+      const ob = b.rowOrder || 0
       if (oa !== ob) return oa - ob
       return (a.createdAt || 0) - (b.createdAt || 0)
     })
