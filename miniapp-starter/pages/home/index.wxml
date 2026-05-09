@@ -74,16 +74,11 @@
           </view>
         </view>
         <view class="row-actions">
-          <block wx:if="{{isToday}}">
-            <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" catchtap="handleStartTask">▶</view>
-            <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" catchtap="handlePauseTask">❚❚</view>
-            <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" catchtap="handleResumeTask">▶</view>
-            <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" catchtap="handleFinishTask">✓</view>
-            <view wx:if="{{item.status === 'done'}}" class="icon-btn done-mark">✓</view>
-          </block>
-          <block wx:else>
-            <view class="status-pill status-{{item.status}}">{{item.status === 'done' ? '完成' : (item.status === 'doing' ? '进行' : (item.status === 'paused' ? '暂停' : '未做'))}}</view>
-          </block>
+          <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" catchtap="handleStartTask">▶</view>
+          <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" catchtap="handlePauseTask">❚❚</view>
+          <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" catchtap="handleResumeTask">▶</view>
+          <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" catchtap="handleFinishTask">✓</view>
+          <view wx:if="{{item.status === 'done'}}" class="icon-btn done-mark">✓</view>
         </view>
       </view>
     </view>

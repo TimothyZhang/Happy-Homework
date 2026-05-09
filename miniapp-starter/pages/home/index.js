@@ -189,7 +189,6 @@ Page({
   // === Task control (locked to active date) === //
 
   handleStartTask(e) {
-    if (!this.data.isToday) return
     store.startTask(e.currentTarget.dataset.id, this.data.activeDate)
     this.refreshState()
   },

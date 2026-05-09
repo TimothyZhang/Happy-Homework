@@ -190,9 +190,9 @@
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
 }
 
-.icon-btn.start-btn { background: #e54545; }
-.icon-btn.resume-btn { background: #ff8c1a; }
-.icon-btn.pause-btn { background: #245bdb; letter-spacing: 1rpx; }
+.icon-btn.start-btn { background: #245bdb; }
+.icon-btn.resume-btn { background: #245bdb; }
+.icon-btn.pause-btn { background: #f5a623; letter-spacing: 1rpx; }
 .icon-btn.finish-btn { background: #07c160; font-size: 32rpx; }
 .icon-btn.done-mark { background: #e8f7ee; color: #067647; box-shadow: none; font-size: 32rpx; }
 .icon-btn.edit-btn { background: #eef4ff; color: #245bdb; }
