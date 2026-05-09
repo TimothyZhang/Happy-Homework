@@ -22,7 +22,7 @@
           <block wx:if="{{cell}}">
             <text class="day-num">{{cell.day}}</text>
             <view wx:if="{{cell.total > 0}}" class="day-counts">
-              <view class="count-bubble {{cell.pending > 0 ? 'pending' : 'done'}}">{{cell.pending > 0 ? cell.pending : cell.total}}</view>
+              <view class="count-bubble {{cell.pending === 0 ? 'done' : (cell.isFuture ? 'future' : 'pending')}}">{{cell.pending > 0 ? cell.pending : cell.total}}</view>
               <view wx:if="{{cell.hasOverdue}}" class="overdue-dot"></view>
             </view>
           </block>

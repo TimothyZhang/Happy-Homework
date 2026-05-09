@@ -23,6 +23,7 @@ function buildMonthGrid(year, monthIdx0, state) {
       done,
       pending: total - done,
       isToday: dateStr === today,
+      isFuture: dateStr > today,
       hasOverdue: items.some((it) => it.isOverdue)
     })
   }

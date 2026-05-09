@@ -140,6 +140,7 @@
 }
 
 .count-bubble.pending { color: #b42318; background: #fde2e2; }
+.count-bubble.future { color: #245bdb; background: #eef4ff; }
 .count-bubble.done { color: #067647; background: #e8f7ee; }
 
 .overdue-dot {
