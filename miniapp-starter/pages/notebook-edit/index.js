@@ -9,15 +9,16 @@ const RECUR_TYPE_OPTIONS = [
   { key: 'daily', label: '每日' },
   { key: 'weekly', label: '每周' }
 ]
-const WEEKDAYS = [
-  { value: 1, label: '一' },
-  { value: 2, label: '二' },
-  { value: 3, label: '三' },
-  { value: 4, label: '四' },
-  { value: 5, label: '五' },
-  { value: 6, label: '六' },
-  { value: 7, label: '日' }
-]
+const WEEKDAY_LABELS = ['一', '二', '三', '四', '五', '六', '日']
+
+function buildWeekdays(activeValues) {
+  const set = new Set(activeValues || [])
+  return WEEKDAY_LABELS.map((label, i) => ({
+    value: i + 1,
+    label,
+    active: set.has(i + 1)
+  }))
+}
 
 Page({
   data: {
@@ -34,7 +35,7 @@ Page({
     recurType: 'daily',
     recurTypeOptions: RECUR_TYPE_OPTIONS,
     recurWeekdays: [],
-    weekdays: WEEKDAYS,
+    weekdays: buildWeekdays([]),
     openEnded: false
   },
 
@@ -55,6 +56,7 @@ Page({
           endDate: nb.endDate || (nb.mode === 'recurring' ? '' : today),
           recurType: nb.recurrence ? nb.recurrence.type : 'daily',
           recurWeekdays: nb.recurrence ? (nb.recurrence.weekdays || []) : [],
+          weekdays: buildWeekdays(nb.recurrence ? nb.recurrence.weekdays : []),
           openEnded: nb.mode === 'recurring' && !nb.endDate
         })
         wx.setNavigationBarTitle({ title: '编辑作业本' })
@@ -119,7 +121,10 @@ Page({
     const idx = wds.indexOf(value)
     if (idx >= 0) wds.splice(idx, 1)
     else wds.push(value)
-    this.setData({ recurWeekdays: wds })
+    this.setData({
+      recurWeekdays: wds,
+      weekdays: buildWeekdays(wds)
+    })
   },
 
   handleToggleOpenEnded(e) {

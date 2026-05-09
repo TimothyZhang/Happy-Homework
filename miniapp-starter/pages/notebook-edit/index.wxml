@@ -54,7 +54,7 @@
         <text class="field-label">每周</text>
         <view class="weekday-row">
           <view wx:for="{{weekdays}}" wx:key="value"
-                class="wd-chip {{recurWeekdays.indexOf(item.value) >= 0 ? 'active' : ''}}"
+                class="wd-chip {{item.active ? 'active' : ''}}"
                 data-value="{{item.value}}"
                 bindtap="handleToggleWeekday">周{{item.label}}</view>
         </view>
