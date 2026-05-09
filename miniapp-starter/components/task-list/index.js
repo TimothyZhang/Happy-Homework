@@ -72,9 +72,13 @@ Component({
     },
 
     handleLongPress(e) {
-      if (!this.data.enableDrag) return
+      if (!this.data.enableDrag) {
+        console.log('[task-list] longpress: drag disabled')
+        return
+      }
       const id = e.currentTarget.dataset.id
       const item = this.data.list.find((it) => it.id === id)
+      console.log('[task-list] longpress', id, 'found:', !!item, 'status:', item && item.status, 'virtual:', item && this._isVirtual(item))
       if (!item || item.status === 'done') return
       if (this._isVirtual(item)) return
       this.dragStartY = this.touchStartY != null
