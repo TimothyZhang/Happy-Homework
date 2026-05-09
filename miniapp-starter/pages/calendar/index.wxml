@@ -14,12 +14,12 @@
     </view>
 
     <view class="cal-grid">
-      <view wx:for="{{weeks}}" wx:for-item="week" wx:key="index" class="cal-row">
-        <view wx:for="{{week}}" wx:for-item="cell" wx:key="day"
-              class="cal-cell {{cell ? '' : 'empty'}} {{cell.isToday ? 'is-today' : ''}} {{selectedDate === cell.dateStr ? 'is-selected' : ''}}"
-              data-date="{{cell ? cell.dateStr : ''}}"
+      <view wx:for="{{weeks}}" wx:for-item="week" wx:key="key" class="cal-row">
+        <view wx:for="{{week.cells}}" wx:for-item="cell" wx:key="key"
+              class="cal-cell {{cell.empty ? 'empty' : ''}} {{cell.isToday ? 'is-today' : ''}} {{!cell.empty && selectedDate === cell.dateStr ? 'is-selected' : ''}}"
+              data-date="{{cell.dateStr}}"
               bindtap="handlePickDay">
-          <block wx:if="{{cell}}">
+          <block wx:if="{{!cell.empty}}">
             <text class="day-num">{{cell.day}}</text>
             <view wx:if="{{cell.total > 0}}" class="day-counts">
               <view class="count-bubble {{cell.pending === 0 ? 'done' : (cell.isFuture ? 'future' : 'pending')}}">{{cell.pending > 0 ? cell.pending : cell.total}}</view>

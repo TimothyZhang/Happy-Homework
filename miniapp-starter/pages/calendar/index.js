@@ -9,7 +9,11 @@ function buildMonthGrid(year, monthIdx0, state) {
   const firstDow = first.getDay() // 0=Sun..6=Sat ; we treat Mon=first
   const leadBlanks = (firstDow + 6) % 7
   const cells = []
-  for (let i = 0; i < leadBlanks; i++) cells.push(null)
+  // Use object cells (with unique `key`) for blanks too, so wx:for / wx:key
+  // never see a null and template member access is always safe.
+  for (let i = 0; i < leadBlanks; i++) {
+    cells.push({ key: `pad-lead-${i}`, empty: true })
+  }
   const today = store.todayStr()
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${pad2(monthIdx0 + 1)}-${pad2(d)}`
@@ -17,6 +21,8 @@ function buildMonthGrid(year, monthIdx0, state) {
     const total = items.length
     const done = items.filter((it) => it.occurrence.status === 'done').length
     cells.push({
+      key: dateStr,
+      empty: false,
       day: d,
       dateStr,
       total,
@@ -28,11 +34,13 @@ function buildMonthGrid(year, monthIdx0, state) {
     })
   }
   // pad to multiple of 7
-  while (cells.length % 7 !== 0) cells.push(null)
+  while (cells.length % 7 !== 0) {
+    cells.push({ key: `pad-trail-${cells.length}`, empty: true })
+  }
   // group by week
   const weeks = []
   for (let i = 0; i < cells.length; i += 7) {
-    weeks.push(cells.slice(i, i + 7))
+    weeks.push({ key: `wk-${i}`, cells: cells.slice(i, i + 7) })
   }
   return weeks
 }
