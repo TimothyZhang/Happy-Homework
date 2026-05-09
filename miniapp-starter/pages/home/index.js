@@ -223,23 +223,35 @@ Page({
 
   // === Drag-reorder (today only, all undone tasks regardless of notebook) === //
 
+  handleTouchStart(e) {
+    // Cache the touch's pageY at touchstart so handleLongPress (which fires
+    // a synthesized event without `touches`) can pick it up.
+    if (e.touches && e.touches[0]) {
+      this.touchStartY = e.touches[0].pageY
+    }
+  },
+
   handleLongPress(e) {
     if (!this.data.isToday) return
-    const { id } = e.currentTarget.dataset
-    const item = this.data.items.find((it) => it.id === id)
+    const { id, list } = e.currentTarget.dataset
+    const sourceList = list === 'overdue' ? this.data.overdueItems : this.data.items
+    const item = sourceList.find((it) => it.id === id)
     if (!item || item.status === 'done') return
-    if (e.touches && e.touches[0]) this.dragStartY = e.touches[0].pageY
+    this.dragStartY = this.touchStartY != null
+      ? this.touchStartY
+      : (e.detail && typeof e.detail.y === 'number' ? e.detail.y : 0)
     if (!this.itemHeightPx) {
       const q = wx.createSelectorQuery()
       q.select('.task-row').boundingClientRect()
       q.exec((rects) => { if (rects && rects[0]) this.itemHeightPx = rects[0].height + 12 })
     }
+    this.dragList = list === 'overdue' ? 'overdue' : 'today'
     this.setData({ dragId: id, dragDy: 0 })
     if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
   },
 
   handleTouchMove(e) {
-    if (!this.data.dragId || !this.dragStartY) return
+    if (!this.data.dragId || this.dragStartY == null) return
     const now = Date.now()
     if (this._lastMoveAt && now - this._lastMoveAt < 16) return
     this._lastMoveAt = now
@@ -248,9 +260,11 @@ Page({
     const dy = t.pageY - this.dragStartY
     if (Math.abs(dy - this.data.dragDy) < 2) return
     const itemH = this.itemHeightPx || 140
-    const list = this.data.items
-    const undoneCount = list.filter((it) => it.status !== 'done').length
+    const isOverdue = this.dragList === 'overdue'
+    const listKey = isOverdue ? 'overdueItems' : 'items'
+    const list = this.data[listKey]
     const draggedIdx = list.findIndex((it) => it.id === this.data.dragId)
+    const undoneCount = list.filter((it) => it.status !== 'done').length
     const slotsDelta = Math.round(dy / itemH)
     const hoverIdx = Math.max(0, Math.min(undoneCount - 1, draggedIdx + slotsDelta))
     const updated = list.map((it, i) => {
@@ -261,18 +275,21 @@ Page({
       else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) shiftY = itemH
       return { ...it, shiftY }
     })
-    this.setData({ items: updated, dragDy: dy })
+    this.setData({ [listKey]: updated, dragDy: dy })
   },
 
   handleTouchEnd() {
     if (!this.data.dragId) {
       this.dragStartY = null
+      this.touchStartY = null
       return
     }
     const dragId = this.data.dragId
     const dragDy = this.data.dragDy
     const itemH = this.itemHeightPx || 140
-    const list = this.data.items
+    const isOverdue = this.dragList === 'overdue'
+    const listKey = isOverdue ? 'overdueItems' : 'items'
+    const list = this.data[listKey]
     const undoneCount = list.filter((it) => it.status !== 'done').length
     const fromIdx = list.findIndex((it) => it.id === dragId)
     const slotsDelta = Math.round(dragDy / itemH)
@@ -285,9 +302,11 @@ Page({
       store.reorderTasks(undoneIds)
       this.refreshState()
     } else {
-      this.setData({ items: list.map((it) => ({ ...it, shiftY: 0 })) })
+      this.setData({ [listKey]: list.map((it) => ({ ...it, shiftY: 0 })) })
     }
     this.dragStartY = null
+    this.touchStartY = null
+    this.dragList = null
     this.setData({ dragId: null, dragDy: 0 })
   }
 })

@@ -57,11 +57,13 @@
       <view wx:for="{{items}}" wx:key="id"
             class="task-row {{item.status}} {{item.isOverdue ? 'is-overdue' : ''}} {{dragId === item.id ? 'is-dragging' : ''}}"
             style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
+            bindtouchstart="handleTouchStart"
             bindlongpress="handleLongPress"
             catchtouchmove="handleTouchMove"
             catchtouchend="handleTouchEnd"
             catchtouchcancel="handleTouchEnd"
-            data-id="{{item.id}}">
+            data-id="{{item.id}}"
+            data-list="today">
         <view class="dot"></view>
         <view class="row-body">
           <text class="row-content">{{item.content}}</text>
@@ -96,7 +98,15 @@
     </view>
     <view class="timeline">
       <view wx:for="{{overdueItems}}" wx:key="id"
-            class="task-row {{item.status}} is-overdue">
+            class="task-row {{item.status}} is-overdue {{dragId === item.id ? 'is-dragging' : ''}}"
+            style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
+            bindtouchstart="handleTouchStart"
+            bindlongpress="handleLongPress"
+            catchtouchmove="handleTouchMove"
+            catchtouchend="handleTouchEnd"
+            catchtouchcancel="handleTouchEnd"
+            data-id="{{item.id}}"
+            data-list="overdue">
         <view class="dot"></view>
         <view class="row-body">
           <text class="row-content">{{item.content}}</text>

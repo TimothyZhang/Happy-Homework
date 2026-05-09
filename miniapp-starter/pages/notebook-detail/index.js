@@ -247,9 +247,15 @@ Page({
 
   // === Drag-reorder within this notebook === //
 
+  handleTouchStart(e) {
+    if (e.touches && e.touches[0]) this.touchStartY = e.touches[0].pageY
+  },
+
   handleLongPress(e) {
     const id = e.currentTarget.dataset.id
-    if (e.touches && e.touches[0]) this.dragStartY = e.touches[0].pageY
+    this.dragStartY = this.touchStartY != null
+      ? this.touchStartY
+      : (e.detail && typeof e.detail.y === 'number' ? e.detail.y : 0)
     if (!this.itemHeightPx) {
       const q = wx.createSelectorQuery()
       q.select('.task-row').boundingClientRect()
@@ -260,7 +266,7 @@ Page({
   },
 
   handleTouchMove(e) {
-    if (!this.data.dragId || !this.dragStartY) return
+    if (!this.data.dragId || this.dragStartY == null) return
     const now = Date.now()
     if (this._lastMoveAt && now - this._lastMoveAt < 16) return
     this._lastMoveAt = now
@@ -286,6 +292,7 @@ Page({
   handleTouchEnd() {
     if (!this.data.dragId) {
       this.dragStartY = null
+      this.touchStartY = null
       return
     }
     const dragId = this.data.dragId
@@ -305,6 +312,7 @@ Page({
       this.setData({ tasks: list.map((t) => ({ ...t, shiftY: 0 })) })
     }
     this.dragStartY = null
+    this.touchStartY = null
     this.setData({ dragId: null, dragDy: 0 })
   }
 })

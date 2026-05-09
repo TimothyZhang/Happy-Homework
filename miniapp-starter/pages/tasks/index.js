@@ -115,11 +115,17 @@ Page({
 
   // === Drag-reorder notebooks === //
 
+  handleTouchStart(event) {
+    if (event.touches && event.touches[0]) {
+      this.touchStartY = event.touches[0].pageY
+    }
+  },
+
   handleLongPress(event) {
     const { id } = event.currentTarget.dataset
-    if (event.touches && event.touches[0]) {
-      this.dragStartY = event.touches[0].pageY
-    }
+    this.dragStartY = this.touchStartY != null
+      ? this.touchStartY
+      : (event.detail && typeof event.detail.y === 'number' ? event.detail.y : 0)
     if (!this.itemHeightPx) {
       const q = wx.createSelectorQuery()
       q.select('.notebook-card').boundingClientRect()
@@ -132,7 +138,7 @@ Page({
   },
 
   handleTouchMove(event) {
-    if (!this.data.dragId || !this.dragStartY) return
+    if (!this.data.dragId || this.dragStartY == null) return
     const now = Date.now()
     if (this._lastMoveAt && now - this._lastMoveAt < 16) return
     this._lastMoveAt = now
@@ -158,6 +164,7 @@ Page({
   handleTouchEnd() {
     if (!this.data.dragId) {
       this.dragStartY = null
+      this.touchStartY = null
       return
     }
     const dragId = this.data.dragId
@@ -179,6 +186,7 @@ Page({
       this.setData({ notebooks: reset })
     }
     this.dragStartY = null
+    this.touchStartY = null
     this.setData({ dragId: null, dragDy: 0 })
   },
 

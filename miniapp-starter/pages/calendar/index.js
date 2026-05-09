@@ -83,16 +83,22 @@ Page({
     this.refresh()
   },
 
-  refresh() {
+  refresh(patch = {}) {
     const state = store.getStateWithComputed()
-    const weeks = buildMonthGrid(this.data.year, this.data.monthIdx0, state)
-    const monthLabel = `${this.data.year} 年 ${this.data.monthIdx0 + 1} 月`
-    const items = decorateDayItems(store.tasksForDate(state, this.data.selectedDate), Date.now())
+    const year = patch.year !== undefined ? patch.year : this.data.year
+    const monthIdx0 = patch.monthIdx0 !== undefined ? patch.monthIdx0 : this.data.monthIdx0
+    const selectedDate = patch.selectedDate || this.data.selectedDate
+    const weeks = buildMonthGrid(year, monthIdx0, state)
+    const monthLabel = `${year} 年 ${monthIdx0 + 1} 月`
+    const items = decorateDayItems(store.tasksForDate(state, selectedDate), Date.now())
     this.setData({
+      year,
+      monthIdx0,
+      selectedDate,
       weeks,
       monthLabel,
       selectedItems: items,
-      selectedLabel: this.formatDateLabel(this.data.selectedDate)
+      selectedLabel: this.formatDateLabel(selectedDate)
     })
   },
 
@@ -108,33 +114,29 @@ Page({
     let y = this.data.year
     let m = this.data.monthIdx0 - 1
     if (m < 0) { m = 11; y -= 1 }
-    this.setData({ year: y, monthIdx0: m })
-    this.refresh()
+    this.refresh({ year: y, monthIdx0: m })
   },
 
   handleNextMonth() {
     let y = this.data.year
     let m = this.data.monthIdx0 + 1
     if (m > 11) { m = 0; y += 1 }
-    this.setData({ year: y, monthIdx0: m })
-    this.refresh()
+    this.refresh({ year: y, monthIdx0: m })
   },
 
   handleToday() {
     const now = new Date()
-    this.setData({
+    this.refresh({
       year: now.getFullYear(),
       monthIdx0: now.getMonth(),
       selectedDate: store.todayStr()
     })
-    this.refresh()
   },
 
   handlePickDay(e) {
     const dateStr = e.currentTarget.dataset.date
     if (!dateStr) return
-    this.setData({ selectedDate: dateStr })
-    this.refresh()
+    this.refresh({ selectedDate: dateStr })
   },
 
   handleOpenNotebook(e) {
