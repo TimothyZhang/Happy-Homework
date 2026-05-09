@@ -25,6 +25,9 @@ function decorateItem(item, now) {
   if (occ.status === 'doing' && occ.currentSegmentStartedAt) {
     elapsedMs += Math.max(0, now - occ.currentSegmentStartedAt)
   }
+  // The "overdue" treatment (red row bg, 逾期 chip) only applies while the
+  // task is still open. Once it's done, drop the urgency styling.
+  const visualOverdue = !!item.isOverdue && occ.status !== 'done'
   return {
     id: item.task.id,
     notebookId: item.notebook.id,
@@ -36,13 +39,14 @@ function decorateItem(item, now) {
     createdAt: item.task.createdAt || 0,
     completedAt: occ.completedAt || 0,
     status: occ.status,
-    isOverdue: item.isOverdue,
+    isOverdue: visualOverdue,
     elapsedMs,
     elapsedDisplay: elapsedMs > 0 ? formatElapsed(elapsedMs) : ''
   }
 }
 
-// Undone first by user order (createdAt as tiebreaker), done by completedAt desc.
+// Undone first (overdue floats to the very top within undone), done by
+// completedAt desc.
 function sortItems(items) {
   const undone = []
   const done = []
@@ -51,6 +55,7 @@ function sortItems(items) {
     else undone.push(it)
   }
   undone.sort((a, b) => {
+    if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1
     const oa = a.order || 0
     const ob = b.order || 0
     if (oa !== ob) return oa - ob
@@ -68,7 +73,6 @@ Page({
     overview: { totalCount: 0, pendingCount: 0, doneCount: 0 },
     remainingMinutesDisplay: '—',
     items: [],
-    overdueItems: [],
     showCongrats: false,
     totalElapsedDisplay: '',
     lastReward: null
@@ -88,18 +92,14 @@ Page({
     const state = store.getStateWithComputed()
     const now = Date.now()
     const raw = store.tasksForDate(state, activeDate)
-    const todayRaw = raw.filter((it) => !it.isOverdue)
-    const overdueRaw = isToday ? raw.filter((it) => it.isOverdue) : []
-    const items = sortItems(todayRaw.map((it) => decorateItem(it, now)))
-    const overdueItems = overdueRaw
-      .map((it) => decorateItem(it, now))
-      .sort((a, b) => (a.order || 0) - (b.order || 0))
+    // One unified list — overdue items carry isOverdue flag so the row stays
+    // styled red while still being part of the same scrollable list and the
+    // same drag-reorder pool.
+    const items = sortItems(raw.map((it) => decorateItem(it, now)))
     const total = items.length
     const done = items.filter((it) => it.status === 'done').length
     const pending = total - done
-    // 「预计还需」covers both today's pending tasks AND any overdue carry-over,
-    // since the user owes both sets of time today.
-    const remainingMinutes = [...items, ...overdueItems]
+    const remainingMinutes = items
       .filter((it) => it.status !== 'done')
       .reduce((s, it) => s + Number(it.estimatedMinutes || 0), 0)
     this.setData({
@@ -109,7 +109,6 @@ Page({
       overview: { totalCount: total, pendingCount: pending, doneCount: done },
       remainingMinutesDisplay: formatDuration(remainingMinutes),
       items,
-      overdueItems,
       lastReward: state.lastReward || null
     })
     if (opts.maybeCelebrate) this.maybeShowCongrats(items)

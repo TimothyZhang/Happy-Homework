@@ -58,17 +58,6 @@
                bind:changed="handleTasksChanged" />
   </view>
 
-  <view wx:if="{{isToday && overdueItems.length > 0}}" class="card section-card overdue-card">
-    <view class="section-header">
-      <text class="section-title">历史遗留作业</text>
-      <text class="overdue-count">{{overdueItems.length}} 项</text>
-    </view>
-    <task-list items="{{overdueItems}}"
-               activeDate="{{activeDate}}"
-               rowVariant="is-overdue"
-               bind:changed="handleTasksChanged" />
-  </view>
-
   <view wx:if="{{showCongrats}}" class="congrats-overlay" bindtap="handleDismissCongrats">
     <view class="congrats-card" catchtap="">
       <text class="congrats-emoji">🎉</text>

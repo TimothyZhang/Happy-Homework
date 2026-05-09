@@ -402,10 +402,15 @@ function applyTaskState(task, notebook, dateStr, patch) {
   return { ...task, occurrences }
 }
 
-// All tasks visible on a given date.
-// Today view also includes overdue one-shot tasks (endDate < today AND not done).
+// Tasks visible on a given date.
+// For today and past days: scheduled-that-day + actually-finished-that-day
+//   (so a task scheduled last week but cleared today still shows on today's
+//   list, and yesterday's view shows whatever was finished yesterday).
+// For future days: only scheduled-that-day.
+// Today additionally includes still-open overdue one-shot tasks.
 function tasksForDate(state, dateStr) {
   const today = todayStr()
+  const isFuture = compareDateStr(dateStr, today) > 0
   const isToday = dateStr === today
   const notebookById = {}
   for (const nb of state.notebooks) notebookById[nb.id] = nb
@@ -416,13 +421,28 @@ function tasksForDate(state, dateStr) {
     if (!nb) continue
     const onSchedule = isNotebookActiveOn(nb, dateStr)
     let isOverdue = false
+    let completedOnDate = false
+
+    // For past/today views, also surface tasks actually completed that day.
+    // Recurring tasks are date-keyed via occurrences so onSchedule already
+    // covers them; this only matters for one-shot tasks completed off-schedule.
+    if (!isFuture && nb.mode === 'one-shot') {
+      const status = task.status || 'todo'
+      if (status === 'done' && task.completedAt &&
+          dateToStr(new Date(task.completedAt)) === dateStr) {
+        completedOnDate = true
+      }
+    }
+
+    // Overdue: still-open one-shot whose due date already passed. Today only.
     if (!onSchedule && isToday && nb.mode === 'one-shot') {
       const due = nb.endDate || nb.startDate
       if (compareDateStr(due, today) < 0 && (task.status || 'todo') !== 'done') {
         isOverdue = true
       }
     }
-    if (!onSchedule && !isOverdue) continue
+
+    if (!onSchedule && !isOverdue && !completedOnDate) continue
     const occ = getTaskState(task, nb, dateStr)
     items.push({
       task,
