@@ -63,8 +63,13 @@ function decorateDayItems(items, now) {
       if (occ.status === 'doing' && occ.currentSegmentStartedAt) {
         elapsedMs += Math.max(0, now - occ.currentSegmentStartedAt)
       }
+      const occurrenceDate = it.occurrenceDate || ''
       return {
-        id: it.task.id,
+        // composite id so multiple occurrences of the same task don't collide
+        // in wx:key
+        id: occurrenceDate ? `${it.task.id}__${occurrenceDate}` : it.task.id,
+        taskId: it.task.id,
+        occurrenceDate,
         notebookId: it.notebook.id,
         notebookName: it.notebook.name,
         subject: it.task.subject || '',
@@ -74,7 +79,7 @@ function decorateDayItems(items, now) {
         createdAt: it.task.createdAt || 0,
         completedAt: occ.completedAt || 0,
         status: occ.status,
-        isOverdue: it.isOverdue,
+        isOverdue: it.isOverdue && occ.status !== 'done',
         elapsedMs,
         elapsedDisplay: elapsedMs > 0 ? formatElapsed(elapsedMs) : ''
       }

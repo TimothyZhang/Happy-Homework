@@ -28,8 +28,13 @@ function decorateItem(item, now) {
   // The "overdue" treatment (red row bg, 逾期 chip) only applies while the
   // task is still open. Once it's done, drop the urgency styling.
   const visualOverdue = !!item.isOverdue && occ.status !== 'done'
+  const occurrenceDate = item.occurrenceDate || ''
   return {
-    id: item.task.id,
+    // composite key — same task across multiple missed dates needs distinct
+    // wx:key entries
+    id: occurrenceDate ? `${item.task.id}__${occurrenceDate}` : item.task.id,
+    taskId: item.task.id,
+    occurrenceDate,
     notebookId: item.notebook.id,
     notebookName: item.notebook.name,
     subject: item.task.subject || '',
@@ -45,8 +50,8 @@ function decorateItem(item, now) {
   }
 }
 
-// Undone first (overdue floats to the very top within undone), done by
-// completedAt desc.
+// Undone first (overdue floats to the very top within undone, oldest missed
+// first), done by completedAt desc.
 function sortItems(items) {
   const undone = []
   const done = []
@@ -56,6 +61,12 @@ function sortItems(items) {
   }
   undone.sort((a, b) => {
     if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1
+    if (a.isOverdue) {
+      // older missed dates first
+      if (a.occurrenceDate !== b.occurrenceDate) {
+        return a.occurrenceDate < b.occurrenceDate ? -1 : 1
+      }
+    }
     const oa = a.order || 0
     const ob = b.order || 0
     if (oa !== ob) return oa - ob

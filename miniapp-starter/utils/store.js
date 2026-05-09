@@ -81,15 +81,16 @@ function seedNotebooks() {
       createdAt: Date.now(),
       order: 2
     },
-    // recurring daily
+    // recurring daily — backdated 2 days so demo shows the past-missed
+    // occurrences feature on home today view
     {
       id: 'nb_seed_recur',
       name: '每日口算',
       mode: 'recurring',
-      startDate: today,
+      startDate: y2,
       endDate: null,
       recurrence: { type: 'daily', weekdays: [] },
-      createdAt: Date.now(),
+      createdAt: Date.now() - 172800000,
       order: 3
     },
     // tomorrow (won't show today)
@@ -407,7 +408,12 @@ function applyTaskState(task, notebook, dateStr, patch) {
 //   (so a task scheduled last week but cleared today still shows on today's
 //   list, and yesterday's view shows whatever was finished yesterday).
 // For future days: only scheduled-that-day.
-// Today additionally includes still-open overdue one-shot tasks.
+// Today additionally includes:
+//   - still-open overdue one-shot tasks
+//   - every past undone occurrence of every recurring task (one row per
+//     missed date, surfaced together so the user can clear the backlog)
+// Each returned item carries `occurrenceDate` — the date its action should
+// target (so finishing a "missed Monday" row writes occurrence[Monday]).
 function tasksForDate(state, dateStr) {
   const today = todayStr()
   const isFuture = compareDateStr(dateStr, today) > 0
@@ -448,9 +454,37 @@ function tasksForDate(state, dateStr) {
       task,
       notebook: nb,
       occurrence: occ,
+      occurrenceDate: dateStr,
       isOverdue
     })
   }
+
+  // Today view: append every past undone recurring occurrence as its own row.
+  if (isToday) {
+    for (const task of state.tasks) {
+      const nb = notebookById[task.notebookId]
+      if (!nb || nb.mode !== 'recurring') continue
+      if (!nb.startDate) continue
+      let d = nb.startDate
+      while (compareDateStr(d, today) < 0) {
+        if (isNotebookActiveOn(nb, d)) {
+          const raw = (task.occurrences || {})[d]
+          const status = raw && raw.status ? raw.status : 'todo'
+          if (status !== 'done') {
+            items.push({
+              task,
+              notebook: nb,
+              occurrence: { ...defaultOccurrence(), ...(raw || {}) },
+              occurrenceDate: d,
+              isOverdue: true
+            })
+          }
+        }
+        d = addDays(d, 1)
+      }
+    }
+  }
+
   return items
 }
 

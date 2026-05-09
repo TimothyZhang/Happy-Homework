@@ -63,11 +63,20 @@ Component({
       if (!this.data.enableDrag) return
       if (e.touches && e.touches[0]) this.touchStartY = e.touches[0].pageY
     },
+    // A row is "virtual" if it represents a past missed occurrence of a
+    // recurring task — its occurrenceDate is in the past and differs from
+    // activeDate. Virtual rows are not draggable (task.order is a single
+    // global field; reordering one missed-Monday entry doesn't make sense).
+    _isVirtual(it) {
+      return !!it.occurrenceDate && it.occurrenceDate !== this.data.activeDate
+    },
+
     handleLongPress(e) {
       if (!this.data.enableDrag) return
       const id = e.currentTarget.dataset.id
       const item = this.data.list.find((it) => it.id === id)
       if (!item || item.status === 'done') return
+      if (this._isVirtual(item)) return
       this.dragStartY = this.touchStartY != null
         ? this.touchStartY
         : (e.detail && typeof e.detail.y === 'number' ? e.detail.y : 0)
@@ -91,12 +100,23 @@ Component({
       const itemH = this.itemHeightPx || 140
       const list = this.data.list
       const draggedIdx = list.findIndex((it) => it.id === this.data.dragId)
-      const undoneCount = list.filter((it) => it.status !== 'done').length
+      // Drag zone = non-virtual undone rows. List indices outside this zone
+      // (virtual rows above, done rows below) stay put.
+      const dragZone = []
+      list.forEach((it, i) => {
+        if (it.status === 'done') return
+        if (this._isVirtual(it)) return
+        dragZone.push(i)
+      })
+      if (dragZone.length === 0) return
+      const minIdx = dragZone[0]
+      const maxIdx = dragZone[dragZone.length - 1]
       const slotsDelta = Math.round(dy / itemH)
-      const hoverIdx = Math.max(0, Math.min(undoneCount - 1, draggedIdx + slotsDelta))
+      const hoverIdx = Math.max(minIdx, Math.min(maxIdx, draggedIdx + slotsDelta))
       const updated = list.map((it, i) => {
         if (it.id === this.data.dragId) return it
         if (it.status === 'done') return it
+        if (this._isVirtual(it)) return it
         let shiftY = 0
         if (draggedIdx < hoverIdx && i > draggedIdx && i <= hoverIdx) shiftY = -itemH
         else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) shiftY = itemH
@@ -114,16 +134,25 @@ Component({
       const dragDy = this.data.dragDy
       const itemH = this.itemHeightPx || 140
       const list = this.data.list
-      const undoneCount = list.filter((it) => it.status !== 'done').length
+      const dragZone = []
+      list.forEach((it, i) => {
+        if (it.status === 'done') return
+        if (this._isVirtual(it)) return
+        dragZone.push(i)
+      })
       const fromIdx = list.findIndex((it) => it.id === dragId)
+      const fromZoneIdx = dragZone.indexOf(fromIdx)
       const slotsDelta = Math.round(dragDy / itemH)
-      const toIdx = Math.max(0, Math.min(undoneCount - 1, fromIdx + slotsDelta))
+      const toZoneIdx = Math.max(0, Math.min(dragZone.length - 1, fromZoneIdx + slotsDelta))
 
-      if (fromIdx !== -1 && fromIdx !== toIdx && fromIdx < undoneCount) {
-        const undoneIds = list.filter((it) => it.status !== 'done').map((it) => it.id)
-        const [moved] = undoneIds.splice(fromIdx, 1)
-        undoneIds.splice(toIdx, 0, moved)
-        store.reorderTasks(undoneIds)
+      if (fromZoneIdx !== -1 && fromZoneIdx !== toZoneIdx) {
+        const draggableIds = dragZone.map((listIdx) => {
+          const it = list[listIdx]
+          return it.taskId || it.id
+        })
+        const [moved] = draggableIds.splice(fromZoneIdx, 1)
+        draggableIds.splice(toZoneIdx, 0, moved)
+        store.reorderTasks(draggableIds)
         this.triggerEvent('changed')
       } else {
         this.setData({ list: list.map((it) => ({ ...it, shiftY: 0 })) })
@@ -134,21 +163,34 @@ Component({
     },
 
     // === Actions === //
+    // Each row carries its own data-task-id and data-occurrence-date so that
+    // a "missed Monday" virtual row updates occurrence[Monday], not today.
 
+    _actionTarget(e) {
+      const ds = e.currentTarget.dataset
+      return {
+        taskId: ds.taskId || ds.id,
+        date: ds.occurrenceDate || this.data.activeDate
+      }
+    },
     handleStart(e) {
-      store.startTask(e.currentTarget.dataset.id, this.data.activeDate)
+      const t = this._actionTarget(e)
+      store.startTask(t.taskId, t.date)
       this.triggerEvent('changed')
     },
     handlePause(e) {
-      store.pauseTask(e.currentTarget.dataset.id, this.data.activeDate)
+      const t = this._actionTarget(e)
+      store.pauseTask(t.taskId, t.date)
       this.triggerEvent('changed')
     },
     handleResume(e) {
-      store.resumeTask(e.currentTarget.dataset.id, this.data.activeDate)
+      const t = this._actionTarget(e)
+      store.resumeTask(t.taskId, t.date)
       this.triggerEvent('changed')
     },
     handleFinish(e) {
-      store.finishTask(e.currentTarget.dataset.id, this.data.activeDate)
+      const t = this._actionTarget(e)
+      store.finishTask(t.taskId, t.date)
       this.triggerEvent('changed', { finished: true })
     },
     handleOpenNotebook(e) {
