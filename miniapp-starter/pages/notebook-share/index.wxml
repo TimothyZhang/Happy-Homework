@@ -24,9 +24,8 @@
       <view class="dot"></view>
       <view class="row-body">
         <text class="row-content">{{item.c}}</text>
-        <view class="row-chips">
-          <text wx:if="{{item.s}}" class="chip subject-chip">{{item.s}}</text>
-          <text class="chip est-chip">预计 {{item.m}} 分钟</text>
+        <view wx:if="{{item.s}}" class="row-chips">
+          <text class="chip subject-chip">{{item.s}}</text>
         </view>
       </view>
     </view>

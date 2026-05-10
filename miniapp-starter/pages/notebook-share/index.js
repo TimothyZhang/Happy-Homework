@@ -53,9 +53,54 @@ Page({
   handleImport() {
     if (this.data.importing) return
     if (!this.data.payload) return
+    const payload = this.data.payload
+    const name = (payload.n && payload.n.name) || ''
+    const dupe = store.findNotebookByName(name)
+    if (dupe) {
+      this.showDuplicateActionSheet(dupe.id)
+      return
+    }
+    this.runImport({ mode: 'new' })
+  },
+
+  // Three-way conflict resolver when the import name collides with an
+  // existing notebook. Choices:
+  //   合并 — append shared tasks to the existing notebook (no dedupe; all
+  //          incoming tasks land as todo).
+  //   重命名 — auto-suffix " 复制" until unique, then create as new.
+  //   覆盖 — destructive: replaces metadata + tasks under the same id.
+  //          Coin/streak history is keyed elsewhere and stays intact.
+  showDuplicateActionSheet(targetId) {
+    wx.showActionSheet({
+      itemList: ['合并到现有作业本', '重命名后保存', '覆盖现有作业本'],
+      success: (res) => {
+        if (res.tapIndex === 0) {
+          this.runImport({ mode: 'merge', targetNotebookId: targetId })
+        } else if (res.tapIndex === 1) {
+          this.runImport({ mode: 'rename' })
+        } else if (res.tapIndex === 2) {
+          // Second confirm — overwrite is destructive.
+          wx.showModal({
+            title: '覆盖作业本？',
+            content: '现有作业本里的所有作业会被替换，进度记录保留。',
+            confirmText: '覆盖',
+            confirmColor: '#e54545',
+            success: (r) => {
+              if (r.confirm) {
+                this.runImport({ mode: 'overwrite', targetNotebookId: targetId })
+              }
+            }
+          })
+        }
+      }
+    })
+  },
+
+  runImport(options) {
+    if (this.data.importing) return
     this.setData({ importing: true })
     const payload = this.data.payload
-    const newId = store.importSharedNotebook(payload)
+    const newId = store.importSharedNotebook(payload, options)
     if (!newId) {
       this.setData({ importing: false, error: '保存失败，请稍后再试' })
       return

@@ -130,6 +130,13 @@ Page({
       wx.showToast({ title: '请填作业本名称', icon: 'none' })
       return
     }
+    // Same trimmed name as another notebook → block save. excludeId protects
+    // editing a notebook into "itself".
+    const excludeId = this.data.isEdit ? this.data.notebookId : null
+    if (store.findNotebookByName(name, excludeId)) {
+      wx.showToast({ title: '已存在同名作业本', icon: 'none' })
+      return
+    }
     if (!startDate) {
       wx.showToast({ title: '请选开始日期', icon: 'none' })
       return
