@@ -129,7 +129,10 @@ function showConflictModal(initial) {
       content: initial
         ? '切换到此设备会让对方退出，并以云端最新数据为准。是否切换？'
         : '此设备已被踢下线。切换回来会以云端最新数据覆盖本机未保存的改动。',
-      confirmText: '切到此设备',
+      // confirmText must be ≤4 chars — wx.showModal silently fails to render
+      // when exceeded, which would auto-resolve to 'cancel' and trap the user
+      // in read-only mode with no visible prompt.
+      confirmText: '切回',
       cancelText: '只读浏览',
       success: (r) => resolve(r.confirm ? 'takeover' : 'cancel'),
       fail: () => resolve('cancel'),
