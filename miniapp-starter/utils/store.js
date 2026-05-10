@@ -1,5 +1,17 @@
+const cloudSync = require('./cloud-sync')
+
 const STORAGE_KEY = 'homework-pet-v1'
 const SCHEMA_VERSION = 2
+
+// Subset of state fields synced to cloud. Everything else is local-only:
+// transient UI state (editTaskId, editNotebookId), OCR jobs (ephemeral and
+// large), and app-wide config that's the same for everyone (rewardRules,
+// shopItems, schemaVersion).
+const SYNC_FIELDS = [
+  'notebooks', 'tasks',
+  'coins', 'streakDays', 'bonusCoins',
+  'pet', 'lastReward'
+]
 
 // === Date helpers (local timezone, YYYY-MM-DD) === //
 
@@ -220,6 +232,9 @@ function seedTasks() {
 
 const defaultState = {
   schemaVersion: SCHEMA_VERSION,
+  // ms timestamp of last sync-relevant local mutation. 0 = never written, so
+  // anything from cloud will win on first hydrate.
+  updatedAt: 0,
   coins: 36,
   streakDays: 4,
   bonusCoins: 10,
@@ -274,6 +289,9 @@ function migrateState(raw) {
       ...t
     }))
     raw.editNotebookId = raw.editNotebookId || null
+    // Pre-cloud-sync data: stamp current time so this device's data wins on
+    // first cloud sync (over a fresh empty cloud doc with updatedAt=0).
+    if (typeof raw.updatedAt !== 'number') raw.updatedAt = Date.now()
     return raw
   }
 
@@ -325,20 +343,60 @@ function migrateState(raw) {
   }
 }
 
+// In-memory cache. The first read pays the storage + migrate cost; every
+// subsequent tab onShow returns this reference instantly. Mutations go
+// through updateState, which deep-clones before patching, so callers can't
+// corrupt the cache by holding onto references.
+let _stateCache = null
+
 function loadState() {
+  if (_stateCache) return _stateCache
   try {
     const raw = wx.getStorageSync(STORAGE_KEY)
     if (raw && typeof raw === 'object') {
-      return migrateState(raw)
+      _stateCache = migrateState(raw)
+      return _stateCache
     }
   } catch (error) {
     console.warn('loadState failed', error)
   }
-  return clone(defaultState)
+  _stateCache = clone(defaultState)
+  return _stateCache
 }
 
 function saveState(state) {
+  _stateCache = state
   wx.setStorageSync(STORAGE_KEY, state)
+  // Push synced subset to cloud (debounced inside cloud-sync).
+  cloudSync.pushState(pickSyncFields(state), state.updatedAt)
+}
+
+function pickSyncFields(state) {
+  const out = {}
+  for (const k of SYNC_FIELDS) out[k] = state[k]
+  return out
+}
+
+// Called by cloud-sync after a hydrate determines remote is newer (or after
+// the user "switches to this device"). Overlays the synced subset onto local
+// cache + storage WITHOUT triggering a push back.
+function applyHydratedState(remoteSyncedFields, remoteUpdatedAt) {
+  const cur = loadState()
+  const next = {
+    ...cur,
+    ...remoteSyncedFields,
+    updatedAt: remoteUpdatedAt || Date.now()
+  }
+  _stateCache = next
+  wx.setStorageSync(STORAGE_KEY, next)
+}
+
+function getStateForSync() {
+  return pickSyncFields(loadState())
+}
+
+function getUpdatedAt() {
+  return loadState().updatedAt || 0
 }
 
 // === Notebook scheduling === //
@@ -662,15 +720,33 @@ function dateCountsForMonth(state, year, monthIdx0) {
 
 // === Compute helpers === //
 
+// Returns the current state. Shallow-copied so callers can't mutate the
+// cache by reassigning top-level keys, but `notebooks`/`tasks` arrays are
+// aliased — readers must not mutate them in place.
 function getStateWithComputed() {
-  return loadState()
+  return { ...loadState() }
+}
+
+// Throttle the read-only toast — updateState gets called many times per
+// drag/tick, we don't want a toast cascade.
+let _lastReadOnlyToastAt = 0
+function maybeToastReadOnly() {
+  const now = Date.now()
+  if (now - _lastReadOnlyToastAt < 4000) return
+  _lastReadOnlyToastAt = now
+  wx.showToast({ title: '只读模式：已在其他设备登录', icon: 'none', duration: 1800 })
 }
 
 function updateState(updater) {
+  if (cloudSync.isReadOnly()) {
+    maybeToastReadOnly()
+    return { ...loadState() }
+  }
   const state = loadState()
   const next = updater(clone(state))
+  next.updatedAt = Date.now()
   saveState(next)
-  return next
+  return { ...next }
 }
 
 // === Notebook CRUD === //
@@ -1178,6 +1254,21 @@ module.exports = {
   setCurrentOcrJob,
   getCurrentOcrJob,
   clearCurrentOcrJob,
+  // cloud-sync interface (for cloud-sync module's use; pages should use
+  // cloudSync.hydrateIfStale directly)
+  applyHydratedState,
+  getStateForSync,
+  getUpdatedAt,
   // misc
   getCurrentTime
 }
+
+// Wire cloud-sync with the small surface it needs. Done after module.exports
+// so the functions are available as references. cloud-sync was required at
+// the top — its `init` only stashes this object, no work happens until the
+// first hydrate/push call.
+cloudSync.init({
+  applyHydratedState,
+  getStateForSync,
+  getUpdatedAt
+})

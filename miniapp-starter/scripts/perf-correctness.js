@@ -9,7 +9,10 @@ global.wx = {
     if (!(k in storage)) return ''
     return JSON.parse(storage[k])
   },
-  setStorageSync: (k, v) => { storage[k] = JSON.stringify(v) }
+  setStorageSync: (k, v) => { storage[k] = JSON.stringify(v) },
+  cloud: undefined,
+  showToast: () => {},
+  showModal: () => {}
 }
 
 function pad2(n) { return String(n).padStart(2, '0') }

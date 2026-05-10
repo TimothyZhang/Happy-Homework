@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const cloudSync = require('../../utils/cloud-sync')
 
 Page({
   data: {
@@ -8,7 +9,12 @@ Page({
   },
 
   onShow() {
+    const tb = typeof this.getTabBar === 'function' && this.getTabBar()
+    if (tb) tb.setData({ selected: 3 })
     this.refreshState()
+    cloudSync.hydrateIfStale().then((r) => {
+      if (r && r.changed) this.refreshState()
+    }).catch(() => {})
   },
 
   refreshState() {

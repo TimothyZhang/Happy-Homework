@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const cloudSync = require('../../utils/cloud-sync')
 
 function pad2(n) { return `${n}`.padStart(2, '0') }
 
@@ -121,7 +122,12 @@ Page({
   },
 
   onShow() {
+    const tb = typeof this.getTabBar === 'function' && this.getTabBar()
+    if (tb) tb.setData({ selected: 2 })
     this.refresh()
+    cloudSync.hydrateIfStale().then((r) => {
+      if (r && r.changed) this.refresh()
+    }).catch(() => {})
   },
 
   refresh(patch = {}) {
@@ -129,17 +135,24 @@ Page({
     const year = patch.year !== undefined ? patch.year : this.data.year
     const monthIdx0 = patch.monthIdx0 !== undefined ? patch.monthIdx0 : this.data.monthIdx0
     const selectedDate = patch.selectedDate || this.data.selectedDate
-    const weeks = buildMonthGrid(year, monthIdx0, state)
     const monthLabel = `${year} 年 ${monthIdx0 + 1} 月`
     const items = decorateDayItems(store.tasksForDate(state, selectedDate), Date.now())
+    // Paint chrome + selected day first; the 30-day grid build is the
+    // expensive part (tasksForDate × ~30) and shouldn't block first paint
+    // when entering the calendar tab.
     this.setData({
       year,
       monthIdx0,
       selectedDate,
-      weeks,
       monthLabel,
       selectedItems: items,
       selectedLabel: this.formatDateLabel(selectedDate)
+    })
+    wx.nextTick(() => {
+      // Bail if the user already navigated away or moved months.
+      if (this.data.year !== year || this.data.monthIdx0 !== monthIdx0) return
+      const weeks = buildMonthGrid(year, monthIdx0, state)
+      this.setData({ weeks })
     })
   },
 

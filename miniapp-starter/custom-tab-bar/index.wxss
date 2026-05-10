@@ -1,0 +1,33 @@
+.tab-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  background: #ffffff;
+  border-top: 1rpx solid rgba(0, 0, 0, 0.06);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 100;
+}
+
+.tab-item {
+  flex: 1;
+  height: 100rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-item-hover {
+  background: rgba(36, 91, 219, 0.06);
+}
+
+.tab-text {
+  font-size: 30rpx;
+  line-height: 1.2;
+  letter-spacing: 1rpx;
+}
+
+.tab-item.is-active .tab-text {
+  font-weight: 600;
+}

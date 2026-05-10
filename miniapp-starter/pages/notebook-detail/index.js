@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const cloudSync = require('../../utils/cloud-sync')
 
 const SUBJECT_OPTIONS = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
 
@@ -20,11 +21,35 @@ function decorateTask(task, notebook, dateStr, now) {
   }
   return {
     ...task,
-    subject: task.subject || '',
+    subject: task.subject || '其他',
     status: occ.status,
     elapsedMs,
     elapsedDisplay: elapsedMs > 0 ? formatElapsed(elapsedMs) : ''
   }
+}
+
+// Sort tasks by subject (preferred order from SUBJECT_OPTIONS, unknowns last
+// in name order), then by their global `order` within each subject. The
+// flat list stays usable for drag — sort is stable so adjacency = group.
+// Also annotate first-of-group rows so the WXML can render a header.
+function arrangeBySubject(list) {
+  const subjectRank = (s) => {
+    const i = SUBJECT_OPTIONS.indexOf(s)
+    return i < 0 ? SUBJECT_OPTIONS.length : i
+  }
+  const sorted = list.slice().sort((a, b) => {
+    const ra = subjectRank(a.subject)
+    const rb = subjectRank(b.subject)
+    if (ra !== rb) return ra - rb
+    if (a.subject !== b.subject) return a.subject < b.subject ? -1 : 1
+    return (a.order || 0) - (b.order || 0)
+  })
+  let prev = null
+  for (const t of sorted) {
+    t.firstOfSubject = t.subject !== prev
+    prev = t.subject
+  }
+  return sorted
 }
 
 Page({
@@ -33,9 +58,6 @@ Page({
     notebook: null,
     notebookSummary: '',
     tasks: [],
-    activeDate: '',
-    activeDateLabel: '',
-    activeOnDate: false,
     showForm: false,
     editingId: null,
     formContent: '',
@@ -54,6 +76,9 @@ Page({
   onShow() {
     this.refreshState()
     this.startTickerIfNeeded()
+    cloudSync.hydrateIfStale().then((r) => {
+      if (r && r.changed) this.refreshState()
+    }).catch(() => {})
   },
 
   onHide() { this.stopTicker() },
@@ -70,27 +95,17 @@ Page({
       return
     }
     const today = store.todayStr()
-    const activeDate = this.data.activeDate || today
-    const activeOnDate = store.isNotebookActiveOn(nb, activeDate)
     const now = Date.now()
-    const list = store.tasksOfNotebook(state, id).map((t) => decorateTask(t, nb, activeDate, now))
+    const list = arrangeBySubject(
+      store.tasksOfNotebook(state, id).map((t) => decorateTask(t, nb, today, now))
+    )
     wx.setNavigationBarTitle({ title: nb.name })
     this.setData({
       notebook: nb,
       notebookSummary: this.summarize(nb),
-      tasks: list,
-      activeDate,
-      activeDateLabel: this.formatDateLabel(activeDate, today),
-      activeOnDate
+      tasks: list
     })
     this.startTickerIfNeeded()
-  },
-
-  formatDateLabel(date, today) {
-    if (date === today) return `今日 · ${date}`
-    if (date === store.addDays(today, -1)) return `昨日 · ${date}`
-    if (date === store.addDays(today, 1)) return `明日 · ${date}`
-    return date
   },
 
   summarize(nb) {
@@ -113,13 +128,13 @@ Page({
     const hasRunning = (this.data.tasks || []).some((t) => t.status === 'doing')
     if (!hasRunning) return
     this.tickerId = setInterval(() => {
-      const now = Date.now()
       const tasks = (this.data.tasks || []).map((t) => {
         let ms = t.elapsedMs || 0
         if (t.status === 'doing') ms += 1000
         return { ...t, elapsedMs: ms, elapsedDisplay: formatElapsed(ms) }
       })
       this.setData({ tasks })
+      if (!tasks.some((t) => t.status === 'doing')) this.stopTicker()
     }, 1000)
   },
 
@@ -127,32 +142,10 @@ Page({
     if (this.tickerId) { clearInterval(this.tickerId); this.tickerId = null }
   },
 
-  // === Date switcher === //
-
-  handlePrevDay() {
-    this.setData({ activeDate: store.addDays(this.data.activeDate, -1) })
-    this.refreshState()
-  },
-
-  handleNextDay() {
-    this.setData({ activeDate: store.addDays(this.data.activeDate, 1) })
-    this.refreshState()
-  },
-
-  handleJumpToday() {
-    this.setData({ activeDate: store.todayStr() })
-    this.refreshState()
-  },
-
-  handlePickDate(e) {
-    this.setData({ activeDate: e.detail.value })
-    this.refreshState()
-  },
-
   // === Notebook actions === //
 
   handleEditNotebook() {
-    wx.navigateTo({ url: `/pages/notebook-edit/index?id=${this.data.notebookId}` })
+    wx.navigateTo({ url: `/pkg-notebook/notebook-edit/index?id=${this.data.notebookId}` })
   },
 
   handleCopyNotebook() {
@@ -203,24 +196,22 @@ Page({
   },
 
   // === Task control === //
-
-  handleStart(e) {
-    store.startTask(e.currentTarget.dataset.id, this.data.activeDate)
-    this.refreshState()
-  },
+  // No "start" button on this page — it's a structure-management view, not
+  // an execution view. Pause/resume/finish stay so a task already running
+  // (started from home/calendar) can still be controlled here.
 
   handlePause(e) {
-    store.pauseTask(e.currentTarget.dataset.id, this.data.activeDate)
+    store.pauseTask(e.currentTarget.dataset.id, store.todayStr())
     this.refreshState()
   },
 
   handleResume(e) {
-    store.resumeTask(e.currentTarget.dataset.id, this.data.activeDate)
+    store.resumeTask(e.currentTarget.dataset.id, store.todayStr())
     this.refreshState()
   },
 
   handleFinish(e) {
-    store.finishTask(e.currentTarget.dataset.id, this.data.activeDate)
+    store.finishTask(e.currentTarget.dataset.id, store.todayStr())
     this.refreshState()
   },
 
@@ -318,6 +309,18 @@ Page({
     if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
   },
 
+  // Find the [start, end] index range of the dragged task's subject group
+  // within the flat task list (sorted-by-subject = group members are
+  // contiguous). Drag is constrained to this range.
+  _subjectGroupRange(list, draggedIdx) {
+    const subj = list[draggedIdx].subject
+    let start = draggedIdx
+    while (start > 0 && list[start - 1].subject === subj) start--
+    let end = draggedIdx
+    while (end < list.length - 1 && list[end + 1].subject === subj) end++
+    return [start, end]
+  },
+
   handleTouchMove(e) {
     if (!this.data.dragId || this.dragStartY == null) return
     const now = Date.now()
@@ -330,8 +333,10 @@ Page({
     const itemH = this.itemHeightPx || 140
     const list = this.data.tasks
     const draggedIdx = list.findIndex((task) => task.id === this.data.dragId)
+    if (draggedIdx < 0) return
+    const [groupStart, groupEnd] = this._subjectGroupRange(list, draggedIdx)
     const slotsDelta = Math.round(dy / itemH)
-    const hoverIdx = Math.max(0, Math.min(list.length - 1, draggedIdx + slotsDelta))
+    const hoverIdx = Math.max(groupStart, Math.min(groupEnd, draggedIdx + slotsDelta))
     const updated = list.map((task, i) => {
       if (task.id === this.data.dragId) return task
       let shiftY = 0
@@ -353,9 +358,16 @@ Page({
     const itemH = this.itemHeightPx || 140
     const list = this.data.tasks
     const fromIdx = list.findIndex((t) => t.id === dragId)
+    if (fromIdx < 0) {
+      this.dragStartY = null
+      this.touchStartY = null
+      this.setData({ dragId: null, dragDy: 0 })
+      return
+    }
+    const [groupStart, groupEnd] = this._subjectGroupRange(list, fromIdx)
     const slotsDelta = Math.round(dragDy / itemH)
-    const toIdx = Math.max(0, Math.min(list.length - 1, fromIdx + slotsDelta))
-    if (fromIdx !== -1 && fromIdx !== toIdx) {
+    const toIdx = Math.max(groupStart, Math.min(groupEnd, fromIdx + slotsDelta))
+    if (fromIdx !== toIdx) {
       const ids = list.map((t) => t.id)
       const [moved] = ids.splice(fromIdx, 1)
       ids.splice(toIdx, 0, moved)

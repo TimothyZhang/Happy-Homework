@@ -10,7 +10,11 @@ global.wx = {
     if (!(k in storage)) return ''
     return JSON.parse(storage[k])
   },
-  setStorageSync: (k, v) => { storage[k] = JSON.stringify(v) }
+  setStorageSync: (k, v) => { storage[k] = JSON.stringify(v) },
+  // cloud-sync probes wx.cloud and bails when missing — leave undefined
+  cloud: undefined,
+  showToast: () => {},
+  showModal: () => {}
 }
 
 // ---- seed ----

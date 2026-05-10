@@ -32,13 +32,21 @@
   width: 100%;
   margin: 0;
   height: 84rpx;
-  line-height: 84rpx;
+  /* WeChat <button> 默认有 padding/line-height，靠 line-height 对齐文字
+     在不同基础库下不稳；用 flex 显式居中。 */
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   border-radius: 999rpx;
   font-size: 28rpx;
   font-weight: 600;
   border: none;
+  box-sizing: border-box;
 }
 
+.bottom-actions .add-btn,
 .bottom-actions .edit-btn {
   background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
   color: #ffffff;
@@ -60,75 +68,6 @@
   color: #e54545;
 }
 
-.day-switcher {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 14rpx;
-  padding: 12rpx 14rpx;
-  background: #f3f6fa;
-  border-radius: 18rpx;
-}
-
-.day-btn {
-  width: 56rpx;
-  height: 56rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #ffffff;
-  border-radius: 14rpx;
-  font-size: 22rpx;
-  color: #245bdb;
-  font-weight: 700;
-}
-
-.day-label {
-  flex: 1;
-  text-align: center;
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #1f2329;
-}
-
-.off-tag {
-  margin-top: 12rpx;
-  padding: 10rpx 14rpx;
-  background: #fff5e6;
-  color: #b26a00;
-  font-size: 22rpx;
-  border-radius: 14rpx;
-  text-align: center;
-}
-
-.header-actions {
-  display: flex;
-  gap: 16rpx;
-  margin-top: 18rpx;
-}
-
-.header-actions .primary-btn,
-.header-actions .ghost-btn {
-  flex: 1;
-  padding: 0 16rpx;
-  border-radius: 999rpx;
-  font-size: 26rpx;
-  font-weight: 600;
-  border: none;
-  margin: 0;
-}
-
-.header-actions .primary-btn {
-  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
-  color: #ffffff;
-  box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
-}
-
-.header-actions .ghost-btn {
-  background: #eef4ff;
-  color: #245bdb;
-}
-
 .empty-state {
   padding: 40rpx 24rpx;
   text-align: center;
@@ -136,6 +75,14 @@
 
 .empty-emoji { display: block; font-size: 72rpx; }
 .empty-text { display: block; margin-top: 16rpx; font-size: 26rpx; color: #6b7785; }
+
+.subject-header {
+  margin: 28rpx 6rpx 4rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #245bdb;
+  letter-spacing: 1rpx;
+}
 
 .task-row {
   display: flex;
@@ -201,12 +148,6 @@
   color: #245bdb;
 }
 
-.subject-chip {
-  background: #eef4ff;
-  color: #245bdb;
-  font-weight: 600;
-}
-
 .picker-value {
   color: #1f2329;
 }
@@ -230,7 +171,6 @@
   box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.08);
 }
 
-.icon-btn.start-btn { background: #245bdb; }
 .icon-btn.resume-btn { background: #245bdb; }
 .icon-btn.pause-btn { background: #f5a623; letter-spacing: 1rpx; }
 .icon-btn.finish-btn { background: #07c160; font-size: 32rpx; }

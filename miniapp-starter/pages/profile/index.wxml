@@ -42,6 +42,35 @@
     </view>
   </view>
 
+  <view class="card section-card sync-card">
+    <view class="section-header">
+      <text class="section-title">数据同步</text>
+      <text class="sync-pill {{syncStatus.status}}">{{
+        syncStatus.status === 'healthy' ? '已同步' :
+        syncStatus.status === 'readonly' ? '只读' :
+        syncStatus.status === 'error' ? '同步失败' : '未同步'
+      }}</text>
+    </view>
+
+    <view class="sync-meta">
+      <text class="sync-meta-line">上次同步：{{syncStatus.lastSyncDisplay}}</text>
+      <text wx:if="{{syncStatus.lastError}}" class="sync-meta-line err">{{syncStatus.lastError}}</text>
+      <text wx:if="{{syncStatus.readOnly}}" class="sync-meta-line warn">本机当前为只读，写操作不会保存到云端。</text>
+    </view>
+
+    <view class="sync-actions">
+      <button wx:if="{{syncStatus.readOnly}}"
+              class="sync-btn primary"
+              loading="{{syncing}}"
+              disabled="{{syncing}}"
+              bindtap="handleReclaim">切回此设备</button>
+      <button class="sync-btn {{syncStatus.readOnly ? 'ghost' : 'primary'}}"
+              loading="{{syncing}}"
+              disabled="{{syncing}}"
+              bindtap="handleForceSync">立即同步</button>
+    </view>
+  </view>
+
   <view class="card section-card">
     <view class="section-header">
       <text class="section-title">下一步我建议</text>

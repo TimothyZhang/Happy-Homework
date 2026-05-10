@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const cloudSync = require('../../utils/cloud-sync')
 
 const WEEKDAY_NAMES = ['一', '二', '三', '四', '五', '六', '日']
 
@@ -65,7 +66,12 @@ Page({
   },
 
   onShow() {
+    const tb = typeof this.getTabBar === 'function' && this.getTabBar()
+    if (tb) tb.setData({ selected: 1 })
     this.refreshState()
+    cloudSync.hydrateIfStale().then((r) => {
+      if (r && r.changed) this.refreshState()
+    }).catch(() => {})
   },
 
   refreshState() {
@@ -94,7 +100,7 @@ Page({
   },
 
   handleAddNotebook() {
-    wx.navigateTo({ url: '/pages/notebook-edit/index' })
+    wx.navigateTo({ url: '/pkg-notebook/notebook-edit/index' })
   },
 
   handleOpenNotebook(event) {
@@ -104,7 +110,7 @@ Page({
 
   handleEditNotebook(event) {
     const { id } = event.currentTarget.dataset
-    wx.navigateTo({ url: `/pages/notebook-edit/index?id=${id}` })
+    wx.navigateTo({ url: `/pkg-notebook/notebook-edit/index?id=${id}` })
   },
 
   handleDeleteNotebook(event) {
