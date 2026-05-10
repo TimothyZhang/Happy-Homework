@@ -7,6 +7,8 @@ const SCHEMA_VERSION = 2
 // transient UI state (editTaskId, editNotebookId), OCR jobs (ephemeral and
 // large), and app-wide config that's the same for everyone (rewardRules,
 // shopItems, schemaVersion).
+// NOTE: `profile` carries both nickname AND avatar (a cloud:// fileID), so
+// the avatar is synced through the existing entry — no separate field needed.
 const SYNC_FIELDS = [
   'notebooks', 'tasks',
   'coins', 'streakDays', 'perfectDays',
@@ -316,7 +318,7 @@ const defaultState = {
   ],
   notebooks: seedNotebooks(),
   tasks: seedTasks(),
-  profile: { nickname: '' }
+  profile: { nickname: '', avatar: '' }
 }
 
 // === Storage / migration === //
@@ -343,8 +345,8 @@ function migrateState(raw) {
     }))
     raw.editNotebookId = raw.editNotebookId || null
     raw.profile = raw.profile && typeof raw.profile === 'object'
-      ? { nickname: raw.profile.nickname || '' }
-      : { nickname: '' }
+      ? { nickname: raw.profile.nickname || '', avatar: raw.profile.avatar || '' }
+      : { nickname: '', avatar: '' }
     if (!Array.isArray(raw.perfectDays)) raw.perfectDays = []
     if (typeof raw.pendingShareCoins !== 'number') raw.pendingShareCoins = 0
     if (typeof raw.streakDays !== 'number') raw.streakDays = 0
@@ -1359,12 +1361,19 @@ function clearCurrentOcrJob() {
 
 function getProfile() {
   const state = loadState()
-  return state.profile || { nickname: '' }
+  return state.profile || { nickname: '', avatar: '' }
 }
 
 function updateProfileNickname(nickname) {
   return updateState((state) => {
     state.profile = { ...(state.profile || {}), nickname: (nickname || '').trim() }
+    return state
+  })
+}
+
+function updateProfileAvatar(avatar) {
+  return updateState((state) => {
+    state.profile = { ...(state.profile || {}), avatar: avatar || '' }
     return state
   })
 }
@@ -1527,6 +1536,7 @@ module.exports = {
   // profile
   getProfile,
   updateProfileNickname,
+  updateProfileAvatar,
   // sharing
   serializeNotebookForShare,
   importSharedNotebook,

@@ -1,4 +1,36 @@
 <view class="page">
+  <view class="card profile-card">
+    <view class="section-header">
+      <text class="section-title">孩子信息</text>
+    </view>
+
+    <view class="profile-row">
+      <view class="avatar-wrap {{uploadingAvatar ? 'is-loading' : ''}}" bindtap="handleEditAvatar">
+        <image wx:if="{{profile.avatar}}"
+               class="avatar-img"
+               src="{{profile.avatar}}"
+               mode="aspectFill" />
+        <view wx:else class="avatar-placeholder">
+          <text class="avatar-placeholder-icon">+</text>
+          <text class="avatar-placeholder-hint">头像</text>
+        </view>
+        <view wx:if="{{uploadingAvatar}}" class="avatar-loading-mask">上传中…</view>
+      </view>
+
+      <view class="profile-fields">
+        <text class="field-label">昵称</text>
+        <input class="input nickname-input"
+               type="nickname"
+               placeholder="给孩子起个昵称"
+               maxlength="12"
+               value="{{profile.nickname}}"
+               bindinput="handleNicknameInput"
+               bindblur="handleNicknameBlur" />
+        <text class="profile-hint">点头像可拍照或从相册选一张</text>
+      </view>
+    </view>
+  </view>
+
   <view class="card sync-card">
     <view class="section-header">
       <text class="section-title">数据同步</text>

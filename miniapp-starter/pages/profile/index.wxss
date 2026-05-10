@@ -1,3 +1,81 @@
+/* === Profile card === */
+
+.profile-card {
+  margin-bottom: 24rpx;
+}
+
+.profile-row {
+  margin-top: 22rpx;
+  display: flex;
+  align-items: center;
+  gap: 28rpx;
+}
+
+.avatar-wrap {
+  position: relative;
+  width: 144rpx;
+  height: 144rpx;
+  border-radius: 50%;
+  background: #eef4ff;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 14rpx rgba(36, 91, 219, 0.12);
+}
+.avatar-wrap.is-loading { opacity: 0.7; }
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.avatar-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #245bdb;
+}
+.avatar-placeholder-icon {
+  font-size: 56rpx;
+  font-weight: 300;
+  line-height: 1;
+}
+.avatar-placeholder-hint {
+  margin-top: 6rpx;
+  font-size: 22rpx;
+  color: #6b7785;
+}
+.avatar-loading-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(31, 35, 41, 0.42);
+  color: #ffffff;
+  font-size: 22rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-fields {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.profile-fields .field-label {
+  margin-bottom: 4rpx;
+}
+.nickname-input {
+  margin-top: 4rpx;
+}
+.profile-hint {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #8a94a4;
+}
+
 /* === Sync card === */
 
 .sync-pill {
