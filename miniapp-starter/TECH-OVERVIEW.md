@@ -6,19 +6,30 @@
 
 ```text
 miniapp-starter/
-├── app.js
-├── app.json
-├── app.wxss
-├── pages/
+├── app.js / app.json / app.wxss
+├── pages/                     # 主包页面
+│   ├── home/                  # 首页（今日 / 历史日）
+│   ├── tasks/                 # 作业本列表
+│   ├── notebook-detail/       # 单个作业本下的作业管理
+│   ├── calendar/              # 月历视图
+│   ├── stats/                 # 统计
+│   ├── pet/                   # 宠物
+│   ├── profile/               # 个人页（含云同步状态）
+│   ├── ocr-import/            # OCR 拍照/选图
+│   └── ocr-result/            # OCR 草稿确认
+├── pkg-notebook/              # 分包：作业本编辑（首屏不需要，按需加载）
+│   └── notebook-edit/
+├── components/
+│   └── task-list/             # 主页 + 日历共用的作业行组件
+├── custom-tab-bar/            # 自定义底部导航
 ├── utils/
+│   ├── store.js               # 本地状态 + 内存缓存 + 数据迁移
+│   ├── cloud-sync.js          # 跨端同步（user_state 集合）
+│   └── navigation.js          # 页面跳转封装
 ├── cloudfunctions/
-├── README.md
-├── V1-PRD-homework-pet.md
-├── V1-PRD-homework-register-ocr.md
-├── CLOUD-DATA-NOTES.md
-├── CLOUD-SETUP.md
-├── DEV-STATUS.md
-└── PRODUCT-DOCS-INDEX.md
+│   └── homeworkOCR/           # 多 provider 兜底 OCR 云函数
+├── scripts/                   # Node 端 perf bench / 正确性测试（不打包进小程序）
+└── docs（README / PRD / TECH-OVERVIEW / CLOUD-SETUP / DEV-STATUS …）
 ```
 
 ---
@@ -26,67 +37,84 @@ miniapp-starter/
 ## 2. 页面结构
 
 ### `pages/home`
-首页，负责展示：
-- 今日作业进度
-- 今日金币
-- 宠物状态
-- 快捷入口
+首页，按选定日期（默认今日）展示作业行：
+- 进行中 / 未完成 / 已完成 分组
+- 跨作业本拖拽改顺序
+- 当日所有重复型作业的「过去未完成」backlog 一并露出
 
 ### `pages/tasks`
-作业管理页，负责：
-- 查看任务列表
-- 新增作业
-- 编辑作业
-- 删除作业
-- 跳转 OCR 导入
+作业本列表页：
+- 按结束日期倒序展示作业本（长期重复本浮顶）
+- 卡片显示完成进度、学科 chips、模式标签
+- 入口跳 `notebook-detail` 或 `pkg-notebook/notebook-edit`
 
-### `pages/plan`
-排期页，用于展示今日作业顺序与计划安排。
+### `pages/notebook-detail`
+单个作业本的结构管理页：
+- 作业按学科分组、组内可拖拽
+- 增删改作业
+- 删除/编辑作业本
+- 不再做日期切换（结构页和今日操作页职责拆分）
 
-### `pages/pet`
-宠物页，用于展示宠物成长与道具购买反馈。
+### `pages/calendar`
+月历视图：
+- 每个日期 cell 显示当天 total / done / hasOverdue
+- 选中某天显示详细作业行
+- 月度数据通过 `dateCountsForMonth` 一次性聚合，避免 30 次全表扫
 
-### `pages/profile`
-个人页，目前为基础占位页。
+### `pages/pet` / `pages/profile` / `pages/stats`
+- pet：宠物成长与道具
+- profile：账号信息 + 数据同步卡片（同步状态、立即同步、切回此设备）
+- stats：完成量、金币、打卡
 
-### `pages/stats`
-统计页，用于展示完成量、金币与打卡情况。
+### `pages/ocr-import` / `pages/ocr-result`
+OCR 链路：拍照/选图 → 云函数识别 → 草稿编辑 → 导入正式作业。
 
-### `pages/ocr-import`
-OCR 上传页，负责：
-- 拍照
-- 从相册选图
-- 上传图片
-- 调用云函数
-- 失败时回退演示数据
-
-### `pages/ocr-result`
-OCR 结果确认页，负责：
-- 展示草稿列表
-- 编辑草稿
-- 删除草稿
-- 新增草稿
-- 导入为正式作业
+### `pkg-notebook/notebook-edit`（分包）
+作业本编辑（新建 / 修改）。放分包里，从 home/tasks/calendar/notebook-detail 走 `preloadRule` 提前预热，进入仍秒开。
 
 ---
 
 ## 3. 状态管理
 
-项目当前没有引入复杂状态管理框架，而是使用 `utils/store.js` 维护本地状态。
+项目没有引入 Redux/Mobx 等框架，使用 `utils/store.js` + `utils/cloud-sync.js` 自己维护。
 
-当前 store 主要承担：
-- 作业列表
-- 编辑中的作业 ID
-- OCR 当前任务
-- OCR 历史任务
-- 金币与奖励规则
-- 宠物状态
-- 商店道具
+### 3.1 本地状态结构（`store.js`）
+- `notebooks` / `tasks`：核心业务数据
+- `coins / streakDays / pet / lastReward`：奖励 + 宠物
+- `ocrCurrentJob / ocrJobs`：OCR 任务（不同步）
+- `editTaskId / editNotebookId`：UI 临时态（不同步）
+- `schemaVersion + migrateState`：v1→v2 迁移（每次 `loadState` 兜底）
+- `updatedAt`：最近一次 sync 相关 mutation 的 ms 时间戳
 
-### 当前特点
-- 简单直接，适合原型阶段
-- 便于快速改页面和逻辑
-- 不适合长期作为正式线上数据方案
+### 3.2 内存缓存
+`store.js` 用一个模块级 `_stateCache` 缓存反序列化后的 state：
+- 第一次 `loadState` 走 `wx.getStorageSync` + `JSON.parse` + `migrateState`
+- 之后所有读全部命中缓存（页面 onShow 几乎零成本）
+- `saveState` / `applyHydratedState` 在写盘的同时刷新缓存
+
+### 3.3 跨端同步（`cloud-sync.js` + `user_state` 集合）
+- **单设备 claim 模型**：云端 doc 持有 `sessionId`，谁的 ID 匹配谁能写
+- `app.onLaunch` 异步 `hydrate()`：云端比本地新就 overlay 同步字段；sessionId 不匹配弹 modal「切到此设备 / 只读浏览」
+- 每个 tab 页 `onShow` 调 `hydrateIfStale()`（30s 防抖）
+- `saveState` 触发 200ms 防抖 push（拖拽/秒针 tick 不会刷爆云端）
+- 只读模式下 `updateState` 直接拒写，throttle 提示一次
+
+### 3.4 同步白名单（`SYNC_FIELDS`）
+仅同步 `notebooks / tasks / coins / streakDays / bonusCoins / pet / lastReward`。OCR 任务、UI 临时态、固定配置（rewardRules / shopItems）都本地保留。
+
+### 3.5 性能要点
+对 1000 个作业本 / 5000+ 个作业的目标场景做了若干 O(N+M) 改造：
+- `decorateNotebook`（tasks 列表页）：先按 `notebookId` group 一次，避免 N 次 filter 全表
+- `pauseAllOtherDoing` / `start/pause/resume/finish/revert` task：预建 `notebookById` Map，把 `.find` 拉出 `.map`
+- `tasksForDate(today)`：重复型 backlog 按本分组，每本只走一次 active-date 序列
+- `dateCountsForMonth`：日历专用聚合器，一次扫描 tasks 出整月 cell 数据，省掉 30 次 `tasksForDate`
+- 删掉 `calcOverview`：原本 `getStateWithComputed` 每次都跑一次 `tasksForDate(today)` 算个没人读的 overview
+
+Bench / 正确性测试在 `scripts/perf-bench.js` / `scripts/perf-correctness.js`，Node 端跑：
+```
+node scripts/perf-bench.js 1000 5 365     # 1000 本 × 5 任务 × 365 天 history
+node scripts/perf-correctness.js          # 76 项行为对账
+```
 
 ---
 
@@ -109,10 +137,10 @@ OCR 结果确认页，负责：
 - 调用腾讯云 OCR
 - 按规则拆分为草稿列表
 
-### 当前不足
-- 还未完成真实云环境联调
-- 还需要配置 OCR 凭证并重新部署
-- 还没有持久化 OCR job 数据
+### 当前状态
+- 真实闭环已通：腾讯云 OCR 子用户 AKSK + `QcloudOCRFullAccess`，环境变量配齐
+- 多 provider 兜底：OpenAI Vision → 腾讯云 OCR（GeneralHandwriting → GeneralAccurate → GeneralBasic）→ 微信 OpenAPI → Tesseract.js
+- OCR job 数据当前仅在本地 store 留最近 10 条历史，未落库
 
 ---
 
@@ -154,23 +182,23 @@ OCR 结果确认页，负责：
 
 ## 7. 当前技术风险
 
-- OCR 服务选型还未最终确定
-- 云函数部署与环境绑定仍需补最终闭环
-- 本地状态未来迁移到云数据库时会有一轮重构
-- 当前项目更偏产品演示和 MVP 骨架，不是最终线上架构
+- **单设备 claim 模型**：同账号多设备同时操作时只有一个能写。如果以后要协同（家长 + 孩子同时改），需要换合并/CRDT 模型
+- **同步粒度是整个 SYNC_FIELDS 子集**：每次 push 是整段 JSON 覆盖，不是 field-level patch，离线长时间后回到线上做差量合并会比较粗糙
+- **OCR 配额有限**：腾讯云每接口 1000 次/月免费，正式上线前要看付费方案
+- **极限规模未验证**：bench 是 1000 本 × 5 任务、365 天 backlog 在 Node 上跑的，真机引擎慢 3-5×；超过这个量级需要分页 / 虚拟列表
 
 ---
 
 ## 8. 下一步建议
 
-1. 完成真实 OCR API 接入
-2. 部署并联调 `homeworkOCR` 云函数
-3. 把核心任务数据落到云开发数据库
-4. 对 OCR 结果做更稳定的拆分与异常处理
-5. 进一步收敛页面信息层级和交互细节
+1. **OCR 识别质量调优**：多 provider 并行合并、把腾讯云 confidence 字段纳入 `needsConfirm` 判定
+2. **OCR 错误码分级**：现有 `errorCode` 已传到端，前端没分级展示
+3. **数据模型分表**：当前同步是把 `tasks` 数组整段推。等数据更大时拆成 `tasks` 集合，按 `notebookId` 索引
+4. **多家庭/多孩子账号**：当前 sessionId 只能识别同账号下哪台设备活跃，没有"孩子身份"概念
+5. **作业本/作业列表的虚拟滚动**：极端规模下渲染层会成为新瓶颈
 
 ---
 
 ## 9. 一句话结论
 
-当前技术实现已经足够支持产品演示与下一步 MVP 验证，真正的工程化分水岭在于：真实 OCR 接入、云环境闭环、以及本地状态到云数据的迁移。
+当前实现已经从早期原型走到「可上线灰度」前夜：OCR 真闭环已通，云同步落地（单设备 claim 模式），核心热点路径已优化到 1000 本规模可用。下一步是 OCR 识别质量、配额评估，以及账号体系扩展到多孩子/多家庭。
