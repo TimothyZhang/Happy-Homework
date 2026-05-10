@@ -9,6 +9,10 @@
 
   <view class="card section-card">
     <view class="setting-row">
+      <text class="setting-label">我的昵称</text>
+      <input class="setting-input" type="nickname" placeholder="点这里使用微信昵称" value="{{nickname}}" bindinput="handleNicknameInput" bindblur="handleNicknameBlur" maxlength="12" />
+    </view>
+    <view class="setting-row">
       <text class="setting-label">孩子昵称</text>
       <text class="setting-value">豆豆</text>
     </view>

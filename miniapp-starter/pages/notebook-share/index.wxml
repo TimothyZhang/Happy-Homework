@@ -1,0 +1,42 @@
+<view class="page">
+  <view wx:if="{{error}}" class="card error-card">
+    <text class="error-emoji">😢</text>
+    <text class="error-text">{{error}}</text>
+    <button class="full-btn ghost-btn" bindtap="handleCancel">返回</button>
+  </view>
+
+  <block wx:elif="{{payload}}">
+    <view class="card header-card">
+      <view class="hint-pill">📥 {{sharerLabel}}</view>
+      <text class="nb-name">{{payload.n.name}}</text>
+      <text class="nb-summary">{{notebookSummary}}</text>
+      <text class="nb-count">共 {{payload.t.length}} 项作业</text>
+    </view>
+
+    <view wx:if="{{payload.t.length === 0}}" class="card">
+      <view class="empty-state">
+        <text class="empty-emoji">📝</text>
+        <text class="empty-text">这本作业本暂时是空的，导入后可以自己再添加</text>
+      </view>
+    </view>
+
+    <view wx:for="{{payload.t}}" wx:key="index" class="task-row">
+      <view class="dot"></view>
+      <view class="row-body">
+        <text class="row-content">{{item.c}}</text>
+        <view class="row-chips">
+          <text wx:if="{{item.s}}" class="chip subject-chip">{{item.s}}</text>
+          <text class="chip est-chip">预计 {{item.m}} 分钟</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="bottom-actions card">
+      <button class="full-btn save-btn" bindtap="handleImport" disabled="{{importing}}">
+        {{importing ? '保存中…' : '💾 保存'}}
+      </button>
+      <button class="full-btn share-btn" open-type="share" disabled="{{importing}}">📤 分享</button>
+      <button class="full-btn ghost-btn" bindtap="handleCancel">取消</button>
+    </view>
+  </block>
+</view>

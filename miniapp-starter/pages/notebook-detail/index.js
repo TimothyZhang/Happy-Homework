@@ -173,10 +173,22 @@ Page({
     const nb = this.data.notebook
     if (!nb) return { title: '作业本', path: '/pages/tasks/index' }
     const total = (this.data.tasks || []).length
-    return {
-      title: total > 0 ? `${nb.name} · ${total} 项作业` : nb.name,
-      path: `/pages/notebook-detail/index?id=${nb.id}`
+    const title = total > 0 ? `${nb.name} · ${total} 项作业` : nb.name
+    // Embed the notebook + tasks into the share path so the receiver can
+    // import it. The receiver's local store doesn't have our notebook id,
+    // so a bare ?id=... would just toast "作业本不存在".
+    const payload = store.serializeNotebookForShare(nb.id)
+    if (payload) {
+      const encoded = encodeURIComponent(JSON.stringify(payload))
+      const sharePath = `/pages/notebook-share/index?d=${encoded}`
+      // WeChat caps share path length around 1024 chars; if a notebook
+      // grew very large, fall back to the local-only path rather than
+      // silently producing a broken share link.
+      if (sharePath.length <= 1024) {
+        return { title, path: sharePath }
+      }
     }
+    return { title, path: `/pages/notebook-detail/index?id=${nb.id}` }
   },
 
   handleDeleteNotebook() {

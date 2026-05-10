@@ -20,6 +20,15 @@
   color: #1f2329;
 }
 
+.setting-input {
+  flex: 1;
+  margin-left: 24rpx;
+  text-align: right;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1f2329;
+}
+
 /* === Sync card === */
 
 .sync-pill {

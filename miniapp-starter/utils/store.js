@@ -10,7 +10,8 @@ const SCHEMA_VERSION = 2
 const SYNC_FIELDS = [
   'notebooks', 'tasks',
   'coins', 'streakDays', 'bonusCoins',
-  'pet', 'lastReward'
+  'pet', 'lastReward',
+  'profile'
 ]
 
 // === Date helpers (local timezone, YYYY-MM-DD) === //
@@ -263,7 +264,8 @@ const defaultState = {
     { id: 3, emoji: '🎀', name: '粉色蝴蝶结', effect: '成长值 +10，形象更可爱', price: 28, happiness: 5, fullness: 0, growth: 10 }
   ],
   notebooks: seedNotebooks(),
-  tasks: seedTasks()
+  tasks: seedTasks(),
+  profile: { nickname: '' }
 }
 
 // === Storage / migration === //
@@ -289,6 +291,9 @@ function migrateState(raw) {
       ...t
     }))
     raw.editNotebookId = raw.editNotebookId || null
+    raw.profile = raw.profile && typeof raw.profile === 'object'
+      ? { nickname: raw.profile.nickname || '' }
+      : { nickname: '' }
     // Pre-cloud-sync data: stamp current time so this device's data wins on
     // first cloud sync (over a fresh empty cloud doc with updatedAt=0).
     if (typeof raw.updatedAt !== 'number') raw.updatedAt = Date.now()
@@ -1209,6 +1214,103 @@ function clearCurrentOcrJob() {
   return updateState((state) => { state.ocrCurrentJob = null; return state })
 }
 
+// === Profile === //
+
+function getProfile() {
+  const state = loadState()
+  return state.profile || { nickname: '' }
+}
+
+function updateProfileNickname(nickname) {
+  return updateState((state) => {
+    state.profile = { ...(state.profile || {}), nickname: (nickname || '').trim() }
+    return state
+  })
+}
+
+// === Sharing === //
+
+// Build a clean payload to embed into a WeChat share path.
+// Strips per-occurrence state (status / elapsed / completedAt) — the
+// receiver imports a fresh notebook with all tasks reset to "todo".
+// `from` carries the sharer's nickname (empty if not set).
+function serializeNotebookForShare(notebookId) {
+  const state = loadState()
+  const nb = state.notebooks.find((n) => n.id === notebookId)
+  if (!nb) return null
+  const tasks = state.tasks
+    .filter((t) => t.notebookId === notebookId)
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
+    .map((t) => ({
+      s: t.subject || '其他',
+      c: t.content || '',
+      m: Number(t.estimatedMinutes || 0)
+    }))
+  return {
+    v: 1,
+    from: (state.profile && state.profile.nickname) || '',
+    n: {
+      name: nb.name,
+      mode: nb.mode,
+      startDate: nb.startDate,
+      endDate: nb.endDate,
+      recurrence: nb.recurrence
+    },
+    t: tasks
+  }
+}
+
+// Mirror of addNotebook + addTask, but creates the notebook and all tasks
+// atomically inside one updateState pass (single cloud push). Returns the
+// new notebook id, or null if the device is read-only or payload is invalid.
+function importSharedNotebook(payload) {
+  if (!payload || !payload.n) return null
+  const n = payload.n
+  const tasks = Array.isArray(payload.t) ? payload.t : []
+  const today = todayStr()
+  let newNotebookId = null
+  updateState((state) => {
+    const nb = {
+      id: genId('nb'),
+      name: n.name || today,
+      mode: n.mode === 'recurring' ? 'recurring' : 'one-shot',
+      startDate: n.startDate || today,
+      endDate: n.endDate === undefined
+        ? (n.mode === 'recurring' ? null : today)
+        : n.endDate,
+      recurrence: n.mode === 'recurring'
+        ? (n.recurrence || { type: 'daily', weekdays: [] })
+        : null,
+      createdAt: Date.now(),
+      order: state.notebooks.length
+    }
+    state.notebooks.push(nb)
+    newNotebookId = nb.id
+
+    const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
+    let cursor = maxOrder + 1
+    for (const it of tasks) {
+      const base = {
+        id: genId('tk'),
+        notebookId: nb.id,
+        subject: it.s || '其他',
+        content: it.c || '',
+        estimatedMinutes: Number(it.m || 0),
+        order: cursor++,
+        createdAt: Date.now()
+      }
+      if (nb.mode === 'recurring') {
+        base.occurrences = {}
+      } else {
+        Object.assign(base, defaultOccurrence())
+      }
+      state.tasks.push(base)
+    }
+    return state
+  })
+  return newNotebookId
+}
+
 module.exports = {
   defaultState,
   // state
@@ -1254,6 +1356,12 @@ module.exports = {
   setCurrentOcrJob,
   getCurrentOcrJob,
   clearCurrentOcrJob,
+  // profile
+  getProfile,
+  updateProfileNickname,
+  // sharing
+  serializeNotebookForShare,
+  importSharedNotebook,
   // cloud-sync interface (for cloud-sync module's use; pages should use
   // cloudSync.hydrateIfStale directly)
   applyHydratedState,
