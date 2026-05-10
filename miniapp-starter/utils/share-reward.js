@@ -8,19 +8,33 @@ const OPENID_STORAGE_KEY = 'share-reward-my-openid'
 
 let _cachedOpenid = null
 let _lastClaimAt = 0
+let _cloudFnDisabled = false  // flipped on first hard failure (not deployed / unreachable)
 const CLAIM_THROTTLE_MS = 30000  // don't hit the network more than every 30s
 
 function ensureCloud() {
   return typeof wx !== 'undefined' && wx.cloud && typeof wx.cloud.callFunction === 'function'
 }
 
+// "expected" failures during dev: function not deployed, network/timeout. Treat
+// as a permanent skip for this session so we don't spam console.warn / errors
+// from WAService on every onShow.
+function isExpectedFailure(e) {
+  const msg = (e && (e.errMsg || e.message)) || String(e || '')
+  return /timeout|function not found|资源不存在|FUNCTION_NOT_FOUND|-501|-502|FUNCTIONS_EXECUTE/i.test(msg)
+}
+
 async function callFn(payload) {
   if (!ensureCloud()) return null
+  if (_cloudFnDisabled) return null
   try {
     const res = await wx.cloud.callFunction({ name: FN_NAME, data: payload })
     return (res && res.result) || null
   } catch (e) {
-    console.warn('[share-reward] callFunction failed', payload && payload.action, e && e.errMsg)
+    if (isExpectedFailure(e)) {
+      _cloudFnDisabled = true  // skip future calls this session
+    } else {
+      console.warn('[share-reward] callFunction failed', payload && payload.action, e && e.errMsg)
+    }
     return null
   }
 }
