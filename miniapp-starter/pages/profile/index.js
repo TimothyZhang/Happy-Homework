@@ -174,8 +174,6 @@ Page({
             icon: 'none',
             duration: 2400
           })
-        } catch (e) {
-          wx.showToast({ title: '切回出错', icon: 'none' })
         } finally {
           this.setData({ syncing: false })
         }
