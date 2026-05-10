@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const shareReward = require('../../utils/share-reward')
 
 function summarize(n) {
   if (!n) return ''
@@ -53,12 +54,23 @@ Page({
     if (this.data.importing) return
     if (!this.data.payload) return
     this.setData({ importing: true })
-    const newId = store.importSharedNotebook(this.data.payload)
+    const payload = this.data.payload
+    const newId = store.importSharedNotebook(payload)
     if (!newId) {
       this.setData({ importing: false, error: '保存失败，请稍后再试' })
       return
     }
     wx.showToast({ title: '已保存', icon: 'success' })
+    // Best-effort credit the original sharer with +3 coins. Cloud function
+    // dedups (importer × notebookId) so re-imports won't double-credit.
+    // Failure is silent — main flow already succeeded.
+    if (payload.sharer && payload.nbId) {
+      shareReward.reportShareSave({
+        sharerOpenid: payload.sharer,
+        notebookId: payload.nbId,
+        notebookName: (payload.n && payload.n.name) || ''
+      }).catch(() => {})
+    }
     setTimeout(() => {
       wx.redirectTo({ url: `/pages/notebook-detail/index?id=${newId}` })
     }, 600)

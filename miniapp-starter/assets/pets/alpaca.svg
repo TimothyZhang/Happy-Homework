@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="alpacaWool" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fce8c2"/>
+      <stop offset="100%" stop-color="#dcb27a"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="100" cy="145" rx="48" ry="40" fill="url(#alpacaWool)"/>
+  <rect x="86" y="80" width="28" height="50" rx="14" fill="url(#alpacaWool)"/>
+  <ellipse cx="100" cy="80" rx="28" ry="26" fill="url(#alpacaWool)"/>
+  <ellipse cx="100" cy="55" rx="20" ry="11" fill="url(#alpacaWool)"/>
+  <ellipse cx="92" cy="48" rx="8" ry="6" fill="url(#alpacaWool)"/>
+  <ellipse cx="108" cy="48" rx="8" ry="6" fill="url(#alpacaWool)"/>
+  <path d="M78 60 L74 35 L86 50 Z" fill="url(#alpacaWool)"/>
+  <path d="M122 60 L126 35 L114 50 Z" fill="url(#alpacaWool)"/>
+  <ellipse cx="90" cy="80" rx="3" ry="4.5" fill="#1f2329"/>
+  <ellipse cx="110" cy="80" rx="3" ry="4.5" fill="#1f2329"/>
+  <circle cx="89" cy="78" r="1.2" fill="#fff"/>
+  <circle cx="109" cy="78" r="1.2" fill="#fff"/>
+  <ellipse cx="100" cy="92" rx="9" ry="6" fill="#ffd6c0"/>
+  <ellipse cx="100" cy="91" rx="2" ry="1.5" fill="#1f2329"/>
+  <path d="M97 96 Q100 99 103 96" stroke="#1f2329" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+  <rect x="80" y="175" width="8" height="14" fill="#dcb27a" rx="2"/>
+  <rect x="112" y="175" width="8" height="14" fill="#dcb27a" rx="2"/>
+  <ellipse cx="78" cy="86" rx="3.5" ry="2.5" fill="#ff8fa5" opacity="0.5"/>
+  <ellipse cx="122" cy="86" rx="3.5" ry="2.5" fill="#ff8fa5" opacity="0.5"/>
+</svg>

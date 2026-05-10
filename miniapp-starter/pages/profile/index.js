@@ -1,47 +1,22 @@
 const cloudSync = require('../../utils/cloud-sync')
-const store = require('../../utils/store')
 
 Page({
   data: {
     syncStatus: { status: 'unknown', readOnly: false, lastSyncDisplay: '从未', lastError: null, inflight: false },
-    syncing: false,
-    nickname: ''
+    syncing: false
   },
 
   onShow() {
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 4 })
     this.refreshSyncStatus()
-    this.refreshProfile()
     cloudSync.hydrateIfStale().then(() => {
       this.refreshSyncStatus()
-      this.refreshProfile()
     }).catch(() => {})
   },
 
   refreshSyncStatus() {
     this.setData({ syncStatus: cloudSync.getSyncStatus() })
-  },
-
-  refreshProfile() {
-    this.setData({ nickname: store.getProfile().nickname || '' })
-  },
-
-  // <input type="nickname"> auto-fills the WeChat nickname when focused.
-  handleNicknameInput(e) {
-    this.setData({ nickname: e.detail.value })
-  },
-
-  handleNicknameBlur(e) {
-    const next = (e.detail.value || '').trim()
-    const current = (store.getProfile().nickname || '').trim()
-    if (next === current) return
-    store.updateProfileNickname(next)
-    if (next) wx.showToast({ title: '已保存', icon: 'success' })
-  },
-
-  goStats() {
-    wx.navigateTo({ url: '/pages/stats/index' })
   },
 
   async handleForceSync() {

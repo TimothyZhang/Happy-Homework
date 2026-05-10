@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="dogBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f4d4a3"/>
+      <stop offset="100%" stop-color="#d8a567"/>
+    </linearGradient>
+    <linearGradient id="dogEar" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#c08d4d"/>
+      <stop offset="100%" stop-color="#9a6f37"/>
+    </linearGradient>
+  </defs>
+  <path d="M158 125 Q178 110 175 90 Q172 80 165 92 Q170 110 152 122" fill="url(#dogBody)"/>
+  <ellipse cx="100" cy="120" rx="62" ry="60" fill="url(#dogBody)"/>
+  <ellipse cx="56" cy="92" rx="16" ry="28" fill="url(#dogEar)" transform="rotate(-15 56 92)"/>
+  <ellipse cx="144" cy="92" rx="16" ry="28" fill="url(#dogEar)" transform="rotate(15 144 92)"/>
+  <ellipse cx="100" cy="130" rx="22" ry="14" fill="#fff3dc"/>
+  <ellipse cx="80" cy="105" rx="5" ry="7" fill="#1f2329"/>
+  <ellipse cx="120" cy="105" rx="5" ry="7" fill="#1f2329"/>
+  <circle cx="78" cy="102" r="1.7" fill="#fff"/>
+  <circle cx="118" cy="102" r="1.7" fill="#fff"/>
+  <ellipse cx="100" cy="123" rx="6" ry="4.5" fill="#1f2329"/>
+  <path d="M100 128 Q92 138 85 134 M100 128 Q108 138 115 134" stroke="#1f2329" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <ellipse cx="100" cy="138" rx="6" ry="4" fill="#ff7a96"/>
+  <ellipse cx="70" cy="125" rx="5" ry="3" fill="#ff8fa5" opacity="0.55"/>
+  <ellipse cx="130" cy="125" rx="5" ry="3" fill="#ff8fa5" opacity="0.55"/>
+</svg>

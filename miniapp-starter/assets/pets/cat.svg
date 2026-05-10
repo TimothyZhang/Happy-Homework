@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="catBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffd599"/>
+      <stop offset="100%" stop-color="#e89e4a"/>
+    </linearGradient>
+  </defs>
+  <path d="M155 130 Q185 95 175 65 Q170 55 162 67 Q170 95 150 125" fill="url(#catBody)"/>
+  <ellipse cx="100" cy="120" rx="65" ry="62" fill="url(#catBody)"/>
+  <path d="M52 80 L62 38 L82 70 Z" fill="url(#catBody)"/>
+  <path d="M58 75 L65 50 L77 70 Z" fill="#ffb0c4"/>
+  <path d="M148 80 L138 38 L118 70 Z" fill="url(#catBody)"/>
+  <path d="M142 75 L135 50 L123 70 Z" fill="#ffb0c4"/>
+  <path d="M92 70 L94 60 M100 67 L100 56 M108 70 L106 60" stroke="#a76b2e" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <ellipse cx="80" cy="105" rx="5" ry="8" fill="#1f2329"/>
+  <ellipse cx="120" cy="105" rx="5" ry="8" fill="#1f2329"/>
+  <circle cx="78" cy="102" r="1.7" fill="#fff"/>
+  <circle cx="118" cy="102" r="1.7" fill="#fff"/>
+  <path d="M95 122 L105 122 L100 128 Z" fill="#ff7a96"/>
+  <path d="M100 128 Q94 134 89 132 M100 128 Q106 134 111 132" stroke="#1f2329" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <path d="M65 128 L48 124 M65 132 L48 136 M135 128 L152 124 M135 132 L152 136" stroke="#a76b2e" stroke-width="1.2" stroke-linecap="round"/>
+  <ellipse cx="68" cy="125" rx="6" ry="3.5" fill="#ff8fa5" opacity="0.55"/>
+  <ellipse cx="132" cy="125" rx="6" ry="3.5" fill="#ff8fa5" opacity="0.55"/>
+</svg>

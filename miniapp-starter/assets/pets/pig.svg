@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="pigBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fcc4d4"/>
+      <stop offset="100%" stop-color="#f095af"/>
+    </linearGradient>
+  </defs>
+  <path d="M160 110 Q180 105 178 92 Q176 85 168 90 Q172 100 160 102" stroke="#f095af" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <ellipse cx="100" cy="120" rx="65" ry="60" fill="url(#pigBody)"/>
+  <path d="M62 75 Q70 50 88 72 Q78 78 62 75 Z" fill="#f095af"/>
+  <path d="M138 75 Q130 50 112 72 Q122 78 138 75 Z" fill="#f095af"/>
+  <ellipse cx="100" cy="128" rx="22" ry="15" fill="#f8aac3"/>
+  <ellipse cx="92" cy="127" rx="3" ry="4" fill="#c2647e"/>
+  <ellipse cx="108" cy="127" rx="3" ry="4" fill="#c2647e"/>
+  <ellipse cx="82" cy="103" rx="4.5" ry="6.5" fill="#1f2329"/>
+  <ellipse cx="118" cy="103" rx="4.5" ry="6.5" fill="#1f2329"/>
+  <circle cx="80" cy="100" r="1.5" fill="#fff"/>
+  <circle cx="116" cy="100" r="1.5" fill="#fff"/>
+  <path d="M85 145 Q92 150 100 145 Q108 150 115 145" stroke="#1f2329" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+  <ellipse cx="80" cy="178" rx="9" ry="5" fill="#d97a98"/>
+  <ellipse cx="120" cy="178" rx="9" ry="5" fill="#d97a98"/>
+  <ellipse cx="68" cy="118" rx="6" ry="3.5" fill="#ff5f88" opacity="0.45"/>
+  <ellipse cx="132" cy="118" rx="6" ry="3.5" fill="#ff5f88" opacity="0.45"/>
+</svg>

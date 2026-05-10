@@ -1,45 +1,104 @@
 <view class="page">
-  <view class="card pet-card">
-    <view class="section-header">
-      <text class="section-title">电子宠物</text>
-      <text class="coin-balance">金币 {{coins}}</text>
-    </view>
+  <block wx:if="{{mode === 'setup'}}">
+    <view class="card setup-card">
+      <view class="setup-title">选一只想养的宠物吧</view>
+      <view class="setup-sub">陪你一起完成作业，每天都会和你互动哦</view>
 
-    <view class="pet-hero">
-      <text class="pet-avatar">{{pet.emoji}}</text>
-      <text class="pet-name">{{pet.name}}</text>
-      <text class="subtle">Lv.{{pet.level}} · 成长值 {{pet.growth}} / {{pet.nextLevelGrowth}}</text>
-    </view>
-
-    <view class="pet-stat-block">
-      <text class="field-label">开心值</text>
-      <progress percent="{{pet.happiness}}" stroke-width="10" activeColor="#ffb648" backgroundColor="#edf0f3" />
-    </view>
-    <view class="pet-stat-block">
-      <text class="field-label">饱腹值</text>
-      <progress percent="{{pet.fullness}}" stroke-width="10" activeColor="#07c160" backgroundColor="#edf0f3" />
-    </view>
-  </view>
-
-  <view class="card section-card">
-    <view class="section-header">
-      <text class="section-title">宠物商店</text>
-      <text class="subtle">用金币换成长反馈</text>
-    </view>
-
-    <view wx:for="{{shopItems}}" wx:key="id" class="shop-item-card">
-      <view>
-        <text class="shop-name">{{item.emoji}} {{item.name}}</text>
-        <text class="shop-effect">{{item.effect}}</text>
+      <view class="species-grid">
+        <view wx:for="{{speciesOptions}}"
+              wx:key="id"
+              class="species-item {{setupSpecies === item.id ? 'on' : ''}}"
+              data-id="{{item.id}}"
+              bindtap="handlePickSpecies">
+          <image class="species-art" src="/assets/pets/{{item.id}}.svg" mode="aspectFit" />
+          <text class="species-label">{{item.label}}</text>
+        </view>
       </view>
-      <button class="mini-btn buy-btn" size="mini" data-id="{{item.id}}" bindtap="handleBuyItem">{{item.price}} 金币</button>
-    </view>
-  </view>
 
-  <view class="card section-card">
-    <view class="section-header">
-      <text class="section-title">我为什么这么设计</text>
+      <view class="setup-name-row">
+        <text class="setup-name-label">取个名字</text>
+        <input class="setup-name-input"
+               placeholder="比如：豆豆"
+               maxlength="12"
+               value="{{setupName}}"
+               bindinput="handleSetupName" />
+      </view>
+
+      <button class="setup-confirm" bindtap="handleConfirmSetup">确定，就是它！</button>
     </view>
-    <text class="subtle">先让金币有明确出口，再做更复杂的装扮、宠物互动和社交展示。不然奖励体系会很空。</text>
-  </view>
+  </block>
+
+  <block wx:else>
+    <view class="card">
+      <view class="section-header">
+        <text class="section-title">{{pet.name}}</text>
+        <text class="coin-balance">金币 {{coins}}</text>
+      </view>
+
+      <view class="pet-stage" bindtap="handleTapPet">
+        <view class="pet-shadow"></view>
+        <view class="pet-figure anim-{{animState}}">
+          <image class="pet-art" src="/assets/pets/{{pet.species}}.svg" mode="aspectFit" />
+          <text wx:if="{{animState === 'hungry'}}"  class="state-icon hungry-icon">🍖</text>
+          <text wx:if="{{animState === 'dirty'}}"   class="state-icon dirty-icon">💨</text>
+          <text wx:if="{{animState === 'sick'}}"    class="state-icon sick-icon">🤒</text>
+          <text wx:if="{{animState === 'sad'}}"     class="state-icon sad-icon">💧</text>
+          <text wx:if="{{animState === 'happy'}}"   class="state-icon happy-icon">💖</text>
+        </view>
+        <view wx:if="{{showBubble}}" class="speech-bubble">{{bubbleText}}</view>
+      </view>
+
+      <view class="pet-meta">
+        <text>Lv.{{pet.level}}</text>
+        <text class="dot">·</text>
+        <text>{{ageDays}} 天大</text>
+        <text class="dot">·</text>
+        <text>成长 {{pet.growth}}/{{pet.nextLevelGrowth}}</text>
+      </view>
+
+      <view class="stat-block">
+        <view class="stat-row">
+          <text class="field-label">开心度</text>
+          <text class="stat-num">{{pet.happiness}}</text>
+        </view>
+        <progress percent="{{pet.happiness}}" stroke-width="10" activeColor="#ffb648" backgroundColor="#edf0f3" />
+      </view>
+      <view class="stat-block">
+        <view class="stat-row">
+          <text class="field-label">饱腹度</text>
+          <text class="stat-num">{{pet.fullness}}</text>
+        </view>
+        <progress percent="{{pet.fullness}}" stroke-width="10" activeColor="#07c160" backgroundColor="#edf0f3" />
+      </view>
+      <view class="stat-block">
+        <view class="stat-row">
+          <text class="field-label">清洁度</text>
+          <text class="stat-num">{{pet.cleanliness}}</text>
+        </view>
+        <progress percent="{{pet.cleanliness}}" stroke-width="10" activeColor="#3ea2ff" backgroundColor="#edf0f3" />
+      </view>
+      <view class="stat-block">
+        <view class="stat-row">
+          <text class="field-label">健康度</text>
+          <text class="stat-num">{{pet.health}}</text>
+        </view>
+        <progress percent="{{pet.health}}" stroke-width="10" activeColor="#e15c5c" backgroundColor="#edf0f3" />
+      </view>
+    </view>
+
+    <view class="card section-card">
+      <view class="section-header">
+        <text class="section-title">宠物商店</text>
+        <text class="subtle">用金币照顾它</text>
+      </view>
+
+      <view wx:for="{{shopItems}}" wx:key="id" class="shop-item-card">
+        <view class="shop-item-text">
+          <text class="shop-name">{{item.emoji}} {{item.name}}</text>
+          <text class="shop-effect">{{item.effect}}</text>
+        </view>
+        <button class="mini-btn buy-btn" size="mini" data-id="{{item.id}}" bindtap="handleBuyItem">{{item.price}} 金币</button>
+      </view>
+    </view>
+  </block>
 </view>
