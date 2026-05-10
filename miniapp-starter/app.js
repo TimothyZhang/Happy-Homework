@@ -2,6 +2,11 @@ const CLOUD_ENV_ID = 'cloud1-d8gkzu6ls85efd509'
 const cloudSync = require('./utils/cloud-sync')
 
 App({
+  // Cross-page signals. `petAnimQueue` is set by the home page when a task
+  // finishes and consumed by the pet page on its next onShow (see
+  // V1-PET-ANIMATION-SPEC §4). Plain object — keep small.
+  globalData: { petAnimQueue: null },
+
   onLaunch() {
     if (typeof wx.cloud !== 'undefined') {
       wx.cloud.init({

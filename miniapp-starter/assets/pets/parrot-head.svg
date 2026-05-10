@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="parrotHead" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff7a7a"/>
+      <stop offset="100%" stop-color="#e0444a"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="100" cy="72" rx="42" ry="40" fill="url(#parrotHead)"/>
+  <path d="M82 38 Q88 22 96 36 Q102 24 108 36 Q114 22 120 40" stroke="#ffd84a" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <path d="M92 92 Q100 108 108 92 Q108 116 100 122 Q92 116 92 92 Z" fill="#ffae2e"/>
+  <path d="M100 96 L100 116" stroke="#c46d1f" stroke-width="1.5"/>
+  <ellipse cx="76" cy="86" rx="5" ry="3" fill="#ff8fa5" opacity="0.7"/>
+  <ellipse cx="124" cy="86" rx="5" ry="3" fill="#ff8fa5" opacity="0.7"/>
+</svg>

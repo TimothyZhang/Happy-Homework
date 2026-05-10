@@ -37,7 +37,24 @@
 
       <view class="pet-stage" bindtap="handleTapPet">
         <view class="pet-shadow"></view>
-        <view class="pet-figure anim-{{animState}}">
+        <!-- Parrot uses a layered SVG rig so each part can animate independently.
+             Other species keep the single-image render below. -->
+        <view wx:if="{{pet.species === 'parrot'}}"
+              class="pet-figure parrot-figure parrot-anim-{{currentAnim}}">
+          <view class="parrot-stage">
+            <image class="part part-body"       src="/assets/pets/parrot-body.svg"       mode="aspectFit" />
+            <image class="part part-wing-left"  src="/assets/pets/parrot-wing-left.svg"  mode="aspectFit" />
+            <image class="part part-wing-right" src="/assets/pets/parrot-wing-right.svg" mode="aspectFit" />
+            <image class="part part-head"       src="/assets/pets/parrot-head.svg"       mode="aspectFit" />
+            <image class="part part-eyes"       src="/assets/pets/parrot-eyes.svg"       mode="aspectFit" />
+          </view>
+          <text wx:if="{{animState === 'hungry'}}"  class="state-icon hungry-icon">🍖</text>
+          <text wx:if="{{animState === 'dirty'}}"   class="state-icon dirty-icon">💨</text>
+          <text wx:if="{{animState === 'sick'}}"    class="state-icon sick-icon">🤒</text>
+          <text wx:if="{{animState === 'sad'}}"     class="state-icon sad-icon">💧</text>
+          <text wx:if="{{animState === 'happy'}}"   class="state-icon happy-icon">💖</text>
+        </view>
+        <view wx:else class="pet-figure anim-{{animState}}">
           <image class="pet-art" src="/assets/pets/{{pet.species}}.svg" mode="aspectFit" />
           <text wx:if="{{animState === 'hungry'}}"  class="state-icon hungry-icon">🍖</text>
           <text wx:if="{{animState === 'dirty'}}"   class="state-icon dirty-icon">💨</text>

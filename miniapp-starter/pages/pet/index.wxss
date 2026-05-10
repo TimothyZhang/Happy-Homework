@@ -211,6 +211,150 @@
   100% { transform: scale(1);   opacity: 1; }
 }
 
+/* ============================================================
+   Parrot — layered rig prototype for V1-PET-ANIMATION-SPEC.
+   Other species keep using `.pet-art` + `anim-{{animState}}`.
+   The parrot uses two nested transform layers so locomotion
+   (whole-figure translate) and posture (stage breath/bounce)
+   can compose without fighting over `transform`. Per-part
+   transforms (wing flap, head nod, eye blink) live on the
+   inner <image class="part …"> elements.
+   ============================================================ */
+.parrot-figure {
+  width: 280rpx;
+  height: 280rpx;
+}
+.parrot-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-origin: center bottom;
+}
+.parrot-figure .part {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* Pivot points are expressed as percentages of the 200-unit viewBox so
+   they line up with the original parrot.svg coordinates. */
+.part-wing-left  { transform-origin: 29% 65%; } /* shoulder ≈ (58,130)  */
+.part-wing-right { transform-origin: 71% 65%; } /* shoulder ≈ (142,130) */
+.part-head       { transform-origin: 50% 56%; } /* neck base ≈ (100,112) */
+.part-eyes       { transform-origin: 50% 35%; } /* eye row  ≈ (100,70)  */
+.part-body       { transform-origin: 50% 70%; }
+
+/* === IDLE: gentle breath + occasional blink + tiny wing flutter === */
+.parrot-anim-idle .parrot-stage     { animation: parrot-breath      3.0s ease-in-out infinite; }
+.parrot-anim-idle .part-eyes        { animation: parrot-blink       4.5s ease-in-out infinite; }
+.parrot-anim-idle .part-wing-left   { animation: parrot-flutter-l   3.0s ease-in-out infinite; }
+.parrot-anim-idle .part-wing-right  { animation: parrot-flutter-r   3.0s ease-in-out infinite; }
+
+/* === WALKING: figure translates X, stage bobs Y, wings flutter faster === */
+.parrot-anim-walking                { animation: parrot-walk-x      9s   ease-in-out infinite; }
+.parrot-anim-walking .parrot-stage  { animation: parrot-walk-bounce 0.55s ease-in-out infinite; }
+.parrot-anim-walking .part-wing-left  { animation: parrot-flutter-l 0.55s ease-in-out infinite; }
+.parrot-anim-walking .part-wing-right { animation: parrot-flutter-r 0.55s ease-in-out infinite; }
+.parrot-anim-walking .part-eyes     { animation: parrot-blink       4.5s ease-in-out infinite; }
+
+/* === FLYING: cross-screen X arc, Y rise, wings flap fast === */
+.parrot-anim-flying                 { animation: parrot-fly-x       3.5s ease-in-out 1; }
+.parrot-anim-flying .parrot-stage   { animation: parrot-fly-y       3.5s ease-in-out 1; }
+.parrot-anim-flying .part-wing-left  { animation: parrot-flap-l-fast 0.16s ease-in-out infinite; }
+.parrot-anim-flying .part-wing-right { animation: parrot-flap-r-fast 0.16s ease-in-out infinite; }
+
+/* === EATING: head nods, body sways === */
+.parrot-anim-eating .part-head      { animation: parrot-nod         0.42s ease-in-out infinite; }
+.parrot-anim-eating .part-eyes      { animation: parrot-nod         0.42s ease-in-out infinite; }
+.parrot-anim-eating .parrot-stage   { animation: parrot-sway        0.84s ease-in-out infinite; }
+
+/* === CELEBRATING: full spin + two jumps + big wing flaps === */
+.parrot-anim-celebrating              { animation: parrot-celebrate-rot  2s   ease-in-out 1; }
+.parrot-anim-celebrating .parrot-stage{ animation: parrot-celebrate-jump 1s   ease-in-out 2; }
+.parrot-anim-celebrating .part-wing-left  { animation: parrot-flap-l-big 0.22s ease-in-out infinite; }
+.parrot-anim-celebrating .part-wing-right { animation: parrot-flap-r-big 0.22s ease-in-out infinite; }
+
+/* === SLEEPING: very slow breath, eyes squashed shut === */
+.parrot-anim-sleeping .parrot-stage { animation: parrot-sleep-breath 4s   ease-in-out infinite; }
+.parrot-anim-sleeping .part-eyes    { transform: scaleY(0.05); }
+
+/* --- keyframes --- */
+@keyframes parrot-breath {
+  0%, 100% { transform: scale(1.00) translateY(0); }
+  50%      { transform: scale(1.03) translateY(-4rpx); }
+}
+@keyframes parrot-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95%, 97%      { transform: scaleY(0.05); }
+}
+@keyframes parrot-flutter-l {
+  0%, 100% { transform: rotate(0deg); }
+  50%      { transform: rotate(-6deg); }
+}
+@keyframes parrot-flutter-r {
+  0%, 100% { transform: rotate(0deg); }
+  50%      { transform: rotate(6deg); }
+}
+@keyframes parrot-walk-x {
+  0%,  100% { transform: translateX(0); }
+  25%       { transform: translateX(-80rpx); }
+  50%       { transform: translateX(0); }
+  75%       { transform: translateX(80rpx); }
+}
+@keyframes parrot-walk-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6rpx); }
+}
+@keyframes parrot-fly-x {
+  0%   { transform: translateX(-260rpx); opacity: 0; }
+  10%  { transform: translateX(-220rpx); opacity: 1; }
+  90%  { transform: translateX(220rpx);  opacity: 1; }
+  100% { transform: translateX(260rpx);  opacity: 0; }
+}
+@keyframes parrot-fly-y {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-60rpx); }
+}
+@keyframes parrot-flap-l-fast {
+  0%, 100% { transform: rotate(15deg); }
+  50%      { transform: rotate(-30deg); }
+}
+@keyframes parrot-flap-r-fast {
+  0%, 100% { transform: rotate(-15deg); }
+  50%      { transform: rotate(30deg); }
+}
+@keyframes parrot-flap-l-big {
+  0%, 100% { transform: rotate(20deg); }
+  50%      { transform: rotate(-50deg); }
+}
+@keyframes parrot-flap-r-big {
+  0%, 100% { transform: rotate(-20deg); }
+  50%      { transform: rotate(50deg); }
+}
+@keyframes parrot-nod {
+  0%, 100% { transform: rotate(0deg)   translateY(0); }
+  50%      { transform: rotate(-22deg) translateY(6rpx); }
+}
+@keyframes parrot-sway {
+  0%, 100% { transform: translateX(0); }
+  25%      { transform: translateX(-6rpx); }
+  75%      { transform: translateX(6rpx); }
+}
+@keyframes parrot-celebrate-rot {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes parrot-celebrate-jump {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-50rpx); }
+}
+@keyframes parrot-sleep-breath {
+  0%, 100% { transform: scale(1.00) translateY(0); }
+  50%      { transform: scale(0.97) translateY(2rpx); }
+}
+
 /* === stats === */
 .pet-meta {
   margin-top: 18rpx;

@@ -220,6 +220,16 @@ Page({
 
     this.showTaskReward(taskCoins)
 
+    // Flag the pet page to play one celebration animation on its next onShow.
+    // Consumed in pages/pet/index.js. Cross-page because home & pet are
+    // separate tabs — the pet page is typically not in the foreground when
+    // a task finishes.
+    const app = getApp()
+    if (app) {
+      app.globalData = app.globalData || {}
+      app.globalData.petAnimQueue = 'celebrating'
+    }
+
     if (bonusCoins > 0) {
       // 全完成: queue allDone after the task pop has had time to fade.
       const subtitle = weeklyBonus > 0

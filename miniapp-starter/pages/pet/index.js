@@ -39,6 +39,37 @@ function levelBadge(level) {
   return '👑'
 }
 
+// === Parrot animation state machine (V1-PET-ANIMATION-SPEC §3) ===
+// Per-state durations (ms). Match the WXSS keyframes — eating/celebrating/
+// flying are "one-shot" recipes that play once and return to idle; idle/
+// walking/sleeping are loopable recipes the auto-cycler picks between.
+const ANIM_RECIPES = {
+  idle:        { duration: 2800, oneShot: false },
+  walking:     { duration: 9000, oneShot: false },
+  sleeping:    { duration: 5000, oneShot: false },
+  flying:      { duration: 3500, oneShot: true  },
+  eating:      { duration: 1800, oneShot: true  },
+  celebrating: { duration: 2000, oneShot: true  }
+}
+const FLY_MIN_GAP_MS = 25000
+const FLY_MAX_GAP_MS = 40000
+
+function isParrot(pet) { return !!(pet && pet.species === 'parrot') }
+
+// What auto-cycle states are available given current pet vitals.
+// Per spec §3: when health/cleanliness are low, calm states only.
+function pickAutoState(pet) {
+  if (!pet) return 'idle'
+  const unwell = (pet.health || 0) < 30 || (pet.cleanliness || 0) < 30
+  if (unwell) {
+    return Math.random() < 0.65 ? 'idle' : 'sleeping'
+  }
+  const r = Math.random()
+  if (r < 0.55) return 'idle'
+  if (r < 0.90) return 'walking'
+  return 'sleeping'
+}
+
 Page({
   data: {
     pet: {},
@@ -52,6 +83,9 @@ Page({
     setupSpecies: '',
     setupName: '',
     animState: 'idle',
+    // Parrot-specific animation channel (V1-PET-ANIMATION-SPEC). Other species
+    // ignore this and keep using `animState` for their CSS class.
+    currentAnim: 'idle',
     showBubble: false,
     bubbleText: '',
     ageDays: 0,
@@ -65,6 +99,12 @@ Page({
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 3 })
     this.refreshState()
+    // Consume celebration flag from home page (set in maybeShowReward).
+    const app = getApp()
+    if (app && app.globalData && app.globalData.petAnimQueue === 'celebrating') {
+      app.globalData.petAnimQueue = null
+      this.queueAnim('celebrating')
+    }
     cloudSync.hydrateIfStale().then((r) => {
       if (r && r.changed) this.refreshState()
     }).catch(() => {})
@@ -75,6 +115,11 @@ Page({
       clearTimeout(this._bubbleTimer)
       this._bubbleTimer = null
     }
+    this._stopAnimEngine()
+  },
+
+  onUnload() {
+    this._stopAnimEngine()
   },
 
   refreshState() {
@@ -99,6 +144,108 @@ Page({
       showBubble: false,
       bubbleText: ''
     })
+    // Start/stop the parrot animation engine alongside refreshState. Idempotent:
+    // _startAnimEngine is a no-op if timers are already armed.
+    if (isSetup && isParrot(pet)) {
+      this._startAnimEngine()
+    } else {
+      this._stopAnimEngine()
+    }
+  },
+
+  // === Parrot animation engine === //
+  // The engine runs two independent timers:
+  //   _cycleTimer — picks the next loopable state (idle/walking/sleeping)
+  //                 from pickAutoState() each tick. Driven by the previous
+  //                 state's duration so transitions feel paced, not random.
+  //   _flyTimer   — separate cadence for the rare "short flight" event.
+  //                 Skipped silently while the pet is unwell or while a
+  //                 one-shot is playing.
+  // queueAnim() (eating / celebrating) is the highest-priority lane: it
+  // interrupts the auto cycle, plays once, and resumes idle.
+  _startAnimEngine() {
+    if (this._cycleTimer || this._flyTimer || this._oneShotTimer) return
+    if (!this.data.currentAnim) this.setData({ currentAnim: 'idle' })
+    this._scheduleNextAuto(ANIM_RECIPES.idle.duration)
+    this._scheduleFlying()
+  },
+
+  _stopAnimEngine() {
+    if (this._cycleTimer)   { clearTimeout(this._cycleTimer);   this._cycleTimer = null }
+    if (this._flyTimer)     { clearTimeout(this._flyTimer);     this._flyTimer = null }
+    if (this._oneShotTimer) { clearTimeout(this._oneShotTimer); this._oneShotTimer = null }
+    this._oneShotActive = false
+    this._queuedOneShot = null
+  },
+
+  _scheduleNextAuto(delay) {
+    if (this._cycleTimer) clearTimeout(this._cycleTimer)
+    this._cycleTimer = setTimeout(() => {
+      this._cycleTimer = null
+      if (!isParrot(this.data.pet)) return
+      // Defer if a one-shot owns the stage — re-check shortly.
+      if (this._oneShotActive) {
+        this._scheduleNextAuto(500)
+        return
+      }
+      const next = pickAutoState(this.data.pet)
+      this.setData({ currentAnim: next })
+      this._scheduleNextAuto(ANIM_RECIPES[next].duration)
+    }, Math.max(0, delay))
+  },
+
+  _scheduleFlying() {
+    if (this._flyTimer) clearTimeout(this._flyTimer)
+    const wait = FLY_MIN_GAP_MS + Math.floor(Math.random() * (FLY_MAX_GAP_MS - FLY_MIN_GAP_MS))
+    this._flyTimer = setTimeout(() => {
+      this._flyTimer = null
+      if (!isParrot(this.data.pet)) return
+      const pet = this.data.pet
+      const unwell = (pet.health || 0) < 30 || (pet.cleanliness || 0) < 30
+      // Don't fly while sick/dirty (per spec §3) or during a user-triggered
+      // one-shot. Just re-arm the next attempt.
+      if (unwell || this._oneShotActive) {
+        this._scheduleFlying()
+        return
+      }
+      this._playOneShot('flying', () => this._scheduleFlying())
+    }, wait)
+  },
+
+  // Public: external triggers (eating from shop, celebrating from home).
+  // Highest priority — interrupts the auto cycle. Multiple back-to-back
+  // calls queue (one slot — only the latest is kept).
+  queueAnim(name) {
+    if (!isParrot(this.data.pet)) return
+    const recipe = ANIM_RECIPES[name]
+    if (!recipe || !recipe.oneShot) return
+    if (this._oneShotActive) {
+      this._queuedOneShot = name
+      return
+    }
+    this._playOneShot(name)
+  },
+
+  _playOneShot(name, after) {
+    const recipe = ANIM_RECIPES[name]
+    if (!recipe) return
+    this._oneShotActive = true
+    if (this._cycleTimer) { clearTimeout(this._cycleTimer); this._cycleTimer = null }
+    this.setData({ currentAnim: name })
+    if (this._oneShotTimer) clearTimeout(this._oneShotTimer)
+    this._oneShotTimer = setTimeout(() => {
+      this._oneShotTimer = null
+      this._oneShotActive = false
+      if (typeof after === 'function') after()
+      if (this._queuedOneShot) {
+        const next = this._queuedOneShot
+        this._queuedOneShot = null
+        this._playOneShot(next)
+      } else {
+        this.setData({ currentAnim: 'idle' })
+        this._scheduleNextAuto(ANIM_RECIPES.idle.duration)
+      }
+    }, recipe.duration)
   },
 
   // === Setup flow === //
@@ -151,6 +298,9 @@ Page({
     store.buyItem(id)
     this.refreshState()
     wx.showToast({ title: `${item.name} 已购买`, icon: 'success' })
+    // Only food items (those that raise fullness) trigger the eating
+    // animation — bath / toy / vitamin items don't (per spec §4).
+    if ((item.fullness || 0) > 0) this.queueAnim('eating')
   },
 
   handleLevelUp() {
