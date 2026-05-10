@@ -1,12 +1,21 @@
 <view class="page">
-  <view class="hero card">
-    <view class="day-switcher">
-      <view class="day-btn" bindtap="handlePrevDay">◀</view>
-      <view class="day-label">{{activeDateLabel}}</view>
-      <view class="day-btn" bindtap="handleNextDay">▶</view>
+  <view class="card hero">
+    <view class="seg-bar">
+      <view class="seg-btn {{activeSegment === 'today' ? 'active' : ''}}"
+            data-seg="today"
+            bindtap="handleSegmentTap">{{todayLabel}}</view>
+      <view class="seg-btn {{activeSegment === 'tomorrow' ? 'active' : ''}}"
+            data-seg="tomorrow"
+            bindtap="handleSegmentTap">{{tomorrowLabel}}</view>
+      <view class="seg-btn {{activeSegment === 'calendar' ? 'active' : ''}}"
+            data-seg="calendar"
+            bindtap="handleSegmentTap">{{calendarLabel}}</view>
     </view>
-    <view wx:if="{{!isToday}}" class="hero-actions-mini">
-      <view class="link-pill" bindtap="handleJumpToday">回到今日</view>
+
+    <view wx:if="{{calendarOpen}}" class="cal-embed">
+      <month-calendar id="cal"
+                      value="{{selectedDate}}"
+                      bind:change="handleCalendarChange" />
     </view>
 
     <view class="pet-talk">
@@ -32,7 +41,7 @@
 
     <task-list wx:if="{{undoneItems.length > 0}}"
                items="{{undoneItems}}"
-               active-date="{{activeDate}}"
+               active-date="{{selectedDate}}"
                bind:changed="handleTasksChanged" />
   </view>
 
@@ -42,7 +51,7 @@
       <text class="section-count done-count">{{doneItems.length}}</text>
     </view>
     <task-list items="{{doneItems}}"
-               active-date="{{activeDate}}"
+               active-date="{{selectedDate}}"
                enable-drag="{{false}}"
                bind:changed="handleTasksChanged" />
   </view>

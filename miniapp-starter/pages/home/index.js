@@ -21,6 +21,13 @@ function formatDuration(minutes) {
   return `${h}h${m}m`
 }
 
+// "5/10" — short M/D suffix shown on segment buttons.
+function formatShortMD(dateStr) {
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(dateStr || '')
+  if (!m) return ''
+  return `${Number(m[1])}/${Number(m[2])}`
+}
+
 function buildPetMessage({ isToday, totalCount, pendingCount, remainingMinutes }) {
   const timeStr = remainingMinutes > 0 ? formatDuration(remainingMinutes) : ''
 
@@ -103,9 +110,14 @@ const TASK_THROTTLE_MS = 600
 
 Page({
   data: {
-    activeDate: '',
-    activeDateLabel: '',
+    selectedDate: '',
     isToday: true,
+    // 'today' | 'tomorrow' | 'calendar' — drives segment highlight.
+    activeSegment: 'today',
+    calendarOpen: false,
+    todayLabel: '今天',
+    tomorrowLabel: '明天',
+    calendarLabel: '日历',
     overview: { totalCount: 0, pendingCount: 0, doneCount: 0 },
     remainingMinutesDisplay: '—',
     undoneItems: [],
@@ -123,8 +135,8 @@ Page({
   onShow() {
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 0 })
-    if (!this.data.activeDate) {
-      this.setData({ activeDate: store.todayStr() })
+    if (!this.data.selectedDate) {
+      this.setData({ selectedDate: store.todayStr() })
     }
     this.refreshState()
     // Background-check cloud (debounced 30s). Repaint if remote was newer.
@@ -148,11 +160,12 @@ Page({
 
   refreshState(opts = {}) {
     const today = store.todayStr()
-    const activeDate = this.data.activeDate || today
-    const isToday = activeDate === today
+    const tomorrow = store.addDays(today, 1)
+    const selectedDate = this.data.selectedDate || today
+    const isToday = selectedDate === today
     const state = store.getStateWithComputed()
     const now = Date.now()
-    const raw = store.tasksForDate(state, activeDate)
+    const raw = store.tasksForDate(state, selectedDate)
     const decorated = raw.map((it) => decorateItem(it, now))
     const undoneItems = sortUndone(decorated.filter((it) => it.status !== 'done'))
     const doneItems = sortDone(decorated.filter((it) => it.status === 'done'))
@@ -165,10 +178,27 @@ Page({
       pendingCount: undoneItems.length,
       remainingMinutes
     })
+
+    // Segment labels — "今天 5/10", "明天 5/11", and "日历" or "日历 5/15"
+    // when the user has picked a day that isn't today/tomorrow.
+    const todayLabel = `今天 ${formatShortMD(today)}`
+    const tomorrowLabel = `明天 ${formatShortMD(tomorrow)}`
+    const showCalDate = selectedDate && selectedDate !== today && selectedDate !== tomorrow
+    const calendarLabel = showCalDate ? `日历 ${formatShortMD(selectedDate)}` : '日历'
+
+    let activeSegment
+    if (this.data.calendarOpen) activeSegment = 'calendar'
+    else if (selectedDate === today) activeSegment = 'today'
+    else if (selectedDate === tomorrow) activeSegment = 'tomorrow'
+    else activeSegment = 'calendar'
+
     this.setData({
-      activeDate,
-      activeDateLabel: this.formatDateLabel(activeDate, today),
+      selectedDate,
       isToday,
+      activeSegment,
+      todayLabel,
+      tomorrowLabel,
+      calendarLabel,
       overview: { totalCount: total, pendingCount: undoneItems.length, doneCount: doneItems.length },
       remainingMinutesDisplay: formatDuration(remainingMinutes),
       undoneItems,
@@ -176,14 +206,12 @@ Page({
       pet: (state.pet && state.pet.emoji) ? state.pet : this.data.pet,
       petMessage
     })
+    // Repaint embedded calendar's day-count bubbles when store changes.
+    if (this.data.calendarOpen) {
+      const cal = this.selectComponent('#cal')
+      if (cal) cal.refresh()
+    }
     if (opts.maybeCelebrate) this.maybeShowReward(state)
-  },
-
-  formatDateLabel(date, today) {
-    if (date === today) return `今日 · ${date}`
-    if (date === store.addDays(today, -1)) return `昨日 · ${date}`
-    if (date === store.addDays(today, 1)) return `明日 · ${date}`
-    return date
   },
 
   // Decides whether the just-finished tap actually awarded coins (vs. a
@@ -291,23 +319,32 @@ Page({
   onHide() { this.hideAllRewards() },
   onUnload() { this.hideAllRewards() },
 
-  // === Day switcher === //
+  // === Date segment === //
 
-  handlePrevDay() {
+  handleSegmentTap(e) {
+    const seg = e.currentTarget.dataset.seg
+    if (!seg) return
     this.hideAllRewards()
-    this.setData({ activeDate: store.addDays(this.data.activeDate, -1) })
-    this.refreshState()
+    if (seg === 'today') {
+      this.setData({ selectedDate: store.todayStr(), calendarOpen: false })
+      this.refreshState()
+    } else if (seg === 'tomorrow') {
+      this.setData({ selectedDate: store.addDays(store.todayStr(), 1), calendarOpen: false })
+      this.refreshState()
+    } else if (seg === 'calendar') {
+      // Open the calendar; selectedDate stays where it is — user picks a
+      // day to switch the task list.
+      this.setData({ calendarOpen: true })
+      this.refreshState()
+    }
   },
 
-  handleNextDay() {
+  handleCalendarChange(e) {
+    const date = e.detail && e.detail.date
+    if (!date) return
     this.hideAllRewards()
-    this.setData({ activeDate: store.addDays(this.data.activeDate, 1) })
-    this.refreshState()
-  },
-
-  handleJumpToday() {
-    this.hideAllRewards()
-    this.setData({ activeDate: store.todayStr() })
+    // Calendar stays open after picking — user can keep flipping days.
+    this.setData({ selectedDate: date, calendarOpen: true })
     this.refreshState()
   }
 })

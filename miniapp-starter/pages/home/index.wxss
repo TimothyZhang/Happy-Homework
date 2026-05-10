@@ -15,51 +15,38 @@
 
 .section-card { margin-top: 24rpx; }
 
-/* === day switcher === */
-.day-switcher {
+/* === date segment === */
+.seg-bar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
   background: #f3f6fa;
-  padding: 12rpx 14rpx;
+  padding: 6rpx;
   border-radius: 18rpx;
+  gap: 4rpx;
 }
 
-.day-btn {
-  width: 64rpx;
-  height: 56rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #ffffff;
-  border-radius: 14rpx;
-  font-size: 22rpx;
-  color: #245bdb;
-  font-weight: 700;
-}
-
-.day-label {
+.seg-btn {
   flex: 1;
   text-align: center;
-  font-size: 30rpx;
-  font-weight: 700;
+  padding: 16rpx 8rpx;
+  border-radius: 14rpx;
+  font-size: 26rpx;
+  color: #6b7785;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.seg-btn.active {
+  background: #ffffff;
   color: #1f2329;
+  font-weight: 700;
+  box-shadow: 0 2rpx 10rpx rgba(31, 35, 41, 0.08);
 }
 
-.hero-actions-mini {
-  display: flex;
-  gap: 12rpx;
-  margin-top: 14rpx;
-  justify-content: flex-end;
-}
-
-.link-pill {
-  padding: 8rpx 18rpx;
-  border-radius: 999rpx;
-  background: #eef4ff;
-  color: #245bdb;
-  font-size: 22rpx;
-  font-weight: 600;
+.cal-embed {
+  margin-top: 18rpx;
+  padding-top: 18rpx;
+  border-top: 1rpx solid #eef0f3;
 }
 
 /* === pet talk === */

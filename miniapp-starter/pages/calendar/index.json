@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "日历",
   "usingComponents": {
-    "task-list": "/components/task-list/index"
+    "task-list": "/components/task-list/index",
+    "month-calendar": "/components/month-calendar/index"
   }
 }
