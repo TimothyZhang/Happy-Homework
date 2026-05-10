@@ -39,31 +39,55 @@ function levelBadge(level) {
   return '👑'
 }
 
-// === Parrot animation state machine (V1-PET-ANIMATION-SPEC §3) ===
-// Per-state durations (ms). Match the WXSS keyframes — eating/celebrating/
-// flying are "one-shot" recipes that play once and return to idle; idle/
-// walking/sleeping are loopable recipes the auto-cycler picks between.
+// === Pet animation state machine (V1-PET-ANIMATION-SPEC §1.5 + §3) ===
+// Per-state durations (ms). Match the WXSS keyframes — happy/eating/
+// celebrating/flying are "one-shot" recipes that play once and return to
+// idle; idle/walking/sleeping are loopable recipes the auto-cycler picks
+// between. Standard-tier species reuse the same names; species-specific
+// keyframes are CSS overrides keyed on .species-<id>.
 const ANIM_RECIPES = {
   idle:        { duration: 2800, oneShot: false },
   walking:     { duration: 9000, oneShot: false },
   sleeping:    { duration: 5000, oneShot: false },
   flying:      { duration: 3500, oneShot: true  },
   eating:      { duration: 1800, oneShot: true  },
-  celebrating: { duration: 2000, oneShot: true  }
+  celebrating: { duration: 2000, oneShot: true  },
+  happy:       { duration: 1200, oneShot: true  }
 }
 const FLY_MIN_GAP_MS = 25000
 const FLY_MAX_GAP_MS = 40000
 
-// Dev test entry (V1-PET-ANIMATION-SPEC §10): tapping the parrot cycles
-// through every state in this order so each animation can be eyeballed on
-// device without waiting for the auto cycle. The auto state machine is
-// suspended for DEV_TAP_PAUSE_MS after each manual tap so it doesn't yank
-// the parrot back into idle mid-inspection.
-const DEV_ANIM_CYCLE = ['idle', 'walking', 'flying', 'eating', 'celebrating', 'sleeping']
+// Per-species action sequence — the full list each species supports
+// (V1-PET-ANIMATION-SPEC §1.5 / §10). Used both as the source of truth for
+// "can this species fly?" auto-scheduling AND as the dev tap-to-cycle order.
+// Species-specific feel comes from CSS overrides on the canonical state name
+// (rabbit walking renders as hop, cow eating as chew, etc.) — JS stays neutral.
+const PET_ANIM_SEQUENCES = {
+  parrot:  ['idle', 'walking', 'flying', 'eating', 'celebrating', 'sleeping', 'happy'],
+  cat:     ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
+  dog:     ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
+  chicken: ['idle', 'walking', 'flying', 'eating', 'celebrating', 'sleeping', 'happy'],
+  rabbit:  ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
+  cow:     ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
+  pig:     ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
+  sheep:   ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
+  alpaca:  ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy']
+}
+const DEFAULT_ANIM_SEQUENCE = ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy']
+
 const DEV_TAP_PAUSE_MS = 8000
 const DEV_LABEL_DURATION_MS = 1500
 
-function isParrot(pet) { return !!(pet && pet.species === 'parrot') }
+function petSequence(pet) {
+  if (!pet || !pet.species) return DEFAULT_ANIM_SEQUENCE
+  return PET_ANIM_SEQUENCES[pet.species] || DEFAULT_ANIM_SEQUENCE
+}
+
+function speciesCanFly(pet) {
+  return petSequence(pet).indexOf('flying') !== -1
+}
+
+function hasAnimRig(pet) { return !!(pet && pet.species) }
 
 // What auto-cycle states are available given current pet vitals.
 // Per spec §3: when health/cleanliness are low, calm states only.
@@ -91,12 +115,17 @@ Page({
     mode: 'view',          // 'setup' | 'view'
     setupSpecies: '',
     setupName: '',
+    // Vital "mood" state — drives the .anim-{state} class for filter overlays
+    // (grayscale on sad, hue-rotate on sick, brightness drop on dirty) and the
+    // small state-icon emojis (🍖 / 💨 / 🤒 / 💧 / 💖). Body animations are no
+    // longer driven from this — they all live on `currentAnim` now.
     animState: 'idle',
-    // Parrot-specific animation channel (V1-PET-ANIMATION-SPEC). Other species
-    // ignore this and keep using `animState` for their CSS class.
+    // Canonical animation channel — every species' .pet-anim-{currentAnim}
+    // (Standard) or .parrot-anim-{currentAnim} (Premium) class binds here.
+    // See V1-PET-ANIMATION-SPEC §1.5 for the canonical action set.
     currentAnim: 'idle',
     // Dev test-entry overlay: name of the animation the user just tapped to,
-    // shown briefly above the parrot. See _cycleParrotAnimForDev.
+    // shown briefly above the pet. See _cyclePetAnimForDev.
     devAnimLabel: '',
     devAnimLabelVisible: false,
     showBubble: false,
@@ -157,30 +186,33 @@ Page({
       showBubble: false,
       bubbleText: ''
     })
-    // Start/stop the parrot animation engine alongside refreshState. Idempotent:
-    // _startAnimEngine is a no-op if timers are already armed.
-    if (isSetup && isParrot(pet)) {
+    // Start/stop the pet animation engine alongside refreshState. Idempotent:
+    // _startAnimEngine is a no-op if timers are already armed. Runs for every
+    // species — Premium (parrot) uses .parrot-anim-* CSS, Standard species
+    // share .pet-anim-* (V1-PET-ANIMATION-SPEC §1.6).
+    if (isSetup && hasAnimRig(pet)) {
       this._startAnimEngine()
     } else {
       this._stopAnimEngine()
     }
   },
 
-  // === Parrot animation engine === //
+  // === Pet animation engine === //
   // The engine runs two independent timers:
   //   _cycleTimer — picks the next loopable state (idle/walking/sleeping)
   //                 from pickAutoState() each tick. Driven by the previous
   //                 state's duration so transitions feel paced, not random.
   //   _flyTimer   — separate cadence for the rare "short flight" event.
-  //                 Skipped silently while the pet is unwell or while a
-  //                 one-shot is playing.
-  // queueAnim() (eating / celebrating) is the highest-priority lane: it
-  // interrupts the auto cycle, plays once, and resumes idle.
+  //                 Only armed for species whose sequence includes 'flying'
+  //                 (parrot + chicken). Skipped silently while the pet is
+  //                 unwell or while a one-shot is playing.
+  // queueAnim() (eating / celebrating / happy) is the highest-priority lane:
+  // it interrupts the auto cycle, plays once, and resumes idle.
   _startAnimEngine() {
     if (this._cycleTimer || this._flyTimer || this._oneShotTimer) return
     if (!this.data.currentAnim) this.setData({ currentAnim: 'idle' })
     this._scheduleNextAuto(ANIM_RECIPES.idle.duration)
-    this._scheduleFlying()
+    if (speciesCanFly(this.data.pet)) this._scheduleFlying()
   },
 
   _stopAnimEngine() {
@@ -198,7 +230,7 @@ Page({
     if (this._cycleTimer) clearTimeout(this._cycleTimer)
     this._cycleTimer = setTimeout(() => {
       this._cycleTimer = null
-      if (!isParrot(this.data.pet)) return
+      if (!hasAnimRig(this.data.pet)) return
       // Defer if a one-shot owns the stage — re-check shortly.
       if (this._oneShotActive) {
         this._scheduleNextAuto(500)
@@ -215,7 +247,7 @@ Page({
     const wait = FLY_MIN_GAP_MS + Math.floor(Math.random() * (FLY_MAX_GAP_MS - FLY_MIN_GAP_MS))
     this._flyTimer = setTimeout(() => {
       this._flyTimer = null
-      if (!isParrot(this.data.pet)) return
+      if (!speciesCanFly(this.data.pet)) return
       const pet = this.data.pet
       const unwell = (pet.health || 0) < 30 || (pet.cleanliness || 0) < 30
       // Don't fly while sick/dirty (per spec §3), during a user-triggered
@@ -229,13 +261,15 @@ Page({
     }, wait)
   },
 
-  // Public: external triggers (eating from shop, celebrating from home).
-  // Highest priority — interrupts the auto cycle. Multiple back-to-back
-  // calls queue (one slot — only the latest is kept).
+  // Public: external triggers (eating from shop, celebrating from home,
+  // happy from tap). Highest priority — interrupts the auto cycle. Multiple
+  // back-to-back calls queue (one slot — only the latest is kept).
   queueAnim(name) {
-    if (!isParrot(this.data.pet)) return
+    if (!hasAnimRig(this.data.pet)) return
     const recipe = ANIM_RECIPES[name]
     if (!recipe || !recipe.oneShot) return
+    // Skip species-restricted oneShots (e.g. flying for non-flyers).
+    if (name === 'flying' && !speciesCanFly(this.data.pet)) return
     if (this._oneShotActive) {
       this._queuedOneShot = name
       return
@@ -293,29 +327,32 @@ Page({
   // === Pet interactions === //
   handleTapPet() {
     if (this.data.mode !== 'view') return
-    // Dev test entry: tapping the parrot also walks through every animation
-    // state in order. Other species don't have a state machine, so they
-    // only get the speech bubble.
-    if (isParrot(this.data.pet)) this._cycleParrotAnimForDev()
+    // Dev test entry (V1-PET-ANIMATION-SPEC §10): tapping any pet walks
+    // through every state in its species sequence. The bubble fires alongside
+    // for the speech-line product behavior.
+    if (hasAnimRig(this.data.pet)) this._cyclePetAnimForDev()
 
     const baseState = deriveAnimState(this.data.pet)
     const line = pickLine(baseState)
-    this.setData({ showBubble: true, bubbleText: line, animState: 'talking' })
+    this.setData({ showBubble: true, bubbleText: line })
     if (this._bubbleTimer) clearTimeout(this._bubbleTimer)
     this._bubbleTimer = setTimeout(() => {
-      this.setData({ showBubble: false, animState: deriveAnimState(this.data.pet) })
+      this.setData({ showBubble: false })
       this._bubbleTimer = null
     }, 2200)
   },
 
-  // Manual cycle through every parrot animation. Each tap advances one step
-  // (idle→walking→flying→eating→celebrating→sleeping→idle) and freezes the
-  // auto state machine for DEV_TAP_PAUSE_MS so the user can actually look at
-  // the chosen animation before idle resumes.
-  _cycleParrotAnimForDev() {
+  // Manual cycle through the current species' animation set. Each tap advances
+  // one step in PET_ANIM_SEQUENCES[species] and freezes the auto state machine
+  // for DEV_TAP_PAUSE_MS so the user can actually look at the chosen animation
+  // before idle resumes. Species without a particular action (e.g. rabbit has
+  // no 'flying') just don't see it in their cycle.
+  _cyclePetAnimForDev() {
+    const seq = petSequence(this.data.pet)
     const cur = this.data.currentAnim || 'idle'
-    const i = DEV_ANIM_CYCLE.indexOf(cur)
-    const next = DEV_ANIM_CYCLE[(i + 1) % DEV_ANIM_CYCLE.length]
+    let i = seq.indexOf(cur)
+    if (i < 0) i = -1   // current state isn't in this species' list — start from 0
+    const next = seq[(i + 1) % seq.length]
 
     this._devOverrideUntil = Date.now() + DEV_TAP_PAUSE_MS
 
@@ -342,7 +379,7 @@ Page({
     this._devResumeTimer = setTimeout(() => {
       this._devResumeTimer = null
       this._devOverrideUntil = 0
-      if (!isParrot(this.data.pet)) return
+      if (!hasAnimRig(this.data.pet)) return
       this.setData({ currentAnim: 'idle' })
       this._scheduleNextAuto(ANIM_RECIPES.idle.duration)
     }, DEV_TAP_PAUSE_MS)

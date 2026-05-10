@@ -1,0 +1,199 @@
+/* ============================================================
+   Standard 档共享动画 (V1-PET-ANIMATION-SPEC §5.5)
+
+   单层 SVG 物种(parrot 以外的 8 种)用这里的 keyframes 实现
+   §1.5 规范的 6 个动作 + 1-2 个物种专属。两层 transform:
+   - .pet-figure 外层 → locomotion (走/跳/飞)
+   - .pet-art   内层 → posture     (呼吸/旋转/晃动)
+
+   类规则约定 (WXML: <view class="pet-figure species-X pet-anim-Y">):
+     .pet-figure.pet-anim-<action>            { animation: ... }   /* 外层 */
+     .pet-figure.pet-anim-<action> .pet-art   { animation: ... }   /* 内层 */
+     .pet-figure.species-<id>.pet-anim-<...>  { ... }              /* 物种 override */
+
+   鹦鹉走 .parrot-anim-* 通道,不会命中本文件任何规则。
+   ============================================================ */
+
+/* === default rules — apply to every Standard species === */
+.pet-figure.pet-anim-idle .pet-art {
+  animation: pet-anim-breath 2.8s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+.pet-figure.pet-anim-walking {
+  animation: pet-anim-walk-x 9s ease-in-out infinite;
+}
+.pet-figure.pet-anim-walking .pet-art {
+  animation:
+    pet-anim-walk-flip   9s    steps(1, jump-end) infinite,
+    pet-anim-walk-bounce 0.55s ease-in-out         infinite;
+  transform-origin: 50% 80%;
+}
+.pet-figure.pet-anim-eating .pet-art {
+  animation: pet-anim-eat-bob 0.42s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+.pet-figure.pet-anim-celebrating {
+  animation: pet-anim-celebrate-jump 1s ease-in-out 2;
+}
+.pet-figure.pet-anim-celebrating .pet-art {
+  animation: pet-anim-celebrate-spin 2s ease-in-out 1;
+  transform-origin: 50% 50%;
+}
+.pet-figure.pet-anim-sleeping .pet-art {
+  animation: pet-anim-sleep-breath 5s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+.pet-figure.pet-anim-happy .pet-art {
+  animation: pet-anim-happy-pop 1.2s ease-out 1;
+  transform-origin: 50% 90%;
+}
+
+/* === species-specific overrides === */
+
+/* 🐰 rabbit: walking 替身 = hopping (Y 轴大跳 + scaleY 蓄力) */
+.pet-figure.species-rabbit.pet-anim-walking {
+  animation: pet-anim-hop 0.9s ease-in-out infinite;
+}
+.pet-figure.species-rabbit.pet-anim-walking .pet-art {
+  animation: pet-anim-hop-squash 0.9s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+
+/* 🐶 dog: idle 叠加 wag — 摇尾在呼吸基础上多一层快频旋转 */
+.pet-figure.species-dog.pet-anim-idle .pet-art {
+  animation:
+    pet-anim-breath 2.8s ease-in-out infinite,
+    pet-anim-wag    0.4s ease-in-out infinite;
+  transform-origin: 50% 70%;
+}
+
+/* 🐱 cat: happy 替身 = stretch (拉长 + Y 微沉) */
+.pet-figure.species-cat.pet-anim-happy .pet-art {
+  animation: pet-anim-stretch 1.2s ease-in-out 1;
+  transform-origin: 50% 90%;
+}
+
+/* 🐷 pig: celebrating 替身 = roll (Z 轴 720°) — 外层跳保持,内层换 roll */
+.pet-figure.species-pig.pet-anim-celebrating .pet-art {
+  animation: pet-anim-roll 2s ease-in-out 1;
+  transform-origin: 50% 50%;
+}
+
+/* 🐮 cow: eating 替身 = chewing (skewX 摆动模拟磨牙) */
+.pet-figure.species-cow.pet-anim-eating .pet-art {
+  animation: pet-anim-chew 0.5s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+
+/* 🦙 alpaca: walking 替身 = gallop (频率 ×1.5 + 倾斜 7°) */
+.pet-figure.species-alpaca.pet-anim-walking {
+  animation: pet-anim-gallop-x 6s ease-in-out infinite;
+}
+.pet-figure.species-alpaca.pet-anim-walking .pet-art {
+  animation:
+    pet-anim-walk-flip   6s    steps(1, jump-end) infinite,
+    pet-anim-gallop-tilt 0.36s ease-in-out         infinite;
+  transform-origin: 50% 90%;
+}
+
+/* 🐤 chicken: flying = hop ×7 + flap-jitter (无翅膀 emoji 用整体高频抖模拟) */
+.pet-figure.species-chicken.pet-anim-flying {
+  animation: pet-anim-hop 0.5s ease-in-out 7;     /* 0.5×7 = 3.5s = ANIM_RECIPES.flying */
+}
+.pet-figure.species-chicken.pet-anim-flying .pet-art {
+  animation: pet-anim-flap-jitter 0.12s linear infinite;
+  transform-origin: 50% 50%;
+}
+
+/* === keyframes === */
+@keyframes pet-anim-breath {
+  0%, 100% { transform: scale(1)    translateY(0); }
+  50%      { transform: scale(1.04) translateY(-6rpx); }
+}
+@keyframes pet-anim-walk-x {
+  0%,  100% { transform: translateX(0); }
+  25%       { transform: translateX(-80rpx); }
+  50%       { transform: translateX(0); }
+  75%       { transform: translateX(80rpx); }
+}
+@keyframes pet-anim-walk-flip {
+  0%   { transform: scaleX(-1); }
+  25%  { transform: scaleX(1);  }
+  75%  { transform: scaleX(-1); }
+}
+@keyframes pet-anim-walk-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8rpx); }
+}
+@keyframes pet-anim-eat-bob {
+  0%, 100% { transform: rotate(0deg)   translateY(0); }
+  50%      { transform: rotate(-12deg) translateY(8rpx); }
+}
+@keyframes pet-anim-celebrate-spin {
+  0%   { transform: perspective(600px) rotateY(0deg); }
+  100% { transform: perspective(600px) rotateY(360deg); }
+}
+@keyframes pet-anim-celebrate-jump {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-50rpx); }
+}
+@keyframes pet-anim-sleep-breath {
+  0%, 100% { transform: scale(1)    translateY(0); }
+  50%      { transform: scale(0.97) translateY(4rpx); }
+}
+@keyframes pet-anim-happy-pop {
+  0%   { transform: scale(1)    translateY(0); }
+  20%  { transform: scale(1.12) translateY(-30rpx); }
+  40%  { transform: scale(0.95) translateY(0); }
+  60%  { transform: scale(1.06) translateY(-12rpx); }
+  100% { transform: scale(1)    translateY(0); }
+}
+
+/* species-specific keyframes */
+@keyframes pet-anim-hop {
+  0%, 100% { transform: translateY(0); }
+  40%      { transform: translateY(-60rpx); }
+  60%      { transform: translateY(-60rpx); }
+}
+@keyframes pet-anim-hop-squash {
+  0%, 100% { transform: scaleY(1)    scaleX(1); }
+  20%      { transform: scaleY(0.85) scaleX(1.1); }   /* crouch */
+  40%      { transform: scaleY(1.1)  scaleX(0.92); }  /* stretch up */
+  60%      { transform: scaleY(1.1)  scaleX(0.92); }
+  80%      { transform: scaleY(0.9)  scaleX(1.05); }  /* land */
+}
+@keyframes pet-anim-wag {
+  0%, 100% { transform: rotate(0deg); }
+  50%      { transform: rotate(4deg); }
+}
+@keyframes pet-anim-stretch {
+  0%   { transform: scaleX(1)    scaleY(1)   translateY(0); }
+  35%  { transform: scaleX(1.18) scaleY(0.9) translateY(6rpx); }
+  70%  { transform: scaleX(1.18) scaleY(0.9) translateY(6rpx); }
+  100% { transform: scaleX(1)    scaleY(1)   translateY(0); }
+}
+@keyframes pet-anim-roll {
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(720deg); }
+}
+@keyframes pet-anim-chew {
+  0%, 100% { transform: skewX(0deg)  translateY(0); }
+  25%      { transform: skewX(-6deg) translateY(-2rpx); }
+  75%      { transform: skewX(6deg)  translateY(-2rpx); }
+}
+@keyframes pet-anim-gallop-x {
+  0%,  100% { transform: translateX(0); }
+  25%       { transform: translateX(-110rpx); }
+  50%       { transform: translateX(0); }
+  75%       { transform: translateX(110rpx); }
+}
+@keyframes pet-anim-gallop-tilt {
+  0%, 100% { transform: rotate(0deg)  translateY(0); }
+  50%      { transform: rotate(-7deg) translateY(-6rpx); }
+}
+@keyframes pet-anim-flap-jitter {
+  0%, 100% { transform: translateX(0)     rotate(0deg); }
+  25%      { transform: translateX(-3rpx) rotate(-4deg); }
+  50%      { transform: translateX(0)     rotate(0deg); }
+  75%      { transform: translateX(3rpx)  rotate(4deg); }
+}
