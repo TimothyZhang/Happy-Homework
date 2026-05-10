@@ -1,0 +1,203 @@
+/* ===== Shared overlay ===== */
+.reward-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Non-blocking: scrolling underneath stays possible because we set
+     pointer-events to none on the backdrop and re-enable only on the card. */
+  pointer-events: none;
+}
+
+.reward-overlay--allDone {
+  background: rgba(15, 23, 42, 0.32);
+  pointer-events: auto;
+  animation: reward-fade-in 220ms ease-out;
+}
+
+/* ===== Single-task: small floating cluster, no backdrop ===== */
+.reward-task {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  padding: 22rpx 30rpx;
+  border-radius: 28rpx;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 18rpx 48rpx rgba(31, 35, 41, 0.18);
+  pointer-events: auto;
+  animation: reward-task-pop 1200ms ease-out forwards;
+}
+
+.reward-task__pet {
+  font-size: 88rpx;
+  line-height: 1;
+  display: inline-block;
+  animation: reward-task-wobble 600ms ease-in-out 80ms 2;
+}
+
+.reward-task__coin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #ffd76a 0%, #ffa826 100%);
+  box-shadow: 0 6rpx 14rpx rgba(255, 168, 38, 0.36);
+  animation: reward-coin-fly 700ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 0;
+}
+
+.reward-task__coin-icon {
+  font-size: 30rpx;
+  line-height: 1;
+}
+
+.reward-task__coin-text {
+  font-size: 34rpx;
+  font-weight: 800;
+  color: #6b3c00;
+  letter-spacing: 1rpx;
+}
+
+/* ===== All done: full overlay with pet hero ===== */
+.reward-alldone {
+  position: relative;
+  width: 560rpx;
+  padding: 60rpx 36rpx 48rpx;
+  border-radius: 36rpx;
+  background: linear-gradient(180deg, #fff8e6 0%, #ffe1a8 100%);
+  text-align: center;
+  box-shadow: 0 28rpx 72rpx rgba(0, 0, 0, 0.28);
+  animation: reward-card-pop 600ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
+             reward-card-out 360ms ease-in 2120ms forwards;
+}
+
+.reward-alldone__pet-wrap {
+  width: 200rpx;
+  height: 200rpx;
+  margin: 0 auto 18rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, #fffceb 0%, #ffd76a 70%, #ffa826 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 12rpx 28rpx rgba(255, 168, 38, 0.42);
+  animation: reward-pet-spin 1100ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.reward-alldone__pet {
+  font-size: 132rpx;
+  line-height: 1;
+}
+
+.reward-alldone__title {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 42rpx;
+  font-weight: 800;
+  color: #b9540c;
+  letter-spacing: 2rpx;
+}
+
+.reward-alldone__coin {
+  display: inline-flex;
+  align-items: center;
+  gap: 10rpx;
+  margin-top: 26rpx;
+  padding: 14rpx 32rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #ffd76a 0%, #ff8a1f 100%);
+  box-shadow: 0 10rpx 22rpx rgba(255, 138, 31, 0.4);
+  opacity: 0;
+  animation: reward-coin-fly 800ms cubic-bezier(0.34, 1.56, 0.64, 1) 320ms forwards,
+             reward-coin-jump 540ms ease-in-out 1180ms 2;
+}
+
+.reward-alldone__coin-icon {
+  font-size: 40rpx;
+  line-height: 1;
+}
+
+.reward-alldone__coin-text {
+  font-size: 48rpx;
+  font-weight: 900;
+  color: #6b2c00;
+  letter-spacing: 2rpx;
+}
+
+/* Sparkle stars around the card. Each gets its own keyframes burst with a
+   slightly different angle/delay so they don't all fly the same way. */
+.reward-alldone__star {
+  position: absolute;
+  font-size: 44rpx;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  animation: reward-star-burst 1600ms ease-out 360ms forwards;
+}
+
+.reward-alldone__star--s1 { top: -10rpx;  left: 50%;   --tx: -120rpx; --ty: -180rpx; }
+.reward-alldone__star--s2 { top: 30rpx;   right: -10rpx; --tx: 160rpx;  --ty: -120rpx; }
+.reward-alldone__star--s3 { bottom: 60rpx; right: -20rpx; --tx: 180rpx; --ty: 120rpx; }
+.reward-alldone__star--s4 { bottom: -10rpx; left: 50%;  --tx: 80rpx;   --ty: 200rpx; }
+.reward-alldone__star--s5 { bottom: 60rpx; left: -20rpx; --tx: -180rpx; --ty: 120rpx; }
+.reward-alldone__star--s6 { top: 30rpx;   left: -10rpx; --tx: -160rpx; --ty: -100rpx; }
+.reward-alldone__star--s7 { top: 100rpx;  left: 50%;   --tx: -60rpx;  --ty: -220rpx; }
+.reward-alldone__star--s8 { bottom: 100rpx; left: 50%; --tx: 60rpx;   --ty: 220rpx; }
+
+/* ===== Keyframes ===== */
+@keyframes reward-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes reward-task-pop {
+  0%   { opacity: 0; transform: translateY(40rpx) scale(0.7); }
+  18%  { opacity: 1; transform: translateY(-8rpx) scale(1.05); }
+  30%  { transform: translateY(0) scale(1); }
+  75%  { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-30rpx) scale(0.96); }
+}
+
+@keyframes reward-task-wobble {
+  0%, 100% { transform: rotate(0deg); }
+  25%      { transform: rotate(-12deg); }
+  75%      { transform: rotate(12deg); }
+}
+
+@keyframes reward-coin-fly {
+  0%   { opacity: 0; transform: translate(40rpx, 30rpx) scale(0.5); }
+  60%  { opacity: 1; transform: translate(-6rpx, -10rpx) scale(1.18); }
+  100% { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+
+@keyframes reward-coin-jump {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50%      { transform: translateY(-12rpx) scale(1.08); }
+}
+
+@keyframes reward-card-pop {
+  0%   { opacity: 0; transform: scale(0.5); }
+  70%  { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes reward-card-out {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(0.92); }
+}
+
+@keyframes reward-pet-spin {
+  0%   { transform: rotate(-20deg) scale(0.4); }
+  60%  { transform: rotate(380deg) scale(1.15); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+@keyframes reward-star-burst {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  25%  { opacity: 1; transform: translate(calc(var(--tx) * 0.55), calc(var(--ty) * 0.55)) scale(1.1); }
+  100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0.8); }
+}

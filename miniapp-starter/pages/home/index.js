@@ -92,6 +92,15 @@ function sortDone(items) {
   return items.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0))
 }
 
+// Animation lifetimes — keep in sync with reward-toast/index.wxss keyframes
+// (reward-task-pop, reward-card-pop+reward-card-out).
+const TASK_ANIM_MS = 1200
+const ALLDONE_ANIM_MS = 2500
+// Gap between task and allDone reveal so the task pop has time to fade.
+const TASK_TO_ALLDONE_GAP_MS = 200
+// Throttle window — drop fast double-clicks on the finish button.
+const TASK_THROTTLE_MS = 600
+
 Page({
   data: {
     activeDate: '',
@@ -101,11 +110,14 @@ Page({
     remainingMinutesDisplay: '—',
     undoneItems: [],
     doneItems: [],
-    showCongrats: false,
-    totalElapsedDisplay: '',
-    lastReward: null,
     pet: { emoji: '🐾' },
-    petMessage: ''
+    petMessage: '',
+    // reward-toast props
+    taskRewardVisible: false,
+    taskRewardCoins: 0,
+    allDoneVisible: false,
+    allDoneCoins: 0,
+    allDoneSubtitle: ''
   },
 
   onShow() {
@@ -161,11 +173,10 @@ Page({
       remainingMinutesDisplay: formatDuration(remainingMinutes),
       undoneItems,
       doneItems,
-      lastReward: state.lastReward || null,
       pet: (state.pet && state.pet.emoji) ? state.pet : this.data.pet,
       petMessage
     })
-    if (opts.maybeCelebrate) this.maybeShowCongrats({ undone: undoneItems, done: doneItems })
+    if (opts.maybeCelebrate) this.maybeShowReward(state)
   },
 
   formatDateLabel(date, today) {
@@ -175,37 +186,117 @@ Page({
     return date
   },
 
-  maybeShowCongrats({ undone, done }) {
+  // Decides whether the just-finished tap actually awarded coins (vs. a
+  // revert/redo or read-only no-op) and triggers the corresponding pet
+  // animation. We compare lastReward.finishedAt against the last value we
+  // celebrated — if they match, this `changed` event was not a fresh finish.
+  maybeShowReward(state) {
     if (!this.data.isToday) return
-    if (!undone || undone.length !== 0) return
-    if (!done || done.length === 0) return
-    const totalMs = done.reduce((s, it) => s + (it.elapsedMs || 0), 0)
-    this.setData({
-      showCongrats: true,
-      totalElapsedDisplay: totalMs > 0 ? formatElapsed(totalMs) : ''
-    })
+    const lr = state && state.lastReward
+    if (!lr || !lr.finishedAt) return
+    if (lr.finishedAt === this._lastSeenRewardAt) return
+
+    const now = Date.now()
+    // Guard against stale lastReward — e.g. read-only mode where finishTask
+    // is a no-op so finishedAt may be from a previous session. Only celebrate
+    // a finish that happened in the last few seconds.
+    if (now - lr.finishedAt > 3000) {
+      this._lastSeenRewardAt = lr.finishedAt
+      return
+    }
+    if (this._lastTaskAnimAt && now - this._lastTaskAnimAt < TASK_THROTTLE_MS) {
+      // Fast double-click — still mark the reward as seen so we don't replay
+      // the same animation later.
+      this._lastSeenRewardAt = lr.finishedAt
+      return
+    }
+    this._lastSeenRewardAt = lr.finishedAt
+    this._lastTaskAnimAt = now
+
+    const dailyBonus = lr.dailyBonus || 0
+    const weeklyBonus = lr.weeklyBonus || 0
+    const taskCoins = Math.max(1, (lr.reward || 0) - dailyBonus - weeklyBonus)
+    const bonusCoins = dailyBonus + weeklyBonus
+
+    this.showTaskReward(taskCoins)
+
+    if (bonusCoins > 0) {
+      // 全完成: queue allDone after the task pop has had time to fade.
+      const subtitle = weeklyBonus > 0
+        ? '今日全部完成 · 连续 7 天!'
+        : '今日全部完成!'
+      const delay = TASK_ANIM_MS + TASK_TO_ALLDONE_GAP_MS
+      this._allDoneTimer = setTimeout(() => {
+        this.showAllDone(bonusCoins, subtitle)
+      }, delay)
+    }
   },
 
-  handleDismissCongrats() { this.setData({ showCongrats: false }) },
+  showTaskReward(coins) {
+    if (this._taskTimer) { clearTimeout(this._taskTimer); this._taskTimer = null }
+    this.setData({ taskRewardVisible: true, taskRewardCoins: coins })
+    this._taskTimer = setTimeout(() => {
+      this._taskTimer = null
+      this.setData({ taskRewardVisible: false })
+    }, TASK_ANIM_MS)
+  },
+
+  showAllDone(coins, subtitle) {
+    if (this._allDoneHideTimer) { clearTimeout(this._allDoneHideTimer); this._allDoneHideTimer = null }
+    this.setData({
+      allDoneVisible: true,
+      allDoneCoins: coins,
+      allDoneSubtitle: subtitle || ''
+    })
+    this._allDoneHideTimer = setTimeout(() => {
+      this._allDoneHideTimer = null
+      this.setData({ allDoneVisible: false })
+    }, ALLDONE_ANIM_MS)
+  },
+
+  hideAllRewards() {
+    if (this._taskTimer) { clearTimeout(this._taskTimer); this._taskTimer = null }
+    if (this._allDoneTimer) { clearTimeout(this._allDoneTimer); this._allDoneTimer = null }
+    if (this._allDoneHideTimer) { clearTimeout(this._allDoneHideTimer); this._allDoneHideTimer = null }
+    if (this.data.taskRewardVisible || this.data.allDoneVisible) {
+      this.setData({ taskRewardVisible: false, allDoneVisible: false })
+    }
+  },
+
+  handleSkipTaskReward() {
+    if (this._taskTimer) { clearTimeout(this._taskTimer); this._taskTimer = null }
+    this.setData({ taskRewardVisible: false })
+  },
+
+  handleSkipAllDone() {
+    if (this._allDoneHideTimer) { clearTimeout(this._allDoneHideTimer); this._allDoneHideTimer = null }
+    this.setData({ allDoneVisible: false })
+  },
 
   handleTasksChanged(e) {
     const finished = e && e.detail && e.detail.finished
     this.refreshState({ maybeCelebrate: finished })
   },
 
+  onHide() { this.hideAllRewards() },
+  onUnload() { this.hideAllRewards() },
+
   // === Day switcher === //
 
   handlePrevDay() {
+    this.hideAllRewards()
     this.setData({ activeDate: store.addDays(this.data.activeDate, -1) })
     this.refreshState()
   },
 
   handleNextDay() {
+    this.hideAllRewards()
     this.setData({ activeDate: store.addDays(this.data.activeDate, 1) })
     this.refreshState()
   },
 
   handleJumpToday() {
+    this.hideAllRewards()
     this.setData({ activeDate: store.todayStr() })
     this.refreshState()
   }
