@@ -1,0 +1,31 @@
+<view class="mc-wrap">
+  <view class="month-bar">
+    <view class="m-btn" bindtap="handlePrevMonth">◀</view>
+    <text class="m-label">{{monthLabel}}</text>
+    <view class="m-btn" bindtap="handleNextMonth">▶</view>
+  </view>
+  <view class="m-actions">
+    <view class="link-pill" bindtap="handleToday">回到今日</view>
+  </view>
+
+  <view class="weekday-header">
+    <text wx:for="{{weekdayHeaders}}" wx:key="*this" class="wh-cell">{{item}}</text>
+  </view>
+
+  <view class="cal-grid">
+    <view wx:for="{{weeks}}" wx:for-item="week" wx:key="key" class="cal-row">
+      <view wx:for="{{week.cells}}" wx:for-item="cell" wx:key="key"
+            class="cal-cell {{cell.empty ? 'empty' : ''}} {{cell.isToday ? 'is-today' : ''}} {{!cell.empty && selectedDate === cell.dateStr ? 'is-selected' : ''}}"
+            data-date="{{cell.dateStr}}"
+            bindtap="handlePickDay">
+        <block wx:if="{{!cell.empty}}">
+          <text class="day-num">{{cell.day}}</text>
+          <view wx:if="{{cell.total > 0}}" class="day-counts">
+            <view class="count-bubble {{cell.pending === 0 ? 'done' : (cell.isFuture ? 'future' : 'pending')}}">{{cell.pending > 0 ? cell.pending : cell.total}}</view>
+            <view wx:if="{{cell.hasOverdue}}" class="overdue-dot"></view>
+          </view>
+        </block>
+      </view>
+    </view>
+  </view>
+</view>
