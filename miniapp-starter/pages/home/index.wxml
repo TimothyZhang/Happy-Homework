@@ -47,24 +47,16 @@
                bind:changed="handleTasksChanged" />
   </view>
 
-  <view wx:if="{{showCongrats}}" class="congrats-overlay" bindtap="handleDismissCongrats">
-    <view class="congrats-card" catchtap="">
-      <text class="congrats-emoji">🎉</text>
-      <text class="congrats-title">Congratulations!</text>
-      <text class="congrats-subtitle">今日作业全部完成</text>
-      <view class="congrats-stats">
-        <text>用时合计 {{totalElapsedDisplay || '—'}}</text>
-        <text>+{{(lastReward && lastReward.reward) || 0}} 金币</text>
-      </view>
-      <button class="congrats-btn" bindtap="handleDismissCongrats">太棒了</button>
-    </view>
-    <view class="confetti">
-      <text class="confetti-piece c1">✨</text>
-      <text class="confetti-piece c2">🎊</text>
-      <text class="confetti-piece c3">⭐</text>
-      <text class="confetti-piece c4">🎉</text>
-      <text class="confetti-piece c5">✨</text>
-      <text class="confetti-piece c6">🌟</text>
-    </view>
-  </view>
+  <reward-toast kind="task"
+                visible="{{taskRewardVisible}}"
+                coins="{{taskRewardCoins}}"
+                pet-emoji="{{pet.emoji}}"
+                bind:skip="handleSkipTaskReward" />
+
+  <reward-toast kind="allDone"
+                visible="{{allDoneVisible}}"
+                coins="{{allDoneCoins}}"
+                subtitle="{{allDoneSubtitle}}"
+                pet-emoji="{{pet.emoji}}"
+                bind:skip="handleSkipAllDone" />
 </view>
