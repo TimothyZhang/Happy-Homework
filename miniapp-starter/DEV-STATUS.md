@@ -4,11 +4,11 @@
 
 ## 当前项目阶段
 
-> **OCR 真实闭环已跑通的早期 MVP**
+> **OCR 真实闭环 + 跨端云同步 + 大规模数据已优化的可灰度 MVP**
 >
-> 拍照 → 上传云存储 → 云函数调腾讯云 OCR → 拆草稿 → 导入作业 这条主链路真实可用。
+> 拍照 → 云函数 OCR → 拆草稿 → 导入；本地状态 → user_state 集合 → 跨端 hydrate；1000 个作业本/5000+ 个作业的目标场景下主要热点路径已做 O(N+M) 改造。
 
-它已经从"强原型"进入"可验证 MVP"阶段,但还没有正式上线版本所需的容错和数据架构。
+它已经从"强原型"走过"可验证 MVP",当前更接近「可灰度上线」前夜:核心闭环已通,但账号体系（多家庭/多孩子）和 OCR 计费方案尚未铺开。
 
 最近一次端到端验证:**2026-04-29 凌晨**(手写体优先模型生效,详见 `CLOUD-SETUP.md`)。
 
@@ -21,19 +21,24 @@
 ### 1. 小程序整体骨架
 项目已经具备完整的小程序基础结构:
 - 全局配置 `app.js / app.json / app.wxss`
-- 多页面结构 + TabBar 导航
+- 主包 + `pkg-notebook` 分包,带 preloadRule 预热
+- 自定义 `custom-tab-bar`(每 tab 页 onShow 同步 selected index)
 - 基础视觉风格
 
 ### 2. 核心产品主链路原型
 已实现以下主链路的前端交互:
-- 首页总览(今日进度、金币、宠物状态、快捷入口)
-- 作业列表(增删改、状态流转)
-- 排期页 / 宠物页 / 统计页 / 个人页
+- 首页(`pages/home`):按选定日期展示作业行,跨作业本拖拽,backlog 露出
+- 作业本列表(`pages/tasks`):按结束日期倒序,长期重复本浮顶
+- 作业本结构页(`pages/notebook-detail`):作业按学科分组,组内可拖拽
+- 月历(`pages/calendar`):每日完成 / 总数 / overdue 标识
+- 宠物页 / 统计页 / 个人页(含数据同步卡片)
 
 ### 3. 作业管理基础逻辑
 - 新增 / 编辑 / 删除作业
-- 标记进行中 / 已完成
-- 展示计划时间与预计时长
+- 一次性 + 重复(每日 / 每周指定日)两种作业本
+- 重复型作业按 `occurrences[date]` 分日记录状态
+- 全局只允许一个作业 `doing`(其他自动 paused)
+- 标记进行中 / 已完成 / 误点恢复
 
 ### 4. 奖励与宠物反馈
 - 完成作业获得金币
@@ -50,21 +55,28 @@
   - 云开发环境 `cloud1-d8gkzu6ls85efd509`
 - 多 provider 兜底:OpenAI Vision OCR → 腾讯云 OCR(**GeneralHandwriting** → GeneralAccurate → GeneralBasic 顺序回退)→ 微信 OpenAPI → Tesseract.js
 
-### 6. 跨设备数据同步 — **真实闭环已通**
-- `utils/cloud-sync.js`:云数据库 `user_state` 集合 + 单设备登录模型
-  - 启动时 `wx.cloud.database().collection('user_state').get()` 拉云端
-  - 每次 `saveState` 200ms 防抖 push(白名单字段:`notebooks / tasks / coins / streakDays / bonusCoins / pet / lastReward`)
-  - 每个 tab `onShow` 30s 防抖 hydrate(in-flight 时 await 同一 promise,避免 launch race)
-- 单设备占用:云端 doc 持有 `sessionId`,与本机不一致时弹 modal「切到此设备 / 只读浏览」
-- 只读模式下 `updateState` 直接 return,4s 节流 toast 提示
+### 6. 跨端云同步 — **真实闭环已通**
+- `utils/cloud-sync.js` + 云数据库 `user_state` 集合,单设备 claim 模型
+- 同步链路:
+  - `app.onLaunch` 异步 hydrate;每个 tab `onShow` 调 `hydrateIfStale()`(30s 防抖,launch in-flight 时 await 同一 promise 避免 race)
+  - 每次 `saveState` 200ms 防抖 push 到云
+  - 同步白名单 `SYNC_FIELDS` = `notebooks / tasks / coins / streakDays / bonusCoins / pet / lastReward`(OCR 任务 / UI 临时态 / 固定配置不上云)
+- 单设备占用:云端 doc 持有 `sessionId`,与本机不一致时弹 modal「切到此设备 / 只读浏览」;只读模式 `updateState` 直接 return + 4s 节流 toast
 - 「我的」页面有「数据同步」卡片:状态 pill + 「立即同步 / 切回此设备」按钮
 - 集合权限「仅创建者可读写」,`_openid` 自动过滤,无需云函数
 
-### 7. 自定义 tabBar + 子包预热 — UI/perf
+### 7. 大规模数据性能 — **核心热点已优化**
+针对 1000 个作业本 / 5000+ 个作业的目标场景:
+- 进程内缓存(`_stateCache`)消除每次 `onShow` 的 `wx.getStorageSync` + JSON 反序列化
+- `decorateNotebook` / `pauseAllOtherDoing` / start/pause/finish 等 task 操作:O(N×M) → O(N+M)
+- 日历专用聚合器 `dateCountsForMonth`:整月一次扫描,省掉 30 次 `tasksForDate`
+- 删掉无人读的 `calcOverview`(原本每次 `getStateWithComputed` 都白跑一次 `tasksForDate(today)`)
+- bench / 正确性测试:`scripts/perf-bench.js` / `scripts/perf-correctness.js`(76 项行为对账)
+
+### 8. 自定义 tabBar + 子包预热 — UI/perf
 - `tabBar.custom: true` + `custom-tab-bar/` 组件,字号从平台默认 ~20rpx 增至 30rpx
 - `pkg-notebook/notebook-edit/` 拆为子包,`preloadRule` 配置在用户进 home/tasks/calendar/notebook-detail 时预热
-- `utils/store.js` 进程内缓存,消除每次 `onShow` 的 `wx.getStorageSync` + JSON.parse
-- 日历 tab 的月历格子构建用 `wx.nextTick` 延后,首屏 chrome 先出
+- 日历 tab 月历格子构建在 `wx.nextTick` 延后,首屏 chrome 先出
 
 ---
 
@@ -76,28 +88,33 @@
 - **细化 needsConfirm 的判定**:目前只用"是否识别到科目"标记,可以把腾讯云返回的 confidence 字段也纳入
 
 ### 2. 多家庭 / 多孩子账号体系
-当前云数据库 `user_state` 集合按 `_openid` 一对一,即一个微信号 = 一份完整状态。
-- 家长和孩子若用同一个微信号 → 数据共用(目前的预期)
-- 家长 / 孩子分别用不同微信号 → 各自独立,无法关联
-- 暂无家庭聚合 / 多孩子切换的能力
+跨端同步是基于「同一个微信账号下不同设备」的 sessionId claim 模型,不区分家长/孩子身份:
+- 多孩子家庭只能共用一份数据
+- 没有「家长查看 / 孩子操作」的权限分层
+- 没有家庭成员邀请 / 关联机制
+- `coinLogs / ocrDraftItems` 这些日志型数据没有独立持久化,只在 `user_state.state` 里取最新快照
 
-`coinLogs / ocrDraftItems` 这些「日志型」数据当前没有独立持久化,只在 `user_state.state` 里取最新快照。要做长期统计需要拆出来单独建集合。
+未来如果要做家庭体系,需要在 `user_state` 之上加 `families / children` 关系(`CLOUD-DATA-NOTES.md` 已有草案)。
 
 ### 3. 跨设备同步的边角
+- 当前 push 是把整段 `SYNC_FIELDS` JSON 推上去,不是 field-level patch:在线没问题,长时间离线后回到线上是 last-write-wins
+- 单个 doc 体积随作业数线性增长,极端情况可能撞云数据库 single-doc 体积上限
 - 「切回此设备」会以云端覆盖本机,本机最近 200ms 内未推送的写入会丢
-- 进入只读后,目前要重启 app 才能再次弹「切回此设备」modal(`_conflictAcknowledged` 在内存里)。「我的」页面有「立即同步 / 切回此设备」按钮可绕过
-- 离线时 push 静默失败,联网后等下一次 `saveState` 才会重试,没有显式离线队列
+- 进入只读后,内存里的 `_conflictAcknowledged` 标记防 modal 反复弹,要重启 app 或在「我的」页面手动「切回此设备」才能恢复
+- 离线时 push 静默失败,联网后等下一次 `saveState` 才重试,没有显式离线队列
 
 ### 4. 线上级异常处理仍不足
-- OCR 失败后的精细化错误提示(目前都弹"识别失败" modal,没区分 errorCode)
-- 重试机制
+- OCR 失败后的精细化错误提示(目前都弹「识别失败」modal,没区分 errorCode)
+- OCR 重试机制
 - 图片上传失败分类处理
 - 导入后的任务去重与清洗
+- 云同步失败的可视化(目前 profile 页有简单状态,但没区分网络/权限/冲突)
 
 ### 5. 容量与计费
 - 腾讯云 OCR 免费额度有限(每个接口约 1000 次/月),正式上线前需评估付费方案
 - 微信 OpenAPI OCR 免费额度更有限,实际意义不大
 - Tesseract.js 离线兜底默认关闭(开启会显著增加冷启动时长 + 内存)
+- 云数据库读写次数随用户量增长,需评估
 
 ---
 
@@ -111,14 +128,16 @@
 - 调用云函数入口
 - **腾讯云 OCR 真实识别返回**
 - 草稿编辑 + 批量导入
-- **业务状态持久化 + 跨设备同步**(云数据库 `user_state` 集合,本地缓存 + 云端镜像)
-- 自定义 tabBar / 子包预热 / 月历延迟构建等 UX/perf 优化
+- **业务状态持久化 + 跨设备同步**(云数据库 `user_state` 集合,本地缓存 + 云端镜像,单设备 claim,切换设备 modal,只读模式)
+- 自定义 tabBar / 子包预热 / 月历聚合器 / 进程内缓存 等 UX/perf 优化
+- O(N+M) 热点路径 + bench / 正确性测试
 
 ### 仍然是 mock / 原型的部分
 - 多家庭、多孩子账号体系(目前一个 openid = 一份独立 state)
 - `coinLogs / ocrDraftItems` 等日志型数据的长期沉淀(只有最新快照)
 - 完整线上化容错能力(重试 / 限流处理 / 错误分级)
 - OCR 识别质量(对手写登记本仍偏弱)
+- 单 doc 同步粒度(未来大数据量需要拆分)
 
 ---
 
@@ -139,23 +158,27 @@
 
 ## 五、建议下一步
 
-### 第一优先级
+### 第一优先级:OCR 识别质量调优
 - 真实跑 5-10 张不同登记本照片(光线好/差、字迹工整/潦草、单页/双页混排),记录命中率和拆分准确率作为基线
-- 看是否需要补"多 provider 并行合并"或"OCR confidence → needsConfirm" 这两步
+- "多 provider 并行 + 取识别行数最多者合并"(配额翻倍但识别完整度更高)
+- 把腾讯云 confidence 字段纳入 `needsConfirm` 判定
 
-### 第二优先级
+### 第二优先级:错误处理 + 计费评估
 - OCR 错误码分级提示(对应 `cloudfunctions/homeworkOCR/index.js` 已有的 errorCode)
 - 失败重试 / 配额耗尽提示
 - 前端展示 OCR provider 来源 + 置信度
+- 评估腾讯云 OCR 付费方案 + 云数据库读写次数预算
+- 同步失败可视化:网络 / 权限 / 冲突分级
 
-### 第三优先级
-- 把 `coinLogs / ocrDraftItems` 拆出来单独建集合做长期沉淀(目前只在 `user_state` 里取最新快照)
+### 第三优先级:账号 / 同步粒度
+- 把 `user_state` 拓成 `families / children` 关系(对应 `CLOUD-DATA-NOTES.md` 已有的草案)
+- 把 `coinLogs / ocrDraftItems` 拆出来单独建集合做长期沉淀
+- 单 doc 同步太粗时,把 `tasks` 拆成集合(按 `notebookId` 索引)
 - 离线写入队列 + 网络恢复后批量 push
-- 多孩子 / 多家庭账号体系(若产品方向需要)
 - 「切回此设备」前先 push 本机一次,减少切换时数据丢失
 
 ---
 
 ## 六、一句话结论
 
-`miniapp-starter` 现在是一个产品骨架完整、OCR 主链路 + 跨设备同步均真实可用的 MVP,可以拿给真实家长试用;下一步的关键是 **OCR 识别质量调优** 与 **错误处理细化**,让它从"MVP"进入"可上线产品"。
+`miniapp-starter` 现在是 OCR 主链路真实可用、跨端云同步落地、核心热点路径已 O(N+M) 改造的可灰度 MVP;下一步的关键是 **OCR 识别质量调优**、**错误处理 + 计费评估**、**多孩子账号体系**,让它从「灰度可用」走向「正式上线」。

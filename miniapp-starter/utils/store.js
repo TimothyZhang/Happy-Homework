@@ -472,12 +472,21 @@ function applyTaskState(task, notebook, dateStr, patch) {
 //     missed date, surfaced together so the user can clear the backlog)
 // Each returned item carries `occurrenceDate` — the date its action should
 // target (so finishing a "missed Monday" row writes occurrence[Monday]).
-function tasksForDate(state, dateStr) {
+function buildNotebookById(notebooks) {
+  const map = {}
+  for (const nb of notebooks) map[nb.id] = nb
+  return map
+}
+
+// `cache` (optional) lets callers reuse precomputed lookups across many
+// tasksForDate calls — e.g. calendar's monthly grid. Pass {} the first time
+// and reuse the populated object across subsequent calls.
+function tasksForDate(state, dateStr, cache) {
   const today = todayStr()
   const isFuture = compareDateStr(dateStr, today) > 0
   const isToday = dateStr === today
-  const notebookById = {}
-  for (const nb of state.notebooks) notebookById[nb.id] = nb
+  const notebookById = (cache && cache.notebookById) || buildNotebookById(state.notebooks)
+  if (cache && !cache.notebookById) cache.notebookById = notebookById
 
   const items = []
   for (const task of state.tasks) {
@@ -521,42 +530,192 @@ function tasksForDate(state, dateStr) {
   // not done (red) OR were finished today (so a freshly-cleared backlog
   // item still appears, this time in the done section).
   if (isToday) {
+    // Group recurring tasks by notebook so the active-date walk runs once
+    // per notebook instead of once per task.
+    const recurringTasksByNb = {}
     for (const task of state.tasks) {
       const nb = notebookById[task.notebookId]
-      if (!nb || nb.mode !== 'recurring') continue
-      if (!nb.startDate) continue
+      if (!nb || nb.mode !== 'recurring' || !nb.startDate) continue
+      const list = recurringTasksByNb[nb.id] || (recurringTasksByNb[nb.id] = [])
+      list.push(task)
+    }
+    for (const nbId of Object.keys(recurringTasksByNb)) {
+      const nb = notebookById[nbId]
+      const tasks = recurringTasksByNb[nbId]
+      // Precompute the active dates from startDate up to (but not including)
+      // today — depends only on the notebook.
+      const activeDates = []
       let d = nb.startDate
       while (compareDateStr(d, today) < 0) {
-        if (isNotebookActiveOn(nb, d)) {
-          const raw = (task.occurrences || {})[d]
+        if (isNotebookActiveOn(nb, d)) activeDates.push(d)
+        d = addDays(d, 1)
+      }
+      for (const task of tasks) {
+        const occMap = task.occurrences || {}
+        for (const ad of activeDates) {
+          const raw = occMap[ad]
           const status = raw && raw.status ? raw.status : 'todo'
           if (status !== 'done') {
             items.push({
               task,
               notebook: nb,
               occurrence: { ...defaultOccurrence(), ...(raw || {}) },
-              occurrenceDate: d,
+              occurrenceDate: ad,
               isOverdue: true
             })
           } else if (raw && raw.completedAt &&
                      dateToStr(new Date(raw.completedAt)) === today) {
-            // finished today off-schedule (clearing the backlog) — keep it
-            // visible in today's done section
             items.push({
               task,
               notebook: nb,
               occurrence: { ...defaultOccurrence(), ...raw },
-              occurrenceDate: d,
+              occurrenceDate: ad,
               isOverdue: false
             })
           }
         }
-        d = addDays(d, 1)
       }
     }
   }
 
   return items
+}
+
+// Calendar-specific aggregator: returns per-date counts for a single month
+// without invoking tasksForDate per day. Iterates state.tasks ONCE and
+// buckets contributions into the right cell. The result mirrors the
+// counts that buildMonthGrid would compute by calling tasksForDate for
+// each day.
+//   counts[dateStr] = { total, done, hasOverdue }
+// Only dates that have at least one task contribution are populated;
+// callers should treat missing entries as { total: 0, done: 0, hasOverdue: false }.
+function dateCountsForMonth(state, year, monthIdx0) {
+  const today = todayStr()
+  const monthPrefix = `${year}-${pad2(monthIdx0 + 1)}`
+  const lastDay = new Date(year, monthIdx0 + 1, 0).getDate()
+  const monthFirst = `${monthPrefix}-01`
+  const monthLast = `${monthPrefix}-${pad2(lastDay)}`
+  const todayInMonth = compareDateStr(today, monthFirst) >= 0 &&
+                       compareDateStr(today, monthLast) <= 0
+
+  const counts = {}
+  const ensure = (d) => counts[d] || (counts[d] = { total: 0, done: 0, hasOverdue: false })
+
+  // Group tasks by notebook so per-notebook computation (active-date walks)
+  // happens once instead of per task.
+  const tasksByNb = {}
+  for (const t of state.tasks) {
+    const list = tasksByNb[t.notebookId] || (tasksByNb[t.notebookId] = [])
+    list.push(t)
+  }
+
+  for (const nb of state.notebooks) {
+    const tasks = tasksByNb[nb.id]
+    if (!tasks || !tasks.length) continue
+
+    if (nb.mode === 'one-shot') {
+      const due = nb.endDate || nb.startDate
+      if (!due) continue
+      const dueInMonth = compareDateStr(due, monthFirst) >= 0 &&
+                        compareDateStr(due, monthLast) <= 0
+      const dueIsPast = compareDateStr(due, today) < 0
+
+      for (const t of tasks) {
+        const status = t.status || 'todo'
+        const isDone = status === 'done'
+
+        // Cell on its scheduled (due) date — the task is on-schedule there.
+        if (dueInMonth) {
+          const c = ensure(due)
+          c.total++
+          if (isDone) c.done++
+        }
+
+        // Off-schedule completion: if completed on a non-future date
+        // different from `due`, that cell also shows the task as done.
+        if (isDone && t.completedAt) {
+          const cdate = dateToStr(new Date(t.completedAt))
+          if (cdate !== due &&
+              compareDateStr(cdate, today) <= 0 &&
+              compareDateStr(cdate, monthFirst) >= 0 &&
+              compareDateStr(cdate, monthLast) <= 0) {
+            const c = ensure(cdate)
+            c.total++
+            c.done++
+          }
+        }
+
+        // Overdue surfaces on TODAY'S cell (not on the due cell).
+        if (todayInMonth && dueIsPast && !isDone) {
+          const c = ensure(today)
+          c.total++
+          c.hasOverdue = true
+        }
+      }
+    } else {
+      // recurring
+      if (!nb.startDate) continue
+
+      // Active dates within the visible month — contribute to that cell.
+      // Cap walk by nb.endDate if it falls before monthLast.
+      const walkStart = compareDateStr(nb.startDate, monthFirst) >= 0 ? nb.startDate : monthFirst
+      const walkEnd = nb.endDate && compareDateStr(nb.endDate, monthLast) < 0 ? nb.endDate : monthLast
+      const monthActive = []
+      if (compareDateStr(walkStart, walkEnd) <= 0) {
+        let d = walkStart
+        while (compareDateStr(d, walkEnd) <= 0) {
+          if (isNotebookActiveOn(nb, d)) monthActive.push(d)
+          d = addDays(d, 1)
+        }
+      }
+
+      // Backlog: when today is in this month, today's cell also gets every
+      // pre-today active occurrence that's still undone (red) or was
+      // finished on today (cleared backlog row).
+      let backlogActive = null
+      if (todayInMonth) {
+        backlogActive = []
+        let d = nb.startDate
+        while (compareDateStr(d, today) < 0) {
+          if (isNotebookActiveOn(nb, d)) backlogActive.push(d)
+          d = addDays(d, 1)
+        }
+      }
+
+      for (const t of tasks) {
+        const occMap = t.occurrences || {}
+
+        // Per-active-date contribution to its own cell.
+        for (let i = 0; i < monthActive.length; i++) {
+          const ad = monthActive[i]
+          const occ = occMap[ad]
+          const c = ensure(ad)
+          c.total++
+          if (occ && occ.status === 'done') c.done++
+        }
+
+        // Backlog into today's cell.
+        if (backlogActive) {
+          const todayCell = ensure(today)
+          for (let i = 0; i < backlogActive.length; i++) {
+            const ad = backlogActive[i]
+            const occ = occMap[ad]
+            const status = (occ && occ.status) ? occ.status : 'todo'
+            if (status !== 'done') {
+              todayCell.total++
+              todayCell.hasOverdue = true
+            } else if (occ && occ.completedAt &&
+                       dateToStr(new Date(occ.completedAt)) === today) {
+              todayCell.total++
+              todayCell.done++
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return counts
 }
 
 // === Compute helpers === //
@@ -640,23 +799,6 @@ function deleteNotebook(id) {
   return updateState((state) => {
     state.notebooks = state.notebooks.filter((nb) => nb.id !== id)
     state.tasks = state.tasks.filter((t) => t.notebookId !== id)
-    return state
-  })
-}
-
-function reorderNotebooks(orderedIds) {
-  return updateState((state) => {
-    const idMap = new Map(state.notebooks.map((nb) => [nb.id, nb]))
-    const next = []
-    orderedIds.forEach((id, i) => {
-      const nb = idMap.get(id)
-      if (nb) {
-        next.push({ ...nb, order: i })
-        idMap.delete(id)
-      }
-    })
-    for (const nb of idMap.values()) next.push({ ...nb, order: next.length })
-    state.notebooks = next
     return state
   })
 }
@@ -864,27 +1006,29 @@ function pauseInPlace(occ, now) {
 // be running at a time, regardless of date or mode. The except (taskId,
 // dateStr) pair preserves the row the user just (re)started.
 function pauseAllOtherDoing(state, exceptTaskId, exceptDateStr, now) {
+  const notebookById = {}
+  for (const nb of state.notebooks) notebookById[nb.id] = nb
   state.tasks = state.tasks.map((t) => {
-    const nb = state.notebooks.find((n) => n.id === t.notebookId)
+    const nb = notebookById[t.notebookId]
     if (!nb) return t
     if (nb.mode === 'one-shot') {
       if (t.id === exceptTaskId) return t
       if ((t.status || 'todo') !== 'doing') return t
       return { ...t, ...pauseInPlace(t, now) }
     }
-    // recurring: pause any doing occurrence
-    const occurrences = t.occurrences || {}
+    // recurring: pause any doing occurrence. Skip the (taskId, dateStr)
+    // pair the caller asked to preserve, and any task without occurrences.
+    const occurrences = t.occurrences
+    if (!occurrences) return t
     let changed = false
-    const next = {}
+    let next = null
     for (const d of Object.keys(occurrences)) {
       const occ = occurrences[d]
-      const isExcept = t.id === exceptTaskId && d === exceptDateStr
-      if (occ && occ.status === 'doing' && !isExcept) {
-        next[d] = pauseInPlace(occ, now)
-        changed = true
-      } else {
-        next[d] = occ
-      }
+      if (!occ || occ.status !== 'doing') continue
+      if (t.id === exceptTaskId && d === exceptDateStr) continue
+      if (!next) next = { ...occurrences }
+      next[d] = pauseInPlace(occ, now)
+      changed = true
     }
     if (!changed) return t
     return { ...t, occurrences: next }
@@ -896,19 +1040,20 @@ function startTask(taskId, dateStr) {
   return updateState((state) => {
     const now = Date.now()
     pauseAllOtherDoing(state, taskId, day, now)
-    state.tasks = state.tasks.map((t) => {
-      if (t.id !== taskId) return t
-      const nb = state.notebooks.find((n) => n.id === t.notebookId)
-      if (!nb) return t
-      const cur = getTaskState(t, nb, day)
-      const patch = {
-        status: 'doing',
-        startedAt: cur.startedAt || now,
-        currentSegmentStartedAt: now,
-        accumulatedMs: cur.accumulatedMs || 0
-      }
-      return applyTaskState(t, nb, day, patch)
-    })
+    const task = state.tasks.find((t) => t.id === taskId)
+    if (!task) return state
+    const nb = state.notebooks.find((n) => n.id === task.notebookId)
+    if (!nb) return state
+    const cur = getTaskState(task, nb, day)
+    const patch = {
+      status: 'doing',
+      startedAt: cur.startedAt || now,
+      currentSegmentStartedAt: now,
+      accumulatedMs: cur.accumulatedMs || 0
+    }
+    state.tasks = state.tasks.map((t) =>
+      t.id === taskId ? applyTaskState(t, nb, day, patch) : t
+    )
     return state
   })
 }
@@ -917,13 +1062,14 @@ function pauseTask(taskId, dateStr) {
   const day = dateStr || todayStr()
   return updateState((state) => {
     const now = Date.now()
-    state.tasks = state.tasks.map((t) => {
-      if (t.id !== taskId) return t
-      const nb = state.notebooks.find((n) => n.id === t.notebookId)
-      if (!nb) return t
-      const cur = getTaskState(t, nb, day)
-      return applyTaskState(t, nb, day, pauseInPlace(cur, now))
-    })
+    const task = state.tasks.find((t) => t.id === taskId)
+    if (!task) return state
+    const nb = state.notebooks.find((n) => n.id === task.notebookId)
+    if (!nb) return state
+    const cur = getTaskState(task, nb, day)
+    state.tasks = state.tasks.map((t) =>
+      t.id === taskId ? applyTaskState(t, nb, day, pauseInPlace(cur, now)) : t
+    )
     return state
   })
 }
@@ -933,17 +1079,16 @@ function resumeTask(taskId, dateStr) {
   return updateState((state) => {
     const now = Date.now()
     pauseAllOtherDoing(state, taskId, day, now)
-    state.tasks = state.tasks.map((t) => {
-      if (t.id !== taskId) return t
-      const nb = state.notebooks.find((n) => n.id === t.notebookId)
-      if (!nb) return t
-      const cur = getTaskState(t, nb, day)
-      if (cur.status !== 'paused') return t
-      return applyTaskState(t, nb, day, {
-        status: 'doing',
-        currentSegmentStartedAt: now
-      })
-    })
+    const task = state.tasks.find((t) => t.id === taskId)
+    if (!task) return state
+    const nb = state.notebooks.find((n) => n.id === task.notebookId)
+    if (!nb) return state
+    const cur = getTaskState(task, nb, day)
+    if (cur.status !== 'paused') return state
+    const patch = { status: 'doing', currentSegmentStartedAt: now }
+    state.tasks = state.tasks.map((t) =>
+      t.id === taskId ? applyTaskState(t, nb, day, patch) : t
+    )
     return state
   })
 }
@@ -953,19 +1098,21 @@ function resumeTask(taskId, dateStr) {
 function revertTask(taskId, dateStr) {
   const day = dateStr || todayStr()
   return updateState((state) => {
-    state.tasks = state.tasks.map((t) => {
-      if (t.id !== taskId) return t
-      const nb = state.notebooks.find((n) => n.id === t.notebookId)
-      if (!nb) return t
-      const cur = getTaskState(t, nb, day)
-      if (cur.status !== 'done') return t
-      return applyTaskState(t, nb, day, {
-        status: 'paused',
-        completedAt: null,
-        actualMinutes: null,
-        currentSegmentStartedAt: null
-      })
-    })
+    const task = state.tasks.find((t) => t.id === taskId)
+    if (!task) return state
+    const nb = state.notebooks.find((n) => n.id === task.notebookId)
+    if (!nb) return state
+    const cur = getTaskState(task, nb, day)
+    if (cur.status !== 'done') return state
+    const patch = {
+      status: 'paused',
+      completedAt: null,
+      actualMinutes: null,
+      currentSegmentStartedAt: null
+    }
+    state.tasks = state.tasks.map((t) =>
+      t.id === taskId ? applyTaskState(t, nb, day, patch) : t
+    )
     return state
   })
 }
@@ -977,21 +1124,23 @@ function finishTask(taskId, dateStr) {
     let reward = 8
     let leveledUp = false
 
-    state.tasks = state.tasks.map((t) => {
-      if (t.id !== taskId) return t
-      const nb = state.notebooks.find((n) => n.id === t.notebookId)
-      if (!nb) return t
-      const cur = getTaskState(t, nb, day)
-      const segMs = cur.currentSegmentStartedAt ? Math.max(0, now - cur.currentSegmentStartedAt) : 0
-      const totalMs = (cur.accumulatedMs || 0) + segMs
-      return applyTaskState(t, nb, day, {
-        status: 'done',
-        accumulatedMs: totalMs,
-        completedAt: now,
-        actualMinutes: Math.max(1, Math.round(totalMs / 60000)),
-        currentSegmentStartedAt: null
-      })
-    })
+    const task = state.tasks.find((t) => t.id === taskId)
+    if (!task) return state
+    const nb = state.notebooks.find((n) => n.id === task.notebookId)
+    if (!nb) return state
+    const cur = getTaskState(task, nb, day)
+    const segMs = cur.currentSegmentStartedAt ? Math.max(0, now - cur.currentSegmentStartedAt) : 0
+    const totalMs = (cur.accumulatedMs || 0) + segMs
+    const patch = {
+      status: 'done',
+      accumulatedMs: totalMs,
+      completedAt: now,
+      actualMinutes: Math.max(1, Math.round(totalMs / 60000)),
+      currentSegmentStartedAt: null
+    }
+    state.tasks = state.tasks.map((t) =>
+      t.id === taskId ? applyTaskState(t, nb, day, patch) : t
+    )
 
     // Check if all today's tasks are done — bonus.
     const remaining = tasksForDate(state, day).filter((it) => it.occurrence.status !== 'done')
@@ -1074,7 +1223,6 @@ module.exports = {
   addNotebook,
   updateNotebook,
   deleteNotebook,
-  reorderNotebooks,
   setEditNotebookId,
   clearEditNotebookId,
   getNotebookById,
@@ -1097,6 +1245,7 @@ module.exports = {
   // queries
   tasksForDate,
   tasksOfNotebook,
+  dateCountsForMonth,
   isNotebookActiveOn,
   getTaskState,
   // pet

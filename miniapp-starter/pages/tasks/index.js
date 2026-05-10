@@ -25,20 +25,20 @@ function describeRange(nb) {
   return `${nb.startDate} ${tail}`
 }
 
-function decorateNotebook(nb, allTasks) {
-  const tasks = allTasks.filter((t) => t.notebookId === nb.id)
-  const today = store.todayStr()
+function decorateNotebook(nb, tasks, today) {
   const activeToday = store.isNotebookActiveOn(nb, today)
   // Count overall completion for one-shot, today's completion for recurring
   let doneCount = 0
-  let totalCount = tasks.length
+  const totalCount = tasks.length
   if (nb.mode === 'one-shot') {
-    doneCount = tasks.filter((t) => (t.status || 'todo') === 'done').length
+    for (const t of tasks) {
+      if ((t.status || 'todo') === 'done') doneCount++
+    }
   } else {
-    doneCount = tasks.filter((t) => {
+    for (const t of tasks) {
       const occ = (t.occurrences || {})[today]
-      return occ && occ.status === 'done'
-    }).length
+      if (occ && occ.status === 'done') doneCount++
+    }
   }
   // Distinct subjects within this notebook (in the order they appear)
   const seen = new Set()
@@ -62,9 +62,7 @@ function decorateNotebook(nb, allTasks) {
 
 Page({
   data: {
-    notebooks: [],
-    dragId: null,
-    dragDy: 0
+    notebooks: []
   },
 
   onShow() {
@@ -78,8 +76,26 @@ Page({
 
   refreshState() {
     const state = store.getStateWithComputed()
-    const sorted = [...state.notebooks].sort((a, b) => (a.order || 0) - (b.order || 0))
-    const notebooks = sorted.map((nb) => decorateNotebook(nb, state.tasks))
+    const today = store.todayStr()
+    // Group tasks by notebook once → O(N+M) instead of N filters over M tasks.
+    const tasksByNb = {}
+    for (const t of state.tasks) {
+      const list = tasksByNb[t.notebookId] || (tasksByNb[t.notebookId] = [])
+      list.push(t)
+    }
+    // Sort by effective end date, latest first. Recurring notebooks without
+    // an end date are ongoing — treat them as "ends later than anything
+    // dated" and float them to the top.
+    const effectiveEnd = (nb) => nb.endDate || (nb.mode === 'one-shot' ? nb.startDate : null)
+    const sorted = [...state.notebooks].sort((a, b) => {
+      const ea = effectiveEnd(a)
+      const eb = effectiveEnd(b)
+      if (ea === eb) return (b.createdAt || 0) - (a.createdAt || 0)
+      if (!ea) return -1
+      if (!eb) return 1
+      return ea < eb ? 1 : -1
+    })
+    const notebooks = sorted.map((nb) => decorateNotebook(nb, tasksByNb[nb.id] || [], today))
     this.setData({ notebooks })
   },
 
@@ -117,83 +133,5 @@ Page({
 
   handleViewCalendar() {
     wx.switchTab({ url: '/pages/calendar/index' })
-  },
-
-  // === Drag-reorder notebooks === //
-
-  handleTouchStart(event) {
-    if (event.touches && event.touches[0]) {
-      this.touchStartY = event.touches[0].pageY
-    }
-  },
-
-  handleLongPress(event) {
-    const { id } = event.currentTarget.dataset
-    this.dragStartY = this.touchStartY != null
-      ? this.touchStartY
-      : (event.detail && typeof event.detail.y === 'number' ? event.detail.y : 0)
-    if (!this.itemHeightPx) {
-      const q = wx.createSelectorQuery()
-      q.select('.notebook-card').boundingClientRect()
-      q.exec((rects) => {
-        if (rects && rects[0]) this.itemHeightPx = rects[0].height + 16
-      })
-    }
-    this.setData({ dragId: id, dragDy: 0 })
-    if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
-  },
-
-  handleTouchMove(event) {
-    if (!this.data.dragId || this.dragStartY == null) return
-    const now = Date.now()
-    if (this._lastMoveAt && now - this._lastMoveAt < 16) return
-    this._lastMoveAt = now
-    const t = event.touches && event.touches[0]
-    if (!t) return
-    const dy = t.pageY - this.dragStartY
-    if (Math.abs(dy - this.data.dragDy) < 2) return
-    const itemH = this.itemHeightPx || 200
-    const list = this.data.notebooks
-    const draggedIdx = list.findIndex((n) => n.id === this.data.dragId)
-    const slotsDelta = Math.round(dy / itemH)
-    const hoverIdx = Math.max(0, Math.min(list.length - 1, draggedIdx + slotsDelta))
-    const updated = list.map((n, i) => {
-      if (n.id === this.data.dragId) return n
-      let shiftY = 0
-      if (draggedIdx < hoverIdx && i > draggedIdx && i <= hoverIdx) shiftY = -itemH
-      else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) shiftY = itemH
-      return { ...n, shiftY }
-    })
-    this.setData({ notebooks: updated, dragDy: dy })
-  },
-
-  handleTouchEnd() {
-    if (!this.data.dragId) {
-      this.dragStartY = null
-      this.touchStartY = null
-      return
-    }
-    const dragId = this.data.dragId
-    const dragDy = this.data.dragDy
-    const itemH = this.itemHeightPx || 200
-    const list = this.data.notebooks
-    const fromIdx = list.findIndex((n) => n.id === dragId)
-    const slotsDelta = Math.round(dragDy / itemH)
-    const toIdx = Math.max(0, Math.min(list.length - 1, fromIdx + slotsDelta))
-
-    if (fromIdx !== -1 && fromIdx !== toIdx) {
-      const ids = list.map((n) => n.id)
-      const [moved] = ids.splice(fromIdx, 1)
-      ids.splice(toIdx, 0, moved)
-      store.reorderNotebooks(ids)
-      this.refreshState()
-    } else {
-      const reset = list.map((n) => ({ ...n, shiftY: 0 }))
-      this.setData({ notebooks: reset })
-    }
-    this.dragStartY = null
-    this.touchStartY = null
-    this.setData({ dragId: null, dragDy: 0 })
-  },
-
+  }
 })

@@ -58,13 +58,6 @@
   background: #ffffff;
   border-radius: 24rpx;
   box-shadow: 0 8rpx 24rpx rgba(31, 35, 41, 0.06);
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
-}
-
-.notebook-card.is-dragging {
-  transition: none;
-  box-shadow: 0 16rpx 40rpx rgba(31, 35, 41, 0.18);
-  transform: scale(1.02);
 }
 
 /* The 「今日」 chip below already conveys "active today"; no extra border. */
