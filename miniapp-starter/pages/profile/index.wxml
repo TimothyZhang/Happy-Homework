@@ -1,52 +1,5 @@
 <view class="page">
-  <view class="card">
-    <view class="section-header">
-      <text class="section-title">家庭设置</text>
-      <text class="tag">V1</text>
-    </view>
-    <text class="subtle">先把家长真正会关心的信息放进来。</text>
-  </view>
-
-  <view class="card section-card">
-    <view class="setting-row">
-      <text class="setting-label">我的昵称</text>
-      <input class="setting-input" type="nickname" placeholder="点这里使用微信昵称" value="{{nickname}}" bindinput="handleNicknameInput" bindblur="handleNicknameBlur" maxlength="12" />
-    </view>
-    <view class="setting-row">
-      <text class="setting-label">孩子昵称</text>
-      <text class="setting-value">豆豆</text>
-    </view>
-    <view class="setting-row">
-      <text class="setting-label">年级</text>
-      <text class="setting-value">三年级</text>
-    </view>
-    <view class="setting-row">
-      <text class="setting-label">默认奖励</text>
-      <text class="setting-value">完成 +5 金币</text>
-    </view>
-    <view class="setting-row">
-      <text class="setting-label">连续打卡</text>
-      <text class="setting-value">3 天 +20 金币</text>
-    </view>
-  </view>
-
-  <view class="card section-card">
-    <view class="section-header">
-      <text class="section-title">产品判断</text>
-    </view>
-    <text class="subtle">这类产品真正难的不是页面，而是让家长愿意天天用。所以我优先做的是：录入快、排期清、奖励立刻能感知。</text>
-  </view>
-
-  <view class="card section-card">
-    <view class="section-header">
-      <text class="section-title">学习统计</text>
-    </view>
-    <view class="empty-block" bindtap="goStats">
-      <text class="tip-text">点我查看今日完成情况、金币和历史记录</text>
-    </view>
-  </view>
-
-  <view class="card section-card sync-card">
+  <view class="card sync-card">
     <view class="section-header">
       <text class="section-title">数据同步</text>
       <text class="sync-pill {{syncStatus.status}}">{{
@@ -75,12 +28,4 @@
     </view>
   </view>
 
-  <view class="card section-card">
-    <view class="section-header">
-      <text class="section-title">下一步我建议</text>
-    </view>
-    <view class="empty-block">
-      <text class="tip-text">1. 接 OCR 拍照识别\n2. 接云开发同步\n3. 做周报/月报\n4. 再决定社交要做多重</text>
-    </view>
-  </view>
 </view>

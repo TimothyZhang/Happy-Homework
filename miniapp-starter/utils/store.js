@@ -9,7 +9,8 @@ const SCHEMA_VERSION = 2
 // shopItems, schemaVersion).
 const SYNC_FIELDS = [
   'notebooks', 'tasks',
-  'coins', 'streakDays', 'bonusCoins',
+  'coins', 'streakDays', 'perfectDays',
+  'pendingShareCoins',
   'pet', 'lastReward',
   'profile'
 ]
@@ -51,6 +52,55 @@ function compareDateStr(a, b) {
 function getCurrentTime() {
   const date = new Date()
   return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+}
+
+// === Pet helpers === //
+
+const PET_SPECIES = [
+  { id: 'cat',     emoji: '🐱', label: '猫' },
+  { id: 'dog',     emoji: '🐶', label: '狗' },
+  { id: 'chicken', emoji: '🐤', label: '鸡' },
+  { id: 'pig',     emoji: '🐷', label: '猪' },
+  { id: 'cow',     emoji: '🐮', label: '牛' },
+  { id: 'rabbit',  emoji: '🐰', label: '兔子' },
+  { id: 'sheep',   emoji: '🐑', label: '羊' },
+  { id: 'alpaca',  emoji: '🦙', label: '羊驼' }
+]
+
+function petAgeDays(pet) {
+  if (!pet || !pet.bornAt) return 0
+  return Math.max(0, Math.floor((Date.now() - pet.bornAt) / 86400000))
+}
+
+// Stat decay per real-world hour. Tuned so a fresh pet starts looking
+// hungry/dirty after roughly a day or two of neglect; health is the slowest
+// to drop so "sick" only kicks in after several days.
+const PET_DECAY_PER_HOUR = { fullness: 2, cleanliness: 1, happiness: 0.5, health: 0.2 }
+
+// Pure: returns pet with stats reduced by elapsed-time decay (rounded to ints
+// so the UI doesn't show "76.342"). Doesn't write.
+function petWithDecay(pet) {
+  if (!pet || !pet.species) return pet
+  const last = pet.lastDecayAt || pet.bornAt || Date.now()
+  const hours = Math.max(0, (Date.now() - last) / 3600000)
+  if (hours <= 0) return pet
+  const drop = (cur, rate) =>
+    Math.max(0, Math.round((cur == null ? 100 : cur) - hours * rate))
+  return {
+    ...pet,
+    happiness:   drop(pet.happiness,   PET_DECAY_PER_HOUR.happiness),
+    fullness:    drop(pet.fullness,    PET_DECAY_PER_HOUR.fullness),
+    cleanliness: drop(pet.cleanliness, PET_DECAY_PER_HOUR.cleanliness),
+    health:      drop(pet.health,      PET_DECAY_PER_HOUR.health)
+  }
+}
+
+// "Catch-up" helper: call inside an updateState updater BEFORE applying any
+// user-triggered change so the persisted stat numbers reflect "now" before
+// being bumped. Stamps lastDecayAt so the next decay window starts here.
+function commitPetDecay(pet) {
+  if (!pet || !pet.species) return pet
+  return { ...petWithDecay(pet), lastDecayAt: Date.now() }
 }
 
 // === Default seed === //
@@ -236,32 +286,33 @@ const defaultState = {
   // ms timestamp of last sync-relevant local mutation. 0 = never written, so
   // anything from cloud will win on first hydrate.
   updatedAt: 0,
-  coins: 36,
-  streakDays: 4,
-  bonusCoins: 10,
+  coins: 0,
+  streakDays: 0,
+  // YYYY-MM-DD strings for days where every task got completed. Used to
+  // compute consecutive-perfect-day streak. Pruned to ~14 days of history.
+  perfectDays: [],
+  // Coins credited from share-saves that haven't been applied to local
+  // coins yet. Filled by the shareReward cloud function on the sharer's
+  // user_state doc; claimed (added to coins, reset to 0) on next hydrate.
+  pendingShareCoins: 0,
   editTaskId: null,
   editNotebookId: null,
   ocrCurrentJob: null,
   ocrJobs: [],
   rewardRules: [
-    { title: '完成单项作业', coins: 5 },
-    { title: '按计划完成', coins: 3 },
-    { title: '全部完成奖励', coins: 10 },
-    { title: '连续 3 天打卡', coins: 20 }
+    { title: '完成单项作业', coins: 1 },
+    { title: '当日全部完成', coins: '+完成数量' },
+    { title: '分享被保存', coins: 3 },
+    { title: '连续 7 天全完成', coins: 10 }
   ],
-  pet: {
-    name: '小牛同学',
-    emoji: '🐮',
-    level: 2,
-    growth: 38,
-    nextLevelGrowth: 60,
-    happiness: 76,
-    fullness: 68
-  },
+  // Empty pet object → triggers first-time setup flow on the pet tab.
+  pet: {},
   shopItems: [
-    { id: 1, emoji: '🥕', name: '营养胡萝卜', effect: '开心值 +8，饱腹值 +12', price: 12, happiness: 8, fullness: 12, growth: 5 },
-    { id: 2, emoji: '🧸', name: '陪玩玩具熊', effect: '开心值 +15', price: 20, happiness: 15, fullness: 0, growth: 8 },
-    { id: 3, emoji: '🎀', name: '粉色蝴蝶结', effect: '成长值 +10，形象更可爱', price: 28, happiness: 5, fullness: 0, growth: 10 }
+    { id: 1, emoji: '🥕', name: '营养胡萝卜',   effect: '饱腹+12 开心+8',    price: 12, happiness: 8,  fullness: 12, cleanliness: 0,  health: 0,  growth: 5 },
+    { id: 2, emoji: '🧸', name: '陪玩玩具熊',   effect: '开心+15',            price: 20, happiness: 15, fullness: 0,  cleanliness: 0,  health: 0,  growth: 8 },
+    { id: 3, emoji: '🛁', name: '泡泡浴',       effect: '清洁+30 开心+5',     price: 14, happiness: 5,  fullness: 0,  cleanliness: 30, health: 0,  growth: 2 },
+    { id: 4, emoji: '💊', name: '维生素',       effect: '健康+25',            price: 18, happiness: 0,  fullness: 0,  cleanliness: 0,  health: 25, growth: 2 },
+    { id: 5, emoji: '🎀', name: '粉色蝴蝶结',   effect: '成长+10 形象更可爱', price: 28, happiness: 5,  fullness: 0,  cleanliness: 0,  health: 0,  growth: 10 }
   ],
   notebooks: seedNotebooks(),
   tasks: seedTasks(),
@@ -294,6 +345,32 @@ function migrateState(raw) {
     raw.profile = raw.profile && typeof raw.profile === 'object'
       ? { nickname: raw.profile.nickname || '' }
       : { nickname: '' }
+    if (!Array.isArray(raw.perfectDays)) raw.perfectDays = []
+    if (typeof raw.pendingShareCoins !== 'number') raw.pendingShareCoins = 0
+    if (typeof raw.streakDays !== 'number') raw.streakDays = 0
+    if (typeof raw.coins !== 'number') raw.coins = 0
+    // Pet schema upgrade: legacy data had {name, emoji, level, growth,
+    // happiness, fullness} but no species / cleanliness / health / age. If
+    // we see a name without a species, treat it as already-set-up (infer
+    // species from the emoji), otherwise leave empty so setup runs.
+    raw.pet = raw.pet && typeof raw.pet === 'object' ? raw.pet : {}
+    if (raw.pet.name && !raw.pet.species) {
+      const inferred = PET_SPECIES.find((s) => s.emoji === raw.pet.emoji)
+      raw.pet.species = inferred ? inferred.id : 'cat'
+    }
+    if (raw.pet.species) {
+      const sp = PET_SPECIES.find((s) => s.id === raw.pet.species)
+      if (sp && !raw.pet.emoji) raw.pet.emoji = sp.emoji
+      if (!raw.pet.bornAt)        raw.pet.bornAt        = Date.now()
+      if (!raw.pet.lastDecayAt)   raw.pet.lastDecayAt   = Date.now()
+      if (raw.pet.level == null)            raw.pet.level            = 1
+      if (raw.pet.growth == null)           raw.pet.growth           = 0
+      if (raw.pet.nextLevelGrowth == null)  raw.pet.nextLevelGrowth  = 30
+      if (raw.pet.happiness == null)        raw.pet.happiness        = 80
+      if (raw.pet.fullness == null)         raw.pet.fullness         = 80
+      if (raw.pet.cleanliness == null)      raw.pet.cleanliness      = 90
+      if (raw.pet.health == null)           raw.pet.health           = 95
+    }
     // Pre-cloud-sync data: stamp current time so this device's data wins on
     // first cloud sync (over a fresh empty cloud doc with updatedAt=0).
     if (typeof raw.updatedAt !== 'number') raw.updatedAt = Date.now()
@@ -729,7 +806,8 @@ function dateCountsForMonth(state, year, monthIdx0) {
 // cache by reassigning top-level keys, but `notebooks`/`tasks` arrays are
 // aliased — readers must not mutate them in place.
 function getStateWithComputed() {
-  return { ...loadState() }
+  const state = loadState()
+  return { ...state, pet: petWithDecay(state.pet) }
 }
 
 // Throttle the read-only toast — updateState gets called many times per
@@ -1126,8 +1204,11 @@ function finishTask(taskId, dateStr) {
   const day = dateStr || todayStr()
   return updateState((state) => {
     const now = Date.now()
-    let reward = 8
+    // Per-task reward: +1 coin for finishing any single homework item.
+    let reward = 1
     let leveledUp = false
+    let dailyBonus = 0
+    let weeklyBonus = 0
 
     const task = state.tasks.find((t) => t.id === taskId)
     if (!task) return state
@@ -1147,21 +1228,53 @@ function finishTask(taskId, dateStr) {
       t.id === taskId ? applyTaskState(t, nb, day, patch) : t
     )
 
-    // Check if all today's tasks are done — bonus.
-    const remaining = tasksForDate(state, day).filter((it) => it.occurrence.status !== 'done')
-    if (remaining.length === 0) reward += state.bonusCoins
+    // First all-done moment of the day → daily bonus + streak bookkeeping.
+    // Re-completing after a revert doesn't double-credit because perfectDays
+    // already contains the date.
+    const todayItems = tasksForDate(state, day)
+    const allDone = todayItems.length > 0 && todayItems.every((it) => it.occurrence.status === 'done')
+
+    if (allDone) {
+      if (!Array.isArray(state.perfectDays)) state.perfectDays = []
+      if (!state.perfectDays.includes(day)) {
+        // 当日全完成额外金币 = 当日完成项数
+        dailyBonus = todayItems.length
+        reward += dailyBonus
+
+        // Consecutive-day streak: if yesterday was also a perfect day, keep
+        // counting; otherwise reset to 1.
+        const yesterday = addDays(day, -1)
+        state.streakDays = state.perfectDays.includes(yesterday)
+          ? (state.streakDays || 0) + 1
+          : 1
+
+        state.perfectDays.push(day)
+        // Prune to ~14 days of history — enough to span 2 weekly windows.
+        const cutoff = addDays(day, -14)
+        state.perfectDays = state.perfectDays.filter((d) => d >= cutoff).sort()
+
+        // Every 7 consecutive perfect days → +10 coins.
+        if (state.streakDays > 0 && state.streakDays % 7 === 0) {
+          weeklyBonus = 10
+          reward += weeklyBonus
+        }
+      }
+    }
 
     state.coins += reward
-    state.pet.growth += 6
-    state.pet.happiness = Math.min(state.pet.happiness + 6, 100)
-    if (state.pet.growth >= state.pet.nextLevelGrowth) {
-      state.pet.level += 1
-      state.pet.growth -= state.pet.nextLevelGrowth
-      state.pet.nextLevelGrowth += 20
-      state.pet.fullness = Math.min(state.pet.fullness + 10, 100)
-      leveledUp = true
+    if (state.pet && state.pet.species) {
+      state.pet = commitPetDecay(state.pet)
+      state.pet.growth += 6
+      state.pet.happiness = Math.min(state.pet.happiness + 6, 100)
+      if (state.pet.growth >= state.pet.nextLevelGrowth) {
+        state.pet.level += 1
+        state.pet.growth -= state.pet.nextLevelGrowth
+        state.pet.nextLevelGrowth += 20
+        state.pet.fullness = Math.min(state.pet.fullness + 10, 100)
+        leveledUp = true
+      }
     }
-    state.lastReward = { reward, leveledUp, taskId, finishedAt: now }
+    state.lastReward = { reward, dailyBonus, weeklyBonus, leveledUp, taskId, finishedAt: now }
     return state
   })
 }
@@ -1172,10 +1285,38 @@ function buyItem(itemId) {
   return updateState((state) => {
     const item = state.shopItems.find((s) => s.id === itemId)
     if (!item || state.coins < item.price) return state
+    if (!state.pet || !state.pet.species) return state
+    state.pet = commitPetDecay(state.pet)
     state.coins -= item.price
-    state.pet.happiness = Math.min(state.pet.happiness + item.happiness, 100)
-    state.pet.fullness = Math.min(state.pet.fullness + item.fullness, 100)
-    state.pet.growth = Math.min(state.pet.growth + item.growth, state.pet.nextLevelGrowth)
+    state.pet.happiness   = Math.min(state.pet.happiness   + (item.happiness   || 0), 100)
+    state.pet.fullness    = Math.min(state.pet.fullness    + (item.fullness    || 0), 100)
+    state.pet.cleanliness = Math.min(state.pet.cleanliness + (item.cleanliness || 0), 100)
+    state.pet.health      = Math.min(state.pet.health      + (item.health      || 0), 100)
+    state.pet.growth      = Math.min(state.pet.growth      + (item.growth      || 0), state.pet.nextLevelGrowth)
+    return state
+  })
+}
+
+function setupPet({ species, name }) {
+  return updateState((state) => {
+    const speciesEntry = PET_SPECIES.find((s) => s.id === species)
+    if (!speciesEntry) return state
+    const trimmed = (name || '').trim().slice(0, 12) || speciesEntry.label
+    const now = Date.now()
+    state.pet = {
+      species,
+      emoji: speciesEntry.emoji,
+      name: trimmed,
+      bornAt: now,
+      lastDecayAt: now,
+      level: 1,
+      growth: 0,
+      nextLevelGrowth: 30,
+      happiness: 100,
+      fullness: 100,
+      cleanliness: 100,
+      health: 100
+    }
     return state
   })
 }
@@ -1234,7 +1375,9 @@ function updateProfileNickname(nickname) {
 // Strips per-occurrence state (status / elapsed / completedAt) — the
 // receiver imports a fresh notebook with all tasks reset to "todo".
 // `from` carries the sharer's nickname (empty if not set).
-function serializeNotebookForShare(notebookId) {
+// `sharer` carries sharer's openid (when available) + a stable notebook id,
+// so the receiver can credit a save back to the sharer via cloud function.
+function serializeNotebookForShare(notebookId, sharerOpenid) {
   const state = loadState()
   const nb = state.notebooks.find((n) => n.id === notebookId)
   if (!nb) return null
@@ -1249,6 +1392,8 @@ function serializeNotebookForShare(notebookId) {
   return {
     v: 1,
     from: (state.profile && state.profile.nickname) || '',
+    sharer: sharerOpenid || '',
+    nbId: nb.id,
     n: {
       name: nb.name,
       mode: nb.mode,
@@ -1258,6 +1403,26 @@ function serializeNotebookForShare(notebookId) {
     },
     t: tasks
   }
+}
+
+// Apply share-save coins claimed from cloud. Caller passes the total coins
+// already aggregated by the cloud function; we just credit them locally and
+// record a lastReward so the UI can flash a "+X 金币" message.
+function applyShareRewardClaim({ total, count, notebooks }) {
+  if (!total || total <= 0) return null
+  let next = null
+  updateState((state) => {
+    state.coins = (state.coins || 0) + total
+    state.lastShareReward = {
+      total,
+      count: count || 0,
+      notebooks: Array.isArray(notebooks) ? notebooks.slice(0, 5) : [],
+      receivedAt: Date.now()
+    }
+    next = state.lastShareReward
+    return state
+  })
+  return next
 }
 
 // Mirror of addNotebook + addTask, but creates the notebook and all tasks
@@ -1351,6 +1516,9 @@ module.exports = {
   isNotebookActiveOn,
   getTaskState,
   // pet
+  PET_SPECIES,
+  petAgeDays,
+  setupPet,
   buyItem,
   // ocr
   setCurrentOcrJob,
@@ -1362,6 +1530,7 @@ module.exports = {
   // sharing
   serializeNotebookForShare,
   importSharedNotebook,
+  applyShareRewardClaim,
   // cloud-sync interface (for cloud-sync module's use; pages should use
   // cloudSync.hydrateIfStale directly)
   applyHydratedState,

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="rabbitBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e8e8ee"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="80" cy="40" rx="9" ry="32" fill="url(#rabbitBody)"/>
+  <ellipse cx="80" cy="42" rx="5" ry="26" fill="#ffc4d2"/>
+  <ellipse cx="120" cy="40" rx="9" ry="32" fill="url(#rabbitBody)"/>
+  <ellipse cx="120" cy="42" rx="5" ry="26" fill="#ffc4d2"/>
+  <ellipse cx="100" cy="125" rx="60" ry="58" fill="url(#rabbitBody)"/>
+  <ellipse cx="82" cy="110" rx="5" ry="7" fill="#1f2329"/>
+  <ellipse cx="118" cy="110" rx="5" ry="7" fill="#1f2329"/>
+  <circle cx="80" cy="107" r="1.7" fill="#fff"/>
+  <circle cx="116" cy="107" r="1.7" fill="#fff"/>
+  <path d="M96 130 Q100 134 104 130 Q102 132 100 132 Q98 132 96 130 Z" fill="#ff7a96"/>
+  <path d="M100 132 L100 138 M100 138 Q95 142 91 140 M100 138 Q105 142 109 140" stroke="#1f2329" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+  <rect x="97" y="138" width="3" height="5" fill="#fff" stroke="#dadbe0" stroke-width="0.5"/>
+  <rect x="100" y="138" width="3" height="5" fill="#fff" stroke="#dadbe0" stroke-width="0.5"/>
+  <ellipse cx="70" cy="128" rx="6" ry="3.5" fill="#ff8fa5" opacity="0.55"/>
+  <ellipse cx="130" cy="128" rx="6" ry="3.5" fill="#ff8fa5" opacity="0.55"/>
+  <ellipse cx="80" cy="180" rx="14" ry="6" fill="#e8e8ee"/>
+  <ellipse cx="120" cy="180" rx="14" ry="6" fill="#e8e8ee"/>
+</svg>

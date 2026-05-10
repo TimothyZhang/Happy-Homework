@@ -9,36 +9,14 @@
       <view class="link-pill" bindtap="handleJumpToday">回到今日</view>
     </view>
 
-    <block wx:if="{{overview.totalCount > 0 && overview.pendingCount === 0}}">
-      <view class="all-done-banner">
-        <text class="banner-emoji">🎉</text>
-        <text class="banner-title">Congratulations!</text>
-        <text class="banner-sub">{{isToday ? '今日' : ''}}{{overview.totalCount}} 项作业全部完成</text>
+    <view class="pet-talk">
+      <view class="pet-bubble">
+        <text class="pet-bubble-text">{{petMessage}}</text>
       </view>
-    </block>
-
-    <block wx:elif="{{overview.totalCount > 0}}">
-      <view class="hero-stats">
-        <view class="hero-stat">
-          <text class="hero-stat-value">{{overview.totalCount}}</text>
-          <text class="hero-stat-label">{{isToday ? '今日作业' : '当日作业'}}</text>
-        </view>
-        <view class="hero-stat">
-          <text class="hero-stat-value highlight">{{overview.pendingCount}}</text>
-          <text class="hero-stat-label">待完成</text>
-        </view>
-        <view class="hero-stat">
-          <text class="hero-stat-value">{{remainingMinutesDisplay}}</text>
-          <text class="hero-stat-label">预计还需</text>
-        </view>
+      <view class="pet-mascot">
+        <text class="pet-emoji">{{pet.emoji}}</text>
       </view>
-    </block>
-
-    <block wx:else>
-      <view class="hero-empty">
-        <text>{{isToday ? '今日没有作业，去「作业」页新建作业本吧' : '这一天没有安排作业'}}</text>
-      </view>
-    </block>
+    </view>
   </view>
 
   <view class="card section-card">

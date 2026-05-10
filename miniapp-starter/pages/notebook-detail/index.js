@@ -1,5 +1,6 @@
 const store = require('../../utils/store')
 const cloudSync = require('../../utils/cloud-sync')
+const shareReward = require('../../utils/share-reward')
 
 const SUBJECT_OPTIONS = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
 
@@ -79,6 +80,8 @@ Page({
     cloudSync.hydrateIfStale().then((r) => {
       if (r && r.changed) this.refreshState()
     }).catch(() => {})
+    // Warm the openid cache so onShareAppMessage (sync) can embed it.
+    shareReward.preloadOpenid().catch(() => {})
   },
 
   onHide() { this.stopTicker() },
@@ -177,7 +180,10 @@ Page({
     // Embed the notebook + tasks into the share path so the receiver can
     // import it. The receiver's local store doesn't have our notebook id,
     // so a bare ?id=... would just toast "作业本不存在".
-    const payload = store.serializeNotebookForShare(nb.id)
+    // Read sharer openid from cache (preloaded during onShow); if unset
+    // here the share still works, just no reward attribution.
+    const myOpenid = shareReward.getMyOpenidSync() || ''
+    const payload = store.serializeNotebookForShare(nb.id, myOpenid)
     if (payload) {
       const encoded = encodeURIComponent(JSON.stringify(payload))
       const sharePath = `/pages/notebook-share/index?d=${encoded}`

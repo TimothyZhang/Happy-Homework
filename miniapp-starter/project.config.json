@@ -3,7 +3,10 @@
   "cloudfunctionRoot": "cloudfunctions/",
   "packOptions": {
     "ignore": [
-      { "type": "folder", "value": "scripts" }
+      {
+        "type": "folder",
+        "value": "scripts"
+      }
     ],
     "include": []
   },

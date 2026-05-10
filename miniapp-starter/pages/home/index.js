@@ -1,5 +1,6 @@
 const store = require('../../utils/store')
 const cloudSync = require('../../utils/cloud-sync')
+const shareReward = require('../../utils/share-reward')
 
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
@@ -18,6 +19,28 @@ function formatDuration(minutes) {
   const m = minutes % 60
   if (m === 0) return `${h} 小时`
   return `${h}h${m}m`
+}
+
+function buildPetMessage({ isToday, totalCount, pendingCount, remainingMinutes }) {
+  const timeStr = remainingMinutes > 0 ? formatDuration(remainingMinutes) : ''
+
+  if (isToday) {
+    if (totalCount === 0) return '今天还没有作业安排，可以陪我玩一会儿～'
+    if (pendingCount === 0) return '太棒了，今天的作业全部完成啦！🎉'
+    if (pendingCount === 1) {
+      return timeStr
+        ? `就剩最后 1 项啦，预计 ${timeStr}，冲呀～`
+        : '就剩最后 1 项啦，冲呀～'
+    }
+    if (timeStr) {
+      return `今天还有 ${pendingCount} 项作业，预计还需 ${timeStr}，加油哦～`
+    }
+    return `今天还有 ${pendingCount} 项作业，加油哦～`
+  }
+
+  if (totalCount === 0) return '这一天没有安排作业'
+  if (pendingCount === 0) return `这天的 ${totalCount} 项作业都完成啦`
+  return `这天还有 ${pendingCount} 项作业没完成`
 }
 
 function decorateItem(item, now) {
@@ -80,7 +103,9 @@ Page({
     doneItems: [],
     showCongrats: false,
     totalElapsedDisplay: '',
-    lastReward: null
+    lastReward: null,
+    pet: { emoji: '🐾' },
+    petMessage: ''
   },
 
   onShow() {
@@ -94,6 +119,19 @@ Page({
     cloudSync.hydrateIfStale().then((r) => {
       if (r && r.changed) this.refreshState()
     }).catch(() => {})
+    // Pull pending share-save rewards (throttled in the helper). Silent on
+    // failure — cloud function may not be deployed in dev. Skip claim in
+    // read-only mode so we don't lose rewards on a state we can't write.
+    if (!cloudSync.isReadOnly()) {
+      shareReward.claimPendingRewards().then((r) => {
+        if (!r) return
+        const claim = store.applyShareRewardClaim(r)
+        if (!claim) return
+        this.refreshState()
+        const label = r.count > 1 ? `${r.count} 位好友保存了你的作业` : '好友保存了你分享的作业'
+        wx.showToast({ title: `${label}，+${r.total} 金币`, icon: 'none', duration: 2400 })
+      }).catch(() => {})
+    }
   },
 
   refreshState(opts = {}) {
@@ -109,6 +147,12 @@ Page({
     const total = decorated.length
     const remainingMinutes = undoneItems
       .reduce((s, it) => s + Number(it.estimatedMinutes || 0), 0)
+    const petMessage = buildPetMessage({
+      isToday,
+      totalCount: total,
+      pendingCount: undoneItems.length,
+      remainingMinutes
+    })
     this.setData({
       activeDate,
       activeDateLabel: this.formatDateLabel(activeDate, today),
@@ -117,7 +161,9 @@ Page({
       remainingMinutesDisplay: formatDuration(remainingMinutes),
       undoneItems,
       doneItems,
-      lastReward: state.lastReward || null
+      lastReward: state.lastReward || null,
+      pet: (state.pet && state.pet.emoji) ? state.pet : this.data.pet,
+      petMessage
     })
     if (opts.maybeCelebrate) this.maybeShowCongrats({ undone: undoneItems, done: doneItems })
   },
