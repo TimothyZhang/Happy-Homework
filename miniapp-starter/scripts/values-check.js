@@ -350,5 +350,222 @@ const grant2 = store.getStateWithComputed()
 check('repeated load does not regrant (still 1025)', grant2.coins, 1025)
 check('coinLogs still length 1', grant2.coinLogs.length, 1)
 
+// === Test 12: findNotebookByName + duplicate-name validation ===
+console.log('\n[name-dup] findNotebookByName:')
+seedNTasksToday(0)
+store = freshStore()
+const dupNb = store.addNotebook({
+  name: '语文', mode: 'one-shot', startDate: today, endDate: today
+})
+const found = store.findNotebookByName('语文')
+check('finds existing by exact name', !!found, true)
+check('returns null for unknown name', store.findNotebookByName('不存在'), null)
+check('case-sensitive (different chars → no match)',
+  store.findNotebookByName('语 文'), null)
+check('trims whitespace before compare', !!store.findNotebookByName('  语文  '), true)
+const foundId = found && found.id
+check('excludeId skips itself (so editing same nb is allowed)',
+  store.findNotebookByName('语文', foundId), null)
+// Add a second notebook to confirm the function doesn't accidentally match
+// a different name.
+store.addNotebook({ name: '数学', mode: 'one-shot', startDate: today, endDate: today })
+check('still finds 语文 alongside 数学', !!store.findNotebookByName('语文'), true)
+check('does not match 数学 when asked for 语文',
+  store.findNotebookByName('语文').name, '语文')
+
+// === Test 13: estimateTaskMinutes — 0/1/3 history + weighting ===
+console.log('\n[estimate] estimateTaskMinutes:')
+function seedFinishedTasks(samples) {
+  const today = todayStr()
+  const tasks = samples.map((s, i) => ({
+    id: `tf${i}`, notebookId: 'nb_today',
+    subject: s.subject || '语', content: s.name,
+    estimatedMinutes: 5, order: i, createdAt: 1,
+    status: 'done', startedAt: null, currentSegmentStartedAt: null,
+    accumulatedMs: s.minutes * 60000,
+    completedAt: Date.now() - s.daysAgo * 86400000,
+    actualMinutes: s.minutes
+  }))
+  storage = {}
+  storage['homework-pet-v1'] = JSON.stringify({
+    schemaVersion: 2, coins: 0, streakDays: 0, perfectDays: [],
+    pendingShareCoins: 0, testCoinsGranted: true, coinLogs: [],
+    editTaskId: null, editNotebookId: null,
+    ocrCurrentJob: null, ocrJobs: [], rewardRules: [],
+    pet: {}, shopItems: [],
+    notebooks: [{
+      id: 'nb_today', name: 'today', mode: 'one-shot',
+      startDate: today, endDate: today, recurrence: null,
+      createdAt: 1, order: 0
+    }],
+    tasks, profile: { nickname: '' }
+  })
+}
+
+// 0 history → null
+seedFinishedTasks([])
+store = freshStore()
+check('0 history → null', store.estimateTaskMinutes('口算', '数'), null)
+check('findFinishedTasksByName returns empty for 0 history',
+  store.findFinishedTasksByName('口算', '数').length, 0)
+
+// 1 history → null (need ≥2 samples)
+seedFinishedTasks([{ name: '口算', subject: '数', minutes: 20, daysAgo: 1 }])
+store = freshStore()
+check('1 history → null (need ≥2)', store.estimateTaskMinutes('口算', '数'), null)
+check('findFinishedTasksByName returns 1 row',
+  store.findFinishedTasksByName('口算', '数').length, 1)
+
+// 3 history (similar minutes, all recent) → returns rounded, multiple of 5,
+// in the right neighborhood
+seedFinishedTasks([
+  { name: '口算', subject: '数', minutes: 20, daysAgo: 1 },
+  { name: '口算', subject: '数', minutes: 25, daysAgo: 2 },
+  { name: '口算', subject: '数', minutes: 30, daysAgo: 3 }
+])
+store = freshStore()
+const est3 = store.estimateTaskMinutes('口算', '数')
+check('3 history → returns a number', typeof est3 === 'number', true)
+check('3 history → multiple of 5', est3 % 5, 0)
+check('3 history → between 20 and 30', est3 >= 20 && est3 <= 30, true)
+
+// Weighted: 60min one day ago vs 10min thirty days ago. With TAU=7d the
+// 30-day-old sample's weight ≈ exp(-30/7) ≈ 0.0136, vs the 1-day-old
+// sample's weight ≈ exp(-1/7) ≈ 0.867. Weighted avg ≈ (60*.867 + 10*.0136)/
+// (.867 + .0136) ≈ 59.2 → rounds to 60. So result must clearly bias toward 60.
+seedFinishedTasks([
+  { name: '阅读', subject: '语', minutes: 60, daysAgo: 1 },
+  { name: '阅读', subject: '语', minutes: 10, daysAgo: 30 }
+])
+store = freshStore()
+const estW = store.estimateTaskMinutes('阅读', '语')
+check('weighted: recent 60 dominates 30-day-old 10 → ≥ 50', estW >= 50, true)
+check('weighted: result ≤ 60 (the recent sample)', estW <= 60, true)
+
+// Estimate ignores subject mismatch
+seedFinishedTasks([
+  { name: '复习', subject: '数', minutes: 20, daysAgo: 1 },
+  { name: '复习', subject: '数', minutes: 25, daysAgo: 2 }
+])
+store = freshStore()
+check('estimate matches when subject matches',
+  typeof store.estimateTaskMinutes('复习', '数') === 'number', true)
+check('estimate returns null when subject mismatches',
+  store.estimateTaskMinutes('复习', '英'), null)
+
+// Trim whitespace on the lookup name
+seedFinishedTasks([
+  { name: '抄写课文', subject: '语', minutes: 15, daysAgo: 1 },
+  { name: '抄写课文', subject: '语', minutes: 20, daysAgo: 2 }
+])
+store = freshStore()
+check('whitespace-trimmed lookup matches stored name',
+  typeof store.estimateTaskMinutes('  抄写课文 ', '语') === 'number', true)
+
+// === Test 14: duplicate-name handling on share-save ===
+console.log('\n[share-import] rename / merge / overwrite:')
+seedNTasksToday(0)
+store = freshStore()
+const existing = store.addNotebook({
+  name: '英语 Unit 5', mode: 'one-shot', startDate: today, endDate: today
+})
+// addNotebook returns full state; pick the new id from notebooks list
+const existingId = store.findNotebookByName('英语 Unit 5').id
+// Seed one existing task on it via addTask
+store.addTask({ notebookId: existingId, subject: '英语', content: '原有作业 A', estimatedMinutes: 10 })
+
+const sharePayload = {
+  v: 1, from: '同学', sharer: '', nbId: 'remote-1',
+  n: { name: '英语 Unit 5', mode: 'one-shot', startDate: today, endDate: today, recurrence: null },
+  t: [
+    { s: '英语', c: '分享作业 A' },
+    { s: '英语', c: '分享作业 B' }
+  ]
+}
+
+// rename: a NEW notebook gets created with " 复制" suffix; original untouched
+const renameId = store.importSharedNotebook(sharePayload, { mode: 'rename' })
+check('rename creates new notebook (different id)', renameId !== existingId, true)
+const afterRename = store.getStateWithComputed()
+const renamedNb = afterRename.notebooks.find((n) => n.id === renameId)
+check('renamed nb name = "英语 Unit 5 复制"', renamedNb.name, '英语 Unit 5 复制')
+const origAfterRename = afterRename.notebooks.find((n) => n.id === existingId)
+check('original notebook unchanged after rename', origAfterRename.name, '英语 Unit 5')
+check('original task list unchanged after rename',
+  afterRename.tasks.filter((t) => t.notebookId === existingId).length, 1)
+check('renamed nb received 2 imported tasks',
+  afterRename.tasks.filter((t) => t.notebookId === renameId).length, 2)
+
+// rename again — should add another " 复制" because "英语 Unit 5 复制" now exists
+const rename2Id = store.importSharedNotebook(sharePayload, { mode: 'rename' })
+const renamed2 = store.getStateWithComputed().notebooks.find((n) => n.id === rename2Id)
+check('second rename → "英语 Unit 5 复制 复制"', renamed2.name, '英语 Unit 5 复制 复制')
+
+// merge: append into existing
+seedNTasksToday(0)
+store = freshStore()
+store.addNotebook({ name: '英语 Unit 5', mode: 'one-shot', startDate: today, endDate: today })
+const mergeTargetId = store.findNotebookByName('英语 Unit 5').id
+store.addTask({ notebookId: mergeTargetId, subject: '英语', content: '原有作业 A', estimatedMinutes: 10 })
+const mergeId = store.importSharedNotebook(sharePayload, {
+  mode: 'merge', targetNotebookId: mergeTargetId
+})
+check('merge returns target notebook id', mergeId, mergeTargetId)
+const afterMerge = store.getStateWithComputed()
+check('merge appended both shared tasks (1+2 = 3)',
+  afterMerge.tasks.filter((t) => t.notebookId === mergeTargetId).length, 3)
+const mergedTasks = afterMerge.tasks.filter((t) => t.notebookId === mergeTargetId)
+check('all merged tasks land as todo',
+  mergedTasks.every((t) => (t.status || 'todo') === 'todo'), true)
+
+// overwrite: replace tasks but KEEP notebook id
+seedNTasksToday(0)
+store = freshStore()
+store.addNotebook({ name: '英语 Unit 5', mode: 'one-shot', startDate: today, endDate: today })
+const overwriteTargetId = store.findNotebookByName('英语 Unit 5').id
+store.addTask({ notebookId: overwriteTargetId, subject: '英语', content: '原有作业 A', estimatedMinutes: 10 })
+store.addTask({ notebookId: overwriteTargetId, subject: '英语', content: '原有作业 B', estimatedMinutes: 15 })
+const overId = store.importSharedNotebook(sharePayload, {
+  mode: 'overwrite', targetNotebookId: overwriteTargetId
+})
+check('overwrite preserves notebook id', overId, overwriteTargetId)
+const afterOverwrite = store.getStateWithComputed()
+check('overwrite drops old tasks + replaces with shared',
+  afterOverwrite.tasks.filter((t) => t.notebookId === overwriteTargetId).length, 2)
+const overwrittenContents = afterOverwrite.tasks
+  .filter((t) => t.notebookId === overwriteTargetId)
+  .map((t) => t.content).sort()
+check('overwrite tasks come from share', overwrittenContents,
+  ['分享作业 A', '分享作业 B'])
+
+// === Test 15: import auto-estimates from history ===
+console.log('\n[share-import] auto-estimate on import:')
+// Seed a user with finished-task history for "口算练习", then import a share
+// containing a "口算练习" — the imported task should pick up an estimate.
+const seededHistory = [
+  { name: '口算练习', subject: '数', minutes: 20, daysAgo: 1 },
+  { name: '口算练习', subject: '数', minutes: 20, daysAgo: 2 },
+  { name: '口算练习', subject: '数', minutes: 25, daysAgo: 3 }
+]
+seedFinishedTasks(seededHistory)
+store = freshStore()
+const importedId = store.importSharedNotebook({
+  v: 1, from: '', sharer: '', nbId: 'remote-2',
+  n: { name: '新作业本', mode: 'one-shot', startDate: today, endDate: today, recurrence: null },
+  t: [
+    { s: '数', c: '口算练习' },          // has history → should be estimated
+    { s: '数', c: '从未做过的题' }      // no history → estimatedMinutes stays 0
+  ]
+}, { mode: 'new' })
+const imported = store.getStateWithComputed().tasks.filter((t) => t.notebookId === importedId)
+const matched = imported.find((t) => t.content === '口算练习')
+const unmatched = imported.find((t) => t.content === '从未做过的题')
+check('imported task with history → estimatedMinutes > 0',
+  matched && matched.estimatedMinutes > 0, true)
+check('imported task with history → estimatedMinutes is multiple of 5',
+  matched.estimatedMinutes % 5, 0)
+check('imported task w/o history → estimatedMinutes = 0',
+  unmatched && unmatched.estimatedMinutes, 0)
+
 console.log(`\n  ${pass} passed, ${fail} failed.\n`)
 process.exit(fail === 0 ? 0 : 1)

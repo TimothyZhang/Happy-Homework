@@ -969,6 +969,81 @@ function getNotebookById(id) {
   return state.notebooks.find((nb) => nb.id === id) || null
 }
 
+// Find an existing notebook with the same trimmed name (case-sensitive).
+// Pass `excludeId` to skip a specific notebook (so editing a notebook to keep
+// its current name doesn't false-positive on itself). Returns null if none.
+function findNotebookByName(name, excludeId) {
+  const target = (name || '').trim()
+  if (!target) return null
+  const state = loadState()
+  for (const nb of state.notebooks) {
+    if (excludeId && nb.id === excludeId) continue
+    if ((nb.name || '').trim() === target) return nb
+  }
+  return null
+}
+
+// Finished-task history lookup. Walks both one-shot tasks (top-level
+// status/actualMinutes) and recurring per-occurrence completions. Returns
+// `{ actualMinutes, completedAt, subject, content }` rows so callers can
+// time-weight or filter further. Pass an optional subject to require an
+// exact subject match in addition to the name match.
+function findFinishedTasksByName(name, subject) {
+  const target = (name || '').trim()
+  if (!target) return []
+  const state = loadState()
+  const out = []
+  for (const t of state.tasks) {
+    if ((t.content || '').trim() !== target) continue
+    if (subject && t.subject !== subject) continue
+    if (t.status === 'done' && t.completedAt && t.actualMinutes) {
+      out.push({
+        content: t.content,
+        subject: t.subject,
+        actualMinutes: t.actualMinutes,
+        completedAt: t.completedAt
+      })
+    }
+    const occs = t.occurrences || {}
+    for (const d in occs) {
+      const occ = occs[d]
+      if (occ && occ.status === 'done' && occ.completedAt && occ.actualMinutes) {
+        out.push({
+          content: t.content,
+          subject: t.subject,
+          actualMinutes: occ.actualMinutes,
+          completedAt: occ.completedAt
+        })
+      }
+    }
+  }
+  return out
+}
+
+// Time-weighted estimate: exponential decay with TAU = 7 days. Recent
+// finishes weigh dramatically more than older ones. Requires ≥2 samples;
+// otherwise returns null so the caller leaves the field empty. Result is
+// rounded to the nearest 5 minutes (with a 5-minute floor) so the UI
+// doesn't show "17.4 分钟".
+const ESTIMATE_TAU_MS = 7 * 86400 * 1000
+function estimateTaskMinutes(taskName, subject) {
+  const samples = findFinishedTasksByName(taskName, subject)
+  if (samples.length < 2) return null
+  const now = Date.now()
+  let totalW = 0
+  let weightedSum = 0
+  for (const s of samples) {
+    const dt = Math.max(0, now - s.completedAt)
+    const w = Math.exp(-dt / ESTIMATE_TAU_MS)
+    totalW += w
+    weightedSum += w * s.actualMinutes
+  }
+  if (totalW <= 0) return null
+  const raw = weightedSum / totalW
+  const rounded = Math.round(raw / 5) * 5
+  return Math.max(5, rounded)
+}
+
 // === Task CRUD === //
 
 function tasksOfNotebook(state, notebookId) {
@@ -1538,13 +1613,15 @@ function serializeNotebookForShare(notebookId, sharerOpenid) {
   const state = loadState()
   const nb = state.notebooks.find((n) => n.id === notebookId)
   if (!nb) return null
+  // estimatedMinutes is intentionally omitted from the share payload so the
+  // receiver can auto-estimate against THEIR own history (different kid,
+  // different pace) instead of inheriting the sharer's number.
   const tasks = state.tasks
     .filter((t) => t.notebookId === notebookId)
     .sort((a, b) => (a.order || 0) - (b.order || 0))
     .map((t) => ({
       s: t.subject || '其他',
-      c: t.content || '',
-      m: Number(t.estimatedMinutes || 0)
+      c: t.content || ''
     }))
   return {
     v: 1,
@@ -1582,55 +1659,141 @@ function applyShareRewardClaim({ total, count, notebooks }) {
   return next
 }
 
-// Mirror of addNotebook + addTask, but creates the notebook and all tasks
-// atomically inside one updateState pass (single cloud push). Returns the
-// new notebook id, or null if the device is read-only or payload is invalid.
-function importSharedNotebook(payload) {
+// Build the metadata block for a freshly-imported notebook from a share
+// payload. Does NOT touch state — pure derivation.
+function buildNotebookFromShare(n, today, order, name) {
+  return {
+    id: genId('nb'),
+    name: name || n.name || today,
+    mode: n.mode === 'recurring' ? 'recurring' : 'one-shot',
+    startDate: n.startDate || today,
+    endDate: n.endDate === undefined
+      ? (n.mode === 'recurring' ? null : today)
+      : n.endDate,
+    recurrence: n.mode === 'recurring'
+      ? (n.recurrence || { type: 'daily', weekdays: [] })
+      : null,
+    createdAt: Date.now(),
+    order
+  }
+}
+
+// Build a task row from a share payload entry under a target notebook.
+// Auto-estimates `estimatedMinutes` from the user's finished-task history
+// when the share didn't carry one (it never does — we strip it on share).
+// Status is reset to fresh: every imported task starts as todo.
+function buildTaskFromShare(item, nb) {
+  const base = {
+    id: genId('tk'),
+    notebookId: nb.id,
+    subject: item.s || '其他',
+    content: item.c || '',
+    estimatedMinutes: Number(item.m || estimateTaskMinutes(item.c, item.s) || 0),
+    createdAt: Date.now()
+  }
+  if (nb.mode === 'recurring') {
+    base.occurrences = {}
+  } else {
+    Object.assign(base, defaultOccurrence())
+  }
+  return base
+}
+
+// Generate a unique-name candidate by appending " 复制" until no other
+// notebook has the same trimmed name. Existing match's id can be excluded
+// (caller may want to rename when the share IS the same notebook reimported).
+function pickRenameCandidate(state, baseName) {
+  const trimmed = (baseName || '').trim() || todayStr()
+  let candidate = `${trimmed} 复制`
+  while (state.notebooks.some((nb) => (nb.name || '').trim() === candidate)) {
+    candidate = `${candidate} 复制`
+  }
+  return candidate
+}
+
+// Import a shared notebook payload. `options.mode` controls duplicate-name
+// handling:
+//   'new'       — caller already verified no name conflict; create as-is
+//   'rename'    — append " 复制" (repeated if needed) to dodge the conflict
+//   'merge'     — append the share's tasks to options.targetNotebookId.
+//                 No dedupe; every imported task starts as todo.
+//   'overwrite' — replace options.targetNotebookId's metadata + tasks.
+//                 KEEPS the original notebook id, so existing progress
+//                 (coins / coinLogs / streak history) stays intact —
+//                 only this notebook's task rows are swapped out.
+// Returns the resulting notebook id (caller usually navigates to it), or
+// null if the device is read-only or the payload is invalid.
+function importSharedNotebook(payload, options) {
   if (!payload || !payload.n) return null
+  const opts = options || {}
+  const mode = opts.mode || 'new'
+  const targetId = opts.targetNotebookId
   const n = payload.n
   const tasks = Array.isArray(payload.t) ? payload.t : []
   const today = todayStr()
-  let newNotebookId = null
+  let resultId = null
   updateState((state) => {
-    const nb = {
-      id: genId('nb'),
-      name: n.name || today,
-      mode: n.mode === 'recurring' ? 'recurring' : 'one-shot',
-      startDate: n.startDate || today,
-      endDate: n.endDate === undefined
-        ? (n.mode === 'recurring' ? null : today)
-        : n.endDate,
-      recurrence: n.mode === 'recurring'
-        ? (n.recurrence || { type: 'daily', weekdays: [] })
-        : null,
-      createdAt: Date.now(),
-      order: state.notebooks.length
+    if (mode === 'merge') {
+      const target = state.notebooks.find((nb) => nb.id === targetId)
+      if (!target) return state
+      const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
+      let cursor = maxOrder + 1
+      for (const it of tasks) {
+        const row = buildTaskFromShare(it, target)
+        row.order = cursor++
+        state.tasks.push(row)
+      }
+      resultId = target.id
+      return state
     }
+    if (mode === 'overwrite') {
+      const idx = state.notebooks.findIndex((nb) => nb.id === targetId)
+      if (idx < 0) return state
+      // Drop just the old tasks; keep the notebook id so any external
+      // references (recent rewards logged against this nb, etc.) remain
+      // valid and the user's progress history isn't reset.
+      state.tasks = state.tasks.filter((t) => t.notebookId !== targetId)
+      const old = state.notebooks[idx]
+      const replaced = {
+        ...old,
+        name: n.name || old.name,
+        mode: n.mode === 'recurring' ? 'recurring' : 'one-shot',
+        startDate: n.startDate || old.startDate || today,
+        endDate: n.endDate === undefined
+          ? (n.mode === 'recurring' ? null : (n.startDate || today))
+          : n.endDate,
+        recurrence: n.mode === 'recurring'
+          ? (n.recurrence || { type: 'daily', weekdays: [] })
+          : null
+      }
+      state.notebooks[idx] = replaced
+      const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
+      let cursor = maxOrder + 1
+      for (const it of tasks) {
+        const row = buildTaskFromShare(it, replaced)
+        row.order = cursor++
+        state.tasks.push(row)
+      }
+      resultId = replaced.id
+      return state
+    }
+    // 'new' or 'rename'
+    const finalName = mode === 'rename'
+      ? pickRenameCandidate(state, n.name)
+      : (n.name || today)
+    const nb = buildNotebookFromShare(n, today, state.notebooks.length, finalName)
     state.notebooks.push(nb)
-    newNotebookId = nb.id
-
+    resultId = nb.id
     const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
     let cursor = maxOrder + 1
     for (const it of tasks) {
-      const base = {
-        id: genId('tk'),
-        notebookId: nb.id,
-        subject: it.s || '其他',
-        content: it.c || '',
-        estimatedMinutes: Number(it.m || 0),
-        order: cursor++,
-        createdAt: Date.now()
-      }
-      if (nb.mode === 'recurring') {
-        base.occurrences = {}
-      } else {
-        Object.assign(base, defaultOccurrence())
-      }
-      state.tasks.push(base)
+      const row = buildTaskFromShare(it, nb)
+      row.order = cursor++
+      state.tasks.push(row)
     }
     return state
   })
-  return newNotebookId
+  return resultId
 }
 
 module.exports = {
@@ -1650,6 +1813,7 @@ module.exports = {
   setEditNotebookId,
   clearEditNotebookId,
   getNotebookById,
+  findNotebookByName,
   // task
   addTask,
   updateTask,
@@ -1660,6 +1824,8 @@ module.exports = {
   getRowOrder,
   setEditTaskId,
   clearEditTaskId,
+  findFinishedTasksByName,
+  estimateTaskMinutes,
   // task control
   startTask,
   pauseTask,
