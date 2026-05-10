@@ -72,7 +72,7 @@
   text-align: center;
   box-shadow: 0 28rpx 72rpx rgba(0, 0, 0, 0.28);
   animation: reward-card-pop 600ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards,
-             reward-card-out 360ms ease-in 3140ms forwards;
+             reward-card-out 360ms ease-in 2840ms forwards;
 }
 
 .reward-alldone__pet-wrap {
@@ -102,54 +102,33 @@
   letter-spacing: 2rpx;
 }
 
-/* Stage stacks the three phase elements absolutely in the same area so they
-   visually morph into each other (flash → equation → big total). */
+/* Single big TOTAL stage — the daily bonus rushes in from small to huge,
+   then settles. No flash / no equation — the per-task +10 already played
+   in the task toast immediately before this card. */
 .reward-alldone__stage {
   position: relative;
-  height: 160rpx;
+  height: 180rpx;
   margin-top: 28rpx;
 }
 
-.reward-alldone__flash,
-.reward-alldone__eq,
 .reward-alldone__total {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 14rpx;
   opacity: 0;
-}
-
-.reward-alldone__flash {
-  font-size: 72rpx;
-  font-weight: 900;
-  color: #ff8a1f;
-  letter-spacing: 2rpx;
-  text-shadow: 0 4rpx 14rpx rgba(255, 138, 31, 0.45);
-  animation: reward-alldone-flash 950ms ease-out 80ms forwards;
-}
-
-.reward-alldone__eq {
-  font-size: 56rpx;
-  font-weight: 800;
-  color: #b9540c;
-  letter-spacing: 2rpx;
-  animation: reward-alldone-eq 800ms ease-out 900ms forwards;
-}
-
-.reward-alldone__total {
-  gap: 12rpx;
-  animation: reward-alldone-total 1500ms cubic-bezier(0.16, 1, 0.3, 1) 1500ms forwards;
+  animation: reward-alldone-total 1700ms cubic-bezier(0.16, 1, 0.3, 1) 380ms forwards;
 }
 
 .reward-alldone__total-icon {
-  font-size: 56rpx;
+  font-size: 64rpx;
   line-height: 1;
 }
 
 .reward-alldone__total-text {
-  font-size: 110rpx;
+  font-size: 140rpx;
   font-weight: 900;
   color: #6b2c00;
   letter-spacing: 2rpx;
@@ -157,12 +136,12 @@
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  text-shadow: 0 0 24rpx rgba(255, 168, 38, 0.55),
-               0 4rpx 12rpx rgba(255, 138, 31, 0.4);
+  text-shadow: 0 0 32rpx rgba(255, 168, 38, 0.7),
+               0 6rpx 16rpx rgba(255, 138, 31, 0.5);
 }
 
 .reward-alldone__total-suffix {
-  font-size: 44rpx;
+  font-size: 50rpx;
   font-weight: 900;
   color: #6b2c00;
   letter-spacing: 2rpx;
@@ -285,24 +264,13 @@
   100% { opacity: 0; transform: translate(calc(-50% + var(--rx)), 120vh)    rotate(720deg); }
 }
 
-@keyframes reward-alldone-flash {
-  0%   { opacity: 0; transform: scale(0.5); }
-  20%  { opacity: 1; transform: scale(1.25); }
-  60%  { opacity: 1; transform: scale(1.1); }
-  100% { opacity: 0; transform: scale(2.0); }
-}
-
-@keyframes reward-alldone-eq {
-  0%   { opacity: 0; transform: scale(0.7); }
-  30%  { opacity: 1; transform: scale(1.08); }
-  70%  { opacity: 1; transform: scale(1.0); }
-  100% { opacity: 0; transform: scale(0.9); }
-}
-
+/* Dramatic count-up: starts tiny, rushes up past full size with a bouncy
+   overshoot, settles into a steady glow-pose for the rest of the card. */
 @keyframes reward-alldone-total {
-  0%   { opacity: 0; transform: scale(0.3); }
-  35%  { opacity: 1; transform: scale(1.32); }
-  55%  { opacity: 1; transform: scale(1.0); }
-  80%  { opacity: 1; transform: scale(1.06); }
+  0%   { opacity: 0; transform: scale(0.2); }
+  20%  { opacity: 1; transform: scale(1.0); }
+  45%  { opacity: 1; transform: scale(1.45); }
+  62%  { opacity: 1; transform: scale(0.96); }
+  78%  { opacity: 1; transform: scale(1.1); }
   100% { opacity: 1; transform: scale(1.04); }
 }

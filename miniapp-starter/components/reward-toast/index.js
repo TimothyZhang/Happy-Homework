@@ -1,14 +1,11 @@
 Component({
   options: { addGlobalClass: true },
   properties: {
-    // 'task' (small, ~1.2s) or 'allDone' (big, ~3.5s).
+    // 'task' (small, ~1.2s) or 'allDone' (big, ~3.2s).
     kind: { type: String, value: 'task' },
     // Reward coins to display. For 'task' this is the +10 single-task reward.
-    // For 'allDone' this is the bonus part (daily perfect + weekly streak).
+    // For 'allDone' this is the daily-perfect bonus (N×10) shown as the big TOTAL.
     coins: { type: Number, value: 0 },
-    // Single-task reward shown in the allDone preflash + equation. Used as
-    // the "+10" that morphs into "+10 + bonus = TOTAL".
-    lastTaskCoins: { type: Number, value: 0 },
     // Pet emoji to put center stage. Falls back to 🐾 if state has no species yet.
     petEmoji: { type: String, value: '🐾' },
     // Bonus subtitle line for allDone, e.g. "今日全部完成!"

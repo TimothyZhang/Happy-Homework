@@ -47,16 +47,13 @@
       </view>
       <text class="reward-alldone__title">{{subtitle || '今日全部完成!'}}</text>
 
-      <!-- 3-phase coin display, all stacked in the same area:
-           1) +N (single-task) flash
-           2) +N + M equation
-           3) Big TOTAL = N + M -->
+      <!-- Single big TOTAL — the daily-perfect bonus rushing in from small
+           to large. The per-task +10 already played in the task toast right
+           before this card; we don't repeat it here. -->
       <view class="reward-alldone__stage">
-        <text class="reward-alldone__flash">+{{lastTaskCoins}}</text>
-        <text class="reward-alldone__eq">+{{lastTaskCoins}} + {{coins}}</text>
         <view class="reward-alldone__total">
           <text class="reward-alldone__total-icon">🪙</text>
-          <text class="reward-alldone__total-text">+{{lastTaskCoins + coins}}</text>
+          <text class="reward-alldone__total-text">+{{coins}}</text>
           <text class="reward-alldone__total-suffix">金币!</text>
         </view>
       </view>
