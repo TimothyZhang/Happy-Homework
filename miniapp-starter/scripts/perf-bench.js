@@ -75,6 +75,8 @@ function seedState(N_NOTEBOOKS, N_TASKS_PER_NB, RECURRING_HISTORY_DAYS) {
     coins: 0,
     streakDays: 0,
     bonusCoins: 10,
+    testCoinsGranted: true,
+    coinLogs: [],
     editTaskId: null,
     editNotebookId: null,
     ocrCurrentJob: null,

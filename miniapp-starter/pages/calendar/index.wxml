@@ -1,3 +1,4 @@
+<page-meta disable-scroll="{{disableScroll}}" />
 <view class="page">
   <view class="card">
     <month-calendar id="cal"
@@ -14,6 +15,8 @@
     <task-list wx:if="{{selectedItems.length > 0}}"
                items="{{selectedItems}}"
                active-date="{{selectedDate}}"
+               bind:dragstart="handleDragStart"
+               bind:dragend="handleDragEnd"
                bind:changed="handleTasksChanged" />
   </view>
 </view>

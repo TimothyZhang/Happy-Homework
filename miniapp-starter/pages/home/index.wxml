@@ -1,3 +1,4 @@
+<page-meta disable-scroll="{{disableScroll}}" />
 <view class="page">
   <view class="card hero">
     <view class="seg-bar">
@@ -42,6 +43,8 @@
     <task-list wx:if="{{undoneItems.length > 0}}"
                items="{{undoneItems}}"
                active-date="{{selectedDate}}"
+               bind:dragstart="handleDragStart"
+               bind:dragend="handleDragEnd"
                bind:changed="handleTasksChanged" />
   </view>
 

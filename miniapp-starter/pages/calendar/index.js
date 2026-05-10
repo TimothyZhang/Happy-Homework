@@ -58,7 +58,10 @@ Page({
   data: {
     selectedDate: '',
     selectedLabel: '',
-    selectedItems: []
+    selectedItems: [],
+    // Locks page-level scrolling while a task-list drag is in progress.
+    // See pages/home/index.js for the rationale.
+    disableScroll: false
   },
 
   onLoad() {
@@ -105,5 +108,8 @@ Page({
   // task-list emits this whenever an action runs or a drag commits
   handleTasksChanged() {
     this.refresh()
-  }
+  },
+
+  handleDragStart() { this.setData({ disableScroll: true }) },
+  handleDragEnd() { this.setData({ disableScroll: false }) }
 })

@@ -14,8 +14,14 @@ const SYNC_FIELDS = [
   'coins', 'streakDays', 'perfectDays', 'bonusByDay',
   'pendingShareCoins',
   'pet', 'lastReward',
-  'profile'
+  'profile',
+  // One-time test grant flag: synced so a device that already received the
+  // 1000 coins doesn't re-grant on a fresh install once cloud hydrates.
+  'testCoinsGranted'
 ]
+
+// Amount of the one-time test coin grant — see grantTestCoinsIfNeeded.
+const TEST_COIN_GRANT = 1000
 
 // === Date helpers (local timezone, YYYY-MM-DD) === //
 
@@ -316,6 +322,12 @@ const defaultState = {
   // coins yet. Filled by the shareReward cloud function on the sharer's
   // user_state doc; claimed (added to coins, reset to 0) on next hydrate.
   pendingShareCoins: 0,
+  // One-time test grant. Flips to true after grantTestCoinsIfNeeded credits
+  // +1000 coins on first launch. Synced across devices so the second device
+  // doesn't re-grant once cloud hydrate lands.
+  testCoinsGranted: false,
+  // Local-only coin ledger for debugging. Each entry: {at, delta, reason}.
+  coinLogs: [],
   editTaskId: null,
   editNotebookId: null,
   ocrCurrentJob: null,
@@ -382,6 +394,8 @@ function migrateState(raw) {
     if (typeof raw.pendingShareCoins !== 'number') raw.pendingShareCoins = 0
     if (typeof raw.streakDays !== 'number') raw.streakDays = 0
     if (typeof raw.coins !== 'number') raw.coins = 0
+    if (typeof raw.testCoinsGranted !== 'boolean') raw.testCoinsGranted = false
+    if (!Array.isArray(raw.coinLogs)) raw.coinLogs = []
     // Pet schema upgrade: legacy data had {name, emoji, level, growth,
     // happiness, fullness} but no species / cleanliness / health / age. If
     // we see a name without a species, treat it as already-set-up (infer
@@ -472,13 +486,34 @@ function loadState() {
     const raw = wx.getStorageSync(STORAGE_KEY)
     if (raw && typeof raw === 'object') {
       _stateCache = migrateState(raw)
+      grantTestCoinsIfNeeded()
       return _stateCache
     }
   } catch (error) {
     console.warn('loadState failed', error)
   }
   _stateCache = clone(defaultState)
+  grantTestCoinsIfNeeded()
   return _stateCache
+}
+
+// One-time +1000 test coin grant. Runs after the first migrateState (or
+// fresh-default load) and self-disables via the synced testCoinsGranted flag.
+// Cross-device dedupe relies on cloud-sync overwriting the flag during hydrate
+// — worst case (both devices launch offline before either syncs) each grants
+// once, which the user has explicitly accepted as fine for a test grant.
+// Skipped in read-only mode so we don't write into a state we can't push.
+function grantTestCoinsIfNeeded() {
+  if (!_stateCache) return
+  if (_stateCache.testCoinsGranted === true) return
+  if (cloudSync.isReadOnly()) return
+  _stateCache.coins = (_stateCache.coins || 0) + TEST_COIN_GRANT
+  _stateCache.testCoinsGranted = true
+  if (!Array.isArray(_stateCache.coinLogs)) _stateCache.coinLogs = []
+  _stateCache.coinLogs.push({ at: Date.now(), delta: TEST_COIN_GRANT, reason: 'test-grant' })
+  _stateCache.updatedAt = Date.now()
+  saveState(_stateCache)
+  console.log(`[store] 测试金币 ${TEST_COIN_GRANT} 已发`)
 }
 
 function saveState(state) {

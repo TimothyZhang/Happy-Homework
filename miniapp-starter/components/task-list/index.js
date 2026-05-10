@@ -82,6 +82,11 @@ Component({
       }
       this.setData({ dragId: id, dragDy: 0 })
       if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
+      // Tell host page to lock page-level scroll. WXML can't dynamically swap
+      // bind/catch on touchmove, so the page sets <page-meta disable-scroll>
+      // for the duration of the drag — that's the only reliable way to keep
+      // ordinary scrolling responsive while preventing scroll during drag.
+      this.triggerEvent('dragstart')
     },
     handleTouchMove(e) {
       if (!this.data.dragId || this.dragStartY == null) return
@@ -123,6 +128,9 @@ Component({
         this.touchStartY = null
         return
       }
+      // Always announce dragend on the way out so the host page un-locks
+      // scroll, even if the row didn't actually move slots.
+      this.triggerEvent('dragend')
       const dragId = this.data.dragId
       const dragDy = this.data.dragDy
       const itemH = this.itemHeightPx || 140

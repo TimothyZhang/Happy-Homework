@@ -115,6 +115,11 @@ Page({
     // 'today' | 'tomorrow' | 'calendar' — drives segment highlight.
     activeSegment: 'today',
     calendarOpen: false,
+    // Locks page-level scrolling while a task-list drag is in progress.
+    // Bound to <page-meta disable-scroll>. WXML can't toggle catch/bind on
+    // touchmove dynamically, so this is the supported way to suppress page
+    // scroll without breaking ordinary swipe-to-scroll on non-drag touches.
+    disableScroll: false,
     todayLabel: '今天',
     tomorrowLabel: '明天',
     calendarLabel: '日历',
@@ -315,6 +320,9 @@ Page({
     const finished = e && e.detail && e.detail.finished
     this.refreshState({ maybeCelebrate: finished })
   },
+
+  handleDragStart() { this.setData({ disableScroll: true }) },
+  handleDragEnd() { this.setData({ disableScroll: false }) },
 
   onHide() { this.hideAllRewards() },
   onUnload() { this.hideAllRewards() },

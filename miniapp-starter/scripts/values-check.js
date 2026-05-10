@@ -34,6 +34,9 @@ function seedNTasksToday(n) {
   storage['homework-pet-v1'] = JSON.stringify({
     schemaVersion: 2, coins: 0, streakDays: 0, perfectDays: [],
     pendingShareCoins: 0,
+    // Skip the one-time test grant for value-checks; the seed represents an
+    // already-onboarded account.
+    testCoinsGranted: true, coinLogs: [],
     editTaskId: null, editNotebookId: null,
     ocrCurrentJob: null, ocrJobs: [], rewardRules: [],
     pet: {
@@ -319,6 +322,33 @@ check('reason = same-species', sw3.reason, 'same-species')
 // Unknown species → rejected
 const sw4 = store.switchPetSpecies('dragon')
 check('unknown species rejected', sw4.ok, false)
+
+// === Test: one-time test coin grant on first load ===
+console.log('\n[test-grant] +1000 once on first load:')
+// Pre-existing storage WITHOUT testCoinsGranted: simulates a user upgrading
+// to this build. Migration backfills the flag as false → grant fires.
+storage = {}
+storage['homework-pet-v1'] = JSON.stringify({
+  schemaVersion: 2, coins: 25, streakDays: 0, perfectDays: [],
+  pendingShareCoins: 0,
+  editTaskId: null, editNotebookId: null,
+  ocrCurrentJob: null, ocrJobs: [], rewardRules: [],
+  pet: {}, shopItems: [], notebooks: [], tasks: [],
+  profile: { nickname: '' }
+})
+store = freshStore()
+const grant1 = store.getStateWithComputed()
+check('first load grants +1000 (25 → 1025)', grant1.coins, 1025)
+check('testCoinsGranted set to true', grant1.testCoinsGranted, true)
+check('coinLogs has one test-grant entry', grant1.coinLogs.length, 1)
+check('coinLogs[0].reason = test-grant', grant1.coinLogs[0].reason, 'test-grant')
+check('coinLogs[0].delta = 1000', grant1.coinLogs[0].delta, 1000)
+
+// Re-load: storage already has testCoinsGranted=true → grant must NOT fire.
+store = freshStore()
+const grant2 = store.getStateWithComputed()
+check('repeated load does not regrant (still 1025)', grant2.coins, 1025)
+check('coinLogs still length 1', grant2.coinLogs.length, 1)
 
 console.log(`\n  ${pass} passed, ${fail} failed.\n`)
 process.exit(fail === 0 ? 0 : 1)
