@@ -170,8 +170,9 @@ Page({
   onShareAppMessage() {
     const nb = this.data.notebook
     if (!nb) return { title: '作业本', path: '/pages/tasks/index' }
-    const total = (this.data.tasks || []).length
-    const title = total > 0 ? `${nb.name} · ${total} 项作业` : nb.name
+    const state = store.getStateWithComputed()
+    const nickname = ((state.profile && state.profile.nickname) || '').trim() || '好友'
+    const title = `${nickname}分享给你的作业：${nb.name}`
     // Embed the notebook + tasks into the share path so the receiver can
     // import it. The receiver's local store doesn't have our notebook id,
     // so a bare ?id=... would just toast "作业本不存在".

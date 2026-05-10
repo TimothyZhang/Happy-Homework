@@ -20,17 +20,17 @@
       </view>
     </view>
 
-    <view wx:for="{{payload.t}}" wx:key="index" class="task-row">
-      <view class="dot"></view>
-      <view class="row-body">
-        <text class="row-content">{{item.c}}</text>
-        <view wx:if="{{item.s}}" class="row-chips">
-          <text class="chip subject-chip">{{item.s}}</text>
+    <block wx:for="{{arrangedTasks}}" wx:key="_idx">
+      <view wx:if="{{item.firstOfSubject}}" class="subject-header">{{item.subject}}</view>
+      <view class="task-row">
+        <view class="dot"></view>
+        <view class="row-body">
+          <text class="row-content">{{item.c}}</text>
         </view>
       </view>
-    </view>
+    </block>
 
-    <view class="bottom-actions card">
+    <view class="bottom-actions">
       <button class="full-btn save-btn" bindtap="handleImport" disabled="{{importing}}">
         {{importing ? '保存中…' : '💾 保存'}}
       </button>

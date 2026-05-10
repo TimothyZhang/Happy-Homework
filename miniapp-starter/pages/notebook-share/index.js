@@ -1,6 +1,36 @@
 const store = require('../../utils/store')
 const shareReward = require('../../utils/share-reward')
 
+const SUBJECT_ORDER = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
+
+// Mirror of arrangeBySubject in pages/notebook-detail/index.js so the share
+// preview groups tasks under the same subject headers as the detail page.
+function arrangeBySubject(rawTasks) {
+  const subjectRank = (s) => {
+    const i = SUBJECT_ORDER.indexOf(s)
+    return i < 0 ? SUBJECT_ORDER.length : i
+  }
+  const list = rawTasks.map((t, idx) => ({
+    c: t.c || '',
+    s: t.s || '其他',
+    subject: t.s || '其他',
+    _idx: idx
+  }))
+  list.sort((a, b) => {
+    const ra = subjectRank(a.subject)
+    const rb = subjectRank(b.subject)
+    if (ra !== rb) return ra - rb
+    if (a.subject !== b.subject) return a.subject < b.subject ? -1 : 1
+    return a._idx - b._idx
+  })
+  let prev = null
+  for (const t of list) {
+    t.firstOfSubject = t.subject !== prev
+    prev = t.subject
+  }
+  return list
+}
+
 function summarize(n) {
   if (!n) return ''
   if (n.mode === 'one-shot') {
@@ -20,6 +50,7 @@ function summarize(n) {
 Page({
   data: {
     payload: null,
+    arrangedTasks: [],
     notebookSummary: '',
     sharerLabel: '',
     error: '',
@@ -41,6 +72,7 @@ Page({
       const from = (payload.from || '').trim() || '好友'
       this.setData({
         payload,
+        arrangedTasks: arrangeBySubject(payload.t),
         notebookSummary: summarize(payload.n),
         sharerLabel: `${from}分享给你的作业本`
       })
@@ -131,14 +163,21 @@ Page({
 
   // Forward the same shared payload onward — re-encode rather than relying
   // on `currentRoute + options`, so we don't rebuild the URL by hand.
+  // Overwrite `from` with the current user's nickname so the third recipient
+  // sees the immediate re-sharer, not the original author whose name was
+  // baked into payload by serializeNotebookForShare. payload.sharer (openid)
+  // is left alone — reward attribution still goes to the original creator.
   onShareAppMessage() {
     const payload = this.data.payload
     if (!payload || !payload.n) {
       return { title: '作业本', path: '/pages/tasks/index' }
     }
-    const total = (payload.t || []).length
-    const title = total > 0 ? `${payload.n.name} · ${total} 项作业` : payload.n.name
-    const encoded = encodeURIComponent(JSON.stringify(payload))
+    const state = store.getStateWithComputed()
+    const myNickname = ((state.profile && state.profile.nickname) || '').trim()
+    const forwarded = { ...payload, from: myNickname }
+    const fromLabel = myNickname || '好友'
+    const title = `${fromLabel}分享给你的作业：${payload.n.name}`
+    const encoded = encodeURIComponent(JSON.stringify(forwarded))
     return { title, path: `/pages/notebook-share/index?d=${encoded}` }
   }
 })

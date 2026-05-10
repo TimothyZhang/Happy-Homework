@@ -50,6 +50,14 @@
 .empty-emoji { display: block; font-size: 72rpx; }
 .empty-text { display: block; margin-top: 16rpx; font-size: 26rpx; color: #6b7785; }
 
+.subject-header {
+  margin: 28rpx 6rpx 4rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #245bdb;
+  letter-spacing: 1rpx;
+}
+
 .task-row {
   display: flex;
   align-items: center;
@@ -101,8 +109,11 @@
   font-weight: 600;
 }
 
+/* Buttons go truly edge-to-edge — negative margin cancels the .page padding
+   so the row spans the full screen width. */
 .bottom-actions {
-  margin-top: 24rpx;
+  margin: 32rpx -24rpx 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 14rpx;
