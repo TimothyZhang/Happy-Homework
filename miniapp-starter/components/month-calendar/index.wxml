@@ -1,4 +1,4 @@
-<view class="mc-wrap">
+<view class="mc-root">
   <view class="month-bar">
     <view class="m-btn" bindtap="handlePrevMonth">◀</view>
     <text class="m-label">{{monthLabel}}</text>
@@ -15,7 +15,7 @@
   <view class="cal-grid">
     <view wx:for="{{weeks}}" wx:for-item="week" wx:key="key" class="cal-row">
       <view wx:for="{{week.cells}}" wx:for-item="cell" wx:key="key"
-            class="cal-cell {{cell.empty ? 'empty' : ''}} {{cell.isToday ? 'is-today' : ''}} {{!cell.empty && selectedDate === cell.dateStr ? 'is-selected' : ''}}"
+            class="cal-cell {{cell.empty ? 'empty' : ''}} {{cell.isToday ? 'is-today' : ''}} {{cell.isSelected ? 'is-selected' : ''}}"
             data-date="{{cell.dateStr}}"
             bindtap="handlePickDay">
         <block wx:if="{{!cell.empty}}">
