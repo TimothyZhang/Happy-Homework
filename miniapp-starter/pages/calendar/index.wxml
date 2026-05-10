@@ -1,8 +1,8 @@
 <view class="page">
   <view class="card">
-    <month-calendar id="month-cal"
-                    selected-date="{{selectedDate}}"
-                    bind:pick="handleCalPick" />
+    <month-calendar id="cal"
+                    value="{{selectedDate}}"
+                    bind:change="handleCalendarChange" />
   </view>
 
   <view class="card list-card">

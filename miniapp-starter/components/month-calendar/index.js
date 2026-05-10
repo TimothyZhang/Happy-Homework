@@ -2,21 +2,16 @@ const store = require('../../utils/store')
 
 function pad2(n) { return `${n}`.padStart(2, '0') }
 
-function buildMonthGrid(year, monthIdx0, state) {
-  // monthIdx0: 0=Jan
+function buildMonthGrid(year, monthIdx0, state, selectedDate) {
   const first = new Date(year, monthIdx0, 1)
   const daysInMonth = new Date(year, monthIdx0 + 1, 0).getDate()
-  const firstDow = first.getDay() // 0=Sun..6=Sat ; we treat Mon=first
+  const firstDow = first.getDay()
   const leadBlanks = (firstDow + 6) % 7
   const cells = []
-  // Use object cells (with unique `key`) for blanks too, so wx:for / wx:key
-  // never see a null and template member access is always safe.
   for (let i = 0; i < leadBlanks; i++) {
     cells.push({ key: `pad-lead-${i}`, empty: true })
   }
   const today = store.todayStr()
-  // Single-pass aggregator — much faster than calling tasksForDate per day,
-  // especially with long-running recurring notebooks.
   const counts = store.dateCountsForMonth(state, year, monthIdx0)
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${pad2(monthIdx0 + 1)}-${pad2(d)}`
@@ -30,6 +25,7 @@ function buildMonthGrid(year, monthIdx0, state) {
       done: c.done,
       pending: c.total - c.done,
       isToday: dateStr === today,
+      isSelected: dateStr === selectedDate,
       isFuture: dateStr > today,
       hasOverdue: c.hasOverdue
     })
@@ -47,10 +43,27 @@ function buildMonthGrid(year, monthIdx0, state) {
 Component({
   options: { addGlobalClass: true },
   properties: {
-    // Date string (YYYY-MM-DD) currently highlighted as "selected".
-    // Drives both the cell highlight and the month shown when it changes
-    // to a date outside the current month.
-    selectedDate: { type: String, value: '' }
+    // YYYY-MM-DD string of the currently-selected day. The component
+    // highlights this cell and snaps the visible month to contain it
+    // when it changes externally.
+    value: {
+      type: String,
+      value: '',
+      observer(newVal) {
+        if (!newVal) return
+        // Snap visible month to contain the new value.
+        const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(newVal)
+        if (!m) return
+        const y = Number(m[1])
+        const monthIdx0 = Number(m[2]) - 1
+        if (y !== this.data.year || monthIdx0 !== this.data.monthIdx0) {
+          this._render({ year: y, monthIdx0 })
+        } else {
+          // Same month — just rebuild grid so selected highlight follows.
+          this._render({})
+        }
+      }
+    }
   },
   data: {
     year: 0,
@@ -59,48 +72,34 @@ Component({
     weeks: [],
     weekdayHeaders: ['一', '二', '三', '四', '五', '六', '日']
   },
-  observers: {
-    'selectedDate': function (newVal) {
-      // Initial property set fires before attached(); guard so we don't
-      // rebuild twice on mount.
-      if (!this._attached || !newVal) return
-      const parts = newVal.split('-').map((s) => parseInt(s, 10))
-      if (!parts[0] || !parts[1]) return
-      if (parts[0] === this.data.year && (parts[1] - 1) === this.data.monthIdx0) return
-      this.setData({ year: parts[0], monthIdx0: parts[1] - 1 })
-      this._rebuild()
-    }
-  },
-  attached() {
-    let y, m
-    const sel = this.data.selectedDate
-    if (sel) {
-      const parts = sel.split('-').map((s) => parseInt(s, 10))
-      if (parts[0] && parts[1]) { y = parts[0]; m = parts[1] - 1 }
-    }
-    if (y == null) {
+  lifetimes: {
+    attached() {
+      const seed = this.data.value || store.todayStr()
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(seed)
       const now = new Date()
-      y = now.getFullYear(); m = now.getMonth()
+      const y = m ? Number(m[1]) : now.getFullYear()
+      const mi = m ? Number(m[2]) - 1 : now.getMonth()
+      this._render({ year: y, monthIdx0: mi })
     }
-    this.setData({ year: y, monthIdx0: m })
-    this._attached = true
-    this._rebuild()
   },
   methods: {
-    // Parent calls this when external state has changed (e.g. cloud sync,
-    // task action) so the per-day counts repaint.
-    refresh() { this._rebuild() },
+    // Public — host calls this when store changes (e.g. task finished),
+    // so day-count bubbles repaint.
+    refresh() {
+      this._render({})
+    },
 
-    _rebuild() {
+    _render(patch) {
       const state = store.getStateWithComputed()
-      const { year, monthIdx0 } = this.data
+      const year = patch.year !== undefined ? patch.year : this.data.year
+      const monthIdx0 = patch.monthIdx0 !== undefined ? patch.monthIdx0 : this.data.monthIdx0
       const monthLabel = `${year} 年 ${monthIdx0 + 1} 月`
-      // Paint chrome immediately; defer the heavy grid build so first paint
-      // isn't blocked by the per-day count aggregation.
-      this.setData({ monthLabel })
+      // Paint chrome first; defer the per-day grid build (the costly part)
+      // a tick so first paint stays snappy when toggling open.
+      this.setData({ year, monthIdx0, monthLabel })
       wx.nextTick(() => {
         if (this.data.year !== year || this.data.monthIdx0 !== monthIdx0) return
-        const weeks = buildMonthGrid(year, monthIdx0, state)
+        const weeks = buildMonthGrid(year, monthIdx0, state, this.data.value)
         this.setData({ weeks })
       })
     },
@@ -109,29 +108,27 @@ Component({
       let y = this.data.year
       let m = this.data.monthIdx0 - 1
       if (m < 0) { m = 11; y -= 1 }
-      this.setData({ year: y, monthIdx0: m })
-      this._rebuild()
+      this._render({ year: y, monthIdx0: m })
     },
 
     handleNextMonth() {
       let y = this.data.year
       let m = this.data.monthIdx0 + 1
       if (m > 11) { m = 0; y += 1 }
-      this.setData({ year: y, monthIdx0: m })
-      this._rebuild()
+      this._render({ year: y, monthIdx0: m })
     },
 
     handleToday() {
+      const today = store.todayStr()
       const now = new Date()
-      this.setData({ year: now.getFullYear(), monthIdx0: now.getMonth() })
-      this._rebuild()
-      this.triggerEvent('pick', { date: store.todayStr() })
+      this._render({ year: now.getFullYear(), monthIdx0: now.getMonth() })
+      this.triggerEvent('change', { date: today })
     },
 
     handlePickDay(e) {
       const dateStr = e.currentTarget.dataset.date
       if (!dateStr) return
-      this.triggerEvent('pick', { date: dateStr })
+      this.triggerEvent('change', { date: dateStr })
     }
   }
 })

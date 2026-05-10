@@ -74,17 +74,16 @@ Page({
     }).catch(() => {})
   },
 
-  refresh(patch = {}) {
+  refresh() {
     const state = store.getStateWithComputed()
-    const selectedDate = patch.selectedDate || this.data.selectedDate
+    const selectedDate = this.data.selectedDate || store.todayStr()
     const items = decorateDayItems(store.tasksForDate(state, selectedDate), Date.now())
     this.setData({
       selectedDate,
       selectedItems: items,
       selectedLabel: this.formatDateLabel(selectedDate)
     })
-    // Per-day counts depend on the same store state — re-aggregate the grid.
-    const cal = this.selectComponent('#month-cal')
+    const cal = this.selectComponent('#cal')
     if (cal) cal.refresh()
   },
 
@@ -96,14 +95,11 @@ Page({
     return date
   },
 
-  handleCalPick(e) {
+  handleCalendarChange(e) {
     const date = e.detail && e.detail.date
     if (!date) return
-    this.refresh({ selectedDate: date })
-  },
-
-  handleOpenNotebook(e) {
-    wx.navigateTo({ url: `/pages/notebook-detail/index?id=${e.currentTarget.dataset.notebookId}` })
+    this.setData({ selectedDate: date })
+    this.refresh()
   },
 
   // task-list emits this whenever an action runs or a drag commits

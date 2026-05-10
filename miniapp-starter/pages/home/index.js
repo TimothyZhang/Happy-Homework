@@ -21,11 +21,11 @@ function formatDuration(minutes) {
   return `${h}h${m}m`
 }
 
-function shortDate(dateStr) {
-  if (!dateStr) return ''
-  const parts = dateStr.split('-')
-  if (parts.length < 3) return ''
-  return `${parseInt(parts[1], 10)}/${parseInt(parts[2], 10)}`
+// "5/10" — short M/D suffix shown on segment buttons.
+function formatShortMD(dateStr) {
+  const m = /^\d{4}-(\d{2})-(\d{2})$/.exec(dateStr || '')
+  if (!m) return ''
+  return `${Number(m[1])}/${Number(m[2])}`
 }
 
 function buildPetMessage({ isToday, totalCount, pendingCount, remainingMinutes }) {
@@ -110,16 +110,14 @@ const TASK_THROTTLE_MS = 600
 
 Page({
   data: {
-    // Segment mode: 'today' | 'tomorrow' | 'calendar'.
-    // 'calendar' is the only mode that mounts <month-calendar>.
-    mode: 'today',
-    activeDate: '',
+    selectedDate: '',
     isToday: true,
-    todayShort: '',
-    tomorrowShort: '',
-    // Date label shown on the 日历 segment when in calendar mode (empty
-    // otherwise — 今天/明天 already carry their own date label).
-    calendarShort: '',
+    // 'today' | 'tomorrow' | 'calendar' — drives segment highlight.
+    activeSegment: 'today',
+    calendarOpen: false,
+    todayLabel: '今天',
+    tomorrowLabel: '明天',
+    calendarLabel: '日历',
     overview: { totalCount: 0, pendingCount: 0, doneCount: 0 },
     remainingMinutesDisplay: '—',
     undoneItems: [],
@@ -137,20 +135,9 @@ Page({
   onShow() {
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 0 })
-    const today = store.todayStr()
-    const tomorrow = store.addDays(today, 1)
-    const patch = {
-      todayShort: shortDate(today),
-      tomorrowShort: shortDate(tomorrow)
+    if (!this.data.selectedDate) {
+      this.setData({ selectedDate: store.todayStr() })
     }
-    // Keep activeDate in lockstep with today/tomorrow modes so a stale
-    // date carried over from yesterday's session doesn't strand the user
-    // on the wrong day.
-    const mode = this.data.mode || 'today'
-    if (mode === 'today') patch.activeDate = today
-    else if (mode === 'tomorrow') patch.activeDate = tomorrow
-    else if (!this.data.activeDate) patch.activeDate = today
-    this.setData(patch)
     this.refreshState()
     // Background-check cloud (debounced 30s). Repaint if remote was newer.
     cloudSync.hydrateIfStale().then((r) => {
@@ -173,11 +160,12 @@ Page({
 
   refreshState(opts = {}) {
     const today = store.todayStr()
-    const activeDate = this.data.activeDate || today
-    const isToday = activeDate === today
+    const tomorrow = store.addDays(today, 1)
+    const selectedDate = this.data.selectedDate || today
+    const isToday = selectedDate === today
     const state = store.getStateWithComputed()
     const now = Date.now()
-    const raw = store.tasksForDate(state, activeDate)
+    const raw = store.tasksForDate(state, selectedDate)
     const decorated = raw.map((it) => decorateItem(it, now))
     const undoneItems = sortUndone(decorated.filter((it) => it.status !== 'done'))
     const doneItems = sortDone(decorated.filter((it) => it.status === 'done'))
@@ -190,14 +178,27 @@ Page({
       pendingCount: undoneItems.length,
       remainingMinutes
     })
-    // Show date on the 日历 segment only while it's the active mode —
-    // 今天/明天 already display their own date so there's no need to
-    // duplicate it on the calendar chip.
-    const calendarShort = this.data.mode === 'calendar' ? shortDate(activeDate) : ''
+
+    // Segment labels — "今天 5/10", "明天 5/11", and "日历" or "日历 5/15"
+    // when the user has picked a day that isn't today/tomorrow.
+    const todayLabel = `今天 ${formatShortMD(today)}`
+    const tomorrowLabel = `明天 ${formatShortMD(tomorrow)}`
+    const showCalDate = selectedDate && selectedDate !== today && selectedDate !== tomorrow
+    const calendarLabel = showCalDate ? `日历 ${formatShortMD(selectedDate)}` : '日历'
+
+    let activeSegment
+    if (this.data.calendarOpen) activeSegment = 'calendar'
+    else if (selectedDate === today) activeSegment = 'today'
+    else if (selectedDate === tomorrow) activeSegment = 'tomorrow'
+    else activeSegment = 'calendar'
+
     this.setData({
-      activeDate,
+      selectedDate,
       isToday,
-      calendarShort,
+      activeSegment,
+      todayLabel,
+      tomorrowLabel,
+      calendarLabel,
       overview: { totalCount: total, pendingCount: undoneItems.length, doneCount: doneItems.length },
       remainingMinutesDisplay: formatDuration(remainingMinutes),
       undoneItems,
@@ -205,9 +206,11 @@ Page({
       pet: (state.pet && state.pet.emoji) ? state.pet : this.data.pet,
       petMessage
     })
-    // If the calendar is mounted, re-aggregate its per-day counts.
-    const cal = this.selectComponent('#month-cal')
-    if (cal) cal.refresh()
+    // Repaint embedded calendar's day-count bubbles when store changes.
+    if (this.data.calendarOpen) {
+      const cal = this.selectComponent('#cal')
+      if (cal) cal.refresh()
+    }
     if (opts.maybeCelebrate) this.maybeShowReward(state)
   },
 
@@ -316,36 +319,32 @@ Page({
   onHide() { this.hideAllRewards() },
   onUnload() { this.hideAllRewards() },
 
-  // === Segment switcher === //
+  // === Date segment === //
 
-  handleSelectToday() {
+  handleSegmentTap(e) {
+    const seg = e.currentTarget.dataset.seg
+    if (!seg) return
     this.hideAllRewards()
-    this.setData({ mode: 'today', activeDate: store.todayStr() })
-    this.refreshState()
+    if (seg === 'today') {
+      this.setData({ selectedDate: store.todayStr(), calendarOpen: false })
+      this.refreshState()
+    } else if (seg === 'tomorrow') {
+      this.setData({ selectedDate: store.addDays(store.todayStr(), 1), calendarOpen: false })
+      this.refreshState()
+    } else if (seg === 'calendar') {
+      // Open the calendar; selectedDate stays where it is — user picks a
+      // day to switch the task list.
+      this.setData({ calendarOpen: true })
+      this.refreshState()
+    }
   },
 
-  handleSelectTomorrow() {
-    this.hideAllRewards()
-    const tomorrow = store.addDays(store.todayStr(), 1)
-    this.setData({ mode: 'tomorrow', activeDate: tomorrow })
-    this.refreshState()
-  },
-
-  handleSelectCalendar() {
-    this.hideAllRewards()
-    // Keep activeDate where it was so the grid lands on the user's last
-    // context (and the cell is highlighted on first paint).
-    this.setData({ mode: 'calendar' })
-    this.refreshState()
-  },
-
-  // Day picked from inside the month grid (or its 回到今日 link). Per spec
-  // this stays in calendar mode — the picker remains open.
-  handleCalPick(e) {
+  handleCalendarChange(e) {
     const date = e.detail && e.detail.date
     if (!date) return
     this.hideAllRewards()
-    this.setData({ mode: 'calendar', activeDate: date })
+    // Calendar stays open after picking — user can keep flipping days.
+    this.setData({ selectedDate: date, calendarOpen: true })
     this.refreshState()
   }
 })

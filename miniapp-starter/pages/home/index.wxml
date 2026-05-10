@@ -1,24 +1,21 @@
 <view class="page">
-  <view class="hero card">
+  <view class="card hero">
     <view class="seg-bar">
-      <view class="seg-btn {{mode === 'today' ? 'active' : ''}}" bindtap="handleSelectToday">
-        <text class="seg-label">今天</text>
-        <text class="seg-date">{{todayShort}}</text>
-      </view>
-      <view class="seg-btn {{mode === 'tomorrow' ? 'active' : ''}}" bindtap="handleSelectTomorrow">
-        <text class="seg-label">明天</text>
-        <text class="seg-date">{{tomorrowShort}}</text>
-      </view>
-      <view class="seg-btn {{mode === 'calendar' ? 'active' : ''}}" bindtap="handleSelectCalendar">
-        <text class="seg-label">日历</text>
-        <text wx:if="{{calendarShort}}" class="seg-date">{{calendarShort}}</text>
-      </view>
+      <view class="seg-btn {{activeSegment === 'today' ? 'active' : ''}}"
+            data-seg="today"
+            bindtap="handleSegmentTap">{{todayLabel}}</view>
+      <view class="seg-btn {{activeSegment === 'tomorrow' ? 'active' : ''}}"
+            data-seg="tomorrow"
+            bindtap="handleSegmentTap">{{tomorrowLabel}}</view>
+      <view class="seg-btn {{activeSegment === 'calendar' ? 'active' : ''}}"
+            data-seg="calendar"
+            bindtap="handleSegmentTap">{{calendarLabel}}</view>
     </view>
 
-    <view wx:if="{{mode === 'calendar'}}" class="hero-cal">
-      <month-calendar id="month-cal"
-                      selected-date="{{activeDate}}"
-                      bind:pick="handleCalPick" />
+    <view wx:if="{{calendarOpen}}" class="cal-embed">
+      <month-calendar id="cal"
+                      value="{{selectedDate}}"
+                      bind:change="handleCalendarChange" />
     </view>
 
     <view class="pet-talk">
@@ -44,7 +41,7 @@
 
     <task-list wx:if="{{undoneItems.length > 0}}"
                items="{{undoneItems}}"
-               active-date="{{activeDate}}"
+               active-date="{{selectedDate}}"
                bind:changed="handleTasksChanged" />
   </view>
 
@@ -54,7 +51,7 @@
       <text class="section-count done-count">{{doneItems.length}}</text>
     </view>
     <task-list items="{{doneItems}}"
-               active-date="{{activeDate}}"
+               active-date="{{selectedDate}}"
                enable-drag="{{false}}"
                bind:changed="handleTasksChanged" />
   </view>

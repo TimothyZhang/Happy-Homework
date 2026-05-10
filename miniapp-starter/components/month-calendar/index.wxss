@@ -1,3 +1,5 @@
+.mc-root { width: 100%; }
+
 .month-bar {
   display: flex;
   align-items: center;
@@ -57,9 +59,7 @@
   padding: 8rpx 0;
 }
 
-.cal-grid {
-  margin-top: 4rpx;
-}
+.cal-grid { margin-top: 4rpx; }
 
 .cal-row {
   display: grid;
@@ -80,13 +80,9 @@
   box-sizing: border-box;
 }
 
-.cal-cell.empty {
-  background: transparent;
-}
+.cal-cell.empty { background: transparent; }
 
-.cal-cell.is-today {
-  background: #fff5e6;
-}
+.cal-cell.is-today { background: #fff5e6; }
 
 .cal-cell.is-selected {
   background: rgba(36, 91, 219, 0.14);

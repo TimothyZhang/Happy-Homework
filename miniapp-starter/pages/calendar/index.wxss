@@ -14,9 +14,7 @@
 }
 
 /* === selected day list === */
-.list-card {
-  margin-top: 24rpx;
-}
+.list-card { margin-top: 24rpx; }
 
 .list-header {
   display: flex;
@@ -43,5 +41,5 @@
   color: #8a96a3;
 }
 
-/* Month grid styles live in /components/month-calendar/index.wxss */
 /* Task row styles live in /components/task-list/index.wxss */
+/* Calendar grid styles live in /components/month-calendar/index.wxss */
