@@ -218,6 +218,46 @@
 }
 .pet-meta .dot { color: #c7cdd6; }
 
+.level-block {
+  margin-top: 18rpx;
+  padding: 18rpx 20rpx 16rpx;
+  background: #f7f8fa;
+  border-radius: 18rpx;
+}
+.level-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+.level-label {
+  font-size: 26rpx;
+  color: #1f2329;
+  font-weight: 600;
+}
+.level-cost {
+  font-size: 24rpx;
+  color: #6b7785;
+  font-weight: 500;
+}
+.level-up-btn {
+  margin-top: 14rpx;
+  height: 72rpx;
+  line-height: 72rpx;
+  border-radius: 999rpx;
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+  color: #ffffff;
+  font-size: 28rpx;
+  font-weight: 600;
+  border: none;
+  padding: 0 24rpx;
+}
+.level-up-btn.disabled {
+  background: #c7cdd6;
+  color: #ffffff;
+  opacity: 1;  /* override default disabled-opacity so the label stays readable */
+}
+
 .stat-block { margin-top: 18rpx; }
 .stat-row {
   display: flex;

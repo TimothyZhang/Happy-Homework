@@ -30,6 +30,15 @@ function pickLine(state) {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
+// Tiny visual milestone for higher levels — pet name gets a star/crown badge
+// once it reaches L3 / L5. Keeps the "level matters" feeling without rewriting
+// any of the SVG assets. (See V1-VALUES-DESIGN.md §5.)
+function levelBadge(level) {
+  if (!level || level < 3) return ''
+  if (level < 5) return '⭐'
+  return '👑'
+}
+
 Page({
   data: {
     pet: {},
@@ -42,7 +51,11 @@ Page({
     animState: 'idle',
     showBubble: false,
     bubbleText: '',
-    ageDays: 0
+    ageDays: 0,
+    levelCost: 0,
+    levelProgress: 0,    // 0–100 percent for the progress bar
+    canLevelUp: false,
+    levelBadge: ''
   },
 
   onShow() {
@@ -65,6 +78,10 @@ Page({
     const state = store.getStateWithComputed()
     const pet = state.pet || {}
     const isSetup = !!pet.species
+    const levelCost = isSetup ? store.getLevelCost(pet.level || 1) : 0
+    const levelProgress = levelCost > 0
+      ? Math.min(100, Math.floor(((state.coins || 0) / levelCost) * 100))
+      : 0
     this.setData({
       pet,
       coins: state.coins,
@@ -72,6 +89,10 @@ Page({
       mode: isSetup ? 'view' : 'setup',
       animState: isSetup ? deriveAnimState(pet) : 'idle',
       ageDays: isSetup ? store.petAgeDays(pet) : 0,
+      levelCost,
+      levelProgress,
+      canLevelUp: isSetup && (state.coins || 0) >= levelCost,
+      levelBadge: levelBadge(pet.level || 1),
       showBubble: false,
       bubbleText: ''
     })
@@ -127,5 +148,17 @@ Page({
     store.buyItem(id)
     this.refreshState()
     wx.showToast({ title: `${item.name} 已购买`, icon: 'success' })
+  },
+
+  handleLevelUp() {
+    if (!this.data.canLevelUp) {
+      wx.showToast({ title: '金币不够升级', icon: 'none' })
+      return
+    }
+    const r = store.levelUpPet()
+    this.refreshState()
+    if (r && r.ok) {
+      wx.showToast({ title: `升到 Lv.${r.level}！`, icon: 'success' })
+    }
   }
 })

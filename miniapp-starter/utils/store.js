@@ -72,10 +72,22 @@ function petAgeDays(pet) {
   return Math.max(0, Math.floor((Date.now() - pet.bornAt) / 86400000))
 }
 
-// Stat decay per real-world hour. Tuned so a fresh pet starts looking
-// hungry/dirty after roughly a day or two of neglect; health is the slowest
-// to drop so "sick" only kicks in after several days.
-const PET_DECAY_PER_HOUR = { fullness: 2, cleanliness: 1, happiness: 0.5, health: 0.2 }
+// Stat decay per real-world hour. Tuned so each stat goes 100 → 50 in roughly
+// 12–20 hours, i.e. by the next day every attribute is asking to be topped up.
+// Fullness is fastest (most-frequent feeding); health is slowest (occasional
+// medicine). See V1-VALUES-DESIGN.md §3 for the rationale.
+const PET_DECAY_PER_HOUR = { fullness: 4, cleanliness: 3, happiness: 3, health: 2.5 }
+
+// Coins required to upgrade to (level + 1). Cap = LEVEL_COSTS_PLATEAU once
+// past the explicit table. Daily-spend assumption: ~70 coins/day banked for
+// upgrades → L1→L2 ≈ 2.5d, L2→L3 ≈ 7d, L3→L4 ≈ 14d, L4+ ≈ 28d.
+const LEVEL_COSTS = [180, 500, 1000, 2000]
+const LEVEL_COSTS_PLATEAU = 2000
+
+function getLevelCost(level) {
+  const idx = Math.max(1, level | 0) - 1
+  return idx < LEVEL_COSTS.length ? LEVEL_COSTS[idx] : LEVEL_COSTS_PLATEAU
+}
 
 // Pure: returns pet with stats reduced by elapsed-time decay (rounded to ints
 // so the UI doesn't show "76.342"). Doesn't write.
@@ -300,19 +312,22 @@ const defaultState = {
   ocrCurrentJob: null,
   ocrJobs: [],
   rewardRules: [
-    { title: '完成单项作业', coins: 1 },
-    { title: '当日全部完成', coins: '+完成数量' },
+    { title: '完成单项作业', coins: 10 },
+    { title: '当日全部完成', coins: '+完成数量×10' },
     { title: '分享被保存', coins: 3 },
-    { title: '连续 7 天全完成', coins: 10 }
+    { title: '连续 7 天全完成', coins: 50 }
   ],
   // Empty pet object → triggers first-time setup flow on the pet tab.
   pet: {},
+  // Each item lifts one primary stat back to a comfy zone and may nudge a
+  // secondary stat too. See V1-VALUES-DESIGN.md §4 for daily-spend math.
   shopItems: [
-    { id: 1, emoji: '🥕', name: '营养胡萝卜',   effect: '饱腹+12 开心+8',    price: 12, happiness: 8,  fullness: 12, cleanliness: 0,  health: 0,  growth: 5 },
-    { id: 2, emoji: '🧸', name: '陪玩玩具熊',   effect: '开心+15',            price: 20, happiness: 15, fullness: 0,  cleanliness: 0,  health: 0,  growth: 8 },
-    { id: 3, emoji: '🛁', name: '泡泡浴',       effect: '清洁+30 开心+5',     price: 14, happiness: 5,  fullness: 0,  cleanliness: 30, health: 0,  growth: 2 },
-    { id: 4, emoji: '💊', name: '维生素',       effect: '健康+25',            price: 18, happiness: 0,  fullness: 0,  cleanliness: 0,  health: 25, growth: 2 },
-    { id: 5, emoji: '🎀', name: '粉色蝴蝶结',   effect: '成长+10 形象更可爱', price: 28, happiness: 5,  fullness: 0,  cleanliness: 0,  health: 0,  growth: 10 }
+    { id: 1, emoji: '🥕', name: '营养胡萝卜', effect: '饱腹+30 开心+4',     price: 16, happiness: 4,  fullness: 30, cleanliness: 0,  health: 0  },
+    { id: 2, emoji: '🍱', name: '丰盛便当',   effect: '饱腹+50 开心+8',     price: 28, happiness: 8,  fullness: 50, cleanliness: 0,  health: 0  },
+    { id: 3, emoji: '🛁', name: '泡泡浴',     effect: '清洁+40 开心+5',     price: 22, happiness: 5,  fullness: 0,  cleanliness: 40, health: 0  },
+    { id: 4, emoji: '🧸', name: '陪玩玩具熊', effect: '开心+25',            price: 18, happiness: 25, fullness: 0,  cleanliness: 0,  health: 0  },
+    { id: 5, emoji: '💊', name: '维生素',     effect: '健康+30',            price: 24, happiness: 0,  fullness: 0,  cleanliness: 0,  health: 30 },
+    { id: 6, emoji: '🎀', name: '粉色蝴蝶结', effect: '开心+15 形象更可爱', price: 50, happiness: 15, fullness: 0,  cleanliness: 0,  health: 0  }
   ],
   notebooks: seedNotebooks(),
   tasks: seedTasks(),
@@ -364,12 +379,14 @@ function migrateState(raw) {
       if (!raw.pet.bornAt)        raw.pet.bornAt        = Date.now()
       if (!raw.pet.lastDecayAt)   raw.pet.lastDecayAt   = Date.now()
       if (raw.pet.level == null)            raw.pet.level            = 1
-      if (raw.pet.growth == null)           raw.pet.growth           = 0
-      if (raw.pet.nextLevelGrowth == null)  raw.pet.nextLevelGrowth  = 30
       if (raw.pet.happiness == null)        raw.pet.happiness        = 80
       if (raw.pet.fullness == null)         raw.pet.fullness         = 80
       if (raw.pet.cleanliness == null)      raw.pet.cleanliness      = 90
       if (raw.pet.health == null)           raw.pet.health           = 95
+      // Growth-XP system was replaced by coin-cost upgrades — strip the old
+      // fields so cloud-sync doesn't carry them around forever.
+      if ('growth' in raw.pet)          delete raw.pet.growth
+      if ('nextLevelGrowth' in raw.pet) delete raw.pet.nextLevelGrowth
     }
     // Pre-cloud-sync data: stamp current time so this device's data wins on
     // first cloud sync (over a fresh empty cloud doc with updatedAt=0).
@@ -1200,13 +1217,16 @@ function revertTask(taskId, dateStr) {
   })
 }
 
+// Reward constants — kept in sync with rewardRules + V1-VALUES-DESIGN.md.
+const REWARD_PER_TASK = 10
+const REWARD_DAILY_PERFECT_PER_TASK = 10  // bonus = N × this on first all-done of day
+const REWARD_WEEKLY_STREAK = 50            // every 7 consecutive perfect days
+
 function finishTask(taskId, dateStr) {
   const day = dateStr || todayStr()
   return updateState((state) => {
     const now = Date.now()
-    // Per-task reward: +1 coin for finishing any single homework item.
-    let reward = 1
-    let leveledUp = false
+    let reward = REWARD_PER_TASK
     let dailyBonus = 0
     let weeklyBonus = 0
 
@@ -1237,8 +1257,9 @@ function finishTask(taskId, dateStr) {
     if (allDone) {
       if (!Array.isArray(state.perfectDays)) state.perfectDays = []
       if (!state.perfectDays.includes(day)) {
-        // 当日全完成额外金币 = 当日完成项数
-        dailyBonus = todayItems.length
+        // Bonus = today's item count × per-task coin → effectively doubles
+        // the day's earnings when everything is finished.
+        dailyBonus = todayItems.length * REWARD_DAILY_PERFECT_PER_TASK
         reward += dailyBonus
 
         // Consecutive-day streak: if yesterday was also a perfect day, keep
@@ -1253,9 +1274,8 @@ function finishTask(taskId, dateStr) {
         const cutoff = addDays(day, -14)
         state.perfectDays = state.perfectDays.filter((d) => d >= cutoff).sort()
 
-        // Every 7 consecutive perfect days → +10 coins.
         if (state.streakDays > 0 && state.streakDays % 7 === 0) {
-          weeklyBonus = 10
+          weeklyBonus = REWARD_WEEKLY_STREAK
           reward += weeklyBonus
         }
       }
@@ -1264,17 +1284,9 @@ function finishTask(taskId, dateStr) {
     state.coins += reward
     if (state.pet && state.pet.species) {
       state.pet = commitPetDecay(state.pet)
-      state.pet.growth += 6
       state.pet.happiness = Math.min(state.pet.happiness + 6, 100)
-      if (state.pet.growth >= state.pet.nextLevelGrowth) {
-        state.pet.level += 1
-        state.pet.growth -= state.pet.nextLevelGrowth
-        state.pet.nextLevelGrowth += 20
-        state.pet.fullness = Math.min(state.pet.fullness + 10, 100)
-        leveledUp = true
-      }
     }
-    state.lastReward = { reward, dailyBonus, weeklyBonus, leveledUp, taskId, finishedAt: now }
+    state.lastReward = { reward, dailyBonus, weeklyBonus, taskId, finishedAt: now }
     return state
   })
 }
@@ -1292,9 +1304,36 @@ function buyItem(itemId) {
     state.pet.fullness    = Math.min(state.pet.fullness    + (item.fullness    || 0), 100)
     state.pet.cleanliness = Math.min(state.pet.cleanliness + (item.cleanliness || 0), 100)
     state.pet.health      = Math.min(state.pet.health      + (item.health      || 0), 100)
-    state.pet.growth      = Math.min(state.pet.growth      + (item.growth      || 0), state.pet.nextLevelGrowth)
     return state
   })
+}
+
+// Manual coin-cost upgrade: caller should gate on coins >= getLevelCost(level).
+// Returns { ok, level, cost } via state.lastLevelUp so UI can flash a toast.
+function levelUpPet() {
+  let result = null
+  updateState((state) => {
+    if (!state.pet || !state.pet.species) {
+      result = { ok: false, reason: 'no-pet' }
+      return state
+    }
+    const cost = getLevelCost(state.pet.level || 1)
+    if ((state.coins || 0) < cost) {
+      result = { ok: false, reason: 'not-enough-coins', cost }
+      return state
+    }
+    state.coins -= cost
+    state.pet = commitPetDecay(state.pet)
+    state.pet.level = (state.pet.level || 1) + 1
+    // Tiny celebration: top off the most decay-prone stats so the upgrade
+    // moment feels rewarding instead of immediately needy.
+    state.pet.happiness = Math.min((state.pet.happiness || 0) + 20, 100)
+    state.pet.fullness  = Math.min((state.pet.fullness  || 0) + 20, 100)
+    state.lastLevelUp = { level: state.pet.level, cost, at: Date.now() }
+    result = { ok: true, level: state.pet.level, cost }
+    return state
+  })
+  return result
 }
 
 function setupPet({ species, name }) {
@@ -1310,8 +1349,6 @@ function setupPet({ species, name }) {
       bornAt: now,
       lastDecayAt: now,
       level: 1,
-      growth: 0,
-      nextLevelGrowth: 30,
       happiness: 100,
       fullness: 100,
       cleanliness: 100,
@@ -1517,9 +1554,13 @@ module.exports = {
   getTaskState,
   // pet
   PET_SPECIES,
+  PET_DECAY_PER_HOUR,
+  LEVEL_COSTS,
+  getLevelCost,
   petAgeDays,
   setupPet,
   buyItem,
+  levelUpPet,
   // ocr
   setCurrentOcrJob,
   getCurrentOcrJob,

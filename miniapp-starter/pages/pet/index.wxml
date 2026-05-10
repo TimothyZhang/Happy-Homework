@@ -31,7 +31,7 @@
   <block wx:else>
     <view class="card">
       <view class="section-header">
-        <text class="section-title">{{pet.name}}</text>
+        <text class="section-title">{{pet.name}} {{levelBadge}}</text>
         <text class="coin-balance">金币 {{coins}}</text>
       </view>
 
@@ -52,8 +52,19 @@
         <text>Lv.{{pet.level}}</text>
         <text class="dot">·</text>
         <text>{{ageDays}} 天大</text>
-        <text class="dot">·</text>
-        <text>成长 {{pet.growth}}/{{pet.nextLevelGrowth}}</text>
+      </view>
+
+      <view class="level-block">
+        <view class="level-row">
+          <text class="level-label">升到 Lv.{{pet.level + 1}}</text>
+          <text class="level-cost">{{coins >= levelCost ? levelCost : coins}}/{{levelCost}}</text>
+        </view>
+        <progress percent="{{levelProgress}}" stroke-width="10" activeColor="#245bdb" backgroundColor="#edf0f3" />
+        <button class="level-up-btn {{canLevelUp ? '' : 'disabled'}}"
+                disabled="{{!canLevelUp}}"
+                bindtap="handleLevelUp">
+          {{canLevelUp ? '升级（消耗 ' + levelCost + ' 金币）' : '再攒 ' + (levelCost - coins) + ' 金币可升级'}}
+        </button>
       </view>
 
       <view class="stat-block">
