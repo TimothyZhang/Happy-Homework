@@ -1,4 +1,3 @@
-<page-meta page-style="{{dragId ? 'overflow: hidden;' : ''}}" />
 <view class="page">
   <view class="card header-card">
     <view class="section-header">
@@ -18,13 +17,7 @@
   </view>
 
   <view wx:for="{{notebooks}}" wx:key="id"
-        class="notebook-card {{dragId === item.id ? 'is-dragging' : ''}} {{item.activeToday ? 'active-today' : ''}}"
-        style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
-        bindtouchstart="handleTouchStart"
-        bindlongpress="handleLongPress"
-        catchtouchmove="handleTouchMove"
-        catchtouchend="handleTouchEnd"
-        catchtouchcancel="handleTouchEnd"
+        class="notebook-card {{item.activeToday ? 'active-today' : ''}}"
         data-id="{{item.id}}"
         bindtap="handleOpenNotebook">
     <view class="nb-row">

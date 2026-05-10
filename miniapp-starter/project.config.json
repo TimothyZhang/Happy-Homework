@@ -2,7 +2,9 @@
   "description": "微信小程序 demo",
   "cloudfunctionRoot": "cloudfunctions/",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      { "type": "folder", "value": "scripts" }
+    ],
     "include": []
   },
   "setting": {

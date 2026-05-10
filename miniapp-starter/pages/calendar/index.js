@@ -15,22 +15,23 @@ function buildMonthGrid(year, monthIdx0, state) {
     cells.push({ key: `pad-lead-${i}`, empty: true })
   }
   const today = store.todayStr()
+  // Single-pass aggregator — much faster than calling tasksForDate per day,
+  // especially with long-running recurring notebooks.
+  const counts = store.dateCountsForMonth(state, year, monthIdx0)
   for (let d = 1; d <= daysInMonth; d++) {
     const dateStr = `${year}-${pad2(monthIdx0 + 1)}-${pad2(d)}`
-    const items = store.tasksForDate(state, dateStr)
-    const total = items.length
-    const done = items.filter((it) => it.occurrence.status === 'done').length
+    const c = counts[dateStr] || { total: 0, done: 0, hasOverdue: false }
     cells.push({
       key: dateStr,
       empty: false,
       day: d,
       dateStr,
-      total,
-      done,
-      pending: total - done,
+      total: c.total,
+      done: c.done,
+      pending: c.total - c.done,
       isToday: dateStr === today,
       isFuture: dateStr > today,
-      hasOverdue: items.some((it) => it.isOverdue)
+      hasOverdue: c.hasOverdue
     })
   }
   // pad to multiple of 7
