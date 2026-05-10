@@ -47,6 +47,9 @@ function decorateNotebook(nb, tasks, today) {
     const s = t.subject || ''
     if (s && !seen.has(s)) { seen.add(s); subjects.push(s) }
   }
+  // Visual fade-out: one-shot notebooks where every task is done. Recurring
+  // notebooks loop forever — they're never "complete", so they don't fade.
+  const allDone = nb.mode === 'one-shot' && totalCount > 0 && doneCount === totalCount
   return {
     ...nb,
     taskCount: totalCount,
@@ -56,7 +59,8 @@ function decorateNotebook(nb, tasks, today) {
     modeLabel: nb.mode === 'recurring' ? '重复' : '一次性',
     rangeLabel: describeRange(nb),
     recurrenceLabel: nb.mode === 'recurring' ? describeRecurrence(nb) : '',
-    activeToday
+    activeToday,
+    allDone
   }
 }
 
@@ -129,9 +133,5 @@ Page({
         }
       }
     })
-  },
-
-  handleViewCalendar() {
-    wx.switchTab({ url: '/pages/calendar/index' })
   }
 })

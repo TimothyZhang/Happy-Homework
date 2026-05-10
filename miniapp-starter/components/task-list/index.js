@@ -82,6 +82,12 @@ Component({
       }
       this.setData({ dragId: id, dragDy: 0 })
       if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
+      // Tell host page to freeze its scroll surface. The page wraps content
+      // in a <scroll-view> and toggles its scroll-y based on this event —
+      // that's what keeps the screen from drifting once the user has already
+      // begun a touch gesture (page-meta disable-scroll alone wasn't enough
+      // mid-gesture).
+      this.triggerEvent('dragstart')
     },
     handleTouchMove(e) {
       if (!this.data.dragId || this.dragStartY == null) return
@@ -123,6 +129,9 @@ Component({
         this.touchStartY = null
         return
       }
+      // Always announce dragend on the way out so the host page un-locks
+      // scroll, even if the row didn't actually move slots.
+      this.triggerEvent('dragend')
       const dragId = this.data.dragId
       const dragDy = this.data.dragDy
       const itemH = this.itemHeightPx || 140

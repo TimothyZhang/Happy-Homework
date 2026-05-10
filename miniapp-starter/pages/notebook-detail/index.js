@@ -2,7 +2,9 @@ const store = require('../../utils/store')
 const cloudSync = require('../../utils/cloud-sync')
 const shareReward = require('../../utils/share-reward')
 
-const SUBJECT_OPTIONS = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
+// Subject ordering only — used to group tasks visually under subject headers.
+// The add/edit form moved to /pkg-notebook/notebook-task-edit/.
+const SUBJECT_ORDER = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
 
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
@@ -29,14 +31,14 @@ function decorateTask(task, notebook, dateStr, now) {
   }
 }
 
-// Sort tasks by subject (preferred order from SUBJECT_OPTIONS, unknowns last
+// Sort tasks by subject (preferred order from SUBJECT_ORDER, unknowns last
 // in name order), then by their global `order` within each subject. The
 // flat list stays usable for drag — sort is stable so adjacency = group.
 // Also annotate first-of-group rows so the WXML can render a header.
 function arrangeBySubject(list) {
   const subjectRank = (s) => {
-    const i = SUBJECT_OPTIONS.indexOf(s)
-    return i < 0 ? SUBJECT_OPTIONS.length : i
+    const i = SUBJECT_ORDER.indexOf(s)
+    return i < 0 ? SUBJECT_ORDER.length : i
   }
   const sorted = list.slice().sort((a, b) => {
     const ra = subjectRank(a.subject)
@@ -59,13 +61,6 @@ Page({
     notebook: null,
     notebookSummary: '',
     tasks: [],
-    showForm: false,
-    editingId: null,
-    formContent: '',
-    formMinutes: '',
-    formSubject: '语文',
-    formSubjectIndex: 0,
-    subjectOptions: SUBJECT_OPTIONS,
     dragId: null,
     dragDy: 0
   },
@@ -175,8 +170,9 @@ Page({
   onShareAppMessage() {
     const nb = this.data.notebook
     if (!nb) return { title: '作业本', path: '/pages/tasks/index' }
-    const total = (this.data.tasks || []).length
-    const title = total > 0 ? `${nb.name} · ${total} 项作业` : nb.name
+    const state = store.getStateWithComputed()
+    const nickname = ((state.profile && state.profile.nickname) || '').trim() || '好友'
+    const title = `${nickname}分享给你的作业：${nb.name}`
     // Embed the notebook + tasks into the share path so the receiver can
     // import it. The receiver's local store doesn't have our notebook id,
     // so a bare ?id=... would just toast "作业本不存在".
@@ -234,63 +230,21 @@ Page({
   },
 
   // === Task CRUD === //
+  // Add/edit moved to /pkg-notebook/notebook-task-edit/. We push that page
+  // and rely on onShow → refreshState() to repaint when the user backs out.
 
-  handleShowAdd() {
-    this.setData({
-      showForm: true,
-      editingId: null,
-      formContent: '',
-      formMinutes: '',
-      formSubject: '语文',
-      formSubjectIndex: 0
+  handleAddTask() {
+    wx.navigateTo({
+      url: `/pkg-notebook/notebook-task-edit/index?notebookId=${this.data.notebookId}`
     })
   },
 
   handleEditTask(e) {
     const id = e.currentTarget.dataset.id
-    const task = this.data.tasks.find((t) => t.id === id)
-    if (!task) return
-    const subj = task.subject || '语文'
-    const subjIdx = Math.max(0, SUBJECT_OPTIONS.indexOf(subj))
-    this.setData({
-      showForm: true,
-      editingId: id,
-      formContent: task.content,
-      formMinutes: String(task.estimatedMinutes || ''),
-      formSubject: SUBJECT_OPTIONS[subjIdx],
-      formSubjectIndex: subjIdx
+    if (!id) return
+    wx.navigateTo({
+      url: `/pkg-notebook/notebook-task-edit/index?notebookId=${this.data.notebookId}&taskId=${id}`
     })
-  },
-
-  handleHideForm() {
-    this.setData({ showForm: false, editingId: null })
-  },
-
-  handleContentInput(e) { this.setData({ formContent: e.detail.value }) },
-  handleMinutesInput(e) { this.setData({ formMinutes: e.detail.value }) },
-  handleSubjectChange(e) {
-    const idx = Number(e.detail.value)
-    this.setData({ formSubjectIndex: idx, formSubject: SUBJECT_OPTIONS[idx] })
-  },
-
-  handleSaveTask() {
-    const { formContent, formMinutes, formSubject, editingId, notebookId } = this.data
-    if (!formContent || !formMinutes) {
-      wx.showToast({ title: '请补全内容和时长', icon: 'none' })
-      return
-    }
-    const payload = {
-      content: formContent.trim(),
-      estimatedMinutes: Number(formMinutes),
-      subject: formSubject
-    }
-    if (editingId) {
-      store.updateTask(editingId, payload)
-    } else {
-      store.addTask({ ...payload, notebookId })
-    }
-    this.setData({ showForm: false, editingId: null })
-    this.refreshState()
   },
 
   handleDeleteTask(e) {

@@ -1,0 +1,39 @@
+<view class="page">
+  <view class="card">
+    <view wx:if="{{notebookName}}" class="nb-tag">{{notebookName}}</view>
+
+    <view class="field">
+      <text class="field-label">作业内容</text>
+      <textarea class="input textarea"
+                placeholder="例：完成口算练习 2 页"
+                value="{{formContent}}"
+                bindinput="handleContentInput"
+                auto-height />
+    </view>
+
+    <view class="field">
+      <text class="field-label">科目</text>
+      <picker mode="selector"
+              range="{{subjectOptions}}"
+              value="{{formSubjectIndex}}"
+              bindchange="handleSubjectChange">
+        <view class="input picker-value">{{formSubject}}</view>
+      </picker>
+      <text wx:if="{{showInferHint}}" class="infer-hint">根据历史推断「{{inferredSubject}}」（可在上方手动改）</text>
+    </view>
+
+    <view class="field">
+      <text class="field-label">预计耗时（分钟，可选）</text>
+      <input class="input"
+             type="number"
+             placeholder="例：20"
+             value="{{formMinutes}}"
+             bindinput="handleMinutesInput" />
+      <view wx:if="{{formEstHint && !formMinutes}}" class="est-hint" bindtap="handleAcceptEstimate">{{formEstHint}}</view>
+    </view>
+  </view>
+
+  <view class="actions">
+    <button class="primary-btn" bindtap="handleSave">{{isEdit ? '保存修改' : '添加作业'}}</button>
+  </view>
+</view>

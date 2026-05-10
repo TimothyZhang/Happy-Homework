@@ -1,9 +1,20 @@
+/* See pages/home/index.wxss — same locked-page + inner scroll-view pattern so
+   the long-press drag in <task-list> can stop scrolling mid-gesture. */
 .page {
-  min-height: 100vh;
-  padding: 24rpx;
-  padding-bottom: calc(24rpx + 100rpx + env(safe-area-inset-bottom));
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+}
+
+.scroll-area {
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 24rpx;
+  padding-bottom: calc(24rpx + 100rpx + env(safe-area-inset-bottom));
 }
 
 .card {
@@ -41,6 +52,5 @@
   color: #8a96a3;
 }
 
-/* Month grid styles live in /components/month-calendar/index.wxss */
 /* Task row styles live in /components/task-list/index.wxss */
 /* Calendar grid styles live in /components/month-calendar/index.wxss */

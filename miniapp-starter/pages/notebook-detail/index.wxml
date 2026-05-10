@@ -41,32 +41,10 @@
   </block>
 
   <view class="bottom-actions card">
-    <button class="full-btn add-btn" bindtap="handleShowAdd">+ 新增作业</button>
+    <button class="full-btn add-btn" bindtap="handleAddTask">+ 新增作业</button>
     <button class="full-btn edit-btn" bindtap="handleEditNotebook">✏️ 编辑作业本</button>
     <button class="full-btn share-btn" open-type="share">📤 分享作业本</button>
     <button class="full-btn copy-btn" bindtap="handleCopyNotebook">📋 复制内容</button>
     <button class="full-btn danger-btn" bindtap="handleDeleteNotebook">🗑 删除作业本</button>
-  </view>
-
-  <view wx:if="{{showForm}}" class="card form-card">
-    <view class="section-header">
-      <text class="section-title">{{editingId ? '编辑作业' : '新增作业'}}</text>
-      <text class="link-btn" bindtap="handleHideForm">取消</text>
-    </view>
-    <view class="field">
-      <text class="field-label">作业内容</text>
-      <textarea class="input textarea" placeholder="例：完成口算练习 2 页" value="{{formContent}}" bindinput="handleContentInput"></textarea>
-    </view>
-    <view class="field">
-      <text class="field-label">科目</text>
-      <picker mode="selector" range="{{subjectOptions}}" value="{{formSubjectIndex}}" bindchange="handleSubjectChange">
-        <view class="input picker-value">{{formSubject}}</view>
-      </picker>
-    </view>
-    <view class="field">
-      <text class="field-label">预计耗时（分钟）</text>
-      <input class="input" type="number" placeholder="例：20" value="{{formMinutes}}" bindinput="handleMinutesInput" />
-    </view>
-    <button class="save-btn" bindtap="handleSaveTask">{{editingId ? '保存修改' : '保存'}}</button>
   </view>
 </view>

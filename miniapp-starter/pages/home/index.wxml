@@ -1,60 +1,65 @@
+<page-meta disable-scroll="true" />
 <view class="page">
-  <view class="card hero">
-    <view class="seg-bar">
-      <view class="seg-btn {{activeSegment === 'today' ? 'active' : ''}}"
-            data-seg="today"
-            bindtap="handleSegmentTap">{{todayLabel}}</view>
-      <view class="seg-btn {{activeSegment === 'tomorrow' ? 'active' : ''}}"
-            data-seg="tomorrow"
-            bindtap="handleSegmentTap">{{tomorrowLabel}}</view>
-      <view class="seg-btn {{activeSegment === 'calendar' ? 'active' : ''}}"
-            data-seg="calendar"
-            bindtap="handleSegmentTap">{{calendarLabel}}</view>
-    </view>
-
-    <view wx:if="{{calendarOpen}}" class="cal-embed">
-      <month-calendar id="cal"
-                      value="{{selectedDate}}"
-                      bind:change="handleCalendarChange" />
-    </view>
-
-    <view class="pet-talk">
-      <view class="pet-bubble">
-        <text class="pet-bubble-text">{{petMessage}}</text>
+  <scroll-view scroll-y="{{!disableScroll}}" class="scroll-area" enhanced="{{true}}" show-scrollbar="{{false}}">
+    <view class="card hero">
+      <view class="seg-bar">
+        <view class="seg-btn today-seg {{activeSegment === 'today' ? 'active' : ''}}"
+              data-seg="today"
+              bindtap="handleSegmentTap">{{todayLabel}}</view>
+        <view class="seg-btn small-seg {{activeSegment === 'tomorrow' ? 'active' : ''}}"
+              data-seg="tomorrow"
+              bindtap="handleSegmentTap">{{tomorrowLabel}}</view>
+        <view class="seg-btn small-seg {{activeSegment === 'calendar' ? 'active' : ''}}"
+              data-seg="calendar"
+              bindtap="handleSegmentTap">{{calendarLabel}}</view>
       </view>
-      <view class="pet-mascot">
-        <text class="pet-emoji">{{pet.emoji}}</text>
+
+      <view wx:if="{{calendarOpen}}" class="cal-embed">
+        <month-calendar id="cal"
+                        value="{{selectedDate}}"
+                        bind:change="handleCalendarChange" />
+      </view>
+
+      <view class="pet-talk">
+        <view class="pet-bubble">
+          <text class="pet-bubble-text">{{petMessage}}</text>
+        </view>
+        <view class="pet-mascot">
+          <text class="pet-emoji">{{pet.emoji}}</text>
+        </view>
       </view>
     </view>
-  </view>
 
-  <view class="card section-card">
-    <view class="section-header">
-      <text class="section-title">未完成</text>
-      <text wx:if="{{undoneItems.length > 0}}" class="section-count">{{undoneItems.length}}</text>
+    <view class="card section-card">
+      <view class="section-header">
+        <text class="section-title">未完成</text>
+        <text wx:if="{{undoneItems.length > 0}}" class="section-count">{{undoneItems.length}}</text>
+      </view>
+
+      <view wx:if="{{undoneItems.length === 0}}" class="empty-tip">
+        <text class="empty-emoji">{{doneItems.length > 0 ? '🎉' : '📝'}}</text>
+        <text class="empty-text">{{doneItems.length > 0 ? '没有未完成的作业，全部搞定！' : (isToday ? '今日没有待办，去「作业本」页新建' : '这一天没有作业')}}</text>
+      </view>
+
+      <task-list wx:if="{{undoneItems.length > 0}}"
+                 items="{{undoneItems}}"
+                 active-date="{{selectedDate}}"
+                 bind:dragstart="handleDragStart"
+                 bind:dragend="handleDragEnd"
+                 bind:changed="handleTasksChanged" />
     </view>
 
-    <view wx:if="{{undoneItems.length === 0}}" class="empty-tip">
-      <text class="empty-emoji">{{doneItems.length > 0 ? '🎉' : '📝'}}</text>
-      <text class="empty-text">{{doneItems.length > 0 ? '没有未完成的作业，全部搞定！' : (isToday ? '今日没有待办，去「作业本」页新建' : '这一天没有作业')}}</text>
+    <view wx:if="{{doneItems.length > 0}}" class="card section-card done-section">
+      <view class="section-header">
+        <text class="section-title">已完成</text>
+        <text class="section-count done-count">{{doneItems.length}}</text>
+      </view>
+      <task-list items="{{doneItems}}"
+                 active-date="{{selectedDate}}"
+                 enable-drag="{{false}}"
+                 bind:changed="handleTasksChanged" />
     </view>
-
-    <task-list wx:if="{{undoneItems.length > 0}}"
-               items="{{undoneItems}}"
-               active-date="{{selectedDate}}"
-               bind:changed="handleTasksChanged" />
-  </view>
-
-  <view wx:if="{{doneItems.length > 0}}" class="card section-card done-section">
-    <view class="section-header">
-      <text class="section-title">已完成</text>
-      <text class="section-count done-count">{{doneItems.length}}</text>
-    </view>
-    <task-list items="{{doneItems}}"
-               active-date="{{selectedDate}}"
-               enable-drag="{{false}}"
-               bind:changed="handleTasksChanged" />
-  </view>
+  </scroll-view>
 
   <reward-toast kind="task"
                 visible="{{taskRewardVisible}}"

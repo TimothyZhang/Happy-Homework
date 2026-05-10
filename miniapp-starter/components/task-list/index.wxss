@@ -5,6 +5,7 @@
 }
 
 .task-row {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14rpx;
@@ -14,15 +15,38 @@
   transition: transform 0.16s ease, box-shadow 0.16s ease;
 }
 
+.task-row.is-overdue {
+  background: #fff1f0;
+}
+
+/* Doing wins over overdue: when a row is mid-task it should look "active",
+   not "overdue". Selector order matters — keep .doing after .is-overdue. */
+.task-row.doing {
+  background: #eaf2ff;
+  box-shadow: inset 0 0 0 1rpx rgba(36, 91, 219, 0.18);
+}
+
+.task-row.doing .doing-strip {
+  position: absolute;
+  left: 0;
+  top: 8rpx;
+  bottom: 8rpx;
+  width: 6rpx;
+  border-radius: 0 4rpx 4rpx 0;
+  background: #245bdb;
+  animation: doing-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes doing-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
 .task-row.is-dragging {
   transition: none;
   background: #ffffff;
   box-shadow: 0 16rpx 40rpx rgba(31, 35, 41, 0.18);
   transform: scale(1.02);
-}
-
-.task-row.is-overdue {
-  background: #fff1f0;
 }
 
 .dot {
@@ -67,6 +91,7 @@
   color: #5f6b7a;
 }
 
+.doing-chip { background: #245bdb; color: #ffffff; font-weight: 700; }
 .subject-chip { background: #f0e9ff; color: #6c3fdb; font-weight: 600; }
 .nb-chip { background: #eef4ff; color: #245bdb; font-weight: 600; }
 .est-chip { background: #f7f8fa; color: #6b7785; }

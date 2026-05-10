@@ -1,0 +1,36 @@
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx;
+  padding-bottom: calc(24rpx + 100rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+}
+
+.placeholder-card {
+  margin-top: 120rpx;
+  padding: 96rpx 32rpx;
+  background: #ffffff;
+  border-radius: 28rpx;
+  box-shadow: 0 16rpx 48rpx rgba(31, 35, 41, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.placeholder-emoji {
+  font-size: 96rpx;
+  line-height: 1;
+}
+
+.placeholder-title {
+  margin-top: 28rpx;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.placeholder-text {
+  margin-top: 16rpx;
+  font-size: 28rpx;
+  color: #6b7785;
+}

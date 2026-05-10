@@ -6,7 +6,7 @@ Component({
     list: [
       { pagePath: '/pages/home/index', text: '首页' },
       { pagePath: '/pages/tasks/index', text: '作业本' },
-      { pagePath: '/pages/calendar/index', text: '日历' },
+      { pagePath: '/pages/leaderboard/index', text: '排行榜' },
       { pagePath: '/pages/pet/index', text: '宠物' },
       { pagePath: '/pages/profile/index', text: '我的' }
     ]

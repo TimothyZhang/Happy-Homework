@@ -115,6 +115,13 @@ Page({
     // 'today' | 'tomorrow' | 'calendar' — drives segment highlight.
     activeSegment: 'today',
     calendarOpen: false,
+    // Locks the inner <scroll-view> while a task-list drag is in progress.
+    // The page itself has page-meta disable-scroll permanently on; the only
+    // scrollable surface is .scroll-area. Toggling page-meta mid-gesture
+    // wasn't preventing the screen from drifting once the touch had begun,
+    // so we keep the page locked and flip scroll-y on the inner view instead
+    // — that change is honored immediately even mid-gesture.
+    disableScroll: false,
     todayLabel: '今天',
     tomorrowLabel: '明天',
     calendarLabel: '日历',
@@ -315,6 +322,9 @@ Page({
     const finished = e && e.detail && e.detail.finished
     this.refreshState({ maybeCelebrate: finished })
   },
+
+  handleDragStart() { this.setData({ disableScroll: true }) },
+  handleDragEnd() { this.setData({ disableScroll: false }) },
 
   onHide() { this.hideAllRewards() },
   onUnload() { this.hideAllRewards() },

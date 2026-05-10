@@ -1,12 +1,6 @@
 <view class="page">
   <view class="card header-card">
-    <view class="section-header">
-      <text class="section-title">作业本</text>
-      <text class="link-btn" bindtap="handleViewCalendar">📅 日历</text>
-    </view>
-    <view class="header-actions">
-      <button class="primary-btn" bindtap="handleAddNotebook">+ 新建作业本</button>
-    </view>
+    <button class="primary-btn add-nb-btn" bindtap="handleAddNotebook">+ 新建作业本</button>
   </view>
 
   <view wx:if="{{notebooks.length === 0}}" class="card">
@@ -17,7 +11,7 @@
   </view>
 
   <view wx:for="{{notebooks}}" wx:key="id"
-        class="notebook-card {{item.activeToday ? 'active-today' : ''}}"
+        class="notebook-card {{item.activeToday ? 'active-today' : ''}} {{item.allDone ? 'all-done' : ''}}"
         data-id="{{item.id}}"
         bindtap="handleOpenNotebook">
     <view class="nb-row">

@@ -46,26 +46,21 @@
   box-sizing: border-box;
 }
 
-.bottom-actions .add-btn,
-.bottom-actions .edit-btn {
+.bottom-actions .add-btn {
   background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
   color: #ffffff;
   box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
 }
 
-.bottom-actions .share-btn {
-  background: #eef4ff;
-  color: #245bdb;
-}
-
-.bottom-actions .copy-btn {
-  background: #f0e9ff;
-  color: #6c3fdb;
-}
-
+/* All non-primary actions share a subdued light-gray look so the only
+   visually loud button is 「+ 新增作业」 above. */
+.bottom-actions .edit-btn,
+.bottom-actions .share-btn,
+.bottom-actions .copy-btn,
 .bottom-actions .danger-btn {
-  background: #fff1f0;
-  color: #e54545;
+  background: #f0f0f0;
+  color: #1f2329;
+  box-shadow: none;
 }
 
 .empty-state {
@@ -148,10 +143,6 @@
   color: #245bdb;
 }
 
-.picker-value {
-  color: #1f2329;
-}
-
 .row-actions {
   display: flex;
   align-items: center;
@@ -177,59 +168,3 @@
 .icon-btn.done-mark { background: #e8f7ee; color: #067647; box-shadow: none; font-size: 32rpx; }
 .icon-btn.edit-btn { background: #eef4ff; color: #245bdb; }
 .icon-btn.del-btn { background: #fff1f0; color: #e54545; }
-
-.form-card {
-  margin-top: 24rpx;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.section-title {
-  font-size: 30rpx;
-  font-weight: 700;
-  color: #1f2329;
-}
-
-.link-btn {
-  font-size: 26rpx;
-  color: #245bdb;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 12rpx;
-  margin-top: 18rpx;
-}
-
-.field-label {
-  font-size: 26rpx;
-  color: #6b7785;
-}
-
-.input,
-.textarea {
-  padding: 18rpx 22rpx;
-  border-radius: 18rpx;
-  background: #f7f8fa;
-  font-size: 28rpx;
-  color: #1f2329;
-}
-
-.textarea {
-  min-height: 96rpx;
-}
-
-.save-btn {
-  margin-top: 24rpx;
-  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
-  color: #ffffff;
-  border-radius: 999rpx;
-  border: none;
-  font-size: 30rpx;
-  font-weight: 600;
-}

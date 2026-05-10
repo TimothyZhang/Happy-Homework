@@ -118,13 +118,6 @@ Component({
       this._render({ year: y, monthIdx0: m })
     },
 
-    handleToday() {
-      const today = store.todayStr()
-      const now = new Date()
-      this._render({ year: now.getFullYear(), monthIdx0: now.getMonth() })
-      this.triggerEvent('change', { date: today })
-    },
-
     handlePickDay(e) {
       const dateStr = e.currentTarget.dataset.date
       if (!dateStr) return

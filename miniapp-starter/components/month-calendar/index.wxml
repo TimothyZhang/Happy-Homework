@@ -4,10 +4,6 @@
     <text class="m-label">{{monthLabel}}</text>
     <view class="m-btn" bindtap="handleNextMonth">▶</view>
   </view>
-  <view class="m-actions">
-    <view class="link-pill" bindtap="handleToday">回到今日</view>
-  </view>
-
   <view class="weekday-header">
     <text wx:for="{{weekdayHeaders}}" wx:key="*this" class="wh-cell">{{item}}</text>
   </view>

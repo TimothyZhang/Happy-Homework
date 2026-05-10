@@ -50,6 +50,14 @@
 .empty-emoji { display: block; font-size: 72rpx; }
 .empty-text { display: block; margin-top: 16rpx; font-size: 26rpx; color: #6b7785; }
 
+.subject-header {
+  margin: 28rpx 6rpx 4rpx;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #245bdb;
+  letter-spacing: 1rpx;
+}
+
 .task-row {
   display: flex;
   align-items: center;
@@ -101,8 +109,11 @@
   font-weight: 600;
 }
 
+/* Buttons go truly edge-to-edge — negative margin cancels the .page padding
+   so the row spans the full screen width. */
 .bottom-actions {
-  margin-top: 24rpx;
+  margin: 32rpx -24rpx 0;
+  padding: 0;
   display: flex;
   flex-direction: column;
   gap: 14rpx;
@@ -112,11 +123,18 @@
   width: 100%;
   margin: 0;
   height: 84rpx;
-  line-height: 84rpx;
+  /* WeChat <button> 默认 line-height 在不同基础库表现不一致 — flex 显式居中
+     才能让单行文字稳定垂直居中。 */
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   border-radius: 999rpx;
   font-size: 28rpx;
   font-weight: 600;
   border: none;
+  box-sizing: border-box;
 }
 
 .save-btn {
@@ -130,14 +148,12 @@
   color: #ffffff;
 }
 
-.share-btn {
-  background: #eef4ff;
-  color: #245bdb;
-}
-
+/* 弱化次要操作（分享 / 取消 / 错误页返回）— 浅灰背景 + 深色文字。
+   让 「💾 保存」 在主操作组里独占视觉重点。 */
+.share-btn,
 .ghost-btn {
-  background: #f7f8fa;
-  color: #6b7785;
+  background: #f0f0f0;
+  color: #1f2329;
 }
 
 .error-card { text-align: center; padding: 48rpx 28rpx; }
