@@ -68,7 +68,7 @@
           <text wx:if="{{animState === 'sad'}}"     class="state-icon sad-icon">💧</text>
           <text wx:if="{{animState === 'happy'}}"   class="state-icon happy-icon">💖</text>
         </view>
-        <view wx:else
+        <view wx:elif="{{pet.species}}"
               class="pet-figure species-{{pet.species}} pet-anim-{{currentAnim}} anim-{{animState}}">
           <image class="pet-art" src="/assets/pets/{{pet.species}}.svg" mode="aspectFit" />
           <text wx:if="{{animState === 'hungry'}}"  class="state-icon hungry-icon">🍖</text>
