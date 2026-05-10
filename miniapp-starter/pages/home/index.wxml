@@ -56,6 +56,7 @@
   <reward-toast kind="allDone"
                 visible="{{allDoneVisible}}"
                 coins="{{allDoneCoins}}"
+                last-task-coins="{{allDoneLastTaskCoins}}"
                 subtitle="{{allDoneSubtitle}}"
                 pet-emoji="{{pet.emoji}}"
                 bind:skip="handleSkipAllDone" />

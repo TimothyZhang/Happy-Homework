@@ -322,14 +322,18 @@ const defaultState = {
   // Empty pet object → triggers first-time setup flow on the pet tab.
   pet: {},
   // Each item lifts one primary stat back to a comfy zone and may nudge a
-  // secondary stat too. See V1-VALUES-DESIGN.md §4 for daily-spend math.
+  // secondary stat too. Every attribute (饱腹/清洁/开心/健康) has at least a
+  // cheap + mid-tier option; 蝴蝶结 is the high-tier reward splurge.
+  // See V1-VALUES-DESIGN.md §4 for daily-spend math.
   shopItems: [
     { id: 1, emoji: '🥕', name: '营养胡萝卜', effect: '饱腹+30 开心+4',     price: 16, happiness: 4,  fullness: 30, cleanliness: 0,  health: 0  },
     { id: 2, emoji: '🍱', name: '丰盛便当',   effect: '饱腹+50 开心+8',     price: 28, happiness: 8,  fullness: 50, cleanliness: 0,  health: 0  },
-    { id: 3, emoji: '🛁', name: '泡泡浴',     effect: '清洁+40 开心+5',     price: 22, happiness: 5,  fullness: 0,  cleanliness: 40, health: 0  },
-    { id: 4, emoji: '🧸', name: '陪玩玩具熊', effect: '开心+25',            price: 18, happiness: 25, fullness: 0,  cleanliness: 0,  health: 0  },
-    { id: 5, emoji: '💊', name: '维生素',     effect: '健康+30',            price: 24, happiness: 0,  fullness: 0,  cleanliness: 0,  health: 30 },
-    { id: 6, emoji: '🎀', name: '粉色蝴蝶结', effect: '开心+15 形象更可爱', price: 50, happiness: 15, fullness: 0,  cleanliness: 0,  health: 0  }
+    { id: 3, emoji: '🧼', name: '香皂',       effect: '清洁+30',            price: 18, happiness: 0,  fullness: 0,  cleanliness: 30, health: 0  },
+    { id: 4, emoji: '🛁', name: '泡泡浴',     effect: '清洁+60 开心+5',     price: 32, happiness: 5,  fullness: 0,  cleanliness: 60, health: 0  },
+    { id: 5, emoji: '🧸', name: '陪玩玩具熊', effect: '开心+25',            price: 18, happiness: 25, fullness: 0,  cleanliness: 0,  health: 0  },
+    { id: 6, emoji: '💊', name: '维生素',     effect: '健康+25',            price: 20, happiness: 0,  fullness: 0,  cleanliness: 0,  health: 25 },
+    { id: 7, emoji: '🏃', name: '健身房一次', effect: '健康+55 开心+5',     price: 35, happiness: 5,  fullness: 0,  cleanliness: 0,  health: 55 },
+    { id: 8, emoji: '🎀', name: '粉色蝴蝶结', effect: '开心+15 形象更可爱', price: 50, happiness: 15, fullness: 0,  cleanliness: 0,  health: 0  }
   ],
   notebooks: seedNotebooks(),
   tasks: seedTasks(),
@@ -362,6 +366,10 @@ function migrateState(raw) {
     raw.profile = raw.profile && typeof raw.profile === 'object'
       ? { nickname: raw.profile.nickname || '', avatar: raw.profile.avatar || '' }
       : { nickname: '', avatar: '' }
+    // shopItems is config (same for everyone), not user state — always
+    // refresh from defaultState so item updates ship to existing users
+    // without a manual cache wipe.
+    raw.shopItems = clone(defaultState).shopItems
     if (!Array.isArray(raw.perfectDays)) raw.perfectDays = []
     if (typeof raw.pendingShareCoins !== 'number') raw.pendingShareCoins = 0
     if (typeof raw.streakDays !== 'number') raw.streakDays = 0

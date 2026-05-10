@@ -165,7 +165,7 @@ console.log('\n[shop] item sanity:')
 storage = {}
 store = freshStore()
 const items = store.defaultState.shopItems
-check('6 shop items', items.length, 6)
+check('8 shop items', items.length, 8)
 for (const it of items) {
   const sum = (it.happiness | 0) + (it.fullness | 0) + (it.cleanliness | 0) + (it.health | 0)
   if (sum <= 0) {
@@ -176,7 +176,31 @@ for (const it of items) {
 const carrot = items.find((i) => i.id === 1)
 check('carrot price = 16',        carrot.price, 16)
 check('carrot fullness = 30',     carrot.fullness, 30)
-check('shop totals match design', items.map((i) => i.price), [16, 28, 22, 18, 24, 50])
+check('shop totals match design', items.map((i) => i.price), [16, 28, 18, 32, 18, 20, 35, 50])
+
+// Each primary stat needs at least 2 items (cheap + mid tier). The "primary"
+// stat is whichever attribute the item lifts the most.
+const STAT_KEYS = ['fullness', 'cleanliness', 'happiness', 'health']
+const primaryCounts = { fullness: 0, cleanliness: 0, happiness: 0, health: 0 }
+for (const it of items) {
+  let primary = STAT_KEYS[0]
+  for (const k of STAT_KEYS) if ((it[k] | 0) > (it[primary] | 0)) primary = k
+  if ((it[primary] | 0) > 0) primaryCounts[primary]++
+}
+for (const k of STAT_KEYS) {
+  check(`stat "${k}" has ≥2 items`, primaryCounts[k] >= 2, true)
+}
+// Price tiers: cheap 15-25, mid 25-40, high 50-80.
+for (const it of items) {
+  const inRange =
+    (it.price >= 15 && it.price <= 25) ||
+    (it.price >= 25 && it.price <= 40) ||
+    (it.price >= 50 && it.price <= 80)
+  if (!inRange) {
+    fail++
+    console.log(`  ✗ item ${it.id} (${it.name}) price ${it.price} outside design tiers`)
+  }
+}
 
 // === Test 9: rewardRules labels reflect new economy ===
 console.log('\n[reward] rule labels:')

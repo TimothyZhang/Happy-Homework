@@ -95,7 +95,7 @@ function sortDone(items) {
 // Animation lifetimes — keep in sync with reward-toast/index.wxss keyframes
 // (reward-task-pop, reward-card-pop+reward-card-out).
 const TASK_ANIM_MS = 1200
-const ALLDONE_ANIM_MS = 2500
+const ALLDONE_ANIM_MS = 3500
 // Gap between task and allDone reveal so the task pop has time to fade.
 const TASK_TO_ALLDONE_GAP_MS = 200
 // Throttle window — drop fast double-clicks on the finish button.
@@ -117,6 +117,7 @@ Page({
     taskRewardCoins: 0,
     allDoneVisible: false,
     allDoneCoins: 0,
+    allDoneLastTaskCoins: 0,
     allDoneSubtitle: ''
   },
 
@@ -227,7 +228,7 @@ Page({
         : '今日全部完成!'
       const delay = TASK_ANIM_MS + TASK_TO_ALLDONE_GAP_MS
       this._allDoneTimer = setTimeout(() => {
-        this.showAllDone(bonusCoins, subtitle)
+        this.showAllDone(taskCoins, bonusCoins, subtitle)
       }, delay)
     }
   },
@@ -241,11 +242,12 @@ Page({
     }, TASK_ANIM_MS)
   },
 
-  showAllDone(coins, subtitle) {
+  showAllDone(lastTaskCoins, bonusCoins, subtitle) {
     if (this._allDoneHideTimer) { clearTimeout(this._allDoneHideTimer); this._allDoneHideTimer = null }
     this.setData({
       allDoneVisible: true,
-      allDoneCoins: coins,
+      allDoneCoins: bonusCoins,
+      allDoneLastTaskCoins: lastTaskCoins,
       allDoneSubtitle: subtitle || ''
     })
     this._allDoneHideTimer = setTimeout(() => {

@@ -12,6 +12,22 @@
   </block>
 
   <block wx:elif="{{kind === 'allDone'}}">
+    <!-- Coin rain spans the whole overlay so coins can fall from above the card -->
+    <view class="reward-rain">
+      <text class="reward-rain__c reward-rain__c--1">🪙</text>
+      <text class="reward-rain__c reward-rain__c--2">🪙</text>
+      <text class="reward-rain__c reward-rain__c--3">🪙</text>
+      <text class="reward-rain__c reward-rain__c--4">🪙</text>
+      <text class="reward-rain__c reward-rain__c--5">🪙</text>
+      <text class="reward-rain__c reward-rain__c--6">🪙</text>
+      <text class="reward-rain__c reward-rain__c--7">🪙</text>
+      <text class="reward-rain__c reward-rain__c--8">🪙</text>
+      <text class="reward-rain__c reward-rain__c--9">🪙</text>
+      <text class="reward-rain__c reward-rain__c--10">🪙</text>
+      <text class="reward-rain__c reward-rain__c--11">🪙</text>
+      <text class="reward-rain__c reward-rain__c--12">🪙</text>
+    </view>
+
     <view class="reward-alldone" catchtap="noop">
       <text class="reward-alldone__star reward-alldone__star--s1">⭐</text>
       <text class="reward-alldone__star reward-alldone__star--s2">✨</text>
@@ -21,14 +37,28 @@
       <text class="reward-alldone__star reward-alldone__star--s6">🌟</text>
       <text class="reward-alldone__star reward-alldone__star--s7">⭐</text>
       <text class="reward-alldone__star reward-alldone__star--s8">✨</text>
+      <text class="reward-alldone__star reward-alldone__star--s9">🌟</text>
+      <text class="reward-alldone__star reward-alldone__star--s10">⭐</text>
+      <text class="reward-alldone__star reward-alldone__star--s11">✨</text>
+      <text class="reward-alldone__star reward-alldone__star--s12">🌟</text>
 
       <view class="reward-alldone__pet-wrap">
         <text class="reward-alldone__pet">{{petEmoji}}</text>
       </view>
       <text class="reward-alldone__title">{{subtitle || '今日全部完成!'}}</text>
-      <view class="reward-alldone__coin">
-        <text class="reward-alldone__coin-icon">🪙</text>
-        <text class="reward-alldone__coin-text">+{{coins}}</text>
+
+      <!-- 3-phase coin display, all stacked in the same area:
+           1) +N (single-task) flash
+           2) +N + M equation
+           3) Big TOTAL = N + M -->
+      <view class="reward-alldone__stage">
+        <text class="reward-alldone__flash">+{{lastTaskCoins}}</text>
+        <text class="reward-alldone__eq">+{{lastTaskCoins}} + {{coins}}</text>
+        <view class="reward-alldone__total">
+          <text class="reward-alldone__total-icon">🪙</text>
+          <text class="reward-alldone__total-text">+{{lastTaskCoins + coins}}</text>
+          <text class="reward-alldone__total-suffix">金币!</text>
+        </view>
       </view>
     </view>
   </block>
