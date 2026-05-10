@@ -45,6 +45,9 @@ Page({
     coins: 0,
     shopItems: [],
     speciesOptions: store.PET_SPECIES,
+    switchCost: store.PET_SWITCH_COST,
+    showSwitchPanel: false,
+    switching: false,
     mode: 'view',          // 'setup' | 'view'
     setupSpecies: '',
     setupName: '',
@@ -160,5 +163,48 @@ Page({
     if (r && r.ok) {
       wx.showToast({ title: `升到 Lv.${r.level}！`, icon: 'success' })
     }
+  },
+
+  // === Switch species === //
+  handleOpenSwitchPanel() {
+    this.setData({ showSwitchPanel: true })
+  },
+
+  handleCloseSwitchPanel() {
+    this.setData({ showSwitchPanel: false })
+  },
+
+  handlePickSwitchSpecies(e) {
+    if (this.data.switching) return
+    const id = e.currentTarget.dataset.id
+    const entry = store.PET_SPECIES.find((s) => s.id === id)
+    if (!entry) return
+    if (this.data.pet.species === id) return  // current species — disabled
+    if ((this.data.coins || 0) < this.data.switchCost) {
+      wx.showToast({ title: `金币不足，需要 ${this.data.switchCost}`, icon: 'none' })
+      return
+    }
+    this.setData({ switching: true })
+    wx.showModal({
+      title: '换宠物',
+      content: `花 ${this.data.switchCost} 金币换成 ${entry.emoji} ${entry.label} 吗？属性、等级和名字都会保留。`,
+      confirmText: '确认',
+      cancelText: '取消',
+      success: (res) => {
+        if (!res.confirm) {
+          this.setData({ switching: false })
+          return
+        }
+        const r = store.switchPetSpecies(id)
+        this.setData({ switching: false, showSwitchPanel: false })
+        this.refreshState()
+        if (r && r.ok) {
+          wx.showToast({ title: `换成 ${r.emoji} ${r.label} 啦！`, icon: 'success' })
+        } else if (r && r.reason === 'not-enough-coins') {
+          wx.showToast({ title: `金币不足，需要 ${this.data.switchCost}`, icon: 'none' })
+        }
+      },
+      fail: () => { this.setData({ switching: false }) }
+    })
   }
 })

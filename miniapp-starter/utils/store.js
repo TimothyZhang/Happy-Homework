@@ -62,12 +62,15 @@ const PET_SPECIES = [
   { id: 'cat',     emoji: '🐱', label: '猫' },
   { id: 'dog',     emoji: '🐶', label: '狗' },
   { id: 'chicken', emoji: '🐤', label: '鸡' },
+  { id: 'parrot',  emoji: '🦜', label: '鹦鹉' },
   { id: 'pig',     emoji: '🐷', label: '猪' },
   { id: 'cow',     emoji: '🐮', label: '牛' },
   { id: 'rabbit',  emoji: '🐰', label: '兔子' },
   { id: 'sheep',   emoji: '🐑', label: '羊' },
   { id: 'alpaca',  emoji: '🦙', label: '羊驼' }
 ]
+
+const PET_SWITCH_COST = 100
 
 function petAgeDays(pet) {
   if (!pet || !pet.bornAt) return 0
@@ -1401,6 +1404,38 @@ function setupPet({ species, name }) {
   })
 }
 
+// Re-skin only: swap species/emoji on an existing pet for PET_SWITCH_COST coins.
+// Stats, level, name, bornAt all preserved — the user paid for them.
+function switchPetSpecies(species) {
+  let result = null
+  updateState((state) => {
+    if (!state.pet || !state.pet.species) {
+      result = { ok: false, reason: 'no-pet' }
+      return state
+    }
+    const entry = PET_SPECIES.find((s) => s.id === species)
+    if (!entry) {
+      result = { ok: false, reason: 'unknown-species' }
+      return state
+    }
+    if (state.pet.species === species) {
+      result = { ok: false, reason: 'same-species' }
+      return state
+    }
+    if ((state.coins || 0) < PET_SWITCH_COST) {
+      result = { ok: false, reason: 'not-enough-coins', cost: PET_SWITCH_COST }
+      return state
+    }
+    state.coins -= PET_SWITCH_COST
+    state.pet = commitPetDecay(state.pet)
+    state.pet.species = species
+    state.pet.emoji = entry.emoji
+    result = { ok: true, species, emoji: entry.emoji, label: entry.label, cost: PET_SWITCH_COST }
+    return state
+  })
+  return result
+}
+
 // === OCR job (unchanged) === //
 
 function setCurrentOcrJob(job) {
@@ -1604,11 +1639,13 @@ module.exports = {
   getTaskState,
   // pet
   PET_SPECIES,
+  PET_SWITCH_COST,
   PET_DECAY_PER_HOUR,
   LEVEL_COSTS,
   getLevelCost,
   petAgeDays,
   setupPet,
+  switchPetSpecies,
   buyItem,
   levelUpPet,
   // ocr

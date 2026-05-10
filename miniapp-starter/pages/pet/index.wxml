@@ -111,5 +111,35 @@
         <button class="mini-btn buy-btn" size="mini" data-id="{{item.id}}" bindtap="handleBuyItem">{{item.price}} 金币</button>
       </view>
     </view>
+
+    <view class="card switch-card" bindtap="handleOpenSwitchPanel">
+      <view class="switch-row">
+        <text class="switch-emoji">🔄</text>
+        <view class="switch-text">
+          <text class="switch-title">换宠物</text>
+          <text class="switch-sub">{{switchCost}} 金币更换种类，属性和名字都保留</text>
+        </view>
+        <text class="switch-chev">›</text>
+      </view>
+    </view>
   </block>
+
+  <view wx:if="{{showSwitchPanel}}" class="switch-mask" bindtap="handleCloseSwitchPanel">
+    <view class="switch-sheet" catchtap="">
+      <view class="switch-sheet-title">选一只想换的</view>
+      <view class="switch-sheet-sub">花 {{switchCost}} 金币 · 当前 {{coins}}</view>
+      <view class="switch-grid">
+        <view wx:for="{{speciesOptions}}"
+              wx:key="id"
+              class="switch-item {{pet.species === item.id ? 'current' : ''}}"
+              data-id="{{item.id}}"
+              bindtap="handlePickSwitchSpecies">
+          <image class="switch-art" src="/assets/pets/{{item.id}}.svg" mode="aspectFit" />
+          <text class="switch-label">{{item.emoji}} {{item.label}}</text>
+          <text wx:if="{{pet.species === item.id}}" class="switch-current-tag">当前</text>
+        </view>
+      </view>
+      <button class="switch-cancel" bindtap="handleCloseSwitchPanel">取消</button>
+    </view>
+  </view>
 </view>

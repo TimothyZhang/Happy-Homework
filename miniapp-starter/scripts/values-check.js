@@ -260,5 +260,65 @@ const rules = store.defaultState.rewardRules
 check('rule[0] = 单项 +10', { title: rules[0].title, coins: rules[0].coins }, { title: '完成单项作业', coins: 10 })
 check('rule[3] = streak +50', rules[3].coins, 50)
 
+// === Test 10: PET_SPECIES includes parrot ===
+console.log('\n[species] roster:')
+const species = store.PET_SPECIES
+check('PET_SPECIES.length = 9', species.length, 9)
+const parrot = species.find((s) => s.id === 'parrot')
+check('parrot entry exists', !!parrot, true)
+check('parrot emoji = 🦜', parrot && parrot.emoji, '🦜')
+check('parrot label = 鹦鹉', parrot && parrot.label, '鹦鹉')
+
+// === Test 11: switchPetSpecies — gate, deduct, preserve attrs ===
+console.log('\n[switch] switchPetSpecies:')
+seedNTasksToday(0)
+store = freshStore()
+// Set up pet at level 3 with custom name + middling stats, plus 50 coins (not enough)
+let cur3 = JSON.parse(storage['homework-pet-v1'])
+cur3.coins = 50
+cur3.pet = {
+  species: 'cat', emoji: '🐱', name: '豆豆',
+  bornAt: Date.now() - 86400000, lastDecayAt: Date.now(),
+  level: 3, happiness: 70, fullness: 65, cleanliness: 80, health: 88
+}
+storage['homework-pet-v1'] = JSON.stringify(cur3)
+store = freshStore()
+check('PET_SWITCH_COST = 100', store.PET_SWITCH_COST, 100)
+const sw1 = store.switchPetSpecies('parrot')
+check('coins=50 → not-enough-coins', sw1.ok, false)
+check('reason = not-enough-coins', sw1.reason, 'not-enough-coins')
+check('pet.species unchanged after rejected switch', store.getStateWithComputed().pet.species, 'cat')
+check('coins unchanged after rejected switch', store.getStateWithComputed().coins, 50)
+
+// Top up to 150 and switch — should succeed and preserve everything
+const cur4 = JSON.parse(storage['homework-pet-v1'])
+cur4.coins = 150
+storage['homework-pet-v1'] = JSON.stringify(cur4)
+store = freshStore()
+const sw2 = store.switchPetSpecies('parrot')
+check('coins=150 ≥ 100 → ok', sw2.ok, true)
+check('returned species = parrot', sw2.species, 'parrot')
+const afterSwitch = store.getStateWithComputed()
+check('coins decremented by 100', afterSwitch.coins, 50)
+check('pet.species = parrot', afterSwitch.pet.species, 'parrot')
+check('pet.emoji = 🦜', afterSwitch.pet.emoji, '🦜')
+check('pet.name preserved', afterSwitch.pet.name, '豆豆')
+check('pet.level preserved', afterSwitch.pet.level, 3)
+// Stats: decay-commit may shave them slightly (see commitPetDecay), so just
+// verify they're close to original — this proves the switch isn't a reset.
+check('pet.cleanliness still ≥ 70 (preserved, not reset to 100)',
+  afterSwitch.pet.cleanliness >= 70 && afterSwitch.pet.cleanliness <= 80, true)
+check('pet.health still ≥ 80 (preserved, not reset to 100)',
+  afterSwitch.pet.health >= 80 && afterSwitch.pet.health <= 88, true)
+
+// Switching to same species → rejected
+const sw3 = store.switchPetSpecies('parrot')
+check('same-species switch rejected', sw3.ok, false)
+check('reason = same-species', sw3.reason, 'same-species')
+
+// Unknown species → rejected
+const sw4 = store.switchPetSpecies('dragon')
+check('unknown species rejected', sw4.ok, false)
+
 console.log(`\n  ${pass} passed, ${fail} failed.\n`)
 process.exit(fail === 0 ? 0 : 1)

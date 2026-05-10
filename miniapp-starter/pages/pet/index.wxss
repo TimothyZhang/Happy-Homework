@@ -302,3 +302,126 @@
   background: #245bdb;
   color: #ffffff;
 }
+
+/* === switch-pet entry === */
+.switch-card {
+  margin-top: 24rpx;
+  padding: 22rpx 26rpx;
+}
+.switch-row {
+  display: flex;
+  align-items: center;
+}
+.switch-emoji {
+  font-size: 44rpx;
+  margin-right: 18rpx;
+}
+.switch-text { flex: 1; }
+.switch-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+.switch-sub {
+  display: block;
+  margin-top: 4rpx;
+  font-size: 24rpx;
+  color: #6b7785;
+}
+.switch-chev {
+  font-size: 40rpx;
+  color: #c7cdd6;
+  line-height: 1;
+}
+
+/* === switch-pet picker sheet === */
+.switch-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 100;
+  animation: switch-fade 0.18s ease-out;
+}
+.switch-sheet {
+  width: 100%;
+  max-width: 720rpx;
+  background: #ffffff;
+  border-radius: 32rpx 32rpx 0 0;
+  padding: 28rpx 24rpx calc(28rpx + env(safe-area-inset-bottom));
+  animation: switch-slide 0.22s ease-out;
+}
+.switch-sheet-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #1f2329;
+  text-align: center;
+}
+.switch-sheet-sub {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #6b7785;
+  text-align: center;
+}
+.switch-grid {
+  margin-top: 22rpx;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14rpx;
+}
+.switch-item {
+  position: relative;
+  padding: 18rpx 6rpx;
+  border-radius: 22rpx;
+  background: #f7f8fa;
+  text-align: center;
+  border: 2rpx solid transparent;
+}
+.switch-item.current {
+  background: #eceef2;
+  border-color: #c7cdd6;
+  opacity: 0.6;
+}
+.switch-art {
+  display: block;
+  width: 110rpx;
+  height: 110rpx;
+  margin: 0 auto;
+}
+.switch-label {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: #44505e;
+}
+.switch-current-tag {
+  position: absolute;
+  top: 8rpx;
+  right: 8rpx;
+  font-size: 20rpx;
+  color: #ffffff;
+  background: #6b7785;
+  padding: 2rpx 10rpx;
+  border-radius: 999rpx;
+}
+.switch-cancel {
+  margin-top: 22rpx;
+  height: 80rpx;
+  border-radius: 999rpx;
+  background: #f7f8fa;
+  color: #44505e;
+  font-size: 28rpx;
+  font-weight: 600;
+  border: none;
+}
+@keyframes switch-fade {
+  0%   { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes switch-slide {
+  0%   { transform: translateY(100%); }
+  100% { transform: translateY(0); }
+}

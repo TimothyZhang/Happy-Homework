@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="parrotBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5fdf78"/>
+      <stop offset="100%" stop-color="#26a64a"/>
+    </linearGradient>
+    <linearGradient id="parrotHead" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff7a7a"/>
+      <stop offset="100%" stop-color="#e0444a"/>
+    </linearGradient>
+    <linearGradient id="parrotWing" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3da7ff"/>
+      <stop offset="100%" stop-color="#1f74cc"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="100" cy="125" rx="55" ry="62" fill="url(#parrotBody)"/>
+  <ellipse cx="100" cy="72" rx="42" ry="40" fill="url(#parrotHead)"/>
+  <path d="M82 38 Q88 22 96 36 Q102 24 108 36 Q114 22 120 40" stroke="#ffd84a" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <ellipse cx="86" cy="70" rx="6" ry="8" fill="#1f2329"/>
+  <ellipse cx="114" cy="70" rx="6" ry="8" fill="#1f2329"/>
+  <circle cx="84" cy="67" r="2" fill="#fff"/>
+  <circle cx="112" cy="67" r="2" fill="#fff"/>
+  <path d="M92 92 Q100 108 108 92 Q108 116 100 122 Q92 116 92 92 Z" fill="#ffae2e"/>
+  <path d="M100 96 L100 116" stroke="#c46d1f" stroke-width="1.5"/>
+  <ellipse cx="58" cy="130" rx="22" ry="36" fill="url(#parrotWing)" transform="rotate(-18 58 130)"/>
+  <ellipse cx="142" cy="130" rx="22" ry="36" fill="url(#parrotWing)" transform="rotate(18 142 130)"/>
+  <path d="M150 178 Q172 184 178 168" stroke="#ffd84a" stroke-width="9" fill="none" stroke-linecap="round"/>
+  <path d="M150 178 Q176 178 184 158" stroke="#3da7ff" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <path d="M88 184 L86 196 M88 196 L80 196 M88 196 L94 196" stroke="#ffae2e" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M112 184 L114 196 M114 196 L106 196 M114 196 L120 196" stroke="#ffae2e" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <ellipse cx="76" cy="86" rx="5" ry="3" fill="#ff8fa5" opacity="0.7"/>
+  <ellipse cx="124" cy="86" rx="5" ry="3" fill="#ff8fa5" opacity="0.7"/>
+</svg>
