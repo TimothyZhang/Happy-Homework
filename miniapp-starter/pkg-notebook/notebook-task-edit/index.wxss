@@ -1,0 +1,87 @@
+.page {
+  min-height: 100vh;
+  padding: 24rpx;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 28rpx;
+  padding: 28rpx;
+  box-shadow: 0 16rpx 48rpx rgba(31, 35, 41, 0.08);
+}
+
+.nb-tag {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  background: #eef4ff;
+  color: #245bdb;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  margin-top: 22rpx;
+}
+
+.field-label {
+  font-size: 26rpx;
+  color: #6b7785;
+}
+
+.input,
+.picker-value {
+  padding: 22rpx;
+  border-radius: 18rpx;
+  background: #f7f8fa;
+  font-size: 28rpx;
+  line-height: 1.4;
+  color: #1f2329;
+  min-height: 64rpx;
+  box-sizing: border-box;
+}
+
+.textarea {
+  min-height: 120rpx;
+}
+
+.infer-hint {
+  align-self: flex-start;
+  font-size: 22rpx;
+  color: #245bdb;
+  background: #eef4ff;
+  padding: 6rpx 16rpx;
+  border-radius: 999rpx;
+  line-height: 1.5;
+}
+
+.est-hint {
+  align-self: flex-start;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  background: #eef4ff;
+  color: #245bdb;
+  font-size: 22rpx;
+  line-height: 1.5;
+}
+
+.actions {
+  margin-top: 28rpx;
+}
+
+.primary-btn {
+  width: 100%;
+  border-radius: 999rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  border: none;
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+  color: #ffffff;
+  box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
+}

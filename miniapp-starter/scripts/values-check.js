@@ -462,6 +462,49 @@ store = freshStore()
 check('whitespace-trimmed lookup matches stored name',
   typeof store.estimateTaskMinutes('  抄写课文 ', '语') === 'number', true)
 
+// === Test 13b: inferSubjectByName — frequency vote on done history ===
+console.log('\n[infer] inferSubjectByName:')
+seedFinishedTasks([])
+store = freshStore()
+check('0 history → null', store.inferSubjectByName('口算'), null)
+
+// 1 history → return that lone subject (no rival to tie with).
+seedFinishedTasks([{ name: '口算', subject: '数', minutes: 20, daysAgo: 1 }])
+store = freshStore()
+const inf1 = store.inferSubjectByName('口算')
+check('1 history → returns the lone subject', inf1 && inf1.subject, '数')
+check('1 history → confidence = 1', inf1 && inf1.confidence, 1)
+
+// 3 history with 2 数 + 1 语 → 数 (top1 strictly beats top2).
+seedFinishedTasks([
+  { name: '阅读', subject: '数', minutes: 20, daysAgo: 1 },
+  { name: '阅读', subject: '数', minutes: 20, daysAgo: 2 },
+  { name: '阅读', subject: '语', minutes: 25, daysAgo: 3 }
+])
+store = freshStore()
+const inf3 = store.inferSubjectByName('阅读')
+check('2v1 → returns 数', inf3 && inf3.subject, '数')
+check('2v1 → confidence = 2', inf3 && inf3.confidence, 2)
+
+// 2 数 + 2 语 (perfectly even) → null. Caller leaves it to the user.
+seedFinishedTasks([
+  { name: '复习', subject: '数', minutes: 15, daysAgo: 1 },
+  { name: '复习', subject: '数', minutes: 15, daysAgo: 2 },
+  { name: '复习', subject: '语', minutes: 15, daysAgo: 3 },
+  { name: '复习', subject: '语', minutes: 15, daysAgo: 4 }
+])
+store = freshStore()
+check('2v2 even split → null', store.inferSubjectByName('复习'), null)
+
+// Whitespace on the lookup name should still match (same trim as estimate).
+seedFinishedTasks([
+  { name: '听写', subject: '语', minutes: 10, daysAgo: 1 },
+  { name: '听写', subject: '语', minutes: 10, daysAgo: 2 }
+])
+store = freshStore()
+const infTrim = store.inferSubjectByName('  听写  ')
+check('trims lookup name', infTrim && infTrim.subject, '语')
+
 // === Test 14: duplicate-name handling on share-save ===
 console.log('\n[share-import] rename / merge / overwrite:')
 seedNTasksToday(0)

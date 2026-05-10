@@ -1020,6 +1020,40 @@ function findFinishedTasksByName(name, subject) {
   return out
 }
 
+// Walk all done tasks (one-shot top-level + per-occurrence) with the same
+// trimmed content and tally subjects. Returns the most-frequent subject
+// when it strictly beats every other subject. A tie at the top — even by
+// 1 — falls back to null so the user is asked to pick instead of being
+// overridden by a noisy guess.
+//   {subject, confidence}  — confidence = the winning subject's count
+//   null                   — no history, or a tie at the top
+function inferSubjectByName(name) {
+  const target = (name || '').trim()
+  if (!target) return null
+  const state = loadState()
+  const counts = {}
+  function bump(s) {
+    if (!s) return
+    counts[s] = (counts[s] || 0) + 1
+  }
+  for (const t of state.tasks) {
+    if ((t.content || '').trim() !== target) continue
+    if (t.status === 'done' && t.completedAt) bump(t.subject)
+    const occs = t.occurrences || {}
+    for (const d in occs) {
+      const occ = occs[d]
+      if (occ && occ.status === 'done' && occ.completedAt) bump(t.subject)
+    }
+  }
+  const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1])
+  if (ranked.length === 0) return null
+  if (ranked.length === 1) return { subject: ranked[0][0], confidence: ranked[0][1] }
+  if (ranked[0][1] > ranked[1][1]) {
+    return { subject: ranked[0][0], confidence: ranked[0][1] }
+  }
+  return null
+}
+
 // Time-weighted estimate: exponential decay with TAU = 7 days. Recent
 // finishes weigh dramatically more than older ones. Requires ≥2 samples;
 // otherwise returns null so the caller leaves the field empty. Result is
@@ -1826,6 +1860,7 @@ module.exports = {
   clearEditTaskId,
   findFinishedTasksByName,
   estimateTaskMinutes,
+  inferSubjectByName,
   // task control
   startTask,
   pauseTask,

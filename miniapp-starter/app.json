@@ -15,7 +15,8 @@
     {
       "root": "pkg-notebook",
       "pages": [
-        "notebook-edit/index"
+        "notebook-edit/index",
+        "notebook-task-edit/index"
       ]
     }
   ],
