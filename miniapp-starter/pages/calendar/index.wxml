@@ -1,22 +1,24 @@
-<page-meta disable-scroll="{{disableScroll}}" />
+<page-meta disable-scroll="true" />
 <view class="page">
-  <view class="card">
-    <month-calendar id="cal"
-                    value="{{selectedDate}}"
-                    bind:change="handleCalendarChange" />
-  </view>
-
-  <view class="card list-card">
-    <view class="list-header">
-      <text class="list-title">{{selectedLabel}}</text>
-      <text class="list-count">{{selectedItems.length}} 项</text>
+  <scroll-view scroll-y="{{!disableScroll}}" class="scroll-area" enhanced="{{true}}" show-scrollbar="{{false}}">
+    <view class="card">
+      <month-calendar id="cal"
+                      value="{{selectedDate}}"
+                      bind:change="handleCalendarChange" />
     </view>
-    <view wx:if="{{selectedItems.length === 0}}" class="empty">这一天没有作业</view>
-    <task-list wx:if="{{selectedItems.length > 0}}"
-               items="{{selectedItems}}"
-               active-date="{{selectedDate}}"
-               bind:dragstart="handleDragStart"
-               bind:dragend="handleDragEnd"
-               bind:changed="handleTasksChanged" />
-  </view>
+
+    <view class="card list-card">
+      <view class="list-header">
+        <text class="list-title">{{selectedLabel}}</text>
+        <text class="list-count">{{selectedItems.length}} 项</text>
+      </view>
+      <view wx:if="{{selectedItems.length === 0}}" class="empty">这一天没有作业</view>
+      <task-list wx:if="{{selectedItems.length > 0}}"
+                 items="{{selectedItems}}"
+                 active-date="{{selectedDate}}"
+                 bind:dragstart="handleDragStart"
+                 bind:dragend="handleDragEnd"
+                 bind:changed="handleTasksChanged" />
+    </view>
+  </scroll-view>
 </view>

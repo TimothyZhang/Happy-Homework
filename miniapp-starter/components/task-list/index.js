@@ -82,10 +82,11 @@ Component({
       }
       this.setData({ dragId: id, dragDy: 0 })
       if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
-      // Tell host page to lock page-level scroll. WXML can't dynamically swap
-      // bind/catch on touchmove, so the page sets <page-meta disable-scroll>
-      // for the duration of the drag — that's the only reliable way to keep
-      // ordinary scrolling responsive while preventing scroll during drag.
+      // Tell host page to freeze its scroll surface. The page wraps content
+      // in a <scroll-view> and toggles its scroll-y based on this event —
+      // that's what keeps the screen from drifting once the user has already
+      // begun a touch gesture (page-meta disable-scroll alone wasn't enough
+      // mid-gesture).
       this.triggerEvent('dragstart')
     },
     handleTouchMove(e) {

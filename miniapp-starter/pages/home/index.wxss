@@ -1,9 +1,23 @@
+/* The page is locked to the viewport (page-meta disable-scroll="true") so the
+   only scrollable surface is the inner <scroll-view>. That lets the long-press
+   drag in <task-list> toggle scroll-y off mid-gesture — page-meta alone wasn't
+   stopping the screen from drifting once the touch had already begun. */
 .page {
-  min-height: 100vh;
-  padding: 24rpx;
-  padding-bottom: calc(24rpx + 100rpx + env(safe-area-inset-bottom));
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+}
+
+.scroll-area {
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 24rpx;
+  /* Custom tabbar overlay (~100rpx) + safe-area inset. */
+  padding-bottom: calc(24rpx + 100rpx + env(safe-area-inset-bottom));
 }
 
 .card {
@@ -15,32 +29,49 @@
 
 .section-card { margin-top: 24rpx; }
 
-/* === date segment === */
+/* === date segment ===
+   "今天" is the default primary action: always brand-filled and twice as wide.
+   "明天" / "日历" share the remaining half, each at 1/4 width and a smaller
+   font. When one of those is the active selection it picks up a brand-tinted
+   active style — visually similar to today but with the smaller footprint. */
 .seg-bar {
   display: flex;
   align-items: stretch;
   background: #f3f6fa;
   padding: 6rpx;
   border-radius: 18rpx;
-  gap: 4rpx;
+  gap: 6rpx;
 }
 
 .seg-btn {
-  flex: 1;
   text-align: center;
-  padding: 16rpx 8rpx;
+  padding: 18rpx 8rpx;
   border-radius: 14rpx;
-  font-size: 26rpx;
-  color: #6b7785;
-  font-weight: 500;
   line-height: 1.2;
+  font-weight: 500;
 }
 
-.seg-btn.active {
-  background: #ffffff;
-  color: #1f2329;
+.today-seg {
+  flex: 2;
+  font-size: 32rpx;
   font-weight: 700;
-  box-shadow: 0 2rpx 10rpx rgba(31, 35, 41, 0.08);
+  color: #ffffff;
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+  box-shadow: 0 6rpx 18rpx rgba(36, 91, 219, 0.28);
+  letter-spacing: 1rpx;
+}
+
+.small-seg {
+  flex: 1;
+  font-size: 24rpx;
+  color: #6b7785;
+}
+
+.small-seg.active {
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+  color: #ffffff;
+  font-weight: 700;
+  box-shadow: 0 4rpx 12rpx rgba(36, 91, 219, 0.22);
 }
 
 .cal-embed {
@@ -157,4 +188,3 @@
   padding: 4rpx 14rpx;
   border-radius: 999rpx;
 }
-

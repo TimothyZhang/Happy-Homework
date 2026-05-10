@@ -115,10 +115,12 @@ Page({
     // 'today' | 'tomorrow' | 'calendar' — drives segment highlight.
     activeSegment: 'today',
     calendarOpen: false,
-    // Locks page-level scrolling while a task-list drag is in progress.
-    // Bound to <page-meta disable-scroll>. WXML can't toggle catch/bind on
-    // touchmove dynamically, so this is the supported way to suppress page
-    // scroll without breaking ordinary swipe-to-scroll on non-drag touches.
+    // Locks the inner <scroll-view> while a task-list drag is in progress.
+    // The page itself has page-meta disable-scroll permanently on; the only
+    // scrollable surface is .scroll-area. Toggling page-meta mid-gesture
+    // wasn't preventing the screen from drifting once the touch had begun,
+    // so we keep the page locked and flip scroll-y on the inner view instead
+    // — that change is honored immediately even mid-gesture.
     disableScroll: false,
     todayLabel: '今天',
     tomorrowLabel: '明天',

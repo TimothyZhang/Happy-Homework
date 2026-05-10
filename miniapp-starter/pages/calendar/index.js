@@ -59,7 +59,7 @@ Page({
     selectedDate: '',
     selectedLabel: '',
     selectedItems: [],
-    // Locks page-level scrolling while a task-list drag is in progress.
+    // Locks the inner <scroll-view> while a task-list drag is in progress.
     // See pages/home/index.js for the rationale.
     disableScroll: false
   },
