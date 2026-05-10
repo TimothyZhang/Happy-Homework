@@ -34,6 +34,9 @@ Page({
     try {
       const payload = JSON.parse(decodeURIComponent(raw))
       if (!payload || !payload.n) throw new Error('payload invalid')
+      // Normalize: WXML reads payload.t.length unconditionally, so ensure it
+      // exists even on payloads that arrived without a tasks array.
+      if (!Array.isArray(payload.t)) payload.t = []
       const from = (payload.from || '').trim() || '好友'
       this.setData({
         payload,

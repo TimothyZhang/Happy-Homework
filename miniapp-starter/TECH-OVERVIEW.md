@@ -13,6 +13,7 @@ miniapp-starter/
 │   ├── home/                  # 首页（按选定日期展示作业行 + hero stats）
 │   ├── tasks/                 # 作业本列表（按结束日期倒序）
 │   ├── notebook-detail/       # 单作业本结构管理（按学科分组 + 组内拖拽）
+│   ├── notebook-share/        # 接收方落地页（解码 share path → 预览 → 保存）
 │   ├── calendar/              # 月历视图（每日完成度 / overdue 概览）
 │   ├── stats/                 # 学习统计
 │   ├── pet/                   # 宠物
@@ -58,6 +59,14 @@ miniapp-starter/
 - 底部 action stack：+ 新增作业 / 编辑作业本 / 分享 / 复制 / 删除
 - 不再做日期切换（结构页和今日操作页职责拆分）
 
+### `pages/notebook-share`
+接收方落地页 —— 微信好友点开 `notebook-detail` 的「📤 分享作业本」卡片后落到这里：
+- `onLoad` 解 `?d=` 里 URI-encoded 的 JSON payload（`{ v, from, n, t }`）
+- 顶部 hint pill 显示 「{发送者昵称}分享给你的作业本」（昵称来自发送方 profile，未设置则回退「好友」）
+- 任务列表只读预览，无 新增/编辑/复制/删除
+- 三个底部动作：💾 保存（调 `store.importSharedNotebook` 创建新本，全部 task 状态 reset 为 todo）/ 📤 分享（`onShareAppMessage` 把同 payload 转发）/ 取消
+- 注册在主包，因为它经常是冷启动入口（受卡片首次打开），不能塞分包
+
 ### `pages/calendar`
 月历视图：
 - 每个日期 cell 显示当天 total / done / hasOverdue
@@ -67,7 +76,7 @@ miniapp-starter/
 
 ### `pages/pet` / `pages/profile` / `pages/stats`
 - pet：宠物成长与道具购买
-- profile：家庭设置占位 + 学习统计入口 + **数据同步卡片**（状态 pill + 「立即同步」/「切回此设备」按钮）
+- profile：「我的昵称」`<input type="nickname">`（自动回填微信昵称，作为分享发送方身份）+ 家庭设置占位 + 学习统计入口 + **数据同步卡片**（状态 pill + 「立即同步」/「切回此设备」按钮）
 - stats：今日完成 / 金币 / 历史
 
 ### `pages/ocr-import` / `pages/ocr-result`
@@ -89,6 +98,7 @@ OCR 上传 + 草稿确认链路（详见 `V1-PRD-homework-register-ocr.md`）。
   notebooks, tasks,                         // 核心业务
   coins, streakDays, bonusCoins,            // 奖励
   pet, lastReward,                          // 宠物
+  profile,                                  // { nickname } —— 分享发送方身份
   rewardRules, shopItems,                   // 静态配置（不同步）
   editTaskId, editNotebookId,               // UI 临时态（不同步）
   ocrCurrentJob, ocrJobs                    // OCR 临时态（不同步）
@@ -113,7 +123,7 @@ OCR 上传 + 草稿确认链路（详见 `V1-PRD-homework-register-ocr.md`）。
 - 只读模式下 `updateState` 直接 return，4s 节流 toast
 
 ### 3.5 同步白名单（`SYNC_FIELDS`）
-仅同步 `notebooks / tasks / coins / streakDays / bonusCoins / pet / lastReward`。OCR 任务、UI 临时态、静态配置（rewardRules / shopItems）都本地保留。
+同步 `notebooks / tasks / coins / streakDays / bonusCoins / pet / lastReward / profile`。OCR 任务、UI 临时态、静态配置（rewardRules / shopItems）都本地保留。`profile` 在白名单里是为了让分享发送方的昵称跟着用户跨设备走。
 
 ### 3.6 性能要点
 对 1000 个作业本 / 5000+ 个作业的目标场景做了若干 O(N+M) 改造：

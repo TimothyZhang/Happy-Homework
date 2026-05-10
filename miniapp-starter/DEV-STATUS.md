@@ -60,7 +60,7 @@
 - 同步链路:
   - `app.onLaunch` 异步 hydrate;每个 tab `onShow` 调 `hydrateIfStale()`(30s 防抖,launch in-flight 时 await 同一 promise 避免 race)
   - 每次 `saveState` 200ms 防抖 push 到云
-  - 同步白名单 `SYNC_FIELDS` = `notebooks / tasks / coins / streakDays / bonusCoins / pet / lastReward`(OCR 任务 / UI 临时态 / 固定配置不上云)
+  - 同步白名单 `SYNC_FIELDS` = `notebooks / tasks / coins / streakDays / bonusCoins / pet / lastReward / profile`(OCR 任务 / UI 临时态 / 固定配置不上云)
 - 单设备占用:云端 doc 持有 `sessionId`,与本机不一致时弹 modal「切到此设备 / 只读浏览」;只读模式 `updateState` 直接 return + 4s 节流 toast
 - 「我的」页面有「数据同步」卡片:状态 pill + 「立即同步 / 切回此设备」按钮
 - 集合权限「仅创建者可读写」,`_openid` 自动过滤,无需云函数
@@ -77,6 +77,13 @@
 - `tabBar.custom: true` + `custom-tab-bar/` 组件,字号从平台默认 ~20rpx 增至 30rpx
 - `pkg-notebook/notebook-edit/` 拆为子包,`preloadRule` 配置在用户进 home/tasks/calendar/notebook-detail 时预热
 - 日历 tab 月历格子构建在 `wx.nextTick` 延后,首屏 chrome 先出
+
+### 9. 作业本分享 — **真实闭环**
+- `pages/notebook-detail` 「📤 分享作业本」按钮调 `onShareAppMessage`:把作业本元数据 + 任务列表 URI-encode 进 share path（`/pages/notebook-share/index?d=...`）
+- 接收方点卡片落到 `pages/notebook-share`:解码 → 显示「{发送方昵称}分享给你的作业本」+ 任务预览 → 「💾 保存」走 `store.importSharedNotebook` 生成新本,任务全部 reset 为 todo;支持「📤 分享」转发同 payload
+- 「我的」页加了 `<input type="nickname">` 行,点击自动回填微信昵称,不需要手输;`profile.nickname` 入 `SYNC_FIELDS`,跨设备保持一致
+- share path 1024 字符兜底:超长(典型 ~30+ 任务)降级到旧 `?id=` 路径(receiver 看不到内容,但发送 UI 不会卡)
+- 接收方完全不需要存任何东西,所有数据在 URL 里;**不依赖云存储**(头像受微信隐私限制无法跨设备分享,见下方「不做」)
 
 ---
 
@@ -110,7 +117,12 @@
 - 导入后的任务去重与清洗
 - 云同步失败的可视化(目前 profile 页有简单状态,但没区分网络/权限/冲突)
 
-### 5. 容量与计费
+### 5. 分享体验仍有边角
+- 接收方页面**不显示发送方头像**:微信侧没有任何 API 让接收方拿到分享者的真实头像 URL(`wx.getUserProfile` 自 2022-10-25 起对所有小程序统一返回灰头像 + 「微信用户」),即使分享方主动授权也救不了。要做必须自己上传到云存储,目前评估「不值得」
+- 单条 share path 1024 字符上限,极端大的本(~30+ 任务且 content 较长)会触发降级到旧 `?id=`,接收方看不到内容,目前是静默降级,无 toast 警告
+- 没有「我都分享给谁了」/「谁保存了我的本」的可见性,接收方保存后是独立副本,源端改动不会同步过去(这是有意为之 —— 不想引入 follow / sync 复杂度)
+
+### 6. 容量与计费
 - 腾讯云 OCR 免费额度有限(每个接口约 1000 次/月),正式上线前需评估付费方案
 - 微信 OpenAPI OCR 免费额度更有限,实际意义不大
 - Tesseract.js 离线兜底默认关闭(开启会显著增加冷启动时长 + 内存)

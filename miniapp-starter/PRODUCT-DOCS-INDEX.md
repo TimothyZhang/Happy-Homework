@@ -108,6 +108,7 @@
 - 跨设备同步的接入与运行机制
 - 云开发接入说明（OCR + `user_state` 同步）
 - 在用 vs. 草案的数据结构差异
+- 作业本分享端到端流程（发送方编 share path → 接收方落地 `notebook-share` → 保存为新本；详见 `TECH-OVERVIEW.md` 页面结构 + `DEV-STATUS.md` 第 9 项）
 
 如果后面继续往下做，建议再补两类文档：
 - 页面交互稿 / 页面说明

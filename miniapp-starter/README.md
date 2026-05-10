@@ -19,6 +19,7 @@
 - `pages/home`：首页，按选定日期展示作业行（未完成 / 已完成 分组）+ hero stats
 - `pages/tasks`：作业本列表（按结束日期倒序，长期重复本浮顶）
 - `pages/notebook-detail`：单作业本结构管理（作业按学科分组，组内拖拽）
+- `pages/notebook-share`：接收方落地页（解 share path → 预览 → 保存为自己的本）
 - `pages/calendar`：月历视图，每日完成度 / overdue 概览
 - `pages/pet`：宠物养成页
 - `pages/profile`：个人页（含数据同步卡片）
@@ -34,6 +35,7 @@
 - 金币奖励与宠物成长反馈
 - **OCR 真实闭环**：腾讯云 OCR 子用户 AKSK 已配置，多 provider 兜底（OpenAI Vision → 腾讯云 GeneralHandwriting / Accurate / Basic → 微信 OpenAPI → Tesseract.js）
 - **跨端云同步**：`user_state` 集合，单设备 claim 模型（切换设备弹 modal，旧设备只读）；「我的」页面有「立即同步 / 切回此设备」按钮
+- **作业本分享**：把 notebook + tasks 编进 share path，接收方落地 `pages/notebook-share` 预览后一键保存为自己的本（`store.importSharedNotebook`）；发送方昵称用 `<input type="nickname">` 自动取微信昵称，跟随 cloud-sync 跨设备
 - **大规模数据优化**：1000 本 / 5000+ 任务场景下主要热点路径已 O(N+M) 改造，附 Node 端 bench / 正确性测试
 - 自定义 tabBar（字号 30rpx，比平台默认大）+ 子包预热
 
