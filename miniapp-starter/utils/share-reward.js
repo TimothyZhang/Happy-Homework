@@ -15,12 +15,18 @@ function ensureCloud() {
   return typeof wx !== 'undefined' && wx.cloud && typeof wx.cloud.callFunction === 'function'
 }
 
-// "expected" failures during dev: function not deployed, network/timeout. Treat
-// as a permanent skip for this session so we don't spam console.warn / errors
-// from WAService on every onShow.
-function isExpectedFailure(e) {
+// Permanent failures (function not deployed / no permission): flip the
+// session-level disabled flag so we stop retrying. Timeouts are NOT permanent
+// (cold-start can take several seconds) — those just fail silently and the
+// next throttle window will retry.
+function isPermanentFailure(e) {
   const msg = (e && (e.errMsg || e.message)) || String(e || '')
-  return /timeout|function not found|资源不存在|FUNCTION_NOT_FOUND|-501|-502|FUNCTIONS_EXECUTE/i.test(msg)
+  return /function not found|资源不存在|FUNCTION_NOT_FOUND|-501|FUNCTIONS_EXECUTE_FAIL|permission/i.test(msg)
+}
+
+function isExpectedNoise(e) {
+  const msg = (e && (e.errMsg || e.message)) || String(e || '')
+  return isPermanentFailure(e) || /timeout/i.test(msg)
 }
 
 async function callFn(payload) {
@@ -30,9 +36,9 @@ async function callFn(payload) {
     const res = await wx.cloud.callFunction({ name: FN_NAME, data: payload })
     return (res && res.result) || null
   } catch (e) {
-    if (isExpectedFailure(e)) {
+    if (isPermanentFailure(e)) {
       _cloudFnDisabled = true  // skip future calls this session
-    } else {
+    } else if (!isExpectedNoise(e)) {
       console.warn('[share-reward] callFunction failed', payload && payload.action, e && e.errMsg)
     }
     return null
