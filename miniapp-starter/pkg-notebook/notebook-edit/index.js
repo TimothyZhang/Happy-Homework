@@ -167,7 +167,7 @@ Page({
       store.addNotebook(payload)
       wx.showToast({ title: '已新建', icon: 'success' })
     }
-    setTimeout(() => wx.navigateBack(), 350)
+    setTimeout(() => wx.navigateBack(), 200)
   },
 
   handleDelete() {
@@ -180,7 +180,7 @@ Page({
         if (res.confirm) {
           store.deleteNotebook(this.data.notebookId)
           wx.showToast({ title: '已删除', icon: 'success' })
-          setTimeout(() => wx.navigateBack(), 350)
+          setTimeout(() => wx.navigateBack(), 200)
         }
       }
     })

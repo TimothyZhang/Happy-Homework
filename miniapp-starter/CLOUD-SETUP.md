@@ -156,8 +156,38 @@
 
 OCR 链路本身已通,识别质量经过手写体优先调整后明显改善。仍可继续:
 
-- **本地状态迁云数据库**:`utils/store.js` 还是 `wx.storage`,业务数据(`tasks / coinLogs / ocrJobs`)长期看要落 CloudBase 数据库。
+- ~~**本地状态迁云数据库**~~:已通过 `utils/cloud-sync.js` 接入(详见下方)。
 - **错误分类提示**:云函数返回的 `errorCode` 已经分得比较细(`OCR_PERMISSION_DENIED` / `AuthFailure.TokenFailure` / `OCR_RATE_LIMITED` / `OCR_EMPTY_RESULT` / `DOWNLOAD_FILE_FAILED`),但前端 `pages/ocr-import` 现在统一弹"识别失败" modal,可以按 errorCode 给不同提示文案。
 - **多 provider 结果合并**:当前 fallback 是"前一个失败才试下一个"。可以改成"并行调,取识别行数最多的"(代价是配额翻倍)。
 - **可观测性**:云函数日志能看到 `Tencent OCR provider failed` 的具体 action 和 requestId,但前端只看到最终结果。考虑把 `providerWarning` 字段在 ocr-result 页面以 toast 形式展示给开发者(用户态可隐藏)。
 - **OCR 用量监控**:腾讯云 OCR 免费额度有限,接近上限时要提醒,可以考虑加云监控告警或在云函数里自记 invocation count 落 CloudBase。
+
+## 跨设备数据同步(`user_state` 集合)
+
+`utils/cloud-sync.js` 把整个用户 state 同步到云数据库,实现**单设备登录**(切换设备时旧设备只读)。
+
+### 一次性配置(必须做,否则 hydrate/push 都会静默失败)
+
+1. 微信开发者工具 → ☁️ 云开发 → 进入控制台 → **数据库**。
+2. **新建集合**,名字必须是 `user_state`(代码里硬编码,见 `utils/cloud-sync.js` 顶部的 `COLLECTION`)。
+3. 点击该集合右侧 → **权限设置** → 改成 **「仅创建者可读写」**。
+   - 这样 `_openid` 自动注入,`get()` 只返回当前用户自己的文档,无需写云函数。
+
+### 运行时行为
+
+- `app.onLaunch` 异步 `hydrate()`:云端无 doc → 用本机 state 创建并占用 sessionId;云端 sessionId 是别人 → 弹 modal「切到此设备 / 只读浏览」。
+- 每个 tab 页 `onShow` 调 `hydrateIfStale()`(30s 防抖,且 launch hydrate in-flight 时会 await 它)。被踢的设备能在切 tab 时及时收到提示。
+- 任何 `updateState` 触发的写入会经 200ms 防抖 push 到云。push 影响行数=0 → 弹被踢 modal。
+- 只读模式下 `updateState` 直接返回旧 state,4s 内最多弹一次 toast 提示。
+
+### 数据范围
+
+同步:`notebooks / tasks / coins / streakDays / bonusCoins / pet / lastReward`
+仅本地:`editTaskId / editNotebookId / ocrCurrentJob / ocrJobs / shopItems / rewardRules / schemaVersion`
+
+(白名单写在 `utils/store.js` 的 `SYNC_FIELDS` 常量。)
+
+### 已知限制
+
+- LWW 不会发生(单设备约束),但「切到此设备」会丢掉本机最近 200ms 内未推送成功的写入(以云端为准)。
+- 进入只读后,目前只能 kill app 重新进才能再次弹「切回此设备」modal(按 `_conflictAcknowledged` 在内存里),后续可加常驻 banner 优化。

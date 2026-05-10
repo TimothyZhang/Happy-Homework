@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const cloudSync = require('../../utils/cloud-sync')
 
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
@@ -83,10 +84,16 @@ Page({
   },
 
   onShow() {
+    const tb = typeof this.getTabBar === 'function' && this.getTabBar()
+    if (tb) tb.setData({ selected: 0 })
     if (!this.data.activeDate) {
       this.setData({ activeDate: store.todayStr() })
     }
     this.refreshState()
+    // Background-check cloud (debounced 30s). Repaint if remote was newer.
+    cloudSync.hydrateIfStale().then((r) => {
+      if (r && r.changed) this.refreshState()
+    }).catch(() => {})
   },
 
   refreshState(opts = {}) {
