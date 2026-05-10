@@ -2,7 +2,7 @@
 
 一个围绕“小学生家庭作业管理”场景搭建的微信小程序 MVP。
 
-当前项目已经从最初的静态 demo，推进到可交互原型 + OCR 导入链路骨架阶段，适合继续做产品验证、家长访谈和云开发接入。
+当前项目已经从最初的静态 demo，推进到 **OCR 真实闭环 + 跨设备同步** 的 MVP 阶段，适合继续做产品验证和家长访谈。
 
 ## 项目目标
 
@@ -16,31 +16,31 @@
 ## 当前能力范围
 
 ### 已有页面
-- `pages/home`：首页，总览今日进度、奖励和宠物状态
-- `pages/tasks`：作业列表与编辑入口
-- `pages/plan`：排期视图
-- `pages/pet`：宠物养成页
-- `pages/profile`：个人页
-- `pages/stats`：统计页
-- `pages/ocr-import`：拍照/选图上传页
-- `pages/ocr-result`：OCR 识别结果确认页
+- `pages/home`：首页，当日作业列表 + hero stats
+- `pages/tasks`：作业本管理（列表 / 拖拽重排）
+- `pages/calendar`：日历（月历 + 当日详情）
+- `pages/notebook-detail`：作业本详情（按学科分组）
+- `pages/pet`：宠物养成
+- `pages/profile`：我的（含数据同步控制）
+- `pages/stats`：学习统计
+- `pages/ocr-import` / `pages/ocr-result`：OCR 拍照导入链路
+- `pkg-notebook/notebook-edit`（子包）：新建 / 编辑作业本表单
 
 ### 已完成能力
-- 首页、作业、排期、宠物、统计等多页面交互原型
-- 作业状态流转：未开始 / 进行中 / 已完成
+- **OCR 真实闭环**：拍照 → 上传云存储 → 云函数调腾讯云 OCR → 拆草稿 → 导入作业
+- **跨设备数据同步**：本地缓存 + 云数据库 `user_state` 集合镜像，单设备登录模型（切换设备时旧设备只读）
+- 自定义 tabBar（字号 30rpx，比平台默认大）+ 子包预热（`preloadRule`）
+- 作业管理：增删改、重复 / 一次性、按学科分组、拖拽重排
+- 状态流转：未开始 / 进行中 / 暂停 / 已完成
 - 金币奖励与宠物成长反馈
-- OCR 导入链路骨架：
-  - 小程序端初始化云开发
-  - 上传图片到云存储
-  - 调用 `homeworkOCR` 云函数
-  - 展示并编辑识别后的作业草稿
-  - 批量导入到作业列表
+- 多 provider OCR 兜底：OpenAI Vision → 腾讯云 OCR → 微信 OpenAPI → Tesseract.js
+- 「我的」页面有「立即同步 / 切回此设备」按钮
 
 ### 当前未完成
-- 真实 OCR 服务接入
-- 云函数部署后的完整联调验证
-- 线上数据模型真正落到云开发数据库
-- 多孩子/家庭账号体系
+- OCR 错误码分级提示 / 失败重试 / 配额耗尽提示
+- `coinLogs / ocrDraftItems` 等日志型数据的长期沉淀（目前只有最新快照）
+- 多孩子 / 多家庭账号体系
+- 离线写入队列 + 联网批量 push
 
 ## 产品文档
 
@@ -73,68 +73,42 @@
 ## 技术结构
 
 ### 小程序端
-- `app.js / app.json / app.wxss`：全局配置
-- `pages/*`：页面实现
-- `utils/store.js`：原型数据与状态管理
+- `app.js / app.json / app.wxss`：全局配置（cloud.init + 云同步 hydrate）
+- `pages/*`：主包页面
+- `pkg-notebook/`：子包（notebook-edit），有 preloadRule 预热
+- `custom-tab-bar/`：自定义 tabBar 组件
+- `components/task-list/`：任务行组件（含拖拽 + swipe-to-revert）
+- `utils/store.js`：业务状态 + 进程内缓存 + 写后触发云推送
+- `utils/cloud-sync.js`：云数据库同步（`user_state` 集合，单设备 session 占用）
 - `utils/navigation.js`：页面跳转封装
 
 ### 云函数
-- `cloudfunctions/homeworkOCR`
-  - OCR 云函数入口
-  - 已接入腾讯云 OCR 调用逻辑
-  - 已内置一版整页文本拆分逻辑
+- `cloudfunctions/homeworkOCR`：OCR，多 provider 兜底（腾讯云 / OpenAI / 微信 OpenAPI / Tesseract.js）
 
-## 当前实现状态
-
-### OCR 当前状态
-目前已经打通到“前端真实上传 + 调用真实云函数入口 + 云函数调用真实 OCR”的代码路径。
-
-也就是说，当前进度不是纯前端假流程，而是已经完成了：
-- `wx.cloud.init`
-- `wx.cloud.uploadFile`
-- `wx.cloud.callFunction({ name: 'homeworkOCR' })`
-- 云函数内 `GeneralAccurateOCR` 调用逻辑
-
-真正还差的是：
-- 在微信开发者工具中绑定云环境
-- 部署 `cloudfunctions/homeworkOCR`
-- 为云函数配置可用的 OCR 凭证
+### 云数据库
+- 集合 `user_state`：每个用户一份完整 state 快照（详见 `CLOUD-SETUP.md`）
 
 ## 本地打开方式
 
 1. 打开微信开发者工具
-2. 选择“导入项目”
-3. 项目目录指向 `miniapp-starter`
-4. 使用当前 `project.config.json` 中的 AppID 打开
-5. 如需测试 OCR 链路，继续完成云开发环境绑定与云函数部署
+2. 选择「导入项目」，目录指向 `miniapp-starter`
+3. 使用当前 `project.config.json` 中的 AppID 打开
+4. **首次跑前**：到云开发控制台新建集合 `user_state`，权限设「仅创建者可读写」（详见 `CLOUD-SETUP.md` 末尾章节），否则同步会静默失败
+5. OCR 链路：完成云函数部署 + OCR 凭证配置（详见 `CLOUD-SETUP.md` 主体章节）
 
 ## 推荐下一步
 
 ### 产品侧
 1. 收敛首页和作业列表的信息层级
 2. 明确 OCR 导入后的默认字段与优先级规则
-3. 补一版“家长一天内使用路径”的体验脚本
+3. 补一版「家长一天内使用路径」的体验脚本
 
 ### 技术侧
-1. 在云函数中接入真实 OCR API
-2. 验证整页文本拆分效果
-3. 将本地状态迁移到云开发数据库
-4. 增加错误态与重试机制
-
-## Git 历史里程碑
-
-- `3c02a95` Add WeChat mini program demo scaffold
-- `ea231d5` feat: add miniapp starter project
-- `fd0e30e` Add miniapp PRD and configure preview project
-- `b688f5c` Build first interactive homework miniapp prototype
-- `148b251` Expand miniapp into multi-page interactive V1
-- `6d5a6d2` Add task editing and stats to miniapp prototype
-- `4478ea5` Improve prototype feedback flow and add cloud data notes
-- `b968a62` Add homework register OCR flow scaffold
-- `b4c9adf` Wire mini program to cloud OCR flow
+1. OCR 错误码分级提示 + 失败重试
+2. `coinLogs / ocrDraftItems` 拆出来单独建集合做长期沉淀
+3. 离线写入队列 + 联网批量 push
+4. 多孩子 / 多家庭账号体系（若产品方向需要）
 
 ## 当前结论
 
-这是一个已经具备产品骨架、页面原型和 OCR 导入主流程骨架的微信小程序项目。
-
-如果接下来优先把云函数部署和真实 OCR 接入补齐，就可以进入更真实的 MVP 验证阶段。
+这是一个产品骨架完整、OCR 主链路 + 跨设备同步均真实可用的小程序 MVP，可以拿给真实家长试用。下一步关键是 OCR 识别质量调优与错误处理细化，让它从 MVP 进入「可上线产品」。
