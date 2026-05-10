@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- near (front) leg, brighter -->
+  <path d="M118 175 L118 196" stroke="#ffae2e" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M118 196 L108 198 M118 196 L128 198 M118 196 L120 200" stroke="#ffae2e" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+</svg>

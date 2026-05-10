@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <!-- far (back) leg, dimmer to suggest depth -->
+  <path d="M96 175 L96 196" stroke="#c46d1f" stroke-width="4" stroke-linecap="round" fill="none" opacity="0.85"/>
+  <path d="M96 196 L88 198 M96 196 L104 198 M96 196 L98 200" stroke="#c46d1f" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.85"/>
+</svg>

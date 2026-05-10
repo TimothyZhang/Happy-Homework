@@ -270,9 +270,11 @@
 .parrot-anim-eating .part-eyes      { animation: parrot-nod         0.42s ease-in-out infinite; }
 .parrot-anim-eating .parrot-stage   { animation: parrot-sway        0.84s ease-in-out infinite; }
 
-/* === CELEBRATING: full spin + two jumps + big wing flaps === */
-.parrot-anim-celebrating              { animation: parrot-celebrate-rot  2s   ease-in-out 1; }
-.parrot-anim-celebrating .parrot-stage{ animation: parrot-celebrate-jump 1s   ease-in-out 2; }
+/* === CELEBRATING: 3D-feel rotateY spin + two jumps + big wing flaps === */
+/* rotateY (with perspective) sells a true 3D rotation: at 90°/270° the flat
+   sprite flattens edge-on, suggesting the parrot is showing its side/back. */
+.parrot-anim-celebrating              { animation: parrot-celebrate-rot-3d 2s ease-in-out 1; }
+.parrot-anim-celebrating .parrot-stage{ animation: parrot-celebrate-jump   1s ease-in-out 2; }
 .parrot-anim-celebrating .part-wing-left  { animation: parrot-flap-l-big 0.22s ease-in-out infinite; }
 .parrot-anim-celebrating .part-wing-right { animation: parrot-flap-r-big 0.22s ease-in-out infinite; }
 
@@ -342,9 +344,9 @@
   25%      { transform: translateX(-6rpx); }
   75%      { transform: translateX(6rpx); }
 }
-@keyframes parrot-celebrate-rot {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+@keyframes parrot-celebrate-rot-3d {
+  0%   { transform: perspective(600px) rotateY(0deg); }
+  100% { transform: perspective(600px) rotateY(360deg); }
 }
 @keyframes parrot-celebrate-jump {
   0%, 100% { transform: translateY(0); }
@@ -353,6 +355,145 @@
 @keyframes parrot-sleep-breath {
   0%, 100% { transform: scale(1.00) translateY(0); }
   50%      { transform: scale(0.97) translateY(2rpx); }
+}
+
+/* ============================================================
+   Parrot — side-view rig (V1-PET-ANIMATION-SPEC §1.1).
+   walking / flying / eating swap from front to side so the
+   parrot reads as a real 3D body, not a flat sprite. The
+   side-flip wrapper handles direction reversal (scaleX) for
+   walking; eating layers a small rotateY perspective so the
+   peck angle reads as 3/4 view, not pure profile.
+   ============================================================ */
+.rig-side {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+}
+.rig-side .side-flip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: center bottom;
+}
+/* Side-rig pivots — percentages map back to the 200-unit viewBox of each
+   side-* SVG so transforms hinge at the right anatomical point. */
+.part-side-body      { transform-origin: 54% 65%; }
+.part-side-head      { transform-origin: 61% 54%; } /* neck base ≈ (122,108) */
+.part-side-eye       { transform-origin: 71% 37%; }
+.part-side-wing      { transform-origin: 47% 50%; } /* shoulder ≈ (95,100)  */
+.part-side-leg-front { transform-origin: 59% 88%; }
+.part-side-leg-back  { transform-origin: 48% 88%; }
+
+/* Show the side rig (and hide the front one) for states that use it. */
+.parrot-anim-walking .rig-front,
+.parrot-anim-flying  .rig-front,
+.parrot-anim-eating  .rig-front  { display: none; }
+.parrot-anim-walking .rig-side,
+.parrot-anim-flying  .rig-side,
+.parrot-anim-eating  .rig-side   { display: block; }
+
+/* === WALKING (side): mirror at each direction reversal + step legs === */
+.parrot-anim-walking .side-flip {
+  /* Snap-flip aligned with parrot-walk-x: face-left → face-right → face-left.
+     steps(1, jump-end) keeps each segment a constant scaleX. */
+  animation: parrot-walk-flip 9s steps(1, jump-end) infinite;
+}
+.parrot-anim-walking .part-side-leg-front {
+  animation: parrot-leg-step-a 0.55s ease-in-out infinite;
+}
+.parrot-anim-walking .part-side-leg-back {
+  animation: parrot-leg-step-b 0.55s ease-in-out infinite;
+}
+.parrot-anim-walking .part-side-wing {
+  animation: parrot-side-flutter 0.55s ease-in-out infinite;
+}
+.parrot-anim-walking .part-side-head {
+  animation: parrot-side-head-bob 0.55s ease-in-out infinite;
+}
+.parrot-anim-walking .part-side-eye {
+  animation: parrot-blink 4.5s ease-in-out infinite;
+}
+
+/* === FLYING (side): big wing flap, side rig stays facing right === */
+.parrot-anim-flying .part-side-wing {
+  animation: parrot-side-flap-fast 0.18s ease-in-out infinite;
+}
+.parrot-anim-flying .part-side-eye {
+  animation: parrot-blink 4.5s ease-in-out infinite;
+}
+
+/* === EATING (side, 3/4 perspective): peck head down, body sways === */
+.parrot-anim-eating .side-flip {
+  transform: perspective(500px) rotateY(-22deg);
+}
+.parrot-anim-eating .part-side-head {
+  animation: parrot-side-peck 0.42s ease-in-out infinite;
+}
+.parrot-anim-eating .part-side-eye {
+  animation: parrot-side-peck 0.42s ease-in-out infinite;
+  transform-origin: 61% 54%;  /* match head pivot so eye rides with the peck */
+}
+
+/* --- side-rig keyframes --- */
+@keyframes parrot-walk-flip {
+  0%   { transform: scaleX(-1); }  /* heading left from center */
+  25%  { transform: scaleX(1);  }  /* turn at peak left, head back to right */
+  75%  { transform: scaleX(-1); }  /* turn at peak right, head back to left */
+}
+@keyframes parrot-leg-step-a {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6rpx); }
+}
+@keyframes parrot-leg-step-b {
+  0%, 100% { transform: translateY(-6rpx); }
+  50%      { transform: translateY(0); }
+}
+@keyframes parrot-side-flutter {
+  0%, 100% { transform: rotate(0deg); }
+  50%      { transform: rotate(-6deg); }
+}
+@keyframes parrot-side-head-bob {
+  0%, 100% { transform: translateY(0)     rotate(0deg); }
+  50%      { transform: translateY(-2rpx) rotate(-2deg); }
+}
+@keyframes parrot-side-flap-fast {
+  0%, 100% { transform: rotate(20deg); }
+  50%      { transform: rotate(-35deg); }
+}
+@keyframes parrot-side-peck {
+  0%, 100% { transform: rotate(0deg)  translateY(0); }
+  50%      { transform: rotate(28deg) translateY(8rpx); }
+}
+
+/* === Dev test-entry label (V1-PET-ANIMATION-SPEC §10).
+   Tap the parrot to cycle animations; this label fades in/out
+   above the stage so you can identify the current state at a glance. */
+.dev-anim-label {
+  position: absolute;
+  top: 18rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(31, 35, 41, 0.78);
+  color: #ffffff;
+  font-size: 22rpx;
+  letter-spacing: 1rpx;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  z-index: 5;
+  pointer-events: none;
+  animation: dev-label-fade 1.5s ease-out forwards;
+}
+@keyframes dev-label-fade {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(-6rpx); }
+  20%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-6rpx); }
 }
 
 /* === stats === */

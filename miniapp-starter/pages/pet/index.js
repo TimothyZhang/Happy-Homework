@@ -54,6 +54,15 @@ const ANIM_RECIPES = {
 const FLY_MIN_GAP_MS = 25000
 const FLY_MAX_GAP_MS = 40000
 
+// Dev test entry (V1-PET-ANIMATION-SPEC §10): tapping the parrot cycles
+// through every state in this order so each animation can be eyeballed on
+// device without waiting for the auto cycle. The auto state machine is
+// suspended for DEV_TAP_PAUSE_MS after each manual tap so it doesn't yank
+// the parrot back into idle mid-inspection.
+const DEV_ANIM_CYCLE = ['idle', 'walking', 'flying', 'eating', 'celebrating', 'sleeping']
+const DEV_TAP_PAUSE_MS = 8000
+const DEV_LABEL_DURATION_MS = 1500
+
 function isParrot(pet) { return !!(pet && pet.species === 'parrot') }
 
 // What auto-cycle states are available given current pet vitals.
@@ -86,6 +95,10 @@ Page({
     // Parrot-specific animation channel (V1-PET-ANIMATION-SPEC). Other species
     // ignore this and keep using `animState` for their CSS class.
     currentAnim: 'idle',
+    // Dev test-entry overlay: name of the animation the user just tapped to,
+    // shown briefly above the parrot. See _cycleParrotAnimForDev.
+    devAnimLabel: '',
+    devAnimLabelVisible: false,
     showBubble: false,
     bubbleText: '',
     ageDays: 0,
@@ -171,11 +184,14 @@ Page({
   },
 
   _stopAnimEngine() {
-    if (this._cycleTimer)   { clearTimeout(this._cycleTimer);   this._cycleTimer = null }
-    if (this._flyTimer)     { clearTimeout(this._flyTimer);     this._flyTimer = null }
-    if (this._oneShotTimer) { clearTimeout(this._oneShotTimer); this._oneShotTimer = null }
+    if (this._cycleTimer)     { clearTimeout(this._cycleTimer);     this._cycleTimer = null }
+    if (this._flyTimer)       { clearTimeout(this._flyTimer);       this._flyTimer = null }
+    if (this._oneShotTimer)   { clearTimeout(this._oneShotTimer);   this._oneShotTimer = null }
+    if (this._devLabelTimer)  { clearTimeout(this._devLabelTimer);  this._devLabelTimer = null }
+    if (this._devResumeTimer) { clearTimeout(this._devResumeTimer); this._devResumeTimer = null }
     this._oneShotActive = false
     this._queuedOneShot = null
+    this._devOverrideUntil = 0
   },
 
   _scheduleNextAuto(delay) {
@@ -202,9 +218,10 @@ Page({
       if (!isParrot(this.data.pet)) return
       const pet = this.data.pet
       const unwell = (pet.health || 0) < 30 || (pet.cleanliness || 0) < 30
-      // Don't fly while sick/dirty (per spec §3) or during a user-triggered
-      // one-shot. Just re-arm the next attempt.
-      if (unwell || this._oneShotActive) {
+      // Don't fly while sick/dirty (per spec §3), during a user-triggered
+      // one-shot, or while the dev-tap override holds the stage.
+      if (unwell || this._oneShotActive ||
+          (this._devOverrideUntil && Date.now() < this._devOverrideUntil)) {
         this._scheduleFlying()
         return
       }
@@ -276,6 +293,11 @@ Page({
   // === Pet interactions === //
   handleTapPet() {
     if (this.data.mode !== 'view') return
+    // Dev test entry: tapping the parrot also walks through every animation
+    // state in order. Other species don't have a state machine, so they
+    // only get the speech bubble.
+    if (isParrot(this.data.pet)) this._cycleParrotAnimForDev()
+
     const baseState = deriveAnimState(this.data.pet)
     const line = pickLine(baseState)
     this.setData({ showBubble: true, bubbleText: line, animState: 'talking' })
@@ -284,6 +306,46 @@ Page({
       this.setData({ showBubble: false, animState: deriveAnimState(this.data.pet) })
       this._bubbleTimer = null
     }, 2200)
+  },
+
+  // Manual cycle through every parrot animation. Each tap advances one step
+  // (idle→walking→flying→eating→celebrating→sleeping→idle) and freezes the
+  // auto state machine for DEV_TAP_PAUSE_MS so the user can actually look at
+  // the chosen animation before idle resumes.
+  _cycleParrotAnimForDev() {
+    const cur = this.data.currentAnim || 'idle'
+    const i = DEV_ANIM_CYCLE.indexOf(cur)
+    const next = DEV_ANIM_CYCLE[(i + 1) % DEV_ANIM_CYCLE.length]
+
+    this._devOverrideUntil = Date.now() + DEV_TAP_PAUSE_MS
+
+    // Take over the stage: cancel any in-flight auto tick AND any one-shot
+    // currently running, otherwise the user-picked state would be overwritten.
+    if (this._cycleTimer)   { clearTimeout(this._cycleTimer);   this._cycleTimer = null }
+    if (this._oneShotTimer) { clearTimeout(this._oneShotTimer); this._oneShotTimer = null }
+    this._oneShotActive = false
+    this._queuedOneShot = null
+
+    // Remount the label (toggle off → on) so the fade keyframe restarts even
+    // when a previous label is still on screen from a rapid prior tap.
+    if (this._devLabelTimer) clearTimeout(this._devLabelTimer)
+    this.setData({ currentAnim: next, devAnimLabelVisible: false })
+    setTimeout(() => {
+      this.setData({ devAnimLabel: next, devAnimLabelVisible: true })
+    }, 16)
+    this._devLabelTimer = setTimeout(() => {
+      this.setData({ devAnimLabelVisible: false })
+      this._devLabelTimer = null
+    }, DEV_LABEL_DURATION_MS)
+
+    if (this._devResumeTimer) clearTimeout(this._devResumeTimer)
+    this._devResumeTimer = setTimeout(() => {
+      this._devResumeTimer = null
+      this._devOverrideUntil = 0
+      if (!isParrot(this.data.pet)) return
+      this.setData({ currentAnim: 'idle' })
+      this._scheduleNextAuto(ANIM_RECIPES.idle.duration)
+    }, DEV_TAP_PAUSE_MS)
   },
 
   handleBuyItem(event) {

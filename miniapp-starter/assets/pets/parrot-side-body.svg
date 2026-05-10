@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="parrotSideBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5fdf78"/>
+      <stop offset="100%" stop-color="#26a64a"/>
+    </linearGradient>
+    <linearGradient id="parrotSideTail" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e8c3a"/>
+      <stop offset="100%" stop-color="#3ec162"/>
+    </linearGradient>
+    <linearGradient id="parrotSideChest" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff0c4"/>
+      <stop offset="100%" stop-color="#ffae2e"/>
+    </linearGradient>
+  </defs>
+  <!-- tail behind body, fanning down-left -->
+  <path d="M75 130 Q40 142 28 178 Q42 168 56 165 Q56 175 60 180 Q70 170 80 162 Z" fill="url(#parrotSideTail)"/>
+  <!-- main body, egg-shape facing right (chest is the right side) -->
+  <ellipse cx="108" cy="130" rx="48" ry="55" fill="url(#parrotSideBody)"/>
+  <!-- yellow chest patch on the visible flank -->
+  <path d="M118 96 Q142 112 142 144 Q138 176 110 180 Q108 152 112 128 Z" fill="url(#parrotSideChest)" opacity="0.92"/>
+</svg>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="parrotSideWing" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#3da7ff"/>
+      <stop offset="100%" stop-color="#1f74cc"/>
+    </linearGradient>
+  </defs>
+  <!-- folded wing on the visible flank, hinged at the shoulder (~95,100) -->
+  <path d="M95 100 Q78 110 80 148 Q94 166 118 158 Q126 132 116 110 Q108 100 95 100 Z" fill="url(#parrotSideWing)"/>
+  <!-- feather seams -->
+  <path d="M88 122 Q102 132 112 144" stroke="#155494" stroke-width="1.5" fill="none" opacity="0.55"/>
+  <path d="M92 134 Q104 144 116 152" stroke="#155494" stroke-width="1.5" fill="none" opacity="0.55"/>
+</svg>

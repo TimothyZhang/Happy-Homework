@@ -7,7 +7,9 @@
 - 状态机:[pages/pet/index.js](pages/pet/index.js)
 - 视觉规则:[pages/pet/index.wxss](pages/pet/index.wxss)
 - WXML 模板:[pages/pet/index.wxml](pages/pet/index.wxml)
-- 拆分后的鹦鹉 SVG:[assets/pets/](assets/pets/)(`parrot-body.svg` / `parrot-head.svg` / `parrot-eyes.svg` / `parrot-wing-left.svg` / `parrot-wing-right.svg`)
+- 拆分后的鹦鹉 SVG:[assets/pets/](assets/pets/)
+  - **正面**(idle/sleeping/celebrating):`parrot-body.svg` / `parrot-head.svg` / `parrot-eyes.svg` / `parrot-wing-left.svg` / `parrot-wing-right.svg`
+  - **侧面**(walking/flying/eating):`parrot-side-body.svg` / `parrot-side-head.svg` / `parrot-side-eye.svg` / `parrot-side-wing.svg` / `parrot-side-leg-front.svg` / `parrot-side-leg-back.svg`
 - 跨页触发载体:[app.js](app.js) 的 `globalData.petAnimQueue`
 
 ---
@@ -25,6 +27,32 @@
    两层独立元素分担 transform,避免 keyframes 互相覆盖。
 5. **被动动画(idle/walking/flying/sleeping)** 由内部定时器随机切换,
    **主动动画(eating/celebrating)** 由 `queueAnim()` 触发并具有最高优先级。
+6. **视角随动作切换(§1.1)**:不同状态使用不同的 rig(正面 / 侧面 /
+   3D 模拟),让宠物看起来是有体积的而不是一张纸片。
+
+---
+
+## 1.1 视角(perspective)
+
+正面平面图(单层)在"原地呼吸 / 睡觉"时最可爱,但当宠物开始走、飞、
+低头啄食时正面 rig 完全没有方向感和立体感。所以 V1 给鹦鹉额外画了一套
+**侧面 rig**,并按动作切换。其它物种暂时只用正面 rig(仅在 idle 类
+动作里循环,问题不大)。
+
+| 状态           | 视角                          | 用哪套 rig                    | 为什么                                   |
+|---------------|------------------------------|------------------------------|----------------------------------------|
+| `idle`        | 正面                          | front (`parrot-*.svg`)        | 大眼睛对玩家最讨喜,呼吸用 scaleY 最自然    |
+| `sleeping`    | 正面                          | front                         | 闭眼正脸 + 慢呼吸,正面表达最直观           |
+| `walking`     | 侧面(左右翻转)                 | side (`parrot-side-*.svg`)    | 必须看出方向 / 脚步 / 翅膀贴身             |
+| `flying`      | 侧面(始终向右)                 | side                          | 翅膀完全张开、看出飞行轨迹                 |
+| `eating`      | 斜 3/4(side + perspective rotateY −22°) | side + CSS 透视   | 啄食姿态从斜角更生动,纯侧面太硬             |
+| `celebrating` | 正面 + Y 轴 3D 旋转            | front + CSS `rotateY(360°)`   | 旋转一圈视觉上有 3D 感,扁平 sprite 在 90°/270° 自然变成"侧背" |
+
+**实现策略**:正面 + 侧面两套 rig 同时挂在 `.parrot-stage` 里,
+通过 `parrot-anim-{{currentAnim}}` class 在 CSS 里 `display: none / block`
+切换显示哪一套。侧面 rig 外面再裹一层 `.side-flip`,
+walking 时通过 `transform: scaleX(-1)` 在两个直线段上翻转,
+让鹦鹉看起来是真的转身。
 
 ---
 
@@ -117,34 +145,52 @@ eating 不需要跨页 — 商店和动画都在宠物页本页,直接 `queueAni
 每个动作下面三件套:**驱动哪个元素 / 时长 / 关键帧节奏**。
 全部 keyframes 在 [`pages/pet/index.wxss`](pages/pet/index.wxss) 文件末尾。
 
-| 动作          | 元素 / 类                                           | 时长          | 关键帧 / 备注                                     |
-|---------------|----------------------------------------------------|---------------|------------------------------------------------|
-| **idle**      | `.parrot-stage`(scale 1→1.03)                      | 3.0s 循环      | `parrot-breath` — 0%/100% scale1, 50% scale 1.03 + Y −4rpx |
-|               | `.part-eyes`(scaleY 1→0.05)                        | 4.5s 循环      | `parrot-blink` — 95–97% scaleY 0.05,其余 1     |
-|               | `.part-wing-left/right`                            | 3.0s 循环      | `parrot-flutter-l/r` — ±6° 慢扇                |
-| **walking**   | `.parrot-figure`(translateX)                       | 9.0s 循环      | `parrot-walk-x` — 0/50/100% center,25% −80rpx,75% +80rpx |
-|               | `.parrot-stage`(translateY)                        | 0.55s 循环     | `parrot-walk-bounce` — Y ±6rpx 模拟脚步        |
-|               | wings                                              | 0.55s 循环     | `parrot-flutter-l/r`(走路时翅膀也轻颤)        |
-| **flying**    | `.parrot-figure`(X)                                | 3.5s 1 次      | `parrot-fly-x` — 从 −260rpx 飞到 +260rpx,首尾淡出 |
-|               | `.parrot-stage`(Y)                                 | 3.5s 1 次      | `parrot-fly-y` — 中点抬升 Y −60rpx 形成弧线    |
-|               | wings(±15° → ∓30°)                                | 0.16s 循环     | `parrot-flap-l/r-fast` — 大幅高频扇动          |
-| **eating**    | `.part-head` + `.part-eyes`                        | 0.42s 循环     | `parrot-nod` — 50% rotate −22° + Y +6rpx       |
-|               | `.parrot-stage`(translateX)                        | 0.84s 循环     | `parrot-sway` — ±6rpx 身体小摆                 |
-| **celebrating** | `.parrot-figure`(rotate)                          | 2.0s 1 次      | `parrot-celebrate-rot` — 0→360° 转一圈         |
-|               | `.parrot-stage`(translateY)                        | 1.0s ×2        | `parrot-celebrate-jump` — Y −50rpx 两次起跳   |
-|               | wings                                              | 0.22s 循环     | `parrot-flap-l/r-big` — ±20° → ∓50° 大扇       |
-| **sleeping**  | `.parrot-stage`(scale + Y)                         | 4.0s 循环      | `parrot-sleep-breath` — 极慢呼吸               |
-|               | `.part-eyes`(static)                               | —             | `transform: scaleY(0.05)` 直接闭眼             |
+**rig** 列说明该状态用哪一套 SVG(参见 §1.1)。
+
+| 动作          | rig    | 元素 / 类                                           | 时长          | 关键帧 / 备注                                     |
+|---------------|--------|----------------------------------------------------|---------------|------------------------------------------------|
+| **idle**      | front  | `.parrot-stage`(scale 1→1.03)                      | 3.0s 循环      | `parrot-breath` — 0%/100% scale1, 50% scale 1.03 + Y −4rpx |
+|               |        | `.part-eyes`(scaleY 1→0.05)                        | 4.5s 循环      | `parrot-blink` — 95–97% scaleY 0.05,其余 1     |
+|               |        | `.part-wing-left/right`                            | 3.0s 循环      | `parrot-flutter-l/r` — ±6° 慢扇                |
+| **walking**   | side   | `.parrot-figure`(translateX)                       | 9.0s 循环      | `parrot-walk-x` — 0/50/100% center,25% −80rpx,75% +80rpx |
+|               |        | `.side-flip`(scaleX ±1)                            | 9.0s 循环      | `parrot-walk-flip` — `steps(1)` 在 25% / 75% 处镜像翻转 |
+|               |        | `.parrot-stage`(translateY)                        | 0.55s 循环     | `parrot-walk-bounce` — Y ±6rpx 模拟脚步        |
+|               |        | `.part-side-leg-front` / `.part-side-leg-back`     | 0.55s 循环     | `parrot-leg-step-a/b` — 错峰起落,显得真在迈步   |
+|               |        | `.part-side-wing` / `.part-side-head`              | 0.55s 循环     | `parrot-side-flutter` / `parrot-side-head-bob` |
+| **flying**    | side   | `.parrot-figure`(X)                                | 3.5s 1 次      | `parrot-fly-x` — 从 −260rpx 飞到 +260rpx,首尾淡出 |
+|               |        | `.parrot-stage`(Y)                                 | 3.5s 1 次      | `parrot-fly-y` — 中点抬升 Y −60rpx 形成弧线    |
+|               |        | `.part-side-wing`(±20° → ∓35°)                     | 0.18s 循环     | `parrot-side-flap-fast` — 大幅高频扇动          |
+| **eating**    | side   | `.side-flip`                                       | 静态           | `perspective(500px) rotateY(-22deg)` — 3/4 透视 |
+|               |        | `.part-side-head` + `.part-side-eye`               | 0.42s 循环     | `parrot-side-peck` — 50% rotate +28° + Y +8rpx |
+|               |        | `.parrot-stage`(translateX)                        | 0.84s 循环     | `parrot-sway` — ±6rpx 身体小摆                 |
+| **celebrating** | front  | `.parrot-figure`(rotateY,perspective 600)        | 2.0s 1 次      | `parrot-celebrate-rot-3d` — 0→360° Y 轴转一圈,扁平 sprite 在 90°/270° 自然变 edge-on |
+|               |        | `.parrot-stage`(translateY)                        | 1.0s ×2        | `parrot-celebrate-jump` — Y −50rpx 两次起跳   |
+|               |        | wings                                              | 0.22s 循环     | `parrot-flap-l/r-big` — ±20° → ∓50° 大扇       |
+| **sleeping**  | front  | `.parrot-stage`(scale + Y)                         | 4.0s 循环      | `parrot-sleep-breath` — 极慢呼吸               |
+|               |        | `.part-eyes`(static)                               | —             | `transform: scaleY(0.05)` 直接闭眼             |
 
 ### transform-origin 表(以 200-单位 viewBox 为基)
 
-| Part            | origin       | 对应原始 SVG 坐标             |
-|-----------------|--------------|----------------------------|
-| `part-wing-left`  | 29% 65%    | (58, 130) — 左肩            |
+**正面 rig**
+
+| Part              | origin     | 对应原始 SVG 坐标             |
+|-------------------|------------|------------------------------|
+| `part-wing-left`  | 29% 65%    | (58, 130) — 左肩             |
 | `part-wing-right` | 71% 65%    | (142, 130) — 右肩            |
 | `part-head`       | 50% 56%    | (100, 112) — 颈根            |
 | `part-eyes`       | 50% 35%    | (100, 70) — 眼线             |
-| `part-body`       | 50% 70%    | 默认底部缩放点              |
+| `part-body`       | 50% 70%    | 默认底部缩放点               |
+
+**侧面 rig**(鹦鹉 chest 朝右)
+
+| Part                  | origin     | 对应原始 SVG 坐标             |
+|-----------------------|------------|------------------------------|
+| `part-side-body`      | 54% 65%    | (108, 130) — 身体几何中心     |
+| `part-side-head`      | 61% 54%    | (122, 108) — 颈根             |
+| `part-side-eye`       | 71% 37%    | (142, 74) — 侧脸眼线          |
+| `part-side-wing`      | 47% 50%    | (95, 100) — 肩关节            |
+| `part-side-leg-front` | 59% 88%    | (118, 175) — 近脚根部         |
+| `part-side-leg-back`  | 48% 88%    | (96, 175) — 远脚根部          |
 
 **双层 transform 设计要点**:locomotion(整图位移)放
 `.parrot-figure`(走 / 飞 / 转圈),姿态(呼吸 / 弹跳 / 摇晃)放
@@ -196,6 +242,18 @@ Recipe 化的步骤,无需动 JS:
 |                                      | `<species>-leg-left/right.svg` — 跨腿  |
 
 **命名规范**:全部以 `<species>-` 前缀 + 部位名,小写连字符。
+**侧面 / 其它视角**额外加 `-side-` / `-back-` 等中缀(参见 §1.1):
+
+| 视角         | 文件名 pattern                       | 示例                                 |
+|-------------|-------------------------------------|-------------------------------------|
+| 正面(默认) | `<species>-<part>.svg`              | `parrot-body.svg`、`parrot-eyes.svg` |
+| 侧面         | `<species>-side-<part>.svg`         | `parrot-side-body.svg`、`parrot-side-leg-front.svg` |
+| 后视(未来)| `<species>-back-<part>.svg`         | `parrot-back-tail.svg`(暂未实现)  |
+
+侧面 rig 推荐拆成 **6 层**:`-side-body` / `-side-head` / `-side-eye`
+(单眼)/ `-side-wing`(单翼)/ `-side-leg-front` / `-side-leg-back`。
+默认朝向**右**(chest 朝右),走路时由 `.side-flip` 包一层
+`scaleX(-1)` 翻成朝左。
 
 每个文件的 viewBox 与原始 SVG 一致,只画自己那部分。这样图层叠在一起
 重组完整造型,而每层的 `transform-origin` 直接用百分比就能锚定到部位。
@@ -274,3 +332,33 @@ celebrating / sleeping 通用 5 组,加上各自特色的 1–2 组特技动作�
   小程序里足够"卡通可爱"。
 - **state machine 当前耦合在 pet 页**:还没抽成独立 module。等做第二种动画
   宠物时再抽,避免过早抽象。
+
+---
+
+## 10. 开发者测试入口(tap-to-cycle)
+
+为了在手机上肉眼验证每个动画(否则 `flying` 要等 25–40s 才有机会),
+**点击鹦鹉本体**(`.pet-stage` 区域)会手动按顺序切换动画状态:
+
+```
+idle → walking → flying → eating → celebrating → sleeping → idle → ...
+```
+
+每次点击:
+
+1. `currentAnim` 立刻切到下一个状态。
+2. 屏幕上方浮一个 `.dev-anim-label`(白字黑底胶囊,1.5 秒淡出)
+   显示当前动画名,方便对照。
+3. **自动状态机暂停 8 秒**(`DEV_TAP_PAUSE_MS`)—— 否则点完
+   立刻被 `_scheduleNextAuto` 抽回 idle,根本看不清。
+4. 8 秒后,自动状态机回到 idle 并重新开始正常循环;
+   `_scheduleFlying` 也通过同一个 `_devOverrideUntil` 时间戳
+   在窗口期内直接重排,不抢占。
+
+**实现位于** [`pages/pet/index.js`](pages/pet/index.js) 的
+`_cycleParrotAnimForDev()` + `handleTapPet()`,常量在文件顶部:
+`DEV_ANIM_CYCLE` / `DEV_TAP_PAUSE_MS` / `DEV_LABEL_DURATION_MS`。
+
+> 这是**测试入口而不是产品功能**。speech 气泡同时还会弹(原有行为保留),
+> 用户在正常使用中也只会偶尔点宠物,不会刻意连点;真要彻底关掉就把
+> `handleTapPet` 里的 `_cycleParrotAnimForDev()` 调用注释掉即可。

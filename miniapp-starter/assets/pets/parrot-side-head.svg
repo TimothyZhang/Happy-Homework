@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="parrotSideHead" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff7a7a"/>
+      <stop offset="100%" stop-color="#e0444a"/>
+    </linearGradient>
+    <linearGradient id="parrotSideBeak" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffd84a"/>
+      <stop offset="100%" stop-color="#c46d1f"/>
+    </linearGradient>
+  </defs>
+  <!-- head -->
+  <ellipse cx="132" cy="78" rx="36" ry="34" fill="url(#parrotSideHead)"/>
+  <!-- crest feathers -->
+  <path d="M118 44 Q124 28 132 42 Q138 28 144 42 Q150 28 156 46" stroke="#ffd84a" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- cheek blush -->
+  <ellipse cx="142" cy="92" rx="6" ry="3.5" fill="#ff8fa5" opacity="0.7"/>
+  <!-- beak (top hooked mandible, curving down/right) -->
+  <path d="M158 76 Q184 80 178 100 Q170 92 158 92 Z" fill="url(#parrotSideBeak)"/>
+  <!-- bottom mandible -->
+  <path d="M158 92 Q166 94 172 100 L166 104 Q160 100 158 96 Z" fill="#a85410"/>
+</svg>

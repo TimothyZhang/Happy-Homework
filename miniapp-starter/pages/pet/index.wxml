@@ -42,11 +42,25 @@
         <view wx:if="{{pet.species === 'parrot'}}"
               class="pet-figure parrot-figure parrot-anim-{{currentAnim}}">
           <view class="parrot-stage">
-            <image class="part part-body"       src="/assets/pets/parrot-body.svg"       mode="aspectFit" />
-            <image class="part part-wing-left"  src="/assets/pets/parrot-wing-left.svg"  mode="aspectFit" />
-            <image class="part part-wing-right" src="/assets/pets/parrot-wing-right.svg" mode="aspectFit" />
-            <image class="part part-head"       src="/assets/pets/parrot-head.svg"       mode="aspectFit" />
-            <image class="part part-eyes"       src="/assets/pets/parrot-eyes.svg"       mode="aspectFit" />
+            <!-- Front rig: idle / sleeping / celebrating -->
+            <image class="part rig-front part-body"       src="/assets/pets/parrot-body.svg"       mode="aspectFit" />
+            <image class="part rig-front part-wing-left"  src="/assets/pets/parrot-wing-left.svg"  mode="aspectFit" />
+            <image class="part rig-front part-wing-right" src="/assets/pets/parrot-wing-right.svg" mode="aspectFit" />
+            <image class="part rig-front part-head"       src="/assets/pets/parrot-head.svg"       mode="aspectFit" />
+            <image class="part rig-front part-eyes"       src="/assets/pets/parrot-eyes.svg"       mode="aspectFit" />
+            <!-- Side rig: walking / flying / eating. side-flip wraps so the
+                 walking direction can mirror via scaleX without fighting the
+                 per-part transforms. -->
+            <view class="rig-side">
+              <view class="side-flip">
+                <image class="part part-side-leg-back"  src="/assets/pets/parrot-side-leg-back.svg"  mode="aspectFit" />
+                <image class="part part-side-body"      src="/assets/pets/parrot-side-body.svg"      mode="aspectFit" />
+                <image class="part part-side-wing"      src="/assets/pets/parrot-side-wing.svg"      mode="aspectFit" />
+                <image class="part part-side-leg-front" src="/assets/pets/parrot-side-leg-front.svg" mode="aspectFit" />
+                <image class="part part-side-head"      src="/assets/pets/parrot-side-head.svg"      mode="aspectFit" />
+                <image class="part part-side-eye"       src="/assets/pets/parrot-side-eye.svg"       mode="aspectFit" />
+              </view>
+            </view>
           </view>
           <text wx:if="{{animState === 'hungry'}}"  class="state-icon hungry-icon">🍖</text>
           <text wx:if="{{animState === 'dirty'}}"   class="state-icon dirty-icon">💨</text>
@@ -63,6 +77,7 @@
           <text wx:if="{{animState === 'happy'}}"   class="state-icon happy-icon">💖</text>
         </view>
         <view wx:if="{{showBubble}}" class="speech-bubble">{{bubbleText}}</view>
+        <view wx:if="{{devAnimLabelVisible}}" class="dev-anim-label">{{devAnimLabel}}</view>
       </view>
 
       <view class="pet-meta">
