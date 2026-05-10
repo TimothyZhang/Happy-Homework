@@ -6,9 +6,9 @@
           style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
           bindtouchstart="handleTouchStart"
           bindlongpress="handleLongPress"
-          catchtouchmove="handleTouchMove"
-          catchtouchend="handleTouchEnd"
-          catchtouchcancel="handleTouchEnd"
+          bindtouchmove="handleTouchMove"
+          bindtouchend="handleTouchEnd"
+          bindtouchcancel="handleTouchEnd"
           data-id="{{item.id}}"
           data-task-id="{{item.taskId || item.id}}"
           data-occurrence-date="{{item.occurrenceDate}}">
@@ -45,9 +45,9 @@
       <view class="task-row done"
             style="transform: translateX({{swipeId === item.id ? swipeDx + 'px' : (swipeOpenId === item.id ? '-120rpx' : '0rpx')}});"
             bindtouchstart="handleSwipeStart"
-            catchtouchmove="handleSwipeMove"
-            catchtouchend="handleSwipeEnd"
-            catchtouchcancel="handleSwipeEnd"
+            bindtouchmove="handleSwipeMove"
+            bindtouchend="handleSwipeEnd"
+            bindtouchcancel="handleSwipeEnd"
             data-id="{{item.id}}">
         <view class="dot"></view>
         <view class="row-body">

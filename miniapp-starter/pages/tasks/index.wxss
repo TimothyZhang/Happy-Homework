@@ -194,6 +194,7 @@
 .page {
   min-height: 100vh;
   padding: 24rpx;
+  padding-bottom: calc(24rpx + 100rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
   background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
 }
