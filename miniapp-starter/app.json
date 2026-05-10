@@ -2,6 +2,7 @@
   "pages": [
     "pages/home/index",
     "pages/tasks/index",
+    "pages/leaderboard/index",
     "pages/calendar/index",
     "pages/notebook-detail/index",
     "pages/notebook-share/index",
@@ -67,8 +68,8 @@
         "text": "作业本"
       },
       {
-        "pagePath": "pages/calendar/index",
-        "text": "日历"
+        "pagePath": "pages/leaderboard/index",
+        "text": "排行榜"
       },
       {
         "pagePath": "pages/pet/index",

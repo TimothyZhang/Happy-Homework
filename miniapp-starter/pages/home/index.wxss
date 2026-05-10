@@ -30,10 +30,9 @@
 .section-card { margin-top: 24rpx; }
 
 /* === date segment ===
-   "今天" is the default primary action: always brand-filled and twice as wide.
-   "明天" / "日历" share the remaining half, each at 1/4 width and a smaller
-   font. When one of those is the active selection it picks up a brand-tinted
-   active style — visually similar to today but with the smaller footprint. */
+   "今天" stays visually prominent (twice as wide, larger font) but the brand
+   fill is reserved for whichever segment is actually selected — otherwise the
+   user can't tell which one they tapped. */
 .seg-bar {
   display: flex;
   align-items: stretch;
@@ -49,25 +48,22 @@
   border-radius: 14rpx;
   line-height: 1.2;
   font-weight: 500;
+  color: #6b7785;
 }
 
 .today-seg {
   flex: 2;
   font-size: 32rpx;
   font-weight: 700;
-  color: #ffffff;
-  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
-  box-shadow: 0 6rpx 18rpx rgba(36, 91, 219, 0.28);
   letter-spacing: 1rpx;
 }
 
 .small-seg {
   flex: 1;
   font-size: 24rpx;
-  color: #6b7785;
 }
 
-.small-seg.active {
+.seg-btn.active {
   background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
   color: #ffffff;
   font-weight: 700;
