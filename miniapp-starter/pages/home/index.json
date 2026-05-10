@@ -2,6 +2,7 @@
   "navigationBarTitleText": "首页",
   "usingComponents": {
     "task-list": "/components/task-list/index",
-    "reward-toast": "/components/reward-toast/index"
+    "reward-toast": "/components/reward-toast/index",
+    "month-calendar": "/components/month-calendar/index"
   }
 }
