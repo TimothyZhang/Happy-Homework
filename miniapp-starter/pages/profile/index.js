@@ -162,11 +162,18 @@ Page({
           const ok = await cloudSync.reclaim()
           this.refreshSyncStatus()
           this.setData({ profile: store.getProfile() })
-          wx.showToast({
-            title: ok ? '已切回此设备' : '切回失败',
-            icon: ok ? 'success' : 'none',
-            duration: 2000
-          })
+          if (ok) {
+            wx.showToast({ title: '已切回此设备', icon: 'success', duration: 2000 })
+          } else {
+            // Surface lastError so silent failures (network blip, schema rejection)
+            // give the user a hint rather than a bare "切回失败".
+            const status = cloudSync.getSyncStatus()
+            wx.showToast({
+              title: '切回失败' + (status.lastError ? '：' + status.lastError : ''),
+              icon: 'none',
+              duration: 2400
+            })
+          }
         } catch (e) {
           console.warn('[profile] reclaim threw', e)
           wx.showToast({

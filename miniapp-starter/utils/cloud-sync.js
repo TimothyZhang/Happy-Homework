@@ -101,7 +101,7 @@ async function createInitialDoc(localSessionId, state, updatedAt) {
 
 async function claimSession(docId, localSessionId, state, updatedAt) {
   const d = db()
-  if (!d) return false
+  if (!d) { _lastError = 'wx.cloud unavailable'; return false }
   try {
     await d.collection(COLLECTION).doc(docId).update({
       data: {
@@ -113,6 +113,7 @@ async function claimSession(docId, localSessionId, state, updatedAt) {
     })
     return true
   } catch (e) {
+    _lastError = (e && e.errMsg) || String(e)
     console.warn('[cloud-sync] claimSession failed', e)
     return false
   }
@@ -124,6 +125,8 @@ function showConflictModal(initial) {
   return new Promise((resolve) => {
     if (_modalShowing) { resolve('cancel'); return }
     _modalShowing = true
+    // confirmText/cancelText capped at 4 chars — exceeding the limit makes
+    // wx.showModal silently no-op on iOS.
     wx.showModal({
       title: initial ? '数据正在另一台设备上使用' : '已在其他设备登录',
       content: initial
@@ -135,7 +138,10 @@ function showConflictModal(initial) {
       confirmText: '切回',
       cancelText: '只读浏览',
       success: (r) => resolve(r.confirm ? 'takeover' : 'cancel'),
-      fail: () => resolve('cancel'),
+      fail: (err) => {
+        console.warn('[cloud-sync] showConflictModal failed', err)
+        resolve('cancel')
+      },
       complete: () => { _modalShowing = false }
     })
   })
@@ -346,11 +352,11 @@ async function forceSync() {
 // Used from the profile page's "切回此设备" button when stuck in read-only.
 // Re-claim ownership and pull cloud state.
 async function reclaim() {
+  console.log('[cloud-sync] reclaim invoked')
   const localSessionId = getDeviceSessionId()
   const doc = await fetchCloudDoc()
   if (!doc) {
-    // No cloud doc — push current local as the seed. (Edge case: collection
-    // missing or first launch raced.)
+    console.log('[cloud-sync] reclaim: no cloud doc, seeding')
     const state = _store.getStateForSync()
     const updatedAt = _store.getUpdatedAt()
     const ok = await createInitialDoc(localSessionId, state, updatedAt)
@@ -364,8 +370,14 @@ async function reclaim() {
   if (ok) {
     _readOnly = false
     _conflictAcknowledged = false
+    _lastError = null
     applyRemoteState(doc.state, doc.updatedAt)
+  } else {
+    // claimSession swallows the error — surface it via _lastError so the UI
+    // can show a useful toast instead of a bare "切回失败".
+    _lastError = _lastError || 'claimSession failed'
   }
+  console.log('[cloud-sync] reclaim done, ok=', ok, 'err=', _lastError)
   return ok
 }
 
