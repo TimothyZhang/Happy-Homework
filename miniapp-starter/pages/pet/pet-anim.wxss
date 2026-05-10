@@ -3,13 +3,13 @@
 
    单层 SVG 物种(parrot 以外的 8 种)用这里的 keyframes 实现
    §1.5 规范的 6 个动作 + 1-2 个物种专属。两层 transform:
-   - .pet-figure 外层 → locomotion (走/跳/飞)
-   - .pet-art   内层 → posture     (呼吸/旋转/晃动)
+   - .pet-figure 外层 -> locomotion (走/跳/飞)
+   - .pet-art   内层 -> posture     (呼吸/旋转/晃动)
 
    类规则约定 (WXML: <view class="pet-figure species-X pet-anim-Y">):
-     .pet-figure.pet-anim-<action>            { animation: ... }   /* 外层 */
-     .pet-figure.pet-anim-<action> .pet-art   { animation: ... }   /* 内层 */
-     .pet-figure.species-<id>.pet-anim-<...>  { ... }              /* 物种 override */
+     .pet-figure.pet-anim-<action>            { animation: ... }   外层
+     .pet-figure.pet-anim-<action> .pet-art   { animation: ... }   内层
+     .pet-figure.species-<id>.pet-anim-<...>  { ... }              物种 override
 
    鹦鹉走 .parrot-anim-* 通道,不会命中本文件任何规则。
    ============================================================ */
