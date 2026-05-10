@@ -56,7 +56,106 @@ walking 时通过 `transform: scaleX(-1)` 在两个直线段上翻转,
 
 ---
 
-## 2. 状态列表
+## 1.5 规范动作集 / Canonical Action Set
+
+把鹦鹉摸出来的方法论沉到所有宠物身上:**每个物种都拥有一组规范动作**
+(canonical actions),共享同一套状态机、时长契约和触发口径,只是视觉
+保真度分两档实现(参见 §1.6)。
+
+### 必备动作(每只宠物都要有,共 6 个)
+
+| 动作          | 类型   | 时长(ms) | 默认视角 | 触发条件                                |
+|---------------|--------|---------------|----------|---------------------------------------|
+| `idle`        | 循环   | 2800          | 正面     | 默认 / 无干预                            |
+| `walking`     | 循环   | 9000          | 正/侧    | 自动循环抽中 / 仅在状态正常时             |
+| `sleeping`    | 循环   | 5000          | 正面     | 自动循环抽中(不舒服时概率提升)           |
+| `eating`      | 单次   | 1800          | 正/侧    | 用户在商店买"提升 fullness"的食物         |
+| `celebrating` | 单次   | 2000          | 正面     | 首页完成作业,跨页 `globalData` 信号      |
+| `happy`       | 单次   | 1200          | 正面     | 玩家点击宠物本体                         |
+
+> `happy` 是 V1 标准化新增的:之前 `talking` 在点击时只是嘴边晃,
+> 现在统一用 `queueAnim('happy')` 触发一段轻量"被点开心跳一下"反馈,
+> 让所有物种点击都有共同的物理回馈。
+
+### 接口契约
+
+- **状态名**:小写英文(`idle` / `walking` / ...),JS `currentAnim` 与 CSS class 共用,大小写敏感。
+- **时长**:JS 在 `ANIM_RECIPES[name].duration` 拍板;CSS 的 `animation` 时长 **必须等于** 该值,否则 oneShot 提前/滞后回 idle。
+- **类型**:
+  - **循环**(`oneShot: false`):自动状态机抽到才播,被 oneShot 抢占。
+  - **单次**(`oneShot: true`):由 `queueAnim()` 触发,最高优先级,播完回 idle。
+- **触发条件**:见上表。新增触发点应集中在 `pages/pet/index.js` 同一组入口(`queueAnim`),不要散落各页面。
+- **视角**:Premium 档可在不同动作切 rig(参见 §1.1);Standard 档全部正面纯 CSS transform,通过 `.pet-figure` 外层 + `.pet-art` 内层两层独立 transform 叠合。
+
+### 物种专属动作
+
+只在合理的物种身上做 1-2 个 signature 即可。所有动作复用同一个
+`currentAnim` 通道,JS 不区分,CSS 用 `.species-<id>` 前缀做 override:
+
+| 物种      | 专属动作                | 实现思路                                                  | 档位      |
+|----------|------------------------|-----------------------------------------------------------|----------|
+| 🦜 parrot | **flying**             | 6 层侧面 SVG rig + 翼大幅扇动 + X 弧线位移                | Premium  |
+| 🐤 chicken | **flying**             | 单层 SVG + 大幅 Y 弹 + 整体高频抖(模拟扇翅)              | Standard |
+| 🐰 rabbit | **hopping**            | walking 替身,Y 轴大跳 + scaleY 蓄力压缩                  | Standard |
+| 🐶 dog    | **wagging**            | idle 叠加,身体小幅 rotate 模拟摇尾,频率快                | Standard |
+| 🐱 cat    | **stretch**            | happy 替身,scaleX 1→1.2 拉长 + Y 微沉                    | Standard |
+| 🐷 pig    | **rolling**            | celebrating 替身,Z 轴 720° + 大跳 ×1                     | Standard |
+| 🐮 cow    | **chewing**            | eating 替身,左右 skewX 模拟磨牙,头身只小幅晃              | Standard |
+| 🐑 sheep  | (待补)                 | 单层 SVG,V1 暂用通用 6 件套                              | —        |
+| 🦙 alpaca | **gallop**             | walking 替身,频率 ×1.5 + 倾斜 7°                          | Standard |
+
+物种专属是 **替身或叠加**,不引入新的状态枚举:
+- "替身"走 `.species-rabbit.pet-anim-walking { animation: pet-anim-hop ... }` —— 同一状态名,CSS 换 keyframe。
+- "叠加"走 `.species-dog.pet-anim-idle .pet-art { animation: pet-anim-breath ..., pet-anim-wag ...; }` —— 多 animation 用逗号叠加。
+
+### 每物种动作清单
+
+| 物种      | idle | walking      | eating      | celebrating | sleeping | happy        | 物种专属                   |
+|----------|------|--------------|-------------|-------------|----------|--------------|--------------------------|
+| 🦜 parrot   | ✓    | ✓ 侧 rig     | ✓ 侧 rig    | ✓           | ✓        | ✓            | `flying`(Premium 侧 rig) |
+| 🐱 cat      | ✓    | ✓            | ✓           | ✓           | ✓        | `stretch`    | (`happy` 替身)            |
+| 🐶 dog      | ✓ + `wag` | ✓       | ✓           | ✓           | ✓        | ✓            | `wagging`(idle 叠加)     |
+| 🐤 chicken  | ✓    | ✓            | ✓           | ✓           | ✓        | ✓            | `flying`                  |
+| 🐰 rabbit   | ✓    | `hopping` 替身 | ✓         | ✓           | ✓        | ✓            | `hopping`(walking 替身)  |
+| 🐮 cow      | ✓    | ✓            | `chewing` 替身 | ✓        | ✓        | ✓            | `chewing`(eating 替身)   |
+| 🐷 pig      | ✓    | ✓            | ✓           | `rolling` 替身 | ✓     | ✓            | `rolling`(celebrating 替身) |
+| 🐑 sheep    | ✓    | ✓            | ✓           | ✓           | ✓        | ✓            | —                         |
+| 🦙 alpaca   | ✓    | `gallop` 替身 | ✓          | ✓           | ✓        | ✓            | `gallop`(walking 替身)   |
+
+> 表里"替身"列写在动作名后:同一 `currentAnim` 状态触发,CSS 渲染替换。
+
+---
+
+## 1.6 实现分档 / Implementation Tiers
+
+不是每个宠物都要鹦鹉那种 6 层 SVG rig 才能动起来。Standard 档基于
+**单层 SVG + CSS transform** 即可覆盖全套规范动作,把 Premium 档保留
+给后续按需逐个升级。
+
+### Premium 档(目前仅鹦鹉)
+- 多层 SVG —— 正面 + 侧面共 ~11 个 part,每层独立 viewBox/transform-origin。
+- 局部动画 —— 头/眼/翅/腿各自旋转 + 平移。
+- 真侧面 rig —— 走/飞/吃用侧面 SVG,走路时 `scaleX(-1)` 翻转转身。
+- WXSS 类前缀 `.parrot-anim-*`,见 §5。
+
+### Standard 档(其它 8 种)
+- 单层 emoji-style SVG(`/assets/pets/<species>.svg`)—— 不再拆分。
+- 纯 CSS `transform` 实现 6 个规范动作 + 物种专属。
+- 双层 transform 设计:
+  - 外层 `.pet-figure` —— 整体位移(走/跳/飞)
+  - 内层 `.pet-art`   —— 局部姿态(呼吸/旋转/晃动)
+- 共享 keyframes 集中在 [`pages/pet/pet-anim.wxss`](pages/pet/pet-anim.wxss),前缀 `pet-anim-*` 防冲突,见 §5.5。
+
+> Standard 档的视觉定位是"会动且可识别",不强求"动得像鹦鹉"。
+> 单层 SVG 能传达的方向感和重量感有限,升级到 Premium 由后续按物种
+> by-demand 推进。
+
+---
+
+## 2. 状态列表(鹦鹉 Premium 档,完整 6 状态参见 §1.5)
+
+下表是 Premium 鹦鹉的状态机数值,Standard 档物种沿用相同的 type/duration,
+仅 `flying` 是鹦鹉/鸡专属 —— 其它物种不挂这一行。
 
 | 状态           | 类型      | 默认时长(ms) | 触发条件                                    |
 |----------------|-----------|---------------|-------------------------------------------|
@@ -66,6 +165,7 @@ walking 时通过 `transform: scaleX(-1)` 在两个直线段上翻转,
 | `flying`       | 单次       | 3500          | 独立计时器 25–40s 一次,健康/清洁正常时      |
 | `eating`       | 单次       | 1800          | 用户在商店买"提升 fullness"的食物            |
 | `celebrating`  | 单次       | 2000          | 用户在首页完成作业,跨页 `globalData` 信号    |
+| `happy`        | 单次       | 1200          | 玩家点击宠物本体(§1.5 新增)                |
 
 > 时长记号 = 一次完整循环或一次单次播放。当被打断(eating / celebrating
 > 抢占),当前循环视为播完一次后退场。
@@ -198,30 +298,86 @@ eating 不需要跨页 — 商店和动画都在宠物页本页,直接 `queueAni
 
 ---
 
+## 5.5 Standard 档共享 keyframes(其它 8 种)
+
+所有 Standard 档物种共享下列 keyframes,集中在
+[`pages/pet/pet-anim.wxss`](pages/pet/pet-anim.wxss),
+通过 `@import` 拼到主页 wxss。前缀 `pet-anim-*` 避免与鹦鹉
+`parrot-*` 冲突。
+
+| keyframe                  | 用途                                | 应用元素        |
+|---------------------------|-------------------------------------|----------------|
+| `pet-anim-breath`         | idle 呼吸 + 微抬                    | `.pet-art`     |
+| `pet-anim-walk-x`         | walking 整体来回 ±80rpx             | `.pet-figure`  |
+| `pet-anim-walk-flip`      | walking 转向(steps(1) snap-flip)   | `.pet-art`     |
+| `pet-anim-walk-bounce`    | walking 上下小弹模拟脚步            | `.pet-art`     |
+| `pet-anim-eat-bob`        | eating 头部点头(整体前倾抖)        | `.pet-art`     |
+| `pet-anim-celebrate-spin` | celebrating Y 轴旋转 360°           | `.pet-art`     |
+| `pet-anim-celebrate-jump` | celebrating 跳两次                  | `.pet-figure`  |
+| `pet-anim-sleep-breath`   | sleeping 极慢呼吸 + 微沉            | `.pet-art`     |
+| `pet-anim-happy-pop`      | happy 一次小跳 + scale wiggle       | `.pet-art`     |
+| `pet-anim-hop`            | rabbit / chicken 大跳               | `.pet-figure`  |
+| `pet-anim-hop-squash`     | rabbit / chicken 蓄力压缩           | `.pet-art`     |
+| `pet-anim-wag`            | dog 摇尾(idle 叠加旋转)            | `.pet-art`     |
+| `pet-anim-stretch`        | cat 伸懒腰(scaleX 拉长)            | `.pet-art`     |
+| `pet-anim-roll`           | pig 打滚 720°                       | `.pet-art`     |
+| `pet-anim-chew`           | cow 磨牙(skewX 摆动)               | `.pet-art`     |
+| `pet-anim-gallop-x`       | alpaca 加速 walking                 | `.pet-figure`  |
+| `pet-anim-gallop-tilt`    | alpaca 倾斜 7°                      | `.pet-art`     |
+| `pet-anim-flap-jitter`    | chicken 飞行高频抖(模拟扇翅)       | `.pet-art`     |
+
+类规则约定(WXML 上 `<view class="pet-figure species-{{species}} pet-anim-{{currentAnim}} anim-{{animState}}">`):
+
+```css
+.species-<id>.pet-anim-<action>           { animation: ... }   /* 外层 — locomotion */
+.species-<id>.pet-anim-<action> .pet-art  { animation: ... }   /* 内层 — posture */
+```
+
+物种 override / 叠加示例:
+
+```css
+.species-rabbit.pet-anim-walking            { animation: pet-anim-hop ... }
+.species-rabbit.pet-anim-walking .pet-art   { animation: pet-anim-hop-squash ... }
+.species-dog.pet-anim-idle .pet-art         { animation: pet-anim-breath ..., pet-anim-wag ...; }
+.species-pig.pet-anim-celebrating .pet-art  { animation: pet-anim-roll ... }
+.species-cow.pet-anim-eating .pet-art       { animation: pet-anim-chew ... }
+.species-cat.pet-anim-happy .pet-art        { animation: pet-anim-stretch ... }
+.species-chicken.pet-anim-flying            { animation: pet-anim-hop ... }
+.species-chicken.pet-anim-flying .pet-art   { animation: pet-anim-flap-jitter ... }
+.species-alpaca.pet-anim-walking            { animation: pet-anim-gallop-x ... }
+.species-alpaca.pet-anim-walking .pet-art   { animation: pet-anim-gallop-tilt ... }
+```
+
+**vital-state filters**(开心/难过/脏/生病的"色调"提示)依然由
+`.anim-<animState> .pet-art { filter: ... }` 单独控制,只放 `filter`,
+不放 `animation`,所以不与 `pet-anim-*` 冲突。
+
+---
+
 ## 6. 鹦鹉 vs. 其它宠物的渲染分支
 
 [pages/pet/index.wxml](pages/pet/index.wxml):
 
 ```wxml
+<!-- Premium 档:鹦鹉 -->
 <view wx:if="{{pet.species === 'parrot'}}"
       class="pet-figure parrot-figure parrot-anim-{{currentAnim}}">
   <view class="parrot-stage">
     <image class="part part-body"       src="/assets/pets/parrot-body.svg" .../>
-    <image class="part part-wing-left"  .../>
-    <image class="part part-wing-right" .../>
-    <image class="part part-head"       .../>
-    <image class="part part-eyes"       .../>
+    ...
   </view>
   ...state-icon overlays
 </view>
-<view wx:else class="pet-figure anim-{{animState}}">
+<!-- Standard 档:其它 8 种 -->
+<view wx:else
+      class="pet-figure species-{{pet.species}} pet-anim-{{currentAnim}} anim-{{animState}}">
   <image class="pet-art" src="/assets/pets/{{pet.species}}.svg" .../>
-  ...
+  ...state-icon overlays
 </view>
 ```
 
-> 其它 8 种宠物保留原有 `<image>` + `anim-{{animState}}` 的单图渲染,
-> 不受本次改动影响。原 `parrot.svg` 保留(选种网格、换宠面板仍用它)。
+> Standard 档现在也走完整状态机,跟 Premium 共享 `currentAnim` 通道。
+> 原 `parrot.svg` 保留(选种网格、换宠面板仍用它)。
 
 ---
 
@@ -229,7 +385,15 @@ eating 不需要跨页 — 商店和动画都在宠物页本页,直接 `queueAni
 
 Recipe 化的步骤,无需动 JS:
 
-### 7.1 SVG 拆分约定
+### 7.0 先决定档位
+
+参考 §1.6:
+
+- **Premium** —— 真正想"会动得像生物"的物种(目前仅鹦鹉)。走 §7.1–7.4 完整流程。
+- **Standard** —— 单层 SVG + CSS transform 即可。**完全不需要拆 SVG**,
+  也不用写新 keyframe,直接走 §7.6 即可。
+
+### 7.1 SVG 拆分约定(Premium 档)
 
 把整体宠物 SVG 拆成 **同一个 viewBox**(推荐 `0 0 200 200`)的若干层文件:
 
@@ -295,30 +459,43 @@ Recipe 化的步骤,无需动 JS:
 
 - **eating** 已经是 species 无关的:任何宠物买 fullness > 0 道具都触发。
 - **celebrating** 跨页信号也是 species 无关的。
-- 未来若某种动作只属于个别物种(如鹦鹉的 flying、青蛙的 jumping),
-  在 ANIM_RECIPES 里加 `species` 限制字段或在 `_scheduleFlying`
-  类的入口处判断即可。
+- **happy** 是 §1.5 规范化新增,所有物种点击宠物本体均触发。
+- **flying** 仍是物种限定:`_scheduleFlying` 内白名单 `parrot` / `chicken`,
+  其它物种自动跳过这个独立计时器。
+
+### 7.6 加新 Standard 档物种(无需写 SVG / keyframe)
+
+1. 把 `<species>.svg` 单层 SVG 放到 `/assets/pets/`。
+2. 在 `pages/pet/index.js` 的 `PET_ANIM_SEQUENCES` 加一行 `[species]: [...]`,
+   决定开发者点击循环哪些动作(也是 spec §1.5 的「每物种动作清单」)。
+3. **不需要改 WXML / WXSS**,Standard 渲染分支已是 species-agnostic。
+4. 想给该物种 1–2 个专属动作,**仅写 CSS override**:
+   ```css
+   .species-<id>.pet-anim-<action>          { animation: pet-anim-<keyframe> ... }
+   .species-<id>.pet-anim-<action> .pet-art { animation: pet-anim-<keyframe> ... }
+   ```
+   keyframe 复用 §5.5 已有的或新增到 `pet-anim.wxss`(以 `pet-anim-` 前缀)。
 
 ---
 
-## 8. 每种内置宠物建议的动作集(草稿,**不在本次范围**)
+## 8. 每种内置宠物的动作集(V1 已落地)
 
-这里只列建议,未来分别开 PR 实现。每种都默认带 idle / walking / eating /
-celebrating / sleeping 通用 5 组,加上各自特色的 1–2 组特技动作。
+§1.5 已是 single source of truth,这里只做"实现 vs. 待补"对账。
 
-| 物种      | 特色动作建议                                               |
-|----------|----------------------------------------------------------|
-| 🦜 parrot | **flying**(已实现)、speech-mimic(说话时小幅鞠躬)            |
-| 🐱 cat    | **stretch**(伸懒腰,2 段)、**grooming**(舔爪 / 清洁特化的 eating 替身) |
-| 🐶 dog    | **tail-wag**(高频摇尾,可叠加在 idle/walking)、**fetch**(向前冲一下) |
-| 🐰 rabbit | **hop**(walking 替换为跳跃位移)、**twitch-nose**(idle 时鼻子轻颤) |
-| 🐔 chicken | **peck**(eating 加强版,头连点)、**flap-without-fly**(原地扑腾) |
-| 🐮 cow    | **chew**(eating 替身,嘴左右摆)、**low-moo**(speech 时头微仰) |
-| 🐷 pig    | **roll**(celebrating 替换为打滚 360°)、**snout-sniff**(idle 时鼻动) |
-| 🐑 sheep  | **fluff-shake**(walking 时身体小颤)、**graze**(eating 替身,头一直低着) |
-| 🦙 alpaca | **gallop**(walking 速度加倍版)、**shoulder-shrug**(idle 偶尔耸肩) |
+| 物种      | V1 已落地                                              | 待补 / 后续 PR              |
+|----------|------------------------------------------------------|----------------------------|
+| 🦜 parrot | 6 件套 + flying(Premium 侧面 rig)                     | speech-mimic(鞠躬)         |
+| 🐱 cat    | 6 件套(`happy = stretch`)                            | grooming(舔爪)             |
+| 🐶 dog    | 6 件套 + wagging(idle 叠加)                          | fetch(向前冲)              |
+| 🐰 rabbit | 6 件套(`walking = hopping`)                           | twitch-nose                 |
+| 🐤 chicken | 6 件套 + flying(Standard hop + flap-jitter)          | peck(eating 加强)          |
+| 🐮 cow    | 6 件套(`eating = chewing`)                           | low-moo                     |
+| 🐷 pig    | 6 件套(`celebrating = rolling`)                       | snout-sniff                 |
+| 🐑 sheep  | 6 件套通用                                              | fluff-shake / graze         |
+| 🦙 alpaca | 6 件套(`walking = gallop`)                           | shoulder-shrug              |
 
-> 排期建议:先把 cat / dog 这两个最常用的物种做了(覆盖率最高),其它按需补。
+> 排期建议:V1 之后下一波专属动作按"物种使用率"补 —— 看后台数据,
+> 选种最多的优先升级到第二版动作。
 
 ---
 
@@ -338,15 +515,25 @@ celebrating / sleeping 通用 5 组,加上各自特色的 1–2 组特技动作�
 ## 10. 开发者测试入口(tap-to-cycle)
 
 为了在手机上肉眼验证每个动画(否则 `flying` 要等 25–40s 才有机会),
-**点击鹦鹉本体**(`.pet-stage` 区域)会手动按顺序切换动画状态:
+**点击宠物本体**(`.pet-stage` 区域)会按当前物种的动作清单依次切换:
 
-```
-idle → walking → flying → eating → celebrating → sleeping → idle → ...
+```js
+PET_ANIM_SEQUENCES = {
+  parrot:  ['idle', 'walking', 'flying', 'eating', 'celebrating', 'sleeping', 'happy'],
+  cat:     ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],   // happy = stretch
+  dog:     ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],   // idle 叠加 wag
+  chicken: ['idle', 'walking', 'flying', 'eating', 'celebrating', 'sleeping', 'happy'],
+  rabbit:  ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],   // walking = hop
+  cow:     ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],   // eating = chew
+  pig:     ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],   // celebrating = roll
+  sheep:   ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
+  alpaca:  ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],   // walking = gallop
+}
 ```
 
 每次点击:
 
-1. `currentAnim` 立刻切到下一个状态。
+1. `currentAnim` 立刻切到当前物种 sequence 中的下一个状态。
 2. 屏幕上方浮一个 `.dev-anim-label`(白字黑底胶囊,1.5 秒淡出)
    显示当前动画名,方便对照。
 3. **自动状态机暂停 8 秒**(`DEV_TAP_PAUSE_MS`)—— 否则点完
@@ -354,11 +541,13 @@ idle → walking → flying → eating → celebrating → sleeping → idle →
 4. 8 秒后,自动状态机回到 idle 并重新开始正常循环;
    `_scheduleFlying` 也通过同一个 `_devOverrideUntil` 时间戳
    在窗口期内直接重排,不抢占。
+5. 物种 sequence 里没有的动作不会出现 —— 兔子点不出 `flying`,
+   它的 walking 直接渲染为 hopping(同一 `currentAnim`,CSS 替身)。
 
 **实现位于** [`pages/pet/index.js`](pages/pet/index.js) 的
-`_cycleParrotAnimForDev()` + `handleTapPet()`,常量在文件顶部:
-`DEV_ANIM_CYCLE` / `DEV_TAP_PAUSE_MS` / `DEV_LABEL_DURATION_MS`。
+`_cyclePetAnimForDev()` + `handleTapPet()`,常量在文件顶部:
+`PET_ANIM_SEQUENCES` / `DEV_TAP_PAUSE_MS` / `DEV_LABEL_DURATION_MS`。
 
 > 这是**测试入口而不是产品功能**。speech 气泡同时还会弹(原有行为保留),
 > 用户在正常使用中也只会偶尔点宠物,不会刻意连点;真要彻底关掉就把
-> `handleTapPet` 里的 `_cycleParrotAnimForDev()` 调用注释掉即可。
+> `handleTapPet` 里的 `_cyclePetAnimForDev()` 调用注释掉即可。
