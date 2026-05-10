@@ -11,7 +11,7 @@ const SCHEMA_VERSION = 2
 // the avatar is synced through the existing entry — no separate field needed.
 const SYNC_FIELDS = [
   'notebooks', 'tasks',
-  'coins', 'streakDays', 'perfectDays',
+  'coins', 'streakDays', 'perfectDays', 'bonusByDay',
   'pendingShareCoins',
   'pet', 'lastReward',
   'profile'
@@ -305,6 +305,10 @@ const defaultState = {
   // YYYY-MM-DD strings for days where every task got completed. Used to
   // compute consecutive-perfect-day streak. Pruned to ~14 days of history.
   perfectDays: [],
+  // Per-day bonus paid on first all-done. Keyed by YYYY-MM-DD; value is
+  // { dailyBonus, weeklyBonus, prevStreakDays }. Read by revertTask to claw
+  // back the exact bonus that was credited (and restore prior streak).
+  bonusByDay: {},
   // Coins credited from share-saves that haven't been applied to local
   // coins yet. Filled by the shareReward cloud function on the sharer's
   // user_state doc; claimed (added to coins, reset to 0) on next hydrate.
@@ -371,6 +375,7 @@ function migrateState(raw) {
     // without a manual cache wipe.
     raw.shopItems = clone(defaultState).shopItems
     if (!Array.isArray(raw.perfectDays)) raw.perfectDays = []
+    if (!raw.bonusByDay || typeof raw.bonusByDay !== 'object') raw.bonusByDay = {}
     if (typeof raw.pendingShareCoins !== 'number') raw.pendingShareCoins = 0
     if (typeof raw.streakDays !== 'number') raw.streakDays = 0
     if (typeof raw.coins !== 'number') raw.coins = 0
@@ -1204,7 +1209,12 @@ function resumeTask(taskId, dateStr) {
 }
 
 // Send a done task back to undone (paused) — used for "误点完成" recovery.
-// Keeps accumulatedMs so the user picks up where they left off.
+// Keeps accumulatedMs so the user picks up where they left off. Also claws
+// back the +10 single-task reward; if reverting breaks an all-done day,
+// refunds the daily bonus (and weekly bonus if any) too. Coins clip to 0
+// rather than going negative — the user may have spent some between finish
+// and revert. This anti-farms the finish→revert→finish loop: each cycle
+// nets zero coins.
 function revertTask(taskId, dateStr) {
   const day = dateStr || todayStr()
   return updateState((state) => {
@@ -1223,6 +1233,20 @@ function revertTask(taskId, dateStr) {
     state.tasks = state.tasks.map((t) =>
       t.id === taskId ? applyTaskState(t, nb, day, patch) : t
     )
+
+    state.coins = Math.max(0, (state.coins || 0) - REWARD_PER_TASK)
+
+    if (Array.isArray(state.perfectDays) && state.perfectDays.includes(day)) {
+      const log = state.bonusByDay && state.bonusByDay[day]
+      if (log) {
+        const totalBonus = (log.dailyBonus || 0) + (log.weeklyBonus || 0)
+        state.coins = Math.max(0, state.coins - totalBonus)
+        state.streakDays = Math.max(0, log.prevStreakDays || 0)
+        delete state.bonusByDay[day]
+      }
+      state.perfectDays = state.perfectDays.filter((d) => d !== day)
+    }
+
     return state
   })
 }
@@ -1272,11 +1296,14 @@ function finishTask(taskId, dateStr) {
         dailyBonus = todayItems.length * REWARD_DAILY_PERFECT_PER_TASK
         reward += dailyBonus
 
+        // Snapshot streak BEFORE the increment so revertTask can restore it.
+        const prevStreakDays = state.streakDays || 0
+
         // Consecutive-day streak: if yesterday was also a perfect day, keep
         // counting; otherwise reset to 1.
         const yesterday = addDays(day, -1)
         state.streakDays = state.perfectDays.includes(yesterday)
-          ? (state.streakDays || 0) + 1
+          ? prevStreakDays + 1
           : 1
 
         state.perfectDays.push(day)
@@ -1288,6 +1315,12 @@ function finishTask(taskId, dateStr) {
           weeklyBonus = REWARD_WEEKLY_STREAK
           reward += weeklyBonus
         }
+
+        // Stash exact bonus paid + pre-update streak. revertTask refunds from
+        // this map so the refund matches the credit even if task count or
+        // streak state changes between finish and revert.
+        if (!state.bonusByDay || typeof state.bonusByDay !== 'object') state.bonusByDay = {}
+        state.bonusByDay[day] = { dailyBonus, weeklyBonus, prevStreakDays }
       }
     }
 

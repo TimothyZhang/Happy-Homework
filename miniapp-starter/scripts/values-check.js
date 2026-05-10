@@ -90,13 +90,65 @@ check('lastReward.dailyBonus = 80', after8.lastReward.dailyBonus, 80)
 check('streakDays = 1', after8.streakDays, 1)
 check('perfectDays includes today', after8.perfectDays.includes(today), true)
 
-// === Test 3: re-finishing after a revert doesn't double-credit bonus ===
-console.log('\n[reward] revert + redo doesn\'t double-bonus:')
+// === Test 3: revert claws back single +10 AND the daily bonus ===
+// Picking up from test 2: 8/8 done, coins=160, perfectDays=[today], streak=1.
+console.log('\n[revert] all-done revert claws back single + bonus:')
 store.revertTask('t8', today)
-const coinsBeforeRedo = store.getStateWithComputed().coins  // 160 unchanged (revert doesn't refund)
+const afterRevert8 = store.getStateWithComputed()
+check('revert breaks all-done → coins = 70 (refund 10 + 80)', afterRevert8.coins, 70)
+check('streakDays restored to 0', afterRevert8.streakDays, 0)
+check('perfectDays no longer has today', afterRevert8.perfectDays.includes(today), false)
+
+// === Test 3b: re-finishing the same task re-pays the bonus (back to 160) ===
 store.finishTask('t8', today)
 const afterRedo = store.getStateWithComputed()
-check('redo only credits +10 (no extra bonus)', afterRedo.coins - coinsBeforeRedo, 10)
+check('redo restores to 160 (single +10 + bonus +80)', afterRedo.coins, 160)
+check('streakDays back to 1', afterRedo.streakDays, 1)
+
+// === Test 3c: anti-farm — finish→revert cycled 5× nets zero ===
+// Each cycle: finish(+10+80) → revert(-10-80). End coins must equal start.
+const beforeFarm = store.getStateWithComputed().coins
+for (let i = 0; i < 5; i++) {
+  store.revertTask('t8', today)
+  store.finishTask('t8', today)
+}
+const afterFarm = store.getStateWithComputed()
+check('5× finish/revert cycle → coins unchanged', afterFarm.coins, beforeFarm)
+check('5× cycle → still 1 perfect day on streak', afterFarm.streakDays, 1)
+
+// === Test 3d: revert middle task (not the one that triggered all-done) ===
+// Same logic must fire: any revert from a perfect-day state breaks the day.
+seedNTasksToday(8)
+store = freshStore()
+for (let i = 1; i <= 8; i++) store.finishTask(`t${i}`, today)
+check('seed: 8/8 → 160', store.getStateWithComputed().coins, 160)
+store.revertTask('t3', today)  // middle task, not the 8th
+const afterMiddle = store.getStateWithComputed()
+check('revert middle → coins = 70 (bonus still clawed)', afterMiddle.coins, 70)
+check('revert middle → streakDays back to 0', afterMiddle.streakDays, 0)
+
+// === Test 3e: revert without all-done only refunds the single +10 ===
+seedNTasksToday(3)
+store = freshStore()
+store.finishTask('t1', today)
+store.finishTask('t2', today)  // 2/3, not perfect → no bonus credited yet
+const before2of3 = store.getStateWithComputed()
+check('seed: 2/3 done → coins = 20', before2of3.coins, 20)
+store.revertTask('t2', today)
+const after2of3 = store.getStateWithComputed()
+check('revert non-perfect-day task → coins = 10', after2of3.coins, 10)
+check('streakDays untouched', after2of3.streakDays, 0)
+
+// === Test 3f: clip-to-zero — refund larger than current balance ===
+seedNTasksToday(1)
+store = freshStore()
+store.finishTask('t1', today)
+const fix = JSON.parse(storage['homework-pet-v1'])
+fix.coins = 3  // user spent most of it; only 3 left
+storage['homework-pet-v1'] = JSON.stringify(fix)
+store = freshStore()
+store.revertTask('t1', today)
+check('refund > balance → coins clipped to 0', store.getStateWithComputed().coins, 0)
 
 // === Test 4: 12-task day matches design's 12 × 20 = 240 ===
 console.log('\n[reward] 12-task perfect day = 240:')
