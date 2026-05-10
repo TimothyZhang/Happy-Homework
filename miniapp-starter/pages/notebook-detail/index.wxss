@@ -46,26 +46,21 @@
   box-sizing: border-box;
 }
 
-.bottom-actions .add-btn,
-.bottom-actions .edit-btn {
+.bottom-actions .add-btn {
   background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
   color: #ffffff;
   box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
 }
 
-.bottom-actions .share-btn {
-  background: #eef4ff;
-  color: #245bdb;
-}
-
-.bottom-actions .copy-btn {
-  background: #f0e9ff;
-  color: #6c3fdb;
-}
-
+/* All non-primary actions share a subdued light-gray look so the only
+   visually loud button is 「+ 新增作业」 above. */
+.bottom-actions .edit-btn,
+.bottom-actions .share-btn,
+.bottom-actions .copy-btn,
 .bottom-actions .danger-btn {
-  background: #fff1f0;
-  color: #e54545;
+  background: #f0f0f0;
+  color: #1f2329;
+  box-shadow: none;
 }
 
 .empty-state {
@@ -232,4 +227,18 @@
   border: none;
   font-size: 30rpx;
   font-weight: 600;
+}
+
+/* Auto-estimate hint chip — sits below the (empty) minutes input. Tapping
+   it stuffs the suggestion into the input. Visually a soft pill so it
+   looks like a suggestion, not a required-error message. */
+.est-hint {
+  margin-top: 8rpx;
+  align-self: flex-start;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  background: #eef4ff;
+  color: #245bdb;
+  font-size: 22rpx;
+  line-height: 1.5;
 }

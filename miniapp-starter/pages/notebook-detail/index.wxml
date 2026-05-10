@@ -64,8 +64,9 @@
       </picker>
     </view>
     <view class="field">
-      <text class="field-label">预计耗时（分钟）</text>
+      <text class="field-label">预计耗时（分钟，可选）</text>
       <input class="input" type="number" placeholder="例：20" value="{{formMinutes}}" bindinput="handleMinutesInput" />
+      <view wx:if="{{formEstHint && !formMinutes}}" class="est-hint" bindtap="handleAcceptEstimate">{{formEstHint}}</view>
     </view>
     <button class="save-btn" bindtap="handleSaveTask">{{editingId ? '保存修改' : '保存'}}</button>
   </view>

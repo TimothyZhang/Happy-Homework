@@ -66,6 +66,11 @@ Page({
     formSubject: '语文',
     formSubjectIndex: 0,
     subjectOptions: SUBJECT_OPTIONS,
+    // Auto-estimate hint: filled by recalcEstimate when ≥2 finished history
+    // samples match the (content, subject) pair. UI shows this as a "tap to
+    // accept" chip next to the empty minutes input.
+    formEstMinutes: 0,
+    formEstHint: '',
     dragId: null,
     dragDy: 0
   },
@@ -242,7 +247,9 @@ Page({
       formContent: '',
       formMinutes: '',
       formSubject: '语文',
-      formSubjectIndex: 0
+      formSubjectIndex: 0,
+      formEstMinutes: 0,
+      formEstHint: ''
     })
   },
 
@@ -258,30 +265,60 @@ Page({
       formContent: task.content,
       formMinutes: String(task.estimatedMinutes || ''),
       formSubject: SUBJECT_OPTIONS[subjIdx],
-      formSubjectIndex: subjIdx
-    })
+      formSubjectIndex: subjIdx,
+      formEstMinutes: 0,
+      formEstHint: ''
+    }, () => this.recalcEstimate())
   },
 
   handleHideForm() {
     this.setData({ showForm: false, editingId: null })
   },
 
-  handleContentInput(e) { this.setData({ formContent: e.detail.value }) },
+  handleContentInput(e) {
+    this.setData({ formContent: e.detail.value }, () => this.recalcEstimate())
+  },
   handleMinutesInput(e) { this.setData({ formMinutes: e.detail.value }) },
   handleSubjectChange(e) {
     const idx = Number(e.detail.value)
-    this.setData({ formSubjectIndex: idx, formSubject: SUBJECT_OPTIONS[idx] })
+    this.setData({ formSubjectIndex: idx, formSubject: SUBJECT_OPTIONS[idx] }, () => this.recalcEstimate())
+  },
+
+  // Recompute the auto-estimate hint from current (content, subject). If the
+  // user already filled formMinutes we still compute it but the WXML hides
+  // the chip — accepting an estimate over a manual number is not a flow
+  // that's worth a confirm dialog, the user can just clear and re-type.
+  recalcEstimate() {
+    const content = (this.data.formContent || '').trim()
+    if (!content) {
+      this.setData({ formEstHint: '', formEstMinutes: 0 })
+      return
+    }
+    const est = store.estimateTaskMinutes(content, this.data.formSubject || '')
+    if (est) {
+      this.setData({ formEstMinutes: est, formEstHint: `预估 ${est} 分钟（基于历史，点这里使用）` })
+    } else {
+      this.setData({ formEstMinutes: 0, formEstHint: '' })
+    }
+  },
+
+  handleAcceptEstimate() {
+    if (this.data.formEstMinutes) {
+      this.setData({ formMinutes: String(this.data.formEstMinutes) })
+    }
   },
 
   handleSaveTask() {
     const { formContent, formMinutes, formSubject, editingId, notebookId } = this.data
-    if (!formContent || !formMinutes) {
-      wx.showToast({ title: '请补全内容和时长', icon: 'none' })
+    if (!formContent || !formContent.trim()) {
+      wx.showToast({ title: '请填作业内容', icon: 'none' })
       return
     }
+    // Minutes is now optional — empty/zero saves fine. addTask already
+    // coerces via Number(payload.estimatedMinutes || 0) so blanks land as 0.
     const payload = {
       content: formContent.trim(),
-      estimatedMinutes: Number(formMinutes),
+      estimatedMinutes: formMinutes ? Number(formMinutes) : 0,
       subject: formSubject
     }
     if (editingId) {
