@@ -30,7 +30,7 @@
       </view>
     </view>
 
-    <view class="section-card">
+    <view class="card section-card">
       <view class="section-header">
         <text class="section-title">未完成</text>
         <text wx:if="{{undoneItems.length > 0}}" class="section-count">{{undoneItems.length}}</text>
@@ -49,7 +49,7 @@
                  bind:changed="handleTasksChanged" />
     </view>
 
-    <view wx:if="{{doneItems.length > 0}}" class="section-card done-section">
+    <view wx:if="{{doneItems.length > 0}}" class="card section-card done-section">
       <view class="section-header">
         <text class="section-title">已完成</text>
         <text class="section-count done-count">{{doneItems.length}}</text>
