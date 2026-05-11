@@ -153,7 +153,7 @@ Page({
       // confirmText/cancelText must be ≤4 chars — longer values silently fail
       // to render the modal on some basic library versions, leaving the user
       // staring at an unresponsive button.
-      confirmText: '切回',
+      confirmText: '用此设备',
       cancelText: '取消',
       success: async (r) => {
         if (!r.confirm) return

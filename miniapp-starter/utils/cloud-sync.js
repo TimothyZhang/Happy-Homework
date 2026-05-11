@@ -135,7 +135,7 @@ function showConflictModal(initial) {
       // confirmText must be ≤4 chars — wx.showModal silently fails to render
       // when exceeded, which would auto-resolve to 'cancel' and trap the user
       // in read-only mode with no visible prompt.
-      confirmText: '切回',
+      confirmText: '用此设备',
       cancelText: '只读浏览',
       success: (r) => resolve(r.confirm ? 'takeover' : 'cancel'),
       fail: (err) => {
