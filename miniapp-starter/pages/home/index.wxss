@@ -9,6 +9,11 @@
   flex-direction: column;
   box-sizing: border-box;
   background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+  /* Reserve space at the bottom for the fixed custom tab bar (~100rpx +
+     safe area). Put it on .page (not .scroll-area) so the scroll-view ends
+     flush with the tab bar — otherwise the page gradient shows through
+     between the bottom of scroll-area's content and the tab bar's top. */
+  padding-bottom: calc(100rpx + env(safe-area-inset-bottom));
 }
 
 .scroll-area {
@@ -22,8 +27,6 @@
      the outer cards visibly inward vs other tabs that use
      <view class="page"> with 24rpx padding. Zero here so the cards align. */
   padding: 24rpx 0;
-  /* Custom tabbar overlay (~100rpx) + safe-area inset. */
-  padding-bottom: calc(24rpx + 100rpx + env(safe-area-inset-bottom));
 }
 
 .card {
