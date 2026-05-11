@@ -30,9 +30,6 @@
         </view>
       </view>
       <view class="row-actions">
-        <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" catchtap="handlePause">❚❚</view>
-        <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" catchtap="handleResume">▶</view>
-        <view wx:if="{{item.status === 'doing' || item.status === 'paused'}}" class="icon-btn finish-btn" data-id="{{item.id}}" catchtap="handleFinish">✓</view>
         <view wx:if="{{item.status === 'done'}}" class="icon-btn done-mark">✓</view>
         <view class="icon-btn edit-btn" data-id="{{item.id}}" catchtap="handleEditTask">✏️</view>
         <view class="icon-btn del-btn" data-id="{{item.id}}" catchtap="handleDeleteTask">🗑</view>
