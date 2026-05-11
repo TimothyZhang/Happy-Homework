@@ -209,26 +209,6 @@ Page({
     })
   },
 
-  // === Task control === //
-  // No "start" button on this page — it's a structure-management view, not
-  // an execution view. Pause/resume/finish stay so a task already running
-  // (started from home/calendar) can still be controlled here.
-
-  handlePause(e) {
-    store.pauseTask(e.currentTarget.dataset.id, store.todayStr())
-    this.refreshState()
-  },
-
-  handleResume(e) {
-    store.resumeTask(e.currentTarget.dataset.id, store.todayStr())
-    this.refreshState()
-  },
-
-  handleFinish(e) {
-    store.finishTask(e.currentTarget.dataset.id, store.todayStr())
-    this.refreshState()
-  },
-
   // === Task CRUD === //
   // Add/edit moved to /pkg-notebook/notebook-task-edit/. We push that page
   // and rely on onShow → refreshState() to repaint when the user backs out.
