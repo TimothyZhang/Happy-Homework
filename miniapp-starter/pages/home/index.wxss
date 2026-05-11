@@ -8,11 +8,15 @@
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+  /* Gradient ends in #ffffff so the bit of background that shows between
+     short content (e.g. only 5 tasks today) and the white custom tab bar
+     blends seamlessly — otherwise the gradient's natural end (#eef4ff)
+     reads as a visible "gap" above the tab bar. Tasks tab doesn't show
+     this because the notebook list usually fills the viewport. */
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 60%, #ffffff 100%);
   /* Reserve space at the bottom for the fixed custom tab bar (~100rpx +
      safe area). Put it on .page (not .scroll-area) so the scroll-view ends
-     flush with the tab bar — otherwise the page gradient shows through
-     between the bottom of scroll-area's content and the tab bar's top. */
+     flush with the tab bar. */
   padding-bottom: calc(100rpx + env(safe-area-inset-bottom));
 }
 
@@ -26,7 +30,7 @@
      viewport inset — total ~24rpx of implicit horizontal inset that pulls
      the outer cards visibly inward vs other tabs that use
      <view class="page"> with 24rpx padding. Zero here so the cards align. */
-  padding: 24rpx 0;
+  padding: 24rpx 0 0 0;
 }
 
 .card {
