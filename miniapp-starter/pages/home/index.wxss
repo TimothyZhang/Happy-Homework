@@ -27,7 +27,11 @@
   box-shadow: 0 16rpx 48rpx rgba(31, 35, 41, 0.08);
 }
 
+/* Section grouping — visually transparent so task rows align with the
+   scroll-area edge (avoids double-card nesting that left ~28rpx extra
+   whitespace on each side vs. other tabs). */
 .section-card { margin-top: 24rpx; }
+.section-card .section-header { margin-bottom: 16rpx; }
 
 /* === date segment ===
    "今天" stays visually prominent (twice as wide, larger font) but the brand
