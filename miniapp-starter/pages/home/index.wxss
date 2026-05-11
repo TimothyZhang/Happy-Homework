@@ -15,7 +15,12 @@
   flex: 1;
   min-height: 0;
   box-sizing: border-box;
-  padding: 24rpx;
+  /* Horizontal padding is 10rpx (not the usual 24rpx) because
+     <scroll-view enhanced> reserves ~14rpx for its native scrollbar lane
+     on each side even with show-scrollbar=false — pulling the outer cards
+     visibly inward vs other tabs that use <view class="page"> with 24rpx
+     padding. 10rpx here + ~14rpx implicit ≈ 24rpx visual, matching. */
+  padding: 24rpx 10rpx;
   /* Custom tabbar overlay (~100rpx) + safe-area inset. */
   padding-bottom: calc(24rpx + 100rpx + env(safe-area-inset-bottom));
 }
