@@ -29,8 +29,9 @@
 已实现以下主链路的前端交互:
 - 首页(`pages/home`):按选定日期展示作业行,跨作业本拖拽,backlog 露出
 - 作业本列表(`pages/tasks`):按结束日期倒序,长期重复本浮顶
-- 作业本结构页(`pages/notebook-detail`):作业按学科分组,组内可拖拽
+- 作业本结构页(`pages/notebook-detail`):作业按学科分组,组内可拖拽;纯结构视图,不含开始/暂停/完成计时控件(执行操作走首页 / 日历的 task-list 组件)
 - 月历(`pages/calendar`):每日完成 / 总数 / overdue 标识
+- 排行榜(`pages/leaderboard`):tab 入口
 - 宠物页 / 统计页 / 个人页(含数据同步卡片)
 
 ### 3. 作业管理基础逻辑
@@ -60,9 +61,9 @@
 - 同步链路:
   - `app.onLaunch` 异步 hydrate;每个 tab `onShow` 调 `hydrateIfStale()`(30s 防抖,launch in-flight 时 await 同一 promise 避免 race)
   - 每次 `saveState` 200ms 防抖 push 到云
-  - 同步白名单 `SYNC_FIELDS` = `notebooks / tasks / coins / streakDays / bonusCoins / pet / lastReward / profile`(OCR 任务 / UI 临时态 / 固定配置不上云)
-- 单设备占用:云端 doc 持有 `sessionId`,与本机不一致时弹 modal「切到此设备 / 只读浏览」;只读模式 `updateState` 直接 return + 4s 节流 toast
-- 「我的」页面有「数据同步」卡片:状态 pill + 「立即同步 / 切回此设备」按钮
+  - 同步白名单 `SYNC_FIELDS` = `notebooks / tasks / coins / streakDays / perfectDays / bonusByDay / pendingShareCoins / pet / lastReward / profile / testCoinsGranted`(OCR 任务 / UI 临时态 / 固定配置不上云)
+- 单设备占用:云端 doc 持有 `sessionId`,与本机不一致时弹 modal「用此设备 / 只读浏览」;只读模式 `updateState` 直接 return + 4s 节流 toast
+- 「我的」页面有「数据同步」卡片:状态 pill + 「立即同步 / 用此设备」按钮
 - 集合权限「仅创建者可读写」,`_openid` 自动过滤,无需云函数
 
 ### 7. 大规模数据性能 — **核心热点已优化**
@@ -75,7 +76,7 @@
 
 ### 8. 自定义 tabBar + 子包预热 — UI/perf
 - `tabBar.custom: true` + `custom-tab-bar/` 组件,字号从平台默认 ~20rpx 增至 30rpx
-- `pkg-notebook/notebook-edit/` 拆为子包,`preloadRule` 配置在用户进 home/tasks/calendar/notebook-detail 时预热
+- `pkg-notebook/notebook-edit/` + `pkg-notebook/notebook-task-edit/` 拆为子包,`preloadRule` 配置在用户进 home/tasks/calendar/notebook-detail 时预热
 - 日历 tab 月历格子构建在 `wx.nextTick` 延后,首屏 chrome 先出
 
 ### 9. 作业本分享 — **真实闭环**
@@ -106,8 +107,8 @@
 ### 3. 跨设备同步的边角
 - 当前 push 是把整段 `SYNC_FIELDS` JSON 推上去,不是 field-level patch:在线没问题,长时间离线后回到线上是 last-write-wins
 - 单个 doc 体积随作业数线性增长,极端情况可能撞云数据库 single-doc 体积上限
-- 「切回此设备」会以云端覆盖本机,本机最近 200ms 内未推送的写入会丢
-- 进入只读后,内存里的 `_conflictAcknowledged` 标记防 modal 反复弹,要重启 app 或在「我的」页面手动「切回此设备」才能恢复
+- 「用此设备」会以云端覆盖本机,本机最近 200ms 内未推送的写入会丢
+- 进入只读后,内存里的 `_conflictAcknowledged` 标记防 modal 反复弹,要重启 app 或在「我的」页面手动「用此设备」才能恢复
 - 离线时 push 静默失败,联网后等下一次 `saveState` 才重试,没有显式离线队列
 
 ### 4. 线上级异常处理仍不足
@@ -187,7 +188,7 @@
 - 把 `coinLogs / ocrDraftItems` 拆出来单独建集合做长期沉淀
 - 单 doc 同步太粗时,把 `tasks` 拆成集合(按 `notebookId` 索引)
 - 离线写入队列 + 网络恢复后批量 push
-- 「切回此设备」前先 push 本机一次,减少切换时数据丢失
+- 「用此设备」前先 push 本机一次,减少切换时数据丢失
 
 ---
 

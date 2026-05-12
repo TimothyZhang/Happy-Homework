@@ -3,23 +3,16 @@
 这是“作业登记本 OCR”能力的云函数入口。
 
 ## 当前状态
-- 已接入 OpenAI Vision OCR 主链路
-- 保留腾讯云 / 微信 OpenAPI OCR 作为显式关闭 OpenAI 后的备用链路
-- 支持 `imageFileID -> OCR -> rawText -> drafts` 主链路
-- 已内置一版简单的 `parseHomeworkRegister(rawText)` 拆分逻辑
-- 仍需在云环境中配置 `OPENAI_API_KEY`
-
-## 下一步要接什么
-1. 在云开发环境中部署本函数
-2. 为云函数配置 OpenAI 环境变量
-3. 将图片上传到云存储，拿到 `fileID`
-4. 在本函数里调用 OpenAI Vision OCR
-5. 将 OCR 返回的整页文本传给 `parseHomeworkRegister(rawText)`
-6. 把 `drafts` 返回给小程序端确认编辑
+- **真实闭环已通**，已部署到云开发环境 `cloud1-d8gkzu6ls85efd509`
+- 多 provider 兜底：OpenAI Vision → 腾讯云 OCR（GeneralHandwriting → Accurate → Basic）→ 微信 OpenAPI → Tesseract.js
+- 主链路：`imageFileID → 取临时 URL/下载 → OCR provider 兜底 → rawText → parseHomeworkRegister → drafts`
+- 部署 + 环境变量配置详见仓库根 `CLOUD-SETUP.md`
 
 ## 当前采用方案
-### 方案 C：云函数内接 OpenAI Vision OCR
-适合快速绕开腾讯云 / 微信 OCR 权限链路，也避免在小程序前端暴露密钥。
+### 多 provider 兜底
+设计成"前一个失败/返回空才试下一个"，所以 provider 顺序就是优先级。当前顺序是 **OpenAI Vision → 腾讯云**（手写体优先）**→ 微信 OpenAPI → Tesseract.js**。可通过 `OCR_PROVIDER` 环境变量强制只走某一条（`openai` / `tencent` / `wechat`）。
+
+> 业务密钥不放小程序前端，全部走环境变量在云函数里读。
 
 ## 这个函数建议的输入
 ```json

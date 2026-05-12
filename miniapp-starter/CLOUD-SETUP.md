@@ -175,19 +175,19 @@ OCR 链路本身已通,识别质量经过手写体优先调整后明显改善。
 
 ### 运行时行为
 
-- `app.onLaunch` 异步 `hydrate()`:云端无 doc → 用本机 state 创建并占用 sessionId;云端 sessionId 是别人 → 弹 modal「切到此设备 / 只读浏览」。
+- `app.onLaunch` 异步 `hydrate()`:云端无 doc → 用本机 state 创建并占用 sessionId;云端 sessionId 是别人 → 弹 modal「用此设备 / 只读浏览」。
 - 每个 tab 页 `onShow` 调 `hydrateIfStale()`(30s 防抖,且 launch hydrate in-flight 时会 await 它)。被踢的设备能在切 tab 时及时收到提示。
 - 任何 `updateState` 触发的写入会经 200ms 防抖 push 到云。push 影响行数=0 → 弹被踢 modal。
 - 只读模式下 `updateState` 直接返回旧 state,4s 内最多弹一次 toast 提示。
 
 ### 数据范围
 
-同步:`notebooks / tasks / coins / streakDays / bonusCoins / pet / lastReward`
+同步:`notebooks / tasks / coins / streakDays / perfectDays / bonusByDay / pendingShareCoins / pet / lastReward / profile / testCoinsGranted`
 仅本地:`editTaskId / editNotebookId / ocrCurrentJob / ocrJobs / shopItems / rewardRules / schemaVersion`
 
 (白名单写在 `utils/store.js` 的 `SYNC_FIELDS` 常量。)
 
 ### 已知限制
 
-- LWW 不会发生(单设备约束),但「切到此设备」会丢掉本机最近 200ms 内未推送成功的写入(以云端为准)。
-- 进入只读后,目前只能 kill app 重新进才能再次弹「切回此设备」modal(按 `_conflictAcknowledged` 在内存里),后续可加常驻 banner 优化。
+- LWW 不会发生(单设备约束),但「用此设备」会丢掉本机最近 200ms 内未推送成功的写入(以云端为准)。
+- 进入只读后,目前只能 kill app 重新进才能再次弹「用此设备」modal(按 `_conflictAcknowledged` 在内存里),后续可加常驻 banner 优化。

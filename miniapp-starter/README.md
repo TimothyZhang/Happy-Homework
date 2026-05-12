@@ -16,16 +16,18 @@
 ## 当前能力范围
 
 ### 已有页面
-- `pages/home`：首页，按选定日期展示作业行（未完成 / 已完成 分组）+ hero stats
+- `pages/home`：首页，按选定日期（今天 / 明天 / 日历）展示作业行（未完成 / 已完成 分组）+ 宠物对话气泡
 - `pages/tasks`：作业本列表（按结束日期倒序，长期重复本浮顶）
-- `pages/notebook-detail`：单作业本结构管理（作业按学科分组，组内拖拽）
+- `pages/notebook-detail`：单作业本结构管理（作业按学科分组，组内拖拽；纯结构视图，不含计时控件）
 - `pages/notebook-share`：接收方落地页（解 share path → 预览 → 保存为自己的本）
 - `pages/calendar`：月历视图，每日完成度 / overdue 概览
+- `pages/leaderboard`：排行榜
 - `pages/pet`：宠物养成页
 - `pages/profile`：个人页（含数据同步卡片）
 - `pages/stats`：学习统计
 - `pages/ocr-import` / `pages/ocr-result`：OCR 拍照导入链路
 - `pkg-notebook/notebook-edit`（子包）：新建 / 编辑作业本，preloadRule 预热
+- `pkg-notebook/notebook-task-edit`（子包）：单条作业新增 / 编辑（科目自动推断 + 历时预估）
 
 ### 已完成能力
 - 多页面交互闭环（首页 / 作业本 / 详情 / 日历 / 宠物 / 统计）
@@ -34,7 +36,7 @@
 - 全局只允许一个作业 `doing`（其他自动 paused）
 - 金币奖励与宠物成长反馈
 - **OCR 真实闭环**：腾讯云 OCR 子用户 AKSK 已配置，多 provider 兜底（OpenAI Vision → 腾讯云 GeneralHandwriting / Accurate / Basic → 微信 OpenAPI → Tesseract.js）
-- **跨端云同步**：`user_state` 集合，单设备 claim 模型（切换设备弹 modal，旧设备只读）；「我的」页面有「立即同步 / 切回此设备」按钮
+- **跨端云同步**：`user_state` 集合，单设备 claim 模型（切换设备弹 modal，旧设备只读）；「我的」页面有「立即同步 / 用此设备」按钮
 - **作业本分享**：把 notebook + tasks 编进 share path，接收方落地 `pages/notebook-share` 预览后一键保存为自己的本（`store.importSharedNotebook`）；发送方昵称用 `<input type="nickname">` 自动取微信昵称，跟随 cloud-sync 跨设备
 - **大规模数据优化**：1000 本 / 5000+ 任务场景下主要热点路径已 O(N+M) 改造，附 Node 端 bench / 正确性测试
 - 自定义 tabBar（字号 30rpx，比平台默认大）+ 子包预热
@@ -79,17 +81,21 @@
 
 ### 小程序端
 - `app.js / app.json / app.wxss`：全局配置（cloud.init + 云同步 hydrate；`tabBar.custom` 指向自定义 tab bar；`preloadRule` 预热分包）
-- `pages/*`：主包页面
-- `pkg-notebook/notebook-edit`：作业本编辑分包，preloadRule 预热
+- `pages/*`：主包页面（首页 / 作业本 / 排行榜 / 日历 / 宠物 / 个人 / 统计 / OCR / 详情 / 分享）
+- `pkg-notebook/notebook-edit` & `pkg-notebook/notebook-task-edit`：作业本 / 单条作业编辑分包，preloadRule 预热
 - `components/task-list`：首页和日历共用的作业行组件（拖拽 + swipe-to-revert）
+- `components/month-calendar`：首页内嵌日历 + 日历 tab 共用的月历组件
+- `components/reward-toast`：完成单项 / 当日全完成的金币奖励动画
 - `custom-tab-bar`：自定义底部导航（字号 30rpx，每 tab 页 onShow 同步 selected）
 - `utils/store.js`：业务状态 + 进程内缓存 + schema 迁移 + 写后触发云推送
 - `utils/cloud-sync.js`：跨端云同步（`user_state` 集合，单设备 claim）
+- `utils/share-reward.js`：包装 `shareReward` 云函数（whoami / credit / claim），并把 openid 缓存到 storage
 - `utils/navigation.js`：页面跳转封装
-- `scripts/perf-bench.js` / `perf-correctness.js`：Node 端性能基准 + 76 项行为对账（已通过 `project.config.json` `packOptions.ignore` 排除打包）
+- `scripts/perf-bench.js` / `perf-correctness.js` / `values-check.js`：Node 端性能基准 + 76 项行为对账 + V1 数值设计校验（已通过 `project.config.json` `packOptions.ignore` 排除打包）
 
 ### 云函数
-- `cloudfunctions/homeworkOCR`：OCR，多 provider 兜底（腾讯云 / OpenAI / 微信 OpenAPI / Tesseract.js），已部署到 `cloud1-d8gkzu6ls85efd509`
+- `cloudfunctions/homeworkOCR`：OCR，多 provider 兜底（OpenAI Vision / 腾讯云 / 微信 OpenAPI / Tesseract.js），已部署到 `cloud1-d8gkzu6ls85efd509`
+- `cloudfunctions/shareReward`：分享奖励（whoami / credit / claim 三个 action，使用独立 `share_rewards_inbox` 集合，避免和单设备同步模型冲突）
 
 ### 云数据库
 - 集合 `user_state`：每个用户一份完整 state 快照（详见 `CLOUD-SETUP.md`）
@@ -108,7 +114,7 @@
 **已接入**。本地 state 经 `utils/cloud-sync.js` 同步到 `user_state` 集合，单设备 claim 模型。
 - `app.onLaunch` 异步 hydrate；每个 tab 页 `onShow` 调 `hydrateIfStale()`（30s 防抖）
 - `saveState` 触发 200ms 防抖 push
-- 切换设备弹 modal「切到此设备 / 只读浏览」
+- 切换设备弹 modal「用此设备 / 只读浏览」
 - 详见 `CLOUD-SETUP.md` 的「跨设备数据同步」一节
 
 ## 本地打开方式
