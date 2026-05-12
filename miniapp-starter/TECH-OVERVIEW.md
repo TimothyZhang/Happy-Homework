@@ -163,11 +163,12 @@ node scripts/perf-correctness.js          # 76 项行为对账
 
 当前 OCR 链路如下：
 
-1. 用户在 `pages/ocr-import` 选择图片
+1. 用户在 `pages/ocr-import` 选择图片(或从作业本详情页的「📷 拍照识别添加作业」入口进入，带 `notebookId`)
 2. 调用 `wx.cloud.uploadFile`
 3. 调用 `wx.cloud.callFunction({ name: 'homeworkOCR' })`
 4. 云函数返回 `rawText + drafts`
 5. 在 `pages/ocr-result` 中让用户确认后导入
+6. 若入口带了 `notebookId`,导入直接落到该作业本并 navigateBack 回详情页;否则走老路径(进当日 one-shot)
 
 ### 当前云函数
 路径：`cloudfunctions/homeworkOCR/index.js`
@@ -176,13 +177,15 @@ node scripts/perf-correctness.js          # 76 项行为对账
 - 接收 `imageFileID`
 - 获取临时 URL 或下载图片内容
 - 多 provider 调用：OpenAI Vision → 腾讯云 OCR（GeneralHandwriting → Accurate → Basic）→ 微信 OpenAPI → Tesseract.js 兜底
-- 按规则拆分为草稿列表
+- prompt 按语义拆分(不依赖手写标点),共享前缀传递(如"17课生字、抄书本" → "17课生字" + "17课抄书本")
 
 ### 当前状态
-- 真实闭环已通：腾讯云 OCR 子用户 AKSK + `QcloudOCRFullAccess`，环境变量配齐
-- 多 provider 兜底：OpenAI Vision → 腾讯云 OCR（GeneralHandwriting → GeneralAccurate → GeneralBasic）→ 微信 OpenAPI → Tesseract.js
-- OCR job 数据当前仅在本地 store 留最近 10 条历史，未落库
-- 失败重试 / 配额耗尽提示不细，无 multi-provider 并行合并能力
+- 真实闭环已通,**主路径 Azure OpenAI Vision (gpt-5.5)**,reasoning=none(为了卡进 60s 云函数 timeout)
+- 模型 + reasoning effort 配对常量在 `index.js` 顶部,改一个要看另一个(`DEFAULT_OPENAI_MODEL` / `DEFAULT_REASONING_EFFORT`)
+- 多 provider 兜底:OpenAI Vision → 腾讯云 OCR(GeneralHandwriting → GeneralAccurate → GeneralBasic)→ 微信 OpenAPI → Tesseract.js
+- 本地脚本 `scripts/test-homework-ocr.js` 用于 prompt 迭代,不必每次重部署整个云函数
+- OCR job 数据当前仅在本地 store 留最近 10 条历史,未落库
+- 失败重试 / 配额耗尽提示不细,无 multi-provider 并行合并能力
 
 ---
 

@@ -50,11 +50,13 @@
 ### 5. OCR 导入链路 — **真实闭环已通**
 - `pages/ocr-import`:拍照 / 相册导入 / 演示数据,真实 `wx.cloud.uploadFile` + `wx.cloud.callFunction`
 - `pages/ocr-result`:识别结果确认、删除、新增、导入
-- `cloudfunctions/homeworkOCR`:已部署,**真实调用腾讯云 OCR**
-  - 子用户 `happy-homework-ocr` + `QcloudOCRFullAccess` 策略
-  - 环境变量 `OCR_SECRET_ID` / `OCR_SECRET_KEY` / `OCR_REGION` 配置完毕
+- `cloudfunctions/homeworkOCR`:已部署,**默认走 Azure OpenAI Vision (gpt-5.5, reasoning=none)**
+  - Azure 环境变量 `AZURE_OPENAI_API_KEY` / `AZURE_OPENAI_ENDPOINT` / `AZURE_OPENAI_API_VERSION` 配置完毕(deployment 默认沿用模型名)
+  - 腾讯云 OCR 兜底用 `OCR_SECRET_ID` / `OCR_SECRET_KEY` / `OCR_REGION`(子用户 `happy-homework-ocr` + `QcloudOCRFullAccess`)
   - 云开发环境 `cloud1-d8gkzu6ls85efd509`
 - 多 provider 兜底:OpenAI Vision OCR → 腾讯云 OCR(**GeneralHandwriting** → GeneralAccurate → GeneralBasic 顺序回退)→ 微信 OpenAPI → Tesseract.js
+- prompt 按语义拆分,共享前缀传递("17课生字、抄书本" → "17课生字" + "17课抄书本")
+- **作业本详情页「📷 拍照识别添加作业」按钮**:识别结果直接落到该作业本(而不是默认当日 one-shot),notebookId 经 `store.ocrCurrentJob` 流串
 
 ### 6. 跨端云同步 — **真实闭环已通**
 - `utils/cloud-sync.js` + 云数据库 `user_state` 集合,单设备 claim 模型

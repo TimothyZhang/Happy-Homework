@@ -28,9 +28,13 @@
 默认在代码里写死(`cloudfunctions/homeworkOCR/index.js` 顶部 `DEFAULT_OPENAI_MODEL` / `DEFAULT_REASONING_EFFORT`):
 
 - `DEFAULT_OPENAI_MODEL = 'gpt-5.5'` —— Azure 用对应同名 deployment
-- `DEFAULT_REASONING_EFFORT = 'low'` —— gpt-5.5 不接受 'minimal','low' 实测召回最高(75% / 17s)
+- `DEFAULT_REASONING_EFFORT = 'none'` —— 实测 ~12s,跑得进 60s 云函数 timeout 上限;召回与 'low'(17s) 同样是 75%,只有个别细节略差(如"听写"识别成"抄写"会偶发)
 
-换模型时两个常量要同步评估(不同模型支持的 effort 值不一致;gpt-5 / o-series 用 'minimal',gpt-5.5+ 用 'low')。
+换模型时两个常量要同步评估,不同模型支持的 effort 值不一致:
+- gpt-5 / o-series:`'minimal' | 'low' | 'medium' | 'high'`
+- gpt-5.5+:`'none' | 'low' | 'medium' | 'high' | 'xhigh'`(不再支持 'minimal')
+
+为什么不用召回更稳的 'low'? 见 [CLOUD-SETUP.md 坑 8](../../CLOUD-SETUP.md):腾讯云函数免费档 timeout 上限 60s,冷启动 + 图下载 + gpt-5.5 + 'low' 推理常超时;'none' 给云端跑留出充足余量。本地脚本调试可以用 `OPENAI_REASONING_EFFORT=low` 拿到更稳的效果。
 
 ### OpenAI（官方 api.openai.com）
 - `OPENAI_API_KEY`
@@ -64,3 +68,18 @@
   ]
 }
 ```
+
+## 本地脚本调试 prompt
+
+不想每次改 prompt 都重部署整个云函数,可以用 [scripts/test-homework-ocr.js](../../scripts/test-homework-ocr.js) 直接调 Azure/OpenAI 跑一遍同样的 prompt:
+
+```bash
+AZURE_OPENAI_API_KEY=...                              \
+AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com \
+AZURE_OPENAI_DEPLOYMENT=gpt-5.5                       \
+[OCR_REASONING_EFFORT=low]                            \
+  node miniapp-starter/scripts/test-homework-ocr.js <image_path>
+```
+
+脚本输出 rawText / drafts + 跟内置 ground truth 比对的召回/准确率,适合迭代 prompt。
+prompt 调通后,再把 `cloudfunctions/homeworkOCR/index.js` 里的同款字符串改了重新部署。
