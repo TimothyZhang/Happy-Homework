@@ -9,11 +9,13 @@
   flex-direction: column;
   box-sizing: border-box;
   /* Gradient ends in #ffffff so the bit of background that shows between
-     short content (e.g. only 5 tasks today) and the white custom tab bar
+     short content (e.g. only 3 tasks today) and the white custom tab bar
      blends seamlessly — otherwise the gradient's natural end (#eef4ff)
-     reads as a visible "gap" above the tab bar. Tasks tab doesn't show
-     this because the notebook list usually fills the viewport. */
-  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 60%, #ffffff 100%);
+     reads as a visible "gap" above the tab bar. Bias the white stop high
+     so the bottom half of the page is essentially white, eliminating the
+     bluish band that previously hung above the tab bar. Tasks tab doesn't
+     show this because the notebook list usually fills the viewport. */
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 30%, #ffffff 55%);
   /* Reserve space at the bottom for the fixed custom tab bar (~100rpx +
      safe area). Put it on .page (not .scroll-area) so the scroll-view ends
      flush with the tab bar. */
