@@ -224,7 +224,9 @@ Page({
 
       const callRes = await wx.cloud.callFunction({
         name: 'homeworkOCR',
-        timeout: 60000,
+        // 云函数侧 timeout 是 120s(config.json),客户端预留余量到 130s
+        // 避免客户端先于云端超时丢掉本可成功的结果。
+        timeout: 130000,
         data: {
           imageFileID: uploadRes.fileID,
           imagePath: this.data.imagePath
