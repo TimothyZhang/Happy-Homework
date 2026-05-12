@@ -23,23 +23,33 @@
 
 ## 需要的环境变量
 
+### 模型与 reasoning effort
+
+默认在代码里写死(`cloudfunctions/homeworkOCR/index.js` 顶部 `DEFAULT_OPENAI_MODEL` / `DEFAULT_REASONING_EFFORT`):
+
+- `DEFAULT_OPENAI_MODEL = 'gpt-5.5'` —— Azure 用对应同名 deployment
+- `DEFAULT_REASONING_EFFORT = 'low'` —— gpt-5.5 不接受 'minimal','low' 实测召回最高(75% / 17s)
+
+换模型时两个常量要同步评估(不同模型支持的 effort 值不一致;gpt-5 / o-series 用 'minimal',gpt-5.5+ 用 'low')。
+
 ### OpenAI（官方 api.openai.com）
 - `OPENAI_API_KEY`
-- 可选：`OPENAI_OCR_MODEL`，默认 `gpt-4o-mini`
+- 可选：`OPENAI_OCR_MODEL` —— 覆盖默认模型
+- 可选：`OPENAI_REASONING_EFFORT` —— 覆盖默认 reasoning effort
 - 可选：`OPENAI_BASE_URL`，默认 `https://api.openai.com/v1`
 - 可选：`OPENAI_OCR_TIMEOUT_MS`，默认 `45000`
 
 ### Azure OpenAI
-配齐下面四个会自动识别走 Azure 路径（不必再设 `OPENAI_API_TYPE=azure`）：
-- `OPENAI_API_KEY` —— Azure 资源的 key
+配齐下面两个就够了(deployment 名跟模型同名,代码里自动取 `OPENAI_OCR_MODEL || DEFAULT_OPENAI_MODEL`):
+- `AZURE_OPENAI_API_KEY` —— Azure 资源的 key
 - `AZURE_OPENAI_ENDPOINT` —— `https://<resource>.openai.azure.com`，**不带** `/openai`
-- `AZURE_OPENAI_DEPLOYMENT` —— Azure 门户里 Deployments 列出来的 name
+- 可选：`AZURE_OPENAI_DEPLOYMENT` —— Azure 门户里 Deployments 列出来的 name(默认沿用模型名)
 - 可选：`AZURE_OPENAI_API_VERSION`，默认 `2025-04-01-preview`（Responses API 需要 ≥ 2025-03 系列）
 
 ### 调用方式
-默认走 **Responses API**（`/openai/responses`），匹配 GPT-5/o-series 等新模型；遇到 Azure 部署只支持 Chat Completions 时会自动 404 回退到 `/openai/deployments/{deployment}/chat/completions`。
+默认走 **Responses API**（`/openai/responses`），匹配 GPT-5 / GPT-5.5 / o-series 等推理模型；遇到 Azure 部署只支持 Chat Completions 时会自动 404 回退到 `/openai/deployments/{deployment}/chat/completions`。
 - 可选：`OPENAI_USE_CHAT_COMPLETIONS=true` 强制只走 Chat Completions（GPT-4o/4-turbo 等老部署可用）
-- 可选：`OPENAI_OCR_MAX_TOKENS`，默认看 `getOpenAiMaxTokens()`
+- 可选：`OPENAI_OCR_MAX_TOKENS` / `OPENAI_OCR_REASONING_MAX_TOKENS` —— 非推理 / 推理模型的输出 token 上限
 
 ## 建议返回
 ```json

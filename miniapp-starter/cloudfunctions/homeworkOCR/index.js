@@ -3,7 +3,14 @@
 const http = require('http')
 const https = require('https')
 
-const DEFAULT_OPENAI_MODEL = 'gpt-4o'
+// === OpenAI 模型 + reasoning effort 配对(此处改一个,另一个一起评估) ===
+// 默认走 gpt-5.5(对应 Azure 同名 deployment)。实测在小学生作业登记本手写体
+// 上召回 75%,显著优于 gpt-5(50%)和 gpt-4o(37%)。
+// reasoning effort:gpt-5.5 不接受 'minimal','low' 实测 17s/75% 是该模型最佳档;
+// gpt-5 / o-series 上用 'minimal' 才是 50% 最佳档,换模型时这两个常量要同步改。
+// 想覆盖,云函数 env 里设 OPENAI_OCR_MODEL / OPENAI_REASONING_EFFORT 仍会优先生效。
+const DEFAULT_OPENAI_MODEL = 'gpt-5.5'
+const DEFAULT_REASONING_EFFORT = 'low'
 const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
 
 const DEFAULT_MOCK_RAW_TEXT = `语文：抄写第3课生字两遍
@@ -588,14 +595,9 @@ async function callOpenAiResponses(client, options) {
   }
 
   if (reasoning) {
-    // OCR 是"看图整理"任务,不需要长链思考。
-    // 各模型支持的 effort 值不一致:
-    //  - gpt-5 / o-series:支持 'minimal' / 'low' / 'medium' / 'high'
-    //  - gpt-5.5+:不再支持 'minimal',要 'none' / 'low' / 'medium' / 'high' / 'xhigh'
-    // 实测:gpt-5 配 'minimal' 14s/50% 召回;gpt-5.5 配 'low' 17s/75% 召回。
-    // 默认走 'low'(gpt-5.5 上是最佳档,gpt-5 上也能跑不会 400)。
-    // 想在 gpt-5 上换回 minimal 拿那 3 秒,设 OPENAI_REASONING_EFFORT=minimal。
-    payload.reasoning = { effort: getOpenAiReasoningEffort(options.model) }
+    // 见文件顶部 DEFAULT_OPENAI_MODEL / DEFAULT_REASONING_EFFORT 注释,
+    // 两者必须配对(不同模型支持的 effort 值不一致)。
+    payload.reasoning = { effort: getOpenAiReasoningEffort() }
   } else {
     // 非推理模型让识别尽量确定。
     payload.temperature = 0
@@ -1181,12 +1183,11 @@ function getOpenAiReasoningMaxTokens() {
   return Number.isFinite(maxTokens) && maxTokens > 0 ? maxTokens : 8000
 }
 
-function getOpenAiReasoningEffort(model) {
+function getOpenAiReasoningEffort() {
   const SUPPORTED = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh']
   const eff = String(getFirstEnv(['OPENAI_REASONING_EFFORT', 'OPENAI_OCR_REASONING_EFFORT']) || '').toLowerCase()
   if (SUPPORTED.includes(eff)) return eff
-  // gpt-5.5+ 拒绝 'minimal',统一 fallback 到 'low'(对 gpt-5/o-series 也合法)
-  return 'low'
+  return DEFAULT_REASONING_EFFORT
 }
 
 function getOpenAiTimeoutMs() {
