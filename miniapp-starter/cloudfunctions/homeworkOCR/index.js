@@ -6,11 +6,13 @@ const https = require('https')
 // === OpenAI 模型 + reasoning effort 配对(此处改一个,另一个一起评估) ===
 // 默认走 gpt-5.5(对应 Azure 同名 deployment)。实测在小学生作业登记本手写体
 // 上召回 75%,显著优于 gpt-5(50%)和 gpt-4o(37%)。
-// reasoning effort:gpt-5.5 不接受 'minimal','low' 实测 17s/75% 是该模型最佳档;
-// gpt-5 / o-series 上用 'minimal' 才是 50% 最佳档,换模型时这两个常量要同步改。
+// reasoning effort:本来想用 'low'(17s 召回最稳),但腾讯云函数免费档 timeout
+// 上限是 60s,冷启动 + 图下载 + gpt-5.5 推理常会撞上限。改用 'none'(12s,
+// 召回与 'low' 都是 75%,只在个别细节略差,如"听写"识别成"抄写")。
+// 'minimal' 在 gpt-5.5 上不被接受;gpt-5 / o-series 才支持。
 // 想覆盖,云函数 env 里设 OPENAI_OCR_MODEL / OPENAI_REASONING_EFFORT 仍会优先生效。
 const DEFAULT_OPENAI_MODEL = 'gpt-5.5'
-const DEFAULT_REASONING_EFFORT = 'low'
+const DEFAULT_REASONING_EFFORT = 'none'
 const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
 
 const DEFAULT_MOCK_RAW_TEXT = `语文：抄写第3课生字两遍
