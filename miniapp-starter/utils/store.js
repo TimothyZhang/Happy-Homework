@@ -482,11 +482,13 @@ let _stateCache = null
 
 function loadState() {
   if (_stateCache) return _stateCache
+  const t0 = Date.now()
   try {
     const raw = wx.getStorageSync(STORAGE_KEY)
     if (raw && typeof raw === 'object') {
       _stateCache = migrateState(raw)
       grantTestCoinsIfNeeded()
+      console.log(`[perf] loadState (first call): ${Date.now() - t0}ms`)
       return _stateCache
     }
   } catch (error) {
@@ -494,6 +496,7 @@ function loadState() {
   }
   _stateCache = clone(defaultState)
   grantTestCoinsIfNeeded()
+  console.log(`[perf] loadState (first call, fresh): ${Date.now() - t0}ms`)
   return _stateCache
 }
 

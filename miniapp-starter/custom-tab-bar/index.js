@@ -1,3 +1,5 @@
+const perf = require('../utils/perf')
+
 Component({
   data: {
     selected: 0,
@@ -15,6 +17,7 @@ Component({
     handleTap(e) {
       const { path, index } = e.currentTarget.dataset
       if (this.data.selected === index) return
+      perf.markTabTap(path)
       wx.switchTab({ url: path })
       this.setData({ selected: index })
     }

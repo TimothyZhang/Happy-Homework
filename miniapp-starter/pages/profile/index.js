@@ -1,5 +1,6 @@
 const cloudSync = require('../../utils/cloud-sync')
 const store = require('../../utils/store')
+const perf = require('../../utils/perf')
 
 const AVATAR_CLOUD_PATH_PREFIX = 'avatars'
 
@@ -13,10 +14,13 @@ Page({
   },
 
   onShow() {
+    const stamp = perf.markPageShow('profile')
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 4 })
-    this.setData({ profile: store.getProfile() })
-    this.refreshSyncStatus()
+    this.setData({
+      profile: store.getProfile(),
+      syncStatus: cloudSync.getSyncStatus()
+    }, () => perf.markPaint(stamp))
     cloudSync.hydrateIfStale().then(() => {
       this.setData({ profile: store.getProfile() })
       this.refreshSyncStatus()

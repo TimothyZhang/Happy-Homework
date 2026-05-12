@@ -1,5 +1,6 @@
 const store = require('../../utils/store')
 const cloudSync = require('../../utils/cloud-sync')
+const perf = require('../../utils/perf')
 
 const WEEKDAY_NAMES = ['一', '二', '三', '四', '五', '六', '日']
 
@@ -70,15 +71,16 @@ Page({
   },
 
   onShow() {
+    const stamp = perf.markPageShow('tasks')
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 1 })
-    this.refreshState()
+    this.refreshState(stamp)
     cloudSync.hydrateIfStale().then((r) => {
       if (r && r.changed) this.refreshState()
     }).catch(() => {})
   },
 
-  refreshState() {
+  refreshState(perfStamp) {
     const state = store.getStateWithComputed()
     const today = store.todayStr()
     // Group tasks by notebook once → O(N+M) instead of N filters over M tasks.
@@ -100,7 +102,7 @@ Page({
       return ea < eb ? 1 : -1
     })
     const notebooks = sorted.map((nb) => decorateNotebook(nb, tasksByNb[nb.id] || [], today))
-    this.setData({ notebooks })
+    this.setData({ notebooks }, perfStamp ? () => perf.markPaint(perfStamp) : undefined)
   },
 
   handleAddNotebook() {

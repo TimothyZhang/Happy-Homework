@@ -1,6 +1,7 @@
 const store = require('../../utils/store')
 const cloudSync = require('../../utils/cloud-sync')
 const shareReward = require('../../utils/share-reward')
+const perf = require('../../utils/perf')
 
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
@@ -140,12 +141,13 @@ Page({
   },
 
   onShow() {
+    const stamp = perf.markPageShow('home')
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 0 })
     if (!this.data.selectedDate) {
       this.setData({ selectedDate: store.todayStr() })
     }
-    this.refreshState()
+    this.refreshState({ perfStamp: stamp })
     // Background-check cloud (debounced 30s). Repaint if remote was newer.
     cloudSync.hydrateIfStale().then((r) => {
       if (r && r.changed) this.refreshState()
@@ -212,7 +214,7 @@ Page({
       doneItems,
       pet: (state.pet && state.pet.emoji) ? state.pet : this.data.pet,
       petMessage
-    })
+    }, opts.perfStamp ? () => perf.markPaint(opts.perfStamp) : undefined)
     // Repaint embedded calendar's day-count bubbles when store changes.
     if (this.data.calendarOpen) {
       const cal = this.selectComponent('#cal')

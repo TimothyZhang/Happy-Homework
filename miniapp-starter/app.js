@@ -1,5 +1,6 @@
 const CLOUD_ENV_ID = 'cloud1-d8gkzu6ls85efd509'
 const cloudSync = require('./utils/cloud-sync')
+const store = require('./utils/store')
 
 App({
   // Cross-page signals. `petAnimQueue` is set by the home page when a task
@@ -8,6 +9,14 @@ App({
   globalData: { petAnimQueue: null },
 
   onLaunch() {
+    const t0 = Date.now()
+    // Warm the state cache before any page renders. loadState() does a
+    // blocking wx.getStorageSync + JSON.parse + migrateState; pushing it into
+    // app launch shifts that cost off the first tab's onShow critical path,
+    // so the first page render no longer waits on storage I/O.
+    store.getUpdatedAt()
+    console.log(`[perf] onLaunch state warm: ${Date.now() - t0}ms`)
+
     if (typeof wx.cloud !== 'undefined') {
       wx.cloud.init({
         env: CLOUD_ENV_ID,

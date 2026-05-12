@@ -1,5 +1,6 @@
 const store = require('../../utils/store')
 const cloudSync = require('../../utils/cloud-sync')
+const perf = require('../../utils/perf')
 
 // Animation state derived from current pet stats. Priority: critical health
 // problems first, then mood, then "happy" only when everything is comfy.
@@ -137,14 +138,11 @@ Page({
     levelBadge: ''
   },
 
-  onLoad() {
-    this.refreshState()
-  },
-
   onShow() {
+    const stamp = perf.markPageShow('pet')
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 3 })
-    this.refreshState()
+    this.refreshState(stamp)
     // Consume celebration flag from home page (set in maybeShowReward).
     const app = getApp()
     if (app && app.globalData && app.globalData.petAnimQueue === 'celebrating') {
@@ -168,7 +166,7 @@ Page({
     this._stopAnimEngine()
   },
 
-  refreshState() {
+  refreshState(perfStamp) {
     const state = store.getStateWithComputed()
     const pet = state.pet || {}
     const isSetup = !!pet.species
@@ -189,7 +187,7 @@ Page({
       levelBadge: levelBadge(pet.level || 1),
       showBubble: false,
       bubbleText: ''
-    })
+    }, perfStamp ? () => perf.markPaint(perfStamp) : undefined)
     // Start/stop the pet animation engine alongside refreshState. Idempotent:
     // _startAnimEngine is a no-op if timers are already armed. Runs for every
     // species — Premium (parrot) uses .parrot-anim-* CSS, Standard species
