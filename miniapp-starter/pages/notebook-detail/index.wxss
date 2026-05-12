@@ -63,6 +63,14 @@
   box-shadow: none;
 }
 
+/* OCR is a power feature — keep it subdued but give it a soft-blue tint
+   so it reads as "smart import" rather than ordinary destructive action. */
+.bottom-actions .ocr-btn {
+  background: #eef4ff;
+  color: #245bdb;
+  box-shadow: none;
+}
+
 .empty-state {
   padding: 40rpx 24rpx;
   text-align: center;

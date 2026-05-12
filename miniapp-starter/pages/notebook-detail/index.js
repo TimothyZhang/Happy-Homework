@@ -219,6 +219,12 @@ Page({
     })
   },
 
+  handleOcrImport() {
+    wx.navigateTo({
+      url: `/pages/ocr-import/index?notebookId=${this.data.notebookId}`
+    })
+  },
+
   handleEditTask(e) {
     const id = e.currentTarget.dataset.id
     if (!id) return

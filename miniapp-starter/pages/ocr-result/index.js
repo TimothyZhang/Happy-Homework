@@ -30,7 +30,10 @@ Page({
     subjectOptions,
     importedCount: 0,
     source: '',
-    providerWarning: ''
+    providerWarning: '',
+    // 若 OCR job 上挂了 notebookId,导入时落到这本里,完成后退回该作业本详情;
+    // 没挂 notebookId 时走旧的"进入当日 one-shot 作业本 + 跳 tasks tab"的路径。
+    notebookId: ''
   },
 
   onShow() {
@@ -49,6 +52,7 @@ Page({
       source: job.source || '',
       sourceLabel: getSourceLabel(job.source),
       providerWarning: job.providerWarning || '',
+      notebookId: job.notebookId || '',
       drafts: (job.drafts || []).map((draft) => ({
         ...draft,
         confidenceClass: getConfidenceClass(draft.confidence)
@@ -104,25 +108,37 @@ Page({
       return
     }
 
-    validDrafts.forEach((item, index) => {
-      store.addTask({
+    const { notebookId } = this.data
+    validDrafts.forEach((item) => {
+      const payload = {
         subject: item.subject || '其他',
         content: item.content.trim(),
-        estimatedMinutes: 20,
-        planStart: index === 0 ? '19:00' : '19:30',
-        planEnd: index === 0 ? '19:20' : '19:50',
-        priority: index === 0 ? '高' : '中',
-        sourceType: 'ocr'
-      })
+        estimatedMinutes: 20
+      }
+      // 从作业本详情页发起的 OCR 把 drafts 落到这本里;否则让 store.addTask
+      // 走 legacy 分支,自动建/复用当日 one-shot 作业本。
+      if (notebookId) payload.notebookId = notebookId
+      store.addTask(payload)
     })
 
     this.setData({ importedCount: validDrafts.length })
+    const isNotebookImport = !!notebookId
     wx.showModal({
       title: '导入成功',
-      content: `已导入 ${validDrafts.length} 条作业，下一步可以去“作业”页继续编辑时间和优先级。`,
+      content: isNotebookImport
+        ? `已往当前作业本添加 ${validDrafts.length} 条作业。`
+        : `已导入 ${validDrafts.length} 条作业，下一步可以去“作业”页继续编辑时间和优先级。`,
       showCancel: false,
       success: () => {
-        wx.switchTab({ url: '/pages/tasks/index' })
+        if (isNotebookImport) {
+          // 弹两页(ocr-result + ocr-import)回到作业本详情;失败时退回 tasks 兜底。
+          wx.navigateBack({
+            delta: 2,
+            fail: () => wx.switchTab({ url: '/pages/tasks/index' })
+          })
+        } else {
+          wx.switchTab({ url: '/pages/tasks/index' })
+        }
       }
     })
   }

@@ -142,11 +142,20 @@ Page({
     isRecognizing: false,
     canUseCloud: typeof wx.cloud !== 'undefined',
     useMockData: false,
+    // 从作业本详情页进入时带过来的 notebookId,识别结果会落到该作业本;
+    // 没有时退化为默认行为(进当日 one-shot 作业本)。
+    notebookId: '',
     tips: [
       '尽量正面拍整页，避免裁掉边缘',
       '光线充足，减少阴影和反光',
       '一页只拍当天登记本内容，便于拆分多条作业'
     ]
+  },
+
+  onLoad(options) {
+    if (options && options.notebookId) {
+      this.setData({ notebookId: options.notebookId })
+    }
   },
 
   chooseImage(sourceType) {
@@ -233,7 +242,8 @@ Page({
         drafts: result.drafts || [],
         source: result.source || 'cloud-function',
         imageFileID: uploadRes.fileID,
-        providerWarning: result.providerWarning || ''
+        providerWarning: result.providerWarning || '',
+        notebookId: this.data.notebookId || ''
       })
 
       this.setData({ isRecognizing: false })
@@ -262,7 +272,8 @@ Page({
       store.setCurrentOcrJob({
         imagePath: this.data.imagePath || '/mock/homework-register-demo.jpg',
         rawText: mockRawText,
-        drafts: mockDrafts
+        drafts: mockDrafts,
+        notebookId: this.data.notebookId || ''
       })
 
       this.setData({ isRecognizing: false })

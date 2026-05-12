@@ -39,6 +39,7 @@
 
   <view class="bottom-actions card">
     <button class="full-btn add-btn" bindtap="handleAddTask">+ 新增作业</button>
+    <button class="full-btn ocr-btn" bindtap="handleOcrImport">📷 拍照识别添加作业</button>
     <button class="full-btn edit-btn" bindtap="handleEditNotebook">✏️ 编辑作业本</button>
     <button class="full-btn share-btn" open-type="share">📤 分享作业本</button>
     <button class="full-btn copy-btn" bindtap="handleCopyNotebook">📋 复制内容</button>

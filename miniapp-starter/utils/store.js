@@ -1590,6 +1590,9 @@ function setCurrentOcrJob(job) {
       rawText: job.rawText || '',
       source: job.source || '',
       providerWarning: job.providerWarning || '',
+      // 当 OCR 从某个作业本详情页发起时,带上 notebookId,
+      // 让 ocr-result 把 drafts 落到指定作业本,而不是默认的当日 one-shot。
+      notebookId: job.notebookId || '',
       drafts: (job.drafts || []).map((d, i) => ({
         id: d.id || `${Date.now()}-${i}`,
         subject: d.subject || '',

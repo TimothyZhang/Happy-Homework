@@ -279,12 +279,14 @@ async function recognizeWithOpenAiOcr(imageFileID) {
     '}',
     '',
     '关键规则：',
-    '1. 表格里"语文/数学/英语/..."栏目对应同一行右边的内容，要合并成一条 draft（不要按 cell 切碎）。',
-    '2. 不要把模板字段（上学时间、家长签名、体温记录、到家时间、离校时间、上午/下午、周/星期/日期 等）当作业输出。',
-    '3. 没有识别出作业时 drafts 返回空数组。',
-    '4. content 里保留页码、题号、范围等关键信息（如"第12页 1-5题"）。',
-    '5. 字迹模糊或 subject 为空时把 needsConfirm 设为 true，confidence 给"低"。',
-    '6. 不确定的字用最可能的中文原文，不要编造内容。'
+    '1. 表格里"语文/数学/英语/..."栏目左栏写的是科目名，右侧整片区域是该科目的所有作业。识别时科目跟随左栏，不要把科目名当成作业内容。',
+    '2. 同一栏目里若用 "1./2./3." "①②③" "(1)(2)(3)" 等编号分隔多条作业，必须拆成多条 draft，每条 subject 都填该栏目的科目。同一条作业跨行书写时（手写常见，如"练习六(1)改错"和"明天交"分两行）要合并成一条，不要按视觉行拆。',
+    '3. 不要把下列模板字段当作业输出：上学时间、离校时间、到家时间、体温记录、家长签名、作业完成情况、上午/下午、早上/晚上、周/星期/日期、"今天用X号簿"（"号簿"前是数字时同样属于模板填空，不是作业）。',
+    '4. 没有识别出作业时 drafts 返回空数组。',
+    '5. content 里保留页码、题号、范围、截止时间等关键信息（如"第12页 1-5题"、"周三交"）。',
+    '6. 英语课号常写作 "L15"、"L16"，注意首字母 L 不要识别成数字 4 或 1。"~" 是范围号。',
+    '7. 字迹模糊或 subject 为空时把 needsConfirm 设为 true，confidence 给"低"。',
+    '8. 不确定的字用最可能的中文原文，不要编造内容。'
   ].join('\n')
 
   const response = await callOpenAiVision(apiKey, {
@@ -562,9 +564,13 @@ async function callOpenAiResponses(client, options) {
     throw fallbackError
   }
 
+  const reasoning = isReasoningModel(options.model)
+
   const payload = {
     model: options.model,
-    max_output_tokens: getOpenAiMaxTokens(),
+    // 推理模型的 max_output_tokens 同时计推理 token,默认 2400 在 gpt-5 下不够,
+    // 把推理预算单独放宽到 8000,避免在云端被截断/超时。
+    max_output_tokens: reasoning ? getOpenAiReasoningMaxTokens() : getOpenAiMaxTokens(),
     text: { format: { type: 'json_object' } },
     input: [
       {
@@ -581,8 +587,17 @@ async function callOpenAiResponses(client, options) {
     ]
   }
 
-  // 推理类(o-series / gpt-5 reasoning)模型不接受 temperature !== 1;非推理模型让识别尽量确定。
-  if (!isReasoningModel(options.model)) {
+  if (reasoning) {
+    // OCR 是"看图整理"任务,不需要长链思考。
+    // 各模型支持的 effort 值不一致:
+    //  - gpt-5 / o-series:支持 'minimal' / 'low' / 'medium' / 'high'
+    //  - gpt-5.5+:不再支持 'minimal',要 'none' / 'low' / 'medium' / 'high' / 'xhigh'
+    // 实测:gpt-5 配 'minimal' 14s/50% 召回;gpt-5.5 配 'low' 17s/75% 召回。
+    // 默认走 'low'(gpt-5.5 上是最佳档,gpt-5 上也能跑不会 400)。
+    // 想在 gpt-5 上换回 minimal 拿那 3 秒,设 OPENAI_REASONING_EFFORT=minimal。
+    payload.reasoning = { effort: getOpenAiReasoningEffort(options.model) }
+  } else {
+    // 非推理模型让识别尽量确定。
     payload.temperature = 0
   }
 
@@ -1157,6 +1172,21 @@ function getOpenAiMaxTokens() {
   // 结构化 JSON 输出比纯文本长(每条 draft 含 5 个字段),原默认 1200 不够。
   const maxTokens = Number(getFirstEnv(['OPENAI_OCR_MAX_TOKENS']))
   return Number.isFinite(maxTokens) && maxTokens > 0 ? maxTokens : 2400
+}
+
+function getOpenAiReasoningMaxTokens() {
+  // 推理模型(gpt-5/o-series)的 max_output_tokens 同时计 reasoning tokens,
+  // 比非推理模型需要更多 budget,否则 status 会卡在 "incomplete"。
+  const maxTokens = Number(getFirstEnv(['OPENAI_OCR_REASONING_MAX_TOKENS']))
+  return Number.isFinite(maxTokens) && maxTokens > 0 ? maxTokens : 8000
+}
+
+function getOpenAiReasoningEffort(model) {
+  const SUPPORTED = ['none', 'minimal', 'low', 'medium', 'high', 'xhigh']
+  const eff = String(getFirstEnv(['OPENAI_REASONING_EFFORT', 'OPENAI_OCR_REASONING_EFFORT']) || '').toLowerCase()
+  if (SUPPORTED.includes(eff)) return eff
+  // gpt-5.5+ 拒绝 'minimal',统一 fallback 到 'low'(对 gpt-5/o-series 也合法)
+  return 'low'
 }
 
 function getOpenAiTimeoutMs() {
