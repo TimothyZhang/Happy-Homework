@@ -10,7 +10,12 @@ Page({
     uploadingAvatar: false,
     canUseCloud: typeof wx.cloud !== 'undefined',
     syncStatus: { status: 'unknown', readOnly: false, lastSyncDisplay: '从未', lastError: null, inflight: false },
-    syncing: false
+    syncing: false,
+    // admin 入口可见性。whoami 返回 isAdmin=true 才渲染管理后台卡片。
+    isAdmin: false,
+    adminCheckDone: false,
+    myOpenid: '',
+    showOpenidCard: false  // 长按 sync card 可切换显示;给配置 admin 用
   },
 
   onShow() {
@@ -25,6 +30,55 @@ Page({
       this.setData({ profile: store.getProfile() })
       this.refreshSyncStatus()
     }).catch(() => {})
+    // admin 身份每次 onShow 都检查一次:权限变化能及时反映。
+    this.checkAdmin()
+  },
+
+  async checkAdmin() {
+    if (!this.data.canUseCloud) {
+      this.setData({ isAdmin: false, adminCheckDone: true })
+      return
+    }
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'adminPanel',
+        data: { action: 'whoami' }
+      })
+      const r = (res && res.result) || {}
+      this.setData({
+        isAdmin: !!r.isAdmin,
+        myOpenid: r.openid || '',
+        adminCheckDone: true,
+        // 没有被加白时默认就把 openid 卡片露出来,方便复制粘给我配置。
+        // 已经是 admin 后默认收起,需要时长按再开。
+        showOpenidCard: !r.isAdmin
+      })
+    } catch (e) {
+      // 云函数没部署 / 不存在 — 静默隐藏入口,不打扰普通用户。
+      console.warn('[profile] adminPanel whoami failed', e)
+      this.setData({ isAdmin: false, adminCheckDone: true })
+    }
+  },
+
+  handleOpenAdmin() {
+    wx.navigateTo({ url: '/pages/admin/index' })
+  },
+
+  handleCopyOpenid() {
+    if (!this.data.myOpenid) {
+      wx.showToast({ title: '尚未拿到 openid', icon: 'none' })
+      return
+    }
+    wx.setClipboardData({
+      data: this.data.myOpenid,
+      success: () => wx.showToast({ title: '已复制 openid', icon: 'success' }),
+      fail: () => wx.showToast({ title: '复制失败', icon: 'none' })
+    })
+  },
+
+  // 长按 openid 卡片可隐藏/展开 — admin 状态默认隐藏避免打扰。
+  handleToggleOpenidCard() {
+    this.setData({ showOpenidCard: !this.data.showOpenidCard })
   },
 
   refreshSyncStatus() {
