@@ -13,8 +13,9 @@ global.wx = {
 
 // Pin "now" to a fixed late-evening moment (22:00 today, local) so reward
 // assertions don't drift with wall-clock time. 22:00 is past the last
-// early-finish tier (21:00) so the multiplier is ×1 by default. Tests that
-// need a specific hour-of-day (early-finish tiers) override this themselves.
+// early-finish tier (21:00) so the early-bird bonus is 0 by default. Tests
+// that need a specific hour-of-day (early-finish tiers) override this
+// themselves.
 const _realDateNow = Date.now
 function setNowHour(h, m) {
   const d = new Date()
@@ -30,15 +31,19 @@ function todayStr() {
   const d = new Date()
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
+function dateAtOffset(dayOffset) {
+  const d = new Date()
+  d.setDate(d.getDate() + dayOffset)
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+}
 
-// Seed N one-shot tasks for today, all 'todo'. The pet is set up but no
-// per-task pet boost is applied — finishTask is reward-only.
-function seedNTasksToday(n) {
-  const today = todayStr()
+// Seed N one-shot tasks scheduled for `taskDate`, all 'todo'. The pet is set
+// up but no per-task pet boost is applied — finishTask is reward-only.
+function seedTasksOnDate(n, taskDate) {
   const tasks = []
   for (let i = 1; i <= n; i++) {
     tasks.push({
-      id: `t${i}`, notebookId: 'nb_today', subject: '语', content: `task ${i}`,
+      id: `t${i}`, notebookId: 'nb_seed', subject: '语', content: `task ${i}`,
       estimatedMinutes: 5, order: i, createdAt: i,
       status: 'todo', startedAt: null, currentSegmentStartedAt: null,
       accumulatedMs: 0, completedAt: null, actualMinutes: null
@@ -47,6 +52,7 @@ function seedNTasksToday(n) {
   storage = {}
   storage['homework-pet-v1'] = JSON.stringify({
     schemaVersion: 2, coins: 0, streakDays: 0, perfectDays: [],
+    bonusByDay: {}, completionsByDay: {},
     pendingShareCoins: 0,
     editTaskId: null, editNotebookId: null,
     ocrCurrentJob: null, ocrJobs: [],
@@ -57,14 +63,15 @@ function seedNTasksToday(n) {
     },
     shopItems: [],
     notebooks: [{
-      id: 'nb_today', name: 'today', mode: 'one-shot',
-      startDate: today, endDate: today, recurrence: null,
+      id: 'nb_seed', name: 'seed', mode: 'one-shot',
+      startDate: taskDate, endDate: taskDate, recurrence: null,
       createdAt: 1, order: 0
     }],
     tasks,
     profile: { nickname: '' }
   })
 }
+function seedNTasksToday(n) { seedTasksOnDate(n, todayStr()) }
 
 let pass = 0, fail = 0
 function check(label, got, want) {
@@ -270,28 +277,31 @@ for (const it of items) {
 
 // === Test 9: reward constants exported for UI/tests ===
 console.log('\n[reward] exported constants:')
-check('REWARD_PER_TASK = 10', store.REWARD_PER_TASK, 10)
+check('REWARD_TASK_OVERDUE = 5',  store.REWARD_TASK_OVERDUE, 5)
+check('REWARD_TASK_TODAY = 10',   store.REWARD_TASK_TODAY, 10)
+check('REWARD_TASK_FUTURE = 15',  store.REWARD_TASK_FUTURE, 15)
 check('REWARD_DAILY_PERFECT_PER_TASK = 10', store.REWARD_DAILY_PERFECT_PER_TASK, 10)
 check('REWARD_WEEKLY_STREAK = 50', store.REWARD_WEEKLY_STREAK, 50)
+check('DAILY_COMPLETION_CAP = 20', store.DAILY_COMPLETION_CAP, 20)
 check('EARLY_BIRD_TIERS length = 3', store.EARLY_BIRD_TIERS.length, 3)
-check('tier[0] multiplier = 2', store.EARLY_BIRD_TIERS[0].multiplier, 2)
-check('tier[1] multiplier = 1.5', store.EARLY_BIRD_TIERS[1].multiplier, 1.5)
-check('tier[2] multiplier = 1.25', store.EARLY_BIRD_TIERS[2].multiplier, 1.25)
+check('tier[0] bonus = 50', store.EARLY_BIRD_TIERS[0].bonus, 50)
+check('tier[1] bonus = 30', store.EARLY_BIRD_TIERS[1].bonus, 30)
+check('tier[2] bonus = 20', store.EARLY_BIRD_TIERS[2].bonus, 20)
 
-// === Test 9b: dailyPerfectMultiplier — hourly tiers ===
-console.log('\n[reward] dailyPerfectMultiplier by hour:')
+// === Test 9b: earlyBirdBonus — hourly tiers ===
+console.log('\n[reward] earlyBirdBonus by hour:')
 function atHour(h, m) { const d = new Date(); d.setHours(h, m || 0, 0, 0); return d }
-check('05:00 → ×2',    store.dailyPerfectMultiplier(atHour(5, 0)),   2)
-check('14:00 → ×2',    store.dailyPerfectMultiplier(atHour(14, 0)),  2)
-check('18:59 → ×2',    store.dailyPerfectMultiplier(atHour(18, 59)), 2)
-check('19:00 → ×1.5',  store.dailyPerfectMultiplier(atHour(19, 0)),  1.5)
-check('19:59 → ×1.5',  store.dailyPerfectMultiplier(atHour(19, 59)), 1.5)
-check('20:00 → ×1.25', store.dailyPerfectMultiplier(atHour(20, 0)),  1.25)
-check('20:30 → ×1.25', store.dailyPerfectMultiplier(atHour(20, 30)), 1.25)
-check('21:00 → ×1',    store.dailyPerfectMultiplier(atHour(21, 0)),  1)
-check('23:30 → ×1',    store.dailyPerfectMultiplier(atHour(23, 30)), 1)
+check('05:00 → +50', store.earlyBirdBonus(atHour(5, 0)),   50)
+check('14:00 → +50', store.earlyBirdBonus(atHour(14, 0)),  50)
+check('18:59 → +50', store.earlyBirdBonus(atHour(18, 59)), 50)
+check('19:00 → +30', store.earlyBirdBonus(atHour(19, 0)),  30)
+check('19:59 → +30', store.earlyBirdBonus(atHour(19, 59)), 30)
+check('20:00 → +20', store.earlyBirdBonus(atHour(20, 0)),  20)
+check('20:30 → +20', store.earlyBirdBonus(atHour(20, 30)), 20)
+check('21:00 → +0',  store.earlyBirdBonus(atHour(21, 0)),  0)
+check('23:30 → +0',  store.earlyBirdBonus(atHour(23, 30)), 0)
 
-// === Test 9c: finishTask honors the multiplier at the moment of last finish ===
+// === Test 9c: finishTask honors the bonus at the moment of last finish ===
 console.log('\n[reward] early-finish tiers applied on all-done:')
 function runAllDoneAtHour(h, taskCount) {
   setNowHour(h, 0)
@@ -300,13 +310,109 @@ function runAllDoneAtHour(h, taskCount) {
   for (let i = 1; i <= taskCount; i++) s.finishTask(`t${i}`, today)
   return s.getStateWithComputed().coins
 }
-// 8 tasks: base 80 + bonus 80 = 160 (× tier multiplier on the 80 bonus part)
-check('8/8 at 18:30 → 80 + 80×2 = 240', runAllDoneAtHour(18, 8), 240)
-check('8/8 at 19:00 → 80 + 80×1.5 = 200', runAllDoneAtHour(19, 8), 200)
-check('8/8 at 20:30 → 80 + 80×1.25 = 180', runAllDoneAtHour(20, 8), 180)
-check('8/8 at 22:00 → 80 + 80 = 160', runAllDoneAtHour(22, 8), 160)
+// 8 tasks: per-task 80 + daily-perfect 80 + early-bird bonus (tier-dependent)
+check('8/8 at 18:30 → 80 + 80 + 50 = 210', runAllDoneAtHour(18, 8), 210)
+check('8/8 at 19:00 → 80 + 80 + 30 = 190', runAllDoneAtHour(19, 8), 190)
+check('8/8 at 20:30 → 80 + 80 + 20 = 180', runAllDoneAtHour(20, 8), 180)
+check('8/8 at 22:00 → 80 + 80 + 0 = 160',  runAllDoneAtHour(22, 8), 160)
 // Restore late-evening for the rest of the file's tests.
 setNowHour(22, 0)
+
+// === Test 9d: perTaskReward pure helper ===
+console.log('\n[reward] perTaskReward by task-day vs today:')
+check('overdue (yesterday vs today) → 5/overdue',
+  store.perTaskReward('2026-05-13', '2026-05-14'), { amount: 5, kind: 'overdue' })
+check('today (==today) → 10/today',
+  store.perTaskReward('2026-05-14', '2026-05-14'), { amount: 10, kind: 'today' })
+check('future (tomorrow) → 15/future',
+  store.perTaskReward('2026-05-15', '2026-05-14'), { amount: 15, kind: 'future' })
+
+// === Test 9e: finishTask pays the right tier + writes rewardPaid/kind ===
+console.log('\n[reward] per-task tier wiring through finishTask:')
+const yesterday = dateAtOffset(-1)
+const tomorrow  = dateAtOffset(1)
+
+// Overdue: 2 tasks scheduled yesterday, finish only t1 today (22:00). 2 tasks
+// (not 1) so finishing one doesn't accidentally trigger yesterday's perfect-day.
+seedTasksOnDate(2, yesterday)
+store = freshStore()
+store.finishTask('t1', yesterday)
+let s = store.getStateWithComputed()
+check('overdue task → coins = 5', s.coins, 5)
+check('overdue task → lastReward.taskReward = 5', s.lastReward.taskReward, 5)
+check('overdue task → lastReward.rewardKind = overdue', s.lastReward.rewardKind, 'overdue')
+check('overdue task → completionsByDay[today] = 1',
+  s.completionsByDay[today], 1)
+
+// Today: already covered by Test 1 (8 of 8 at +10). Spot-check the signal.
+seedNTasksToday(1)
+store = freshStore()
+store.finishTask('t1', today)
+s = store.getStateWithComputed()
+// 1 task today completes the perfect-day → +10 per-task + 10 bonus + 0 early-bird = 20
+check('today task (1/1 perfect) → coins = 20', s.coins, 20)
+check('today task → lastReward.taskReward = 10', s.lastReward.taskReward, 10)
+check('today task → lastReward.rewardKind = today', s.lastReward.rewardKind, 'today')
+
+// Future: 2 tasks scheduled tomorrow, finish only t1 today. 2-task seed for
+// same reason as overdue — avoid tripping tomorrow's perfect-day.
+seedTasksOnDate(2, tomorrow)
+store = freshStore()
+store.finishTask('t1', tomorrow)
+s = store.getStateWithComputed()
+check('future task → coins = 15', s.coins, 15)
+check('future task → lastReward.taskReward = 15', s.lastReward.taskReward, 15)
+check('future task → lastReward.rewardKind = future', s.lastReward.rewardKind, 'future')
+
+// === Test 9f: 20-task daily cap on the per-task reward ===
+console.log('\n[reward] 20/day completion cap:')
+// 25 tasks scheduled today, finish them in order. The first 20 each pay +10
+// (200), the last 5 pay 0. All-done fires on the 25th → daily-perfect base
+// = min(25, 20) × 10 = 200; early-bird +0 (22:00). Total = 200 + 200 = 400.
+seedNTasksToday(25)
+store = freshStore()
+for (let i = 1; i <= 25; i++) store.finishTask(`t${i}`, today)
+s = store.getStateWithComputed()
+check('25 today finishes → coins = 400 (200 per-task capped + 200 base)', s.coins, 400)
+check('completionsByDay[today] = 20 (clamped)', s.completionsByDay[today], 20)
+// 21st onward stamped with rewardPaid=0 + rewardKind=capped on the task.
+const taskList = s.tasks
+const t1 = taskList.find((t) => t.id === 't1')
+const t21 = taskList.find((t) => t.id === 't21')
+check('t1.rewardPaid = 10 (paid)',  t1.rewardPaid, 10)
+check('t1.rewardKind = today',      t1.rewardKind, 'today')
+check('t21.rewardPaid = 0 (capped)', t21.rewardPaid, 0)
+check('t21.rewardKind = capped',     t21.rewardKind, 'capped')
+
+// Last lastReward is for t25 → also capped + perfect-day fired.
+check('lastReward.taskReward = 0 (t25 was capped)', s.lastReward.taskReward, 0)
+check('lastReward.rewardKind = capped',             s.lastReward.rewardKind, 'capped')
+check('lastReward.dailyBonus = 200 (min(25,20)×10)', s.lastReward.dailyBonus, 200)
+
+// === Test 9g: revert refunds the exact rewardPaid + frees a cap slot ===
+console.log('\n[reward] revert respects rewardPaid + cap counter:')
+// Continuing from 25-task seed above. Revert t21 (was capped) → refunds 0
+// AND claws back the perfect-day bonus (200). Revert is from a perfect-day
+// state so the daily/weekly bonus is fully undone.
+store.revertTask('t21', today)
+s = store.getStateWithComputed()
+check('revert capped task → coins = 200 (only bonus clawed)', s.coins, 200)
+check('revert capped task → completionsByDay unchanged (was capped, no slot held)',
+  s.completionsByDay[today], 20)
+check('revert capped task → perfect-day broken', s.perfectDays.includes(today), false)
+
+// Revert a paid task (t1). Refunds 10 AND frees a slot in the counter.
+store.revertTask('t1', today)
+s = store.getStateWithComputed()
+check('revert paid task → coins = 190 (refund 10)', s.coins, 190)
+check('revert paid task → completionsByDay[today] = 19', s.completionsByDay[today], 19)
+
+// Now re-finish a fresh task (refinish t1 — it was reverted to paused).
+// Slot is free, so it pays +10 again.
+store.finishTask('t1', today)
+s = store.getStateWithComputed()
+check('refinish freed slot → coins = 200 (+10)', s.coins, 200)
+check('refinish freed slot → completionsByDay[today] = 20', s.completionsByDay[today], 20)
 
 // === Test 10: PET_SPECIES includes parrot ===
 console.log('\n[species] roster:')

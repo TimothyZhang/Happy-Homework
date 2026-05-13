@@ -11,7 +11,7 @@ const SCHEMA_VERSION = 2
 // the avatar is synced through the existing entry — no separate field needed.
 const SYNC_FIELDS = [
   'notebooks', 'tasks',
-  'coins', 'streakDays', 'perfectDays', 'bonusByDay',
+  'coins', 'streakDays', 'perfectDays', 'bonusByDay', 'completionsByDay',
   'pendingShareCoins',
   'pet', 'lastReward',
   'profile'
@@ -58,30 +58,52 @@ function getCurrentTime() {
 
 // === Reward constants — kept in sync with V1-VALUES-DESIGN.md. === //
 
-const REWARD_PER_TASK = 10
+// Per-task reward depends on whether the task's occurrence date is in the
+// past (overdue catch-up), today, or the future (worked ahead). Doing a
+// task early is worth +5 vs today, doing one late is −5 vs today.
+const REWARD_TASK_OVERDUE = 5
+const REWARD_TASK_TODAY = 10
+const REWARD_TASK_FUTURE = 15
 const REWARD_DAILY_PERFECT_PER_TASK = 10  // base bonus per task on first all-done of day
 const REWARD_WEEKLY_STREAK = 50            // every 7 consecutive perfect days
 
-// Daily-perfect bonus is scaled by completion hour of the last task — keyed on
-// evening hours since homework is an evening task. Finishing before 19:00 (7
-// PM) doubles the bonus; 19:00–20:00 = ×1.5; 20:00–21:00 = ×1.25; on/after
-// 21:00 the base bonus (×1) applies. Each tier matches hour < hourEnd, so
-// anything earlier than the first hourEnd is also ×2 (afternoon, morning, or
-// past-midnight all fall into that bucket).
+// Anti-farm cap: only the first N task completions on any given calendar day
+// pay coins (both the per-task reward AND the daily-perfect base-per-task
+// multiplier). The N+1-th finish onward still completes the task — it just
+// doesn't earn coins. Counter is keyed on the wall-clock day of the finish,
+// not the task's occurrence date.
+const DAILY_COMPLETION_CAP = 20
+
+// Returns { amount, kind } for a single task completion. `taskDay` is the
+// task's occurrence date (YYYY-MM-DD); `today` is the wall-clock day of
+// the finish. `kind` is one of 'overdue' | 'today' | 'future' so the UI
+// can decorate the toast (esp. the +5 future bonus).
+function perTaskReward(taskDay, today) {
+  const cmp = compareDateStr(taskDay, today)
+  if (cmp < 0) return { amount: REWARD_TASK_OVERDUE, kind: 'overdue' }
+  if (cmp > 0) return { amount: REWARD_TASK_FUTURE,  kind: 'future' }
+  return { amount: REWARD_TASK_TODAY, kind: 'today' }
+}
+
+// Daily-perfect bonus has a flat "early-bird" extra keyed on the last task's
+// completion hour — homework's an evening task, so earlier finishes pay more.
+// <19:00 → +50, 19:00–20:00 → +30, 20:00–21:00 → +20, ≥21:00 → 0. Each tier
+// matches hour < hourEnd, so anything before the first hourEnd also gets +50
+// (afternoon, morning, or past-midnight all fall into that bucket).
 const EARLY_BIRD_TIERS = [
-  { hourEnd: 19, multiplier: 2,    label: '早完成加成 ×2', window: '21:00 前一整天 / 当晚 19:00 前' },
-  { hourEnd: 20, multiplier: 1.5,  label: '加成 ×1.5',     window: '19:00–20:00' },
-  { hourEnd: 21, multiplier: 1.25, label: '加成 ×1.25',    window: '20:00–21:00' }
+  { hourEnd: 19, bonus: 50, label: '早完成 +50', window: '21:00 前一整天 / 当晚 19:00 前' },
+  { hourEnd: 20, bonus: 30, label: '早完成 +30', window: '19:00–20:00' },
+  { hourEnd: 21, bonus: 20, label: '早完成 +20', window: '20:00–21:00' }
 ]
 
-// Returns the daily-perfect bonus multiplier for a given Date (or now). Pure.
-function dailyPerfectMultiplier(date) {
+// Returns the flat early-bird bonus for a given Date (or now). Pure.
+function earlyBirdBonus(date) {
   const d = date || new Date()
   const h = d.getHours()
   for (const tier of EARLY_BIRD_TIERS) {
-    if (h < tier.hourEnd) return tier.multiplier
+    if (h < tier.hourEnd) return tier.bonus
   }
-  return 1
+  return 0
 }
 
 // === Pet helpers === //
@@ -340,6 +362,11 @@ const defaultState = {
   // { dailyBonus, weeklyBonus, prevStreakDays }. Read by revertTask to claw
   // back the exact bonus that was credited (and restore prior streak).
   bonusByDay: {},
+  // Per-day completion count for the 20-cap. Keyed by YYYY-MM-DD of the
+  // wall-clock day the finish happened on (not the task's occurrence date),
+  // so a 22:00 finish of yesterday's task counts toward today's quota.
+  // Pruned to ~14 days alongside perfectDays.
+  completionsByDay: {},
   // Coins credited from share-saves that haven't been applied to local
   // coins yet. Filled by the shareReward cloud function on the sharer's
   // user_state doc; claimed (added to coins, reset to 0) on next hydrate.
@@ -401,6 +428,7 @@ function migrateState(raw) {
     raw.shopItems = clone(defaultState).shopItems
     if (!Array.isArray(raw.perfectDays)) raw.perfectDays = []
     if (!raw.bonusByDay || typeof raw.bonusByDay !== 'object') raw.bonusByDay = {}
+    if (!raw.completionsByDay || typeof raw.completionsByDay !== 'object') raw.completionsByDay = {}
     if (typeof raw.pendingShareCoins !== 'number') raw.pendingShareCoins = 0
     if (typeof raw.streakDays !== 'number') raw.streakDays = 0
     if (typeof raw.coins !== 'number') raw.coins = 0
@@ -569,7 +597,12 @@ function defaultOccurrence() {
     currentSegmentStartedAt: null,
     accumulatedMs: 0,
     completedAt: null,
-    actualMinutes: null
+    actualMinutes: null,
+    // Set by finishTask so revertTask refunds exactly what was paid (which
+    // varies by overdue/today/future and by the 20-cap status). null means
+    // unfinished or paid before this field existed (legacy → treat as 0).
+    rewardPaid: null,
+    rewardKind: null
   }
 }
 
@@ -587,7 +620,9 @@ function getTaskState(task, notebook, dateStr) {
       currentSegmentStartedAt: task.currentSegmentStartedAt || null,
       accumulatedMs: task.accumulatedMs || 0,
       completedAt: task.completedAt || null,
-      actualMinutes: task.actualMinutes || null
+      actualMinutes: task.actualMinutes || null,
+      rewardPaid: task.rewardPaid != null ? task.rewardPaid : null,
+      rewardKind: task.rewardKind || null
     }
   }
   const occ = (task.occurrences || {})[dateStr]
@@ -1361,17 +1396,37 @@ function revertTask(taskId, dateStr) {
     if (!nb) return state
     const cur = getTaskState(task, nb, day)
     if (cur.status !== 'done') return state
+
+    // Refund exactly what finishTask paid out (varies by overdue/today/future
+    // and may be 0 if the 20-cap had been hit). Legacy occurrences finished
+    // before rewardPaid existed are treated as having paid 10 (the old flat
+    // per-task amount) so revert still claws back something reasonable.
+    const refund = cur.rewardPaid != null ? cur.rewardPaid : REWARD_TASK_TODAY
+
     const patch = {
       status: 'paused',
       completedAt: null,
       actualMinutes: null,
-      currentSegmentStartedAt: null
+      currentSegmentStartedAt: null,
+      rewardPaid: null,
+      rewardKind: null
     }
     state.tasks = state.tasks.map((t) =>
       t.id === taskId ? applyTaskState(t, nb, day, patch) : t
     )
 
-    state.coins = Math.max(0, (state.coins || 0) - REWARD_PER_TASK)
+    state.coins = Math.max(0, (state.coins || 0) - refund)
+
+    // Free up the slot in the cap counter for the wall-clock day the
+    // completion happened on. cur.completedAt may be null on legacy data;
+    // fall back to the task's occurrence date in that case.
+    if (refund > 0 && state.completionsByDay && typeof state.completionsByDay === 'object') {
+      const completionDay = cur.completedAt
+        ? dateToStr(new Date(cur.completedAt))
+        : day
+      const n = state.completionsByDay[completionDay] || 0
+      if (n > 0) state.completionsByDay[completionDay] = n - 1
+    }
 
     if (Array.isArray(state.perfectDays) && state.perfectDays.includes(day)) {
       const log = state.bonusByDay && state.bonusByDay[day]
@@ -1392,7 +1447,7 @@ function finishTask(taskId, dateStr) {
   const day = dateStr || todayStr()
   return updateState((state) => {
     const now = Date.now()
-    let reward = REWARD_PER_TASK
+    const today = todayStr()
     let dailyBonus = 0
     let weeklyBonus = 0
 
@@ -1401,6 +1456,20 @@ function finishTask(taskId, dateStr) {
     const nb = state.notebooks.find((n) => n.id === task.notebookId)
     if (!nb) return state
     const cur = getTaskState(task, nb, day)
+
+    // Per-task reward depends on the task's occurrence date vs today (5 for
+    // overdue, 10 today, 15 future). Then the 20-cap on the actual finish
+    // calendar day (`today`) zeroes it out once the user has already been
+    // paid for 20 finishes that day. Both the per-task amount AND the
+    // daily-perfect base-per-task multiplier respect the cap.
+    if (!state.completionsByDay || typeof state.completionsByDay !== 'object') state.completionsByDay = {}
+    const perDayCount = state.completionsByDay[today] || 0
+    const cappedOut = perDayCount >= DAILY_COMPLETION_CAP
+    const tier = perTaskReward(day, today)
+    const taskReward = cappedOut ? 0 : tier.amount
+    const rewardKind = cappedOut ? 'capped' : tier.kind
+    let reward = taskReward
+
     const segMs = cur.currentSegmentStartedAt ? Math.max(0, now - cur.currentSegmentStartedAt) : 0
     const totalMs = (cur.accumulatedMs || 0) + segMs
     const patch = {
@@ -1408,11 +1477,22 @@ function finishTask(taskId, dateStr) {
       accumulatedMs: totalMs,
       completedAt: now,
       actualMinutes: Math.max(1, Math.round(totalMs / 60000)),
-      currentSegmentStartedAt: null
+      currentSegmentStartedAt: null,
+      rewardPaid: taskReward,
+      rewardKind
     }
     state.tasks = state.tasks.map((t) =>
       t.id === taskId ? applyTaskState(t, nb, day, patch) : t
     )
+
+    if (!cappedOut) {
+      state.completionsByDay[today] = perDayCount + 1
+      // Prune so the map doesn't grow forever — same horizon as perfectDays.
+      const cutoff = addDays(today, -14)
+      for (const k of Object.keys(state.completionsByDay)) {
+        if (k < cutoff) delete state.completionsByDay[k]
+      }
+    }
 
     // First all-done moment of the day → daily bonus + streak bookkeeping.
     // Re-completing after a revert doesn't double-credit because perfectDays
@@ -1423,14 +1503,13 @@ function finishTask(taskId, dateStr) {
     if (allDone) {
       if (!Array.isArray(state.perfectDays)) state.perfectDays = []
       if (!state.perfectDays.includes(day)) {
-        // Bonus = today's item count × per-task coin, doubling the day's
-        // earnings on a regular all-done. Early-bird tiers further scale by
-        // completion hour (×2 / ×1.5 / ×1.25 before 19/20/21, see
-        // EARLY_BIRD_TIERS) — only the daily bonus is scaled, not the per-task
-        // +10 or the weekly streak.
-        const baseBonus = todayItems.length * REWARD_DAILY_PERFECT_PER_TASK
-        const multiplier = dailyPerfectMultiplier(new Date(now))
-        dailyBonus = Math.round(baseBonus * multiplier)
+        // Daily-perfect base = min(N, 20) × 10 — same 20-cap rule applied
+        // here so a 30-task day doesn't pay 300 on the bonus while per-task
+        // only paid 200. Early-bird extra (flat +50/+30/+20) stacks on top.
+        // Weekly streak is tracked separately, not part of dailyBonus.
+        const cappedCount = Math.min(todayItems.length, DAILY_COMPLETION_CAP)
+        const baseBonus = cappedCount * REWARD_DAILY_PERFECT_PER_TASK
+        dailyBonus = baseBonus + earlyBirdBonus(new Date(now))
         reward += dailyBonus
 
         // Snapshot streak BEFORE the increment so revertTask can restore it.
@@ -1462,7 +1541,15 @@ function finishTask(taskId, dateStr) {
     }
 
     state.coins += reward
-    state.lastReward = { reward, dailyBonus, weeklyBonus, taskId, finishedAt: now }
+    state.lastReward = {
+      reward,
+      taskReward,
+      rewardKind,
+      dailyBonus,
+      weeklyBonus,
+      taskId,
+      finishedAt: now
+    }
     return state
   })
 }
@@ -1947,11 +2034,15 @@ module.exports = {
   getStateForSync,
   getUpdatedAt,
   // reward rules (read-only constants exposed for UI display + tests)
-  REWARD_PER_TASK,
+  REWARD_TASK_OVERDUE,
+  REWARD_TASK_TODAY,
+  REWARD_TASK_FUTURE,
   REWARD_DAILY_PERFECT_PER_TASK,
   REWARD_WEEKLY_STREAK,
+  DAILY_COMPLETION_CAP,
   EARLY_BIRD_TIERS,
-  dailyPerfectMultiplier,
+  earlyBirdBonus,
+  perTaskReward,
   // misc
   getCurrentTime
 }

@@ -31,7 +31,7 @@ function formatShortMD(dateStr) {
 }
 
 // Build the early-finish bonus chip data for the current hour. The chip shows
-// the multiplier you'd lock in by finishing the day's last task right now — so
+// the flat extra you'd lock in by finishing the day's last task right now — so
 // it's only meaningful when there are pending tasks to finish today. When
 // nothing's pending (or it's not today), drop the chip entirely; the rules
 // help icon stays so the user can still check the table.
@@ -39,10 +39,10 @@ function buildBonusChip(isToday, pendingCount) {
   if (!isToday || pendingCount === 0) {
     return { active: false, icon: '', label: '' }
   }
-  const m = store.dailyPerfectMultiplier()
-  if (m === 2)    return { active: true,  icon: '🏆', label: '早完成加成 ×2' }
-  if (m === 1.5)  return { active: true,  icon: '⏱',  label: '加成 ×1.5' }
-  if (m === 1.25) return { active: true,  icon: '⏰', label: '加成 ×1.25' }
+  const b = store.earlyBirdBonus()
+  if (b === 50) return { active: true, icon: '🏆', label: '早完成 +50' }
+  if (b === 30) return { active: true, icon: '⏱', label: '早完成 +30' }
+  if (b === 20) return { active: true, icon: '⏰', label: '早完成 +20' }
   return { active: false, icon: '', label: '当前无加成' }
 }
 
@@ -75,11 +75,22 @@ function buildPetMessage({ isToday, totalCount, pendingCount, remainingMinutes }
 function buildPetTips(ctx) {
   const tips = [buildPetMessage(ctx)]
   if (!ctx.isToday || ctx.pendingCount === 0) return tips
-  const m = store.dailyPerfectMultiplier()
-  if (m >= 2)    tips.push('🏆 19:00 前完成所有作业，金币奖励增加 100%')
-  if (m >= 1.5)  tips.push('⏱ 20:00 前完成所有作业，金币奖励增加 50%')
-  if (m >= 1.25) tips.push('⏰ 21:00 前完成所有作业，金币奖励增加 25%')
+  const b = store.earlyBirdBonus()
+  if (b >= 50) tips.push('🏆 19:00 前完成所有作业，额外奖励 50 金币')
+  if (b >= 30) tips.push('⏱ 20:00 前完成所有作业，额外奖励 30 金币')
+  if (b >= 20) tips.push('⏰ 21:00 前完成所有作业，额外奖励 20 金币')
   return tips
+}
+
+// Subtitle shown under the per-task +N pill. Only decorate the cases the
+// user can actually act on: 'future' explains the +5 over today's amount,
+// 'overdue' explains the −5, 'capped' explains why the count was 0. The
+// default 'today' case stays clean — no caption.
+function captionForKind(kind) {
+  if (kind === 'future')  return '提前完成 +5'
+  if (kind === 'overdue') return '补做 (历史作业)'
+  if (kind === 'capped')  return '今日已达 20 项上限'
+  return ''
 }
 
 function decorateItem(item, now) {
@@ -173,6 +184,9 @@ Page({
     // reward-toast props
     taskRewardVisible: false,
     taskRewardCoins: 0,
+    // Optional caption for the per-task toast: '提前完成 +5' / '补做 (历史作业)'
+    // / '今日已达 20 项上限'. Empty for plain today-task finishes.
+    taskRewardCaption: '',
     allDoneVisible: false,
     allDoneCoins: 0,
     allDoneSubtitle: ''
@@ -325,7 +339,10 @@ Page({
   // animation. We compare lastReward.finishedAt against the last value we
   // celebrated — if they match, this `changed` event was not a fresh finish.
   maybeShowReward(state) {
-    if (!this.data.isToday) return
+    // No isToday gate on the per-task toast — finishing a future task from the
+    // "tomorrow" segment must still surface the "+5 提前完成" caption, otherwise
+    // the +5 has no UI affordance. The allDone celebration further down stays
+    // gated to today since its subtitle says "今日".
     const lr = state && state.lastReward
     if (!lr || !lr.finishedAt) return
     if (lr.finishedAt === this._lastSeenRewardAt) return
@@ -349,10 +366,16 @@ Page({
 
     const dailyBonus = lr.dailyBonus || 0
     const weeklyBonus = lr.weeklyBonus || 0
-    const taskCoins = Math.max(1, (lr.reward || 0) - dailyBonus - weeklyBonus)
+    // Per-task pill comes from lr.taskReward (the 5/10/15 or 0 the cap clamped
+    // to). Fall back to the legacy subtraction for any pre-upgrade lastReward
+    // that doesn't have taskReward stamped.
+    const taskCoins = lr.taskReward != null
+      ? lr.taskReward
+      : Math.max(1, (lr.reward || 0) - dailyBonus - weeklyBonus)
+    const taskCaption = captionForKind(lr.rewardKind)
     const bonusCoins = dailyBonus + weeklyBonus
 
-    this.showTaskReward(taskCoins)
+    this.showTaskReward(taskCoins, taskCaption)
 
     // Flag the pet page to play one celebration animation on its next onShow.
     // Consumed in pages/pet/index.js. Cross-page because home & pet are
@@ -364,8 +387,9 @@ Page({
       app.globalData.petAnimQueue = 'celebrating'
     }
 
-    if (bonusCoins > 0) {
+    if (bonusCoins > 0 && this.data.isToday) {
       // 全完成: queue allDone after the task pop has had time to fade.
+      // Gated to today view because the subtitle assumes "今日".
       const subtitle = weeklyBonus > 0
         ? '今日全部完成 · 连续 7 天!'
         : '今日全部完成!'
@@ -376,9 +400,13 @@ Page({
     }
   },
 
-  showTaskReward(coins) {
+  showTaskReward(coins, caption) {
     if (this._taskTimer) { clearTimeout(this._taskTimer); this._taskTimer = null }
-    this.setData({ taskRewardVisible: true, taskRewardCoins: coins })
+    this.setData({
+      taskRewardVisible: true,
+      taskRewardCoins: coins,
+      taskRewardCaption: caption || ''
+    })
     this._taskTimer = setTimeout(() => {
       this._taskTimer = null
       this.setData({ taskRewardVisible: false })

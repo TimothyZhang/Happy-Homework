@@ -8,6 +8,7 @@
         <view class="coin coin--sm"><text class="coin__sym">¥</text></view>
         <text class="reward-task__coin-text">+{{coins}}</text>
       </view>
+      <text wx:if="{{subtitle}}" class="reward-task__caption">{{subtitle}}</text>
     </view>
   </block>
 

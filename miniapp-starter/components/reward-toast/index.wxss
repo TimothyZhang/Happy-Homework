@@ -85,6 +85,19 @@
   letter-spacing: 1rpx;
 }
 
+/* Subtitle line under the +N pill — used for tier hints like
+   "提前完成 +5" or "今日已达 20 项上限". Sits to the right of the coin
+   pill, slightly muted, with a fade-in tied to the coin animation. */
+.reward-task__caption {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #8a4a00;
+  letter-spacing: 0.5rpx;
+  margin-left: 4rpx;
+  animation: reward-coin-fly 700ms cubic-bezier(0.34, 1.56, 0.64, 1) 80ms forwards;
+  opacity: 0;
+}
+
 /* ===== All done: full overlay with pet hero ===== */
 .reward-alldone {
   position: relative;
