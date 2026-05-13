@@ -1400,16 +1400,6 @@ function finishTask(taskId, dateStr) {
     if (!task) return state
     const nb = state.notebooks.find((n) => n.id === task.notebookId)
     if (!nb) return state
-
-    // Temporary diagnostic — fires on every finishTask so you can see in
-    // Console whether the running build is new or stale. Look for
-    // `[reward] finishTask`.
-    const _diagH = new Date(now).getHours()
-    const _diagM = String(new Date(now).getMinutes()).padStart(2, '0')
-    console.log(
-      `[reward] finishTask taskId=${taskId} day=${day} now=${_diagH}:${_diagM}`,
-      `perfectDaysHasToday=${Array.isArray(state.perfectDays) && state.perfectDays.includes(day)}`
-    )
     const cur = getTaskState(task, nb, day)
     const segMs = cur.currentSegmentStartedAt ? Math.max(0, now - cur.currentSegmentStartedAt) : 0
     const totalMs = (cur.accumulatedMs || 0) + segMs
@@ -1439,17 +1429,9 @@ function finishTask(taskId, dateStr) {
         // EARLY_BIRD_TIERS) — only the daily bonus is scaled, not the per-task
         // +10 or the weekly streak.
         const baseBonus = todayItems.length * REWARD_DAILY_PERFECT_PER_TASK
-        const nowDate = new Date(now)
-        const multiplier = dailyPerfectMultiplier(nowDate)
+        const multiplier = dailyPerfectMultiplier(new Date(now))
         dailyBonus = Math.round(baseBonus * multiplier)
         reward += dailyBonus
-        // Temporary diagnostic — verify the running build picked up the new
-        // evening-hour tiers + which tier actually fires. Remove once the
-        // user has confirmed the multiplier is being read correctly.
-        console.log(
-          `[reward] all-done @ ${nowDate.getHours()}:${String(nowDate.getMinutes()).padStart(2,'0')}`,
-          `tasks=${todayItems.length} base=${baseBonus} ×${multiplier} → dailyBonus=${dailyBonus}`
-        )
 
         // Snapshot streak BEFORE the increment so revertTask can restore it.
         const prevStreakDays = state.streakDays || 0
