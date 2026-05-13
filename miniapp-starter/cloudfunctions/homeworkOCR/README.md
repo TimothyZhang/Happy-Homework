@@ -44,11 +44,15 @@
 - 可选：`OPENAI_OCR_TIMEOUT_MS`，默认 `45000`
 
 ### Azure OpenAI
-配齐下面两个就够了(deployment 名跟模型同名,代码里自动取 `OPENAI_OCR_MODEL || DEFAULT_OPENAI_MODEL`):
+
+本项目用的 `pbs-0.openai.azure.com` 资源约定 **deployment 名 == 模型名**(`gpt-5.5` / `gpt-5` / `gpt-4o` 等),所以**只配两个 env 就够**:
+
 - `AZURE_OPENAI_API_KEY` —— Azure 资源的 key
-- `AZURE_OPENAI_ENDPOINT` —— `https://<resource>.openai.azure.com`，**不带** `/openai`
-- 可选：`AZURE_OPENAI_DEPLOYMENT` —— Azure 门户里 Deployments 列出来的 name(默认沿用模型名)
-- 可选：`AZURE_OPENAI_API_VERSION`，默认 `2025-04-01-preview`（Responses API 需要 ≥ 2025-03 系列）
+- `AZURE_OPENAI_ENDPOINT` —— `https://<resource>.openai.azure.com`,**不带** `/openai`
+
+可选(几乎用不到):
+- `AZURE_OPENAI_DEPLOYMENT` —— Azure 门户里 Deployments 列出来的 name。**仅当 deployment 名和模型名不同时**才需要;否则代码自动用 `OPENAI_OCR_MODEL || DEFAULT_OPENAI_MODEL` 当 deployment 名。
+- `AZURE_OPENAI_API_VERSION`,默认 `2025-04-01-preview`(Responses API 需要 ≥ 2025-03 系列)
 
 ### 调用方式
 默认走 **Responses API**（`/openai/responses`），匹配 GPT-5 / GPT-5.5 / o-series 等推理模型；遇到 Azure 部署只支持 Chat Completions 时会自动 404 回退到 `/openai/deployments/{deployment}/chat/completions`。
@@ -71,15 +75,24 @@
 
 ## 本地脚本调试 prompt
 
-不想每次改 prompt 都重部署整个云函数,可以用 [scripts/test-homework-ocr.js](../../scripts/test-homework-ocr.js) 直接调 Azure/OpenAI 跑一遍同样的 prompt:
+不想每次改 prompt 都重部署整个云函数,有两个本地脚本走同一份 prompt(`scripts/lib/homework-ocr.js`):
+
+- [`scripts/test-homework-ocr.js`](../../scripts/test-homework-ocr.js) —— 单图 ad-hoc
+- [`scripts/eval-homework-ocr.js`](../../scripts/eval-homework-ocr.js) —— 批量评估 `samples/` 下所有样本,输出召回/精确度
+
+前置:`~/.zshrc` 里有 `AZURE_OPENAI_API_KEY` + `AZURE_OPENAI_ENDPOINT`(本机已配,见 [samples/README.md](../../samples/README.md))。
 
 ```bash
-AZURE_OPENAI_API_KEY=...                              \
-AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com \
-AZURE_OPENAI_DEPLOYMENT=gpt-5.5                       \
-[OCR_REASONING_EFFORT=low]                            \
-  node miniapp-starter/scripts/test-homework-ocr.js <image_path>
+# 跑单张图(自带 ground truth 时会打分)
+node miniapp-starter/scripts/test-homework-ocr.js samples/homework-2026-04-20.json
+
+# 批量评估
+node miniapp-starter/scripts/eval-homework-ocr.js
+
+# 复现云函数(60s timeout)下的行为
+OCR_REASONING_EFFORT=none  node miniapp-starter/scripts/eval-homework-ocr.js
 ```
 
-脚本输出 rawText / drafts + 跟内置 ground truth 比对的召回/准确率,适合迭代 prompt。
-prompt 调通后,再把 `cloudfunctions/homeworkOCR/index.js` 里的同款字符串改了重新部署。
+prompt 调通后,改 `cloudfunctions/homeworkOCR/index.js` 里的同款字符串(`scripts/lib/homework-ocr.js` 顶部的 `USER_PROMPT` 也要同步),再重新部署。
+
+跑 `node miniapp-starter/scripts/check-prompt-sync.js` 验证两边一致(0 = OK,非 0 = drift)。

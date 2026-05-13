@@ -51,16 +51,35 @@ samples/
 
 ## 离线评估
 
+### 一次性配置(本机已配)
+
+把 Azure 凭证写进 `~/.zshrc`(或 `~/.zshenv`),只配 KEY + ENDPOINT 两个就够:
+
 ```bash
-# 跑所有样本
-AZURE_OPENAI_API_KEY=...  AZURE_OPENAI_ENDPOINT=...  AZURE_OPENAI_DEPLOYMENT=gpt-5.5 \
-  node miniapp-starter/scripts/eval-homework-ocr.js
+export AZURE_OPENAI_API_KEY="..."
+export AZURE_OPENAI_ENDPOINT="https://pbs-0.openai.azure.com/"
+```
+
+> **不必**单独设 `AZURE_OPENAI_DEPLOYMENT` —— 这台 Azure 资源上 deployment 名 == 模型名,
+> 脚本默认 `gpt-5.5`(跟云函数对齐),想换别的模型用 `OPENAI_OCR_MODEL=gpt-5` 覆盖即可。
+
+### 跑
+
+```bash
+# 跑所有样本(默认 gpt-5.5,reasoning effort='low')
+node miniapp-starter/scripts/eval-homework-ocr.js
 
 # 跑指定样本
 node miniapp-starter/scripts/eval-homework-ocr.js samples/homework-2026-04-20.json
 
-# 调档 reasoning effort
+# 复现云函数行为(60s timeout 上限,所以云端用 'none')
 OCR_REASONING_EFFORT=none  node miniapp-starter/scripts/eval-homework-ocr.js
+
+# 换模型测试
+OPENAI_OCR_MODEL=gpt-5  node miniapp-starter/scripts/eval-homework-ocr.js
+
+# 生成 markdown 报告
+node miniapp-starter/scripts/eval-homework-ocr.js --report
 ```
 
 ## 评估算法

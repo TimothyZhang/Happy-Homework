@@ -2,15 +2,22 @@
 // 批量评估 homeworkOCR prompt:对 samples/ 下所有(或指定的)样本跑一遍 Vision OCR,
 // 按 Dice 系数 1-to-1 配对,输出每个样本的命中明细 + 总召回/精确度。
 //
-// 用法:
-//   AZURE_OPENAI_API_KEY=...                                  \
-//   AZURE_OPENAI_ENDPOINT=https://<resource>.openai.azure.com \
-//   AZURE_OPENAI_DEPLOYMENT=gpt-5.5                           \
-//   [OCR_REASONING_EFFORT=low|none|medium|high]               \
-//     node miniapp-starter/scripts/eval-homework-ocr.js [sample.json ...]
+// 前置:~/.zshrc 里已有 AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT。
+//      Azure 这台资源约定 deployment 名 == 模型名,所以不必单独设 DEPLOYMENT;
+//      默认走 gpt-5.5,想换模型用 OPENAI_OCR_MODEL=gpt-5 覆盖。
 //
-// 不传参数:遍历 miniapp-starter/samples/*.json
-// 传一个或多个 sample JSON 路径:只跑指定的几个
+// 用法:
+//   # 跑所有样本(默认 gpt-5.5, reasoning='low')
+//   node miniapp-starter/scripts/eval-homework-ocr.js
+//
+//   # 跑指定样本
+//   node miniapp-starter/scripts/eval-homework-ocr.js samples/homework-2026-04-20.json
+//
+//   # 复现云函数 60s 限制下的行为
+//   OCR_REASONING_EFFORT=none  node miniapp-starter/scripts/eval-homework-ocr.js
+//
+//   # 写 markdown 报告到 samples/_reports/
+//   node miniapp-starter/scripts/eval-homework-ocr.js --report
 
 'use strict'
 
@@ -45,11 +52,13 @@ function helpText() {
     '  --json     stdout 输出整体 JSON(适合机读 / CI 解析),不打人类可读 summary',
     '  -h         本帮助',
     '',
-    'Env:',
-    '  AZURE_OPENAI_API_KEY / AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_DEPLOYMENT',
-    '    (或 OPENAI_API_KEY / OPENAI_OCR_MODEL)',
-    '  OCR_REASONING_EFFORT  默认 \'low\'(本地脚本想要最稳效果);云函数因 60s timeout',
-    '                        用 \'none\',改 \'none\' 复现云端行为'
+    'Env(本机 ~/.zshrc 已配 KEY+ENDPOINT,通常不必再传):',
+    '  AZURE_OPENAI_API_KEY      Azure key',
+    '  AZURE_OPENAI_ENDPOINT     形如 https://<resource>.openai.azure.com',
+    '  OPENAI_OCR_MODEL          覆盖默认模型(默认 gpt-5.5);本资源 deployment 名',
+    '                            == 模型名,所以不必单独设 AZURE_OPENAI_DEPLOYMENT',
+    '  OCR_REASONING_EFFORT      默认 \'low\'(本地最稳);云函数因 60s timeout 用',
+    '                            \'none\',改 \'none\' 复现云端行为'
   ].join('\n')
 }
 

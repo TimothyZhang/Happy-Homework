@@ -2,15 +2,19 @@
 // 单图 ad-hoc 测试:跑一张图,可选附带 sample JSON(自带 ground truth)做对比。
 // 想做批量评估(整个 samples/ 目录)用 scripts/eval-homework-ocr.js。
 //
+// 前置:~/.zshrc 里已有 AZURE_OPENAI_API_KEY + AZURE_OPENAI_ENDPOINT。
+//      Azure 这台资源约定 deployment 名 == 模型名,所以不必单独设 DEPLOYMENT;
+//      默认走 gpt-5.5,想换模型用 OPENAI_OCR_MODEL=gpt-5 覆盖。
+//
 // 用法:
-//   # 用 sample(自带 ground truth):
-//   AZURE_OPENAI_API_KEY=...  AZURE_OPENAI_ENDPOINT=...  AZURE_OPENAI_DEPLOYMENT=gpt-5.5 \
-//     node miniapp-starter/scripts/test-homework-ocr.js samples/homework-2026-04-20.json
+//   # 跑 sample 并跟 ground truth 对比
+//   node miniapp-starter/scripts/test-homework-ocr.js samples/homework-2026-04-20.json
 //
-//   # 直接给图片路径(只识别不评分):
-//     node miniapp-starter/scripts/test-homework-ocr.js ~/Downloads/作业登记本.jpg
+//   # 直接给图片路径(只识别不评分)
+//   node miniapp-starter/scripts/test-homework-ocr.js ~/Downloads/作业登记本.jpg
 //
-//   # OCR_REASONING_EFFORT=low|none|medium|high 可调
+//   # 调档 reasoning effort(默认 'low',想复现云端 60s 限制下的行为用 'none')
+//   OCR_REASONING_EFFORT=none  node miniapp-starter/scripts/test-homework-ocr.js samples/...
 
 'use strict'
 
