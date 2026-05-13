@@ -79,10 +79,15 @@ function getEndpoint() {
 }
 
 function getDeploymentOrModel() {
+  // 这套 Azure 资源约定:deployment 名 == 模型名,所以 fallback 链里
+  // OPENAI_OCR_MODEL / OPENAI_MODEL 同时当 deployment 名用。
+  // 默认 'gpt-5.5' 跟云函数 cloudfunctions/homeworkOCR/index.js 的
+  // DEFAULT_OPENAI_MODEL 对齐,本地脚本裸跑(只有 KEY + ENDPOINT 在 env 里)
+  // 就能复现生产行为。
   return firstEnv([
     'AZURE_OPENAI_DEPLOYMENT', 'AZURE_OPENAI_DEPLOYMENT_NAME',
     'OPENAI_OCR_MODEL', 'OPENAI_MODEL'
-  ]) || 'gpt-4o'
+  ]) || 'gpt-5.5'
 }
 
 function getApiVersion() {
