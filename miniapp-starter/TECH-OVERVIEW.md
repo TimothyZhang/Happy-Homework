@@ -109,10 +109,10 @@ OCR 上传 + 草稿确认链路（详见 `V1-PRD-homework-register-ocr.md`）。
   schemaVersion, updatedAt,                                  // 版本 + 同步时间戳
   notebooks, tasks,                                          // 核心业务
   coins, streakDays, perfectDays, bonusByDay,                // 奖励
-  pendingShareCoins, testCoinsGranted,                       // 分享/测试金币的去重标记
+  pendingShareCoins,                                         // 分享金币的去重标记
   pet, lastReward,                                           // 宠物
   profile,                                                   // { nickname, avatar } —— 分享发送方身份
-  rewardRules, shopItems,                                    // 静态配置（不同步）
+  shopItems,                                                 // 静态配置（不同步）
   editTaskId, editNotebookId,                                // UI 临时态（不同步）
   ocrCurrentJob, ocrJobs                                     // OCR 临时态（不同步）
 }
@@ -136,12 +136,11 @@ OCR 上传 + 草稿确认链路（详见 `V1-PRD-homework-register-ocr.md`）。
 - 只读模式下 `updateState` 直接 return，4s 节流 toast
 
 ### 3.5 同步白名单（`SYNC_FIELDS`）
-同步 `notebooks / tasks / coins / streakDays / perfectDays / bonusByDay / pendingShareCoins / pet / lastReward / profile / testCoinsGranted`。OCR 任务、UI 临时态、静态配置（rewardRules / shopItems）都本地保留。
+同步 `notebooks / tasks / coins / streakDays / perfectDays / bonusByDay / pendingShareCoins / pet / lastReward / profile`。OCR 任务、UI 临时态、静态配置（shopItems）都本地保留。
 
 要点：
 - `profile` 在白名单里是为了让分享发送方的昵称（和头像 fileID）跟着用户跨设备走
 - `pendingShareCoins` 同步是为了避免同账号在另一台设备上重复领取
-- `testCoinsGranted` 是一次性测试金币标记，同步避免重装/换机重复发
 
 ### 3.6 性能要点
 对 1000 个作业本 / 5000+ 个作业的目标场景做了若干 O(N+M) 改造：

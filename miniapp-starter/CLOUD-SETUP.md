@@ -195,8 +195,8 @@ OCR 链路本身已通,识别质量经过手写体优先调整后明显改善。
 
 ### 数据范围
 
-同步:`notebooks / tasks / coins / streakDays / perfectDays / bonusByDay / pendingShareCoins / pet / lastReward / profile / testCoinsGranted`
-仅本地:`editTaskId / editNotebookId / ocrCurrentJob / ocrJobs / shopItems / rewardRules / schemaVersion`
+同步:`notebooks / tasks / coins / streakDays / perfectDays / bonusByDay / pendingShareCoins / pet / lastReward / profile`
+仅本地:`editTaskId / editNotebookId / ocrCurrentJob / ocrJobs / shopItems / schemaVersion`
 
 (白名单写在 `utils/store.js` 的 `SYNC_FIELDS` 常量。)
 

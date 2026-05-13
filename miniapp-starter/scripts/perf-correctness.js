@@ -173,8 +173,7 @@ function seed() {
 
   storage['homework-pet-v1'] = JSON.stringify({
     schemaVersion: 2, coins: 0, streakDays: 0, bonusCoins: 10,
-    testCoinsGranted: true, coinLogs: [],
-    editTaskId: null, editNotebookId: null, ocrCurrentJob: null, ocrJobs: [], rewardRules: [],
+    editTaskId: null, editNotebookId: null, ocrCurrentJob: null, ocrJobs: [],
     pet: { name: 'p', emoji: '🐮', level: 1, growth: 0, nextLevelGrowth: 60, happiness: 50, fullness: 50 },
     shopItems: [], notebooks, tasks
   })

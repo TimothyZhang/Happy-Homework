@@ -63,7 +63,7 @@
 - 同步链路:
   - `app.onLaunch` 异步 hydrate;每个 tab `onShow` 调 `hydrateIfStale()`(30s 防抖,launch in-flight 时 await 同一 promise 避免 race)
   - 每次 `saveState` 200ms 防抖 push 到云
-  - 同步白名单 `SYNC_FIELDS` = `notebooks / tasks / coins / streakDays / perfectDays / bonusByDay / pendingShareCoins / pet / lastReward / profile / testCoinsGranted`(OCR 任务 / UI 临时态 / 固定配置不上云)
+  - 同步白名单 `SYNC_FIELDS` = `notebooks / tasks / coins / streakDays / perfectDays / bonusByDay / pendingShareCoins / pet / lastReward / profile`(OCR 任务 / UI 临时态 / 固定配置不上云)
 - 单设备占用:云端 doc 持有 `sessionId`,与本机不一致时弹 modal「用此设备 / 只读浏览」;只读模式 `updateState` 直接 return + 4s 节流 toast
 - 「我的」页面有「数据同步」卡片:状态 pill + 「立即同步 / 用此设备」按钮
 - 集合权限「仅创建者可读写」,`_openid` 自动过滤,无需云函数

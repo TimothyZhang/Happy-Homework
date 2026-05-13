@@ -11,14 +11,28 @@ global.wx = {
   showModal: () => {}
 }
 
+// Pin "now" to a fixed late-evening moment (22:00 today, local) so reward
+// assertions don't drift with wall-clock time. 22:00 is past the last
+// early-finish tier (21:00) so the multiplier is ×1 by default. Tests that
+// need a specific hour-of-day (early-finish tiers) override this themselves.
+const _realDateNow = Date.now
+function setNowHour(h, m) {
+  const d = new Date()
+  d.setHours(h, m || 0, 0, 0)
+  const fixed = d.getTime()
+  Date.now = () => fixed
+}
+function restoreNow() { Date.now = _realDateNow }
+setNowHour(22, 0)
+
 function pad2(n) { return String(n).padStart(2, '0') }
 function todayStr() {
   const d = new Date()
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
 }
 
-// Seed N one-shot tasks for today, all 'todo'. The pet is set up so
-// finishTask runs the happiness-bump branch too.
+// Seed N one-shot tasks for today, all 'todo'. The pet is set up but no
+// per-task pet boost is applied — finishTask is reward-only.
 function seedNTasksToday(n) {
   const today = todayStr()
   const tasks = []
@@ -34,11 +48,8 @@ function seedNTasksToday(n) {
   storage['homework-pet-v1'] = JSON.stringify({
     schemaVersion: 2, coins: 0, streakDays: 0, perfectDays: [],
     pendingShareCoins: 0,
-    // Skip the one-time test grant for value-checks; the seed represents an
-    // already-onboarded account.
-    testCoinsGranted: true, coinLogs: [],
     editTaskId: null, editNotebookId: null,
-    ocrCurrentJob: null, ocrJobs: [], rewardRules: [],
+    ocrCurrentJob: null, ocrJobs: [],
     pet: {
       species: 'cat', emoji: '🐱', name: 'p',
       bornAt: Date.now(), lastDecayAt: Date.now(),
@@ -257,11 +268,45 @@ for (const it of items) {
   }
 }
 
-// === Test 9: rewardRules labels reflect new economy ===
-console.log('\n[reward] rule labels:')
-const rules = store.defaultState.rewardRules
-check('rule[0] = 单项 +10', { title: rules[0].title, coins: rules[0].coins }, { title: '完成单项作业', coins: 10 })
-check('rule[3] = streak +50', rules[3].coins, 50)
+// === Test 9: reward constants exported for UI/tests ===
+console.log('\n[reward] exported constants:')
+check('REWARD_PER_TASK = 10', store.REWARD_PER_TASK, 10)
+check('REWARD_DAILY_PERFECT_PER_TASK = 10', store.REWARD_DAILY_PERFECT_PER_TASK, 10)
+check('REWARD_WEEKLY_STREAK = 50', store.REWARD_WEEKLY_STREAK, 50)
+check('EARLY_BIRD_TIERS length = 3', store.EARLY_BIRD_TIERS.length, 3)
+check('tier[0] multiplier = 2', store.EARLY_BIRD_TIERS[0].multiplier, 2)
+check('tier[1] multiplier = 1.5', store.EARLY_BIRD_TIERS[1].multiplier, 1.5)
+check('tier[2] multiplier = 1.25', store.EARLY_BIRD_TIERS[2].multiplier, 1.25)
+
+// === Test 9b: dailyPerfectMultiplier — hourly tiers ===
+console.log('\n[reward] dailyPerfectMultiplier by hour:')
+function atHour(h, m) { const d = new Date(); d.setHours(h, m || 0, 0, 0); return d }
+check('05:00 → ×2',    store.dailyPerfectMultiplier(atHour(5, 0)),   2)
+check('14:00 → ×2',    store.dailyPerfectMultiplier(atHour(14, 0)),  2)
+check('18:59 → ×2',    store.dailyPerfectMultiplier(atHour(18, 59)), 2)
+check('19:00 → ×1.5',  store.dailyPerfectMultiplier(atHour(19, 0)),  1.5)
+check('19:59 → ×1.5',  store.dailyPerfectMultiplier(atHour(19, 59)), 1.5)
+check('20:00 → ×1.25', store.dailyPerfectMultiplier(atHour(20, 0)),  1.25)
+check('20:30 → ×1.25', store.dailyPerfectMultiplier(atHour(20, 30)), 1.25)
+check('21:00 → ×1',    store.dailyPerfectMultiplier(atHour(21, 0)),  1)
+check('23:30 → ×1',    store.dailyPerfectMultiplier(atHour(23, 30)), 1)
+
+// === Test 9c: finishTask honors the multiplier at the moment of last finish ===
+console.log('\n[reward] early-finish tiers applied on all-done:')
+function runAllDoneAtHour(h, taskCount) {
+  setNowHour(h, 0)
+  seedNTasksToday(taskCount)
+  const s = freshStore()
+  for (let i = 1; i <= taskCount; i++) s.finishTask(`t${i}`, today)
+  return s.getStateWithComputed().coins
+}
+// 8 tasks: base 80 + bonus 80 = 160 (× tier multiplier on the 80 bonus part)
+check('8/8 at 18:30 → 80 + 80×2 = 240', runAllDoneAtHour(18, 8), 240)
+check('8/8 at 19:00 → 80 + 80×1.5 = 200', runAllDoneAtHour(19, 8), 200)
+check('8/8 at 20:30 → 80 + 80×1.25 = 180', runAllDoneAtHour(20, 8), 180)
+check('8/8 at 22:00 → 80 + 80 = 160', runAllDoneAtHour(22, 8), 160)
+// Restore late-evening for the rest of the file's tests.
+setNowHour(22, 0)
 
 // === Test 10: PET_SPECIES includes parrot ===
 console.log('\n[species] roster:')
@@ -323,33 +368,6 @@ check('reason = same-species', sw3.reason, 'same-species')
 const sw4 = store.switchPetSpecies('dragon')
 check('unknown species rejected', sw4.ok, false)
 
-// === Test: one-time test coin grant on first load ===
-console.log('\n[test-grant] +1000 once on first load:')
-// Pre-existing storage WITHOUT testCoinsGranted: simulates a user upgrading
-// to this build. Migration backfills the flag as false → grant fires.
-storage = {}
-storage['homework-pet-v1'] = JSON.stringify({
-  schemaVersion: 2, coins: 25, streakDays: 0, perfectDays: [],
-  pendingShareCoins: 0,
-  editTaskId: null, editNotebookId: null,
-  ocrCurrentJob: null, ocrJobs: [], rewardRules: [],
-  pet: {}, shopItems: [], notebooks: [], tasks: [],
-  profile: { nickname: '' }
-})
-store = freshStore()
-const grant1 = store.getStateWithComputed()
-check('first load grants +1000 (25 → 1025)', grant1.coins, 1025)
-check('testCoinsGranted set to true', grant1.testCoinsGranted, true)
-check('coinLogs has one test-grant entry', grant1.coinLogs.length, 1)
-check('coinLogs[0].reason = test-grant', grant1.coinLogs[0].reason, 'test-grant')
-check('coinLogs[0].delta = 1000', grant1.coinLogs[0].delta, 1000)
-
-// Re-load: storage already has testCoinsGranted=true → grant must NOT fire.
-store = freshStore()
-const grant2 = store.getStateWithComputed()
-check('repeated load does not regrant (still 1025)', grant2.coins, 1025)
-check('coinLogs still length 1', grant2.coinLogs.length, 1)
-
 // === Test 12: findNotebookByName + duplicate-name validation ===
 console.log('\n[name-dup] findNotebookByName:')
 seedNTasksToday(0)
@@ -389,9 +407,9 @@ function seedFinishedTasks(samples) {
   storage = {}
   storage['homework-pet-v1'] = JSON.stringify({
     schemaVersion: 2, coins: 0, streakDays: 0, perfectDays: [],
-    pendingShareCoins: 0, testCoinsGranted: true, coinLogs: [],
+    pendingShareCoins: 0,
     editTaskId: null, editNotebookId: null,
-    ocrCurrentJob: null, ocrJobs: [], rewardRules: [],
+    ocrCurrentJob: null, ocrJobs: [],
     pet: {}, shopItems: [],
     notebooks: [{
       id: 'nb_today', name: 'today', mode: 'one-shot',

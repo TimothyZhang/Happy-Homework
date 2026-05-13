@@ -50,10 +50,33 @@
   opacity: 0;
 }
 
-.reward-task__coin-icon {
-  font-size: 30rpx;
-  line-height: 1;
+/* === CSS coin (used in all three slots: task pill, big total, rain) === */
+.coin {
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 28%, #fff6c8 0%, #ffd76a 38%, #d68a0c 100%);
+  border: 3rpx solid #c97a06;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 -4rpx 8rpx rgba(120, 60, 0, 0.32),
+              inset 0 3rpx 6rpx rgba(255, 255, 255, 0.55),
+              0 4rpx 10rpx rgba(180, 100, 10, 0.32);
 }
+.coin__sym {
+  font-size: 32rpx;
+  font-weight: 900;
+  color: #7a3d00;
+  line-height: 1;
+  letter-spacing: 0;
+}
+/* Small variant: lives inside the task-toast gold pill. */
+.coin--sm { width: 38rpx; height: 38rpx; border-width: 2rpx; }
+.coin--sm .coin__sym { font-size: 22rpx; }
+/* Large variant: the all-done card's main coin next to "+N 金币!". */
+.coin--lg { width: 86rpx; height: 86rpx; border-width: 4rpx; }
+.coin--lg .coin__sym { font-size: 50rpx; }
 
 .reward-task__coin-text {
   font-size: 34rpx;
@@ -122,11 +145,6 @@
   animation: reward-alldone-total 1700ms cubic-bezier(0.16, 1, 0.3, 1) 380ms forwards;
 }
 
-.reward-alldone__total-icon {
-  font-size: 64rpx;
-  line-height: 1;
-}
-
 .reward-alldone__total-text {
   font-size: 140rpx;
   font-weight: 900;
@@ -170,7 +188,7 @@
 .reward-alldone__star--s11 { top: 0;        left: 28%;     --tx: -200rpx; --ty: -240rpx; }
 .reward-alldone__star--s12 { bottom: 30rpx; right: 28%;    --tx: 180rpx;  --ty: 260rpx; }
 
-/* ===== Coin rain (12 🪙 falling from top) ===== */
+/* ===== Coin rain (12 CSS coins falling from top) ===== */
 .reward-rain {
   position: absolute;
   inset: 0;
@@ -182,8 +200,6 @@
   position: absolute;
   top: -120rpx;
   left: 50%;
-  font-size: 56rpx;
-  line-height: 1;
   opacity: 0;
   animation: reward-coin-rain 2400ms ease-in forwards;
 }

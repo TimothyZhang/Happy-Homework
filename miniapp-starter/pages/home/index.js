@@ -29,6 +29,22 @@ function formatShortMD(dateStr) {
   return `${Number(m[1])}/${Number(m[2])}`
 }
 
+// Build the early-finish bonus chip data for the current hour. The chip shows
+// the multiplier you'd lock in by finishing the day's last task right now — so
+// it's only meaningful when there are pending tasks to finish today. When
+// nothing's pending (or it's not today), drop the chip entirely; the rules
+// help icon stays so the user can still check the table.
+function buildBonusChip(isToday, pendingCount) {
+  if (!isToday || pendingCount === 0) {
+    return { active: false, icon: '', label: '' }
+  }
+  const m = store.dailyPerfectMultiplier()
+  if (m === 2)    return { active: true,  icon: '🏆', label: '早完成加成 ×2' }
+  if (m === 1.5)  return { active: true,  icon: '⏱',  label: '加成 ×1.5' }
+  if (m === 1.25) return { active: true,  icon: '⏰', label: '加成 ×1.25' }
+  return { active: false, icon: '', label: '当前无加成' }
+}
+
 function buildPetMessage({ isToday, totalCount, pendingCount, remainingMinutes }) {
   const timeStr = remainingMinutes > 0 ? formatDuration(remainingMinutes) : ''
 
@@ -49,6 +65,20 @@ function buildPetMessage({ isToday, totalCount, pendingCount, remainingMinutes }
   if (totalCount === 0) return '这一天没有安排作业'
   if (pendingCount === 0) return `这天的 ${totalCount} 项作业都完成啦`
   return `这天还有 ${pendingCount} 项作业没完成`
+}
+
+// Build the rotating list of speech-bubble lines shown next to the pet. The
+// first item is always the contextual progress message; the rest are the
+// early-finish bonus tips relevant to the current time (only show a tier the
+// user could still hit).
+function buildPetTips(ctx) {
+  const tips = [buildPetMessage(ctx)]
+  if (!ctx.isToday || ctx.pendingCount === 0) return tips
+  const m = store.dailyPerfectMultiplier()
+  if (m >= 2)    tips.push('🏆 19:00 前完成所有作业，金币奖励增加 100%')
+  if (m >= 1.5)  tips.push('⏱ 20:00 前完成所有作业，金币奖励增加 50%')
+  if (m >= 1.25) tips.push('⏰ 21:00 前完成所有作业，金币奖励增加 25%')
+  return tips
 }
 
 function decorateItem(item, now) {
@@ -132,6 +162,13 @@ Page({
     doneItems: [],
     pet: { emoji: '🐾' },
     petMessage: '',
+    // True briefly while the pet-bubble text cross-fades to the next tip.
+    petMessageFading: false,
+    // Early-bird daily-perfect bonus, refreshed in refreshState.
+    bonusActive: false,
+    bonusIcon: '',
+    bonusLabel: '',
+    rewardRulesOpen: false,
     // reward-toast props
     taskRewardVisible: false,
     taskRewardCoins: 0,
@@ -181,12 +218,20 @@ Page({
     const total = decorated.length
     const remainingMinutes = undoneItems
       .reduce((s, it) => s + Number(it.estimatedMinutes || 0), 0)
-    const petMessage = buildPetMessage({
+    const petTipCtx = {
       isToday,
       totalCount: total,
       pendingCount: undoneItems.length,
       remainingMinutes
-    })
+    }
+    this._petTipCtx = petTipCtx
+    this._petTips = buildPetTips(petTipCtx)
+    // Cap index to new tips length; keep current position otherwise so a
+    // mid-rotation refresh (e.g. finishing one task) doesn't yank the user
+    // back to the first message.
+    this._petMessageIndex = Math.min(this._petMessageIndex || 0, Math.max(0, this._petTips.length - 1))
+    const petMessage = this._petTips[this._petMessageIndex] || ''
+    const bonus = buildBonusChip(isToday, undoneItems.length)
 
     // Segment labels — "今天 5/10", "明天 5/11", and "日历" or "日历 5/15"
     // when the user has picked a day that isn't today/tomorrow.
@@ -213,7 +258,10 @@ Page({
       undoneItems,
       doneItems,
       pet: (state.pet && state.pet.emoji) ? state.pet : this.data.pet,
-      petMessage
+      petMessage,
+      bonusActive: bonus.active,
+      bonusIcon: bonus.icon,
+      bonusLabel: bonus.label
     }, opts.perfStamp ? () => perf.markPaint(opts.perfStamp) : undefined)
     // Repaint embedded calendar's day-count bubbles when store changes.
     if (this.data.calendarOpen) {
@@ -221,6 +269,43 @@ Page({
       if (cal) cal.refresh()
     }
     if (opts.maybeCelebrate) this.maybeShowReward(state)
+
+    // Start / stop the speech-bubble rotation based on tip count.
+    if (this._petTips.length > 1) this._startPetMessageRotation()
+    else this._stopPetMessageRotation()
+  },
+
+  // === Pet speech bubble rotation === //
+  // 4.5s cadence with a ~220ms cross-fade. The tips list is rebuilt on each
+  // tick so a tier that's crossed its deadline (e.g. clock just passed 19:00)
+  // drops out without waiting for the next refreshState.
+
+  _startPetMessageRotation() {
+    if (this._petMessageTimer) return
+    this._petMessageTimer = setInterval(() => this._rotatePetMessage(), 4500)
+  },
+  _stopPetMessageRotation() {
+    if (this._petMessageTimer) { clearInterval(this._petMessageTimer); this._petMessageTimer = null }
+    if (this._petMessageFadeTimer) { clearTimeout(this._petMessageFadeTimer); this._petMessageFadeTimer = null }
+  },
+  _rotatePetMessage() {
+    const ctx = this._petTipCtx
+    if (!ctx) return
+    const tips = buildPetTips(ctx)
+    this._petTips = tips
+    if (tips.length === 0) { this._stopPetMessageRotation(); return }
+    if (tips.length === 1) {
+      if (this.data.petMessage !== tips[0]) this.setData({ petMessage: tips[0] })
+      this._stopPetMessageRotation()
+      return
+    }
+    const next = ((this._petMessageIndex || 0) + 1) % tips.length
+    this.setData({ petMessageFading: true })
+    this._petMessageFadeTimer = setTimeout(() => {
+      this._petMessageFadeTimer = null
+      this._petMessageIndex = next
+      this.setData({ petMessage: tips[next], petMessageFading: false })
+    }, 220)
   },
 
   // Decides whether the just-finished tap actually awarded coins (vs. a
@@ -320,6 +405,10 @@ Page({
     this.setData({ allDoneVisible: false })
   },
 
+  openRewardRules() { this.setData({ rewardRulesOpen: true }) },
+  closeRewardRules() { this.setData({ rewardRulesOpen: false }) },
+  noop() {},
+
   handleTasksChanged(e) {
     const finished = e && e.detail && e.detail.finished
     this.refreshState({ maybeCelebrate: finished })
@@ -328,8 +417,8 @@ Page({
   handleDragStart() { this.setData({ disableScroll: true }) },
   handleDragEnd() { this.setData({ disableScroll: false }) },
 
-  onHide() { this.hideAllRewards() },
-  onUnload() { this.hideAllRewards() },
+  onHide() { this.hideAllRewards(); this._stopPetMessageRotation() },
+  onUnload() { this.hideAllRewards(); this._stopPetMessageRotation() },
 
   // === Date segment === //
 

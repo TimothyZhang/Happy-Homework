@@ -5,7 +5,7 @@
     <view class="reward-task" catchtap="handleSkip">
       <text class="reward-task__pet">{{petEmoji}}</text>
       <view class="reward-task__coin">
-        <text class="reward-task__coin-icon">🪙</text>
+        <view class="coin coin--sm"><text class="coin__sym">¥</text></view>
         <text class="reward-task__coin-text">+{{coins}}</text>
       </view>
     </view>
@@ -14,18 +14,18 @@
   <block wx:elif="{{kind === 'allDone'}}">
     <!-- Coin rain spans the whole overlay so coins can fall from above the card -->
     <view class="reward-rain">
-      <text class="reward-rain__c reward-rain__c--1">🪙</text>
-      <text class="reward-rain__c reward-rain__c--2">🪙</text>
-      <text class="reward-rain__c reward-rain__c--3">🪙</text>
-      <text class="reward-rain__c reward-rain__c--4">🪙</text>
-      <text class="reward-rain__c reward-rain__c--5">🪙</text>
-      <text class="reward-rain__c reward-rain__c--6">🪙</text>
-      <text class="reward-rain__c reward-rain__c--7">🪙</text>
-      <text class="reward-rain__c reward-rain__c--8">🪙</text>
-      <text class="reward-rain__c reward-rain__c--9">🪙</text>
-      <text class="reward-rain__c reward-rain__c--10">🪙</text>
-      <text class="reward-rain__c reward-rain__c--11">🪙</text>
-      <text class="reward-rain__c reward-rain__c--12">🪙</text>
+      <view class="reward-rain__c reward-rain__c--1"><view class="coin"><text class="coin__sym">¥</text></view></view>
+      <view class="reward-rain__c reward-rain__c--2"><view class="coin"><text class="coin__sym">¥</text></view></view>
+      <view class="reward-rain__c reward-rain__c--3"><view class="coin"><text class="coin__sym">¥</text></view></view>
+      <view class="reward-rain__c reward-rain__c--4"><view class="coin"><text class="coin__sym">¥</text></view></view>
+      <view class="reward-rain__c reward-rain__c--5"><view class="coin"><text class="coin__sym">¥</text></view></view>
+      <view class="reward-rain__c reward-rain__c--6"><view class="coin"><text class="coin__sym">¥</text></view></view>
+      <view class="reward-rain__c reward-rain__c--7"><view class="coin"><text class="coin__sym">¥</text></view></view>
+      <view class="reward-rain__c reward-rain__c--8"><view class="coin"><text class="coin__sym">¥</text></view></view>
+      <view class="reward-rain__c reward-rain__c--9"><view class="coin"><text class="coin__sym">¥</text></view></view>
+      <view class="reward-rain__c reward-rain__c--10"><view class="coin"><text class="coin__sym">¥</text></view></view>
+      <view class="reward-rain__c reward-rain__c--11"><view class="coin"><text class="coin__sym">¥</text></view></view>
+      <view class="reward-rain__c reward-rain__c--12"><view class="coin"><text class="coin__sym">¥</text></view></view>
     </view>
 
     <view class="reward-alldone" catchtap="noop">
@@ -52,7 +52,7 @@
            before this card; we don't repeat it here. -->
       <view class="reward-alldone__stage">
         <view class="reward-alldone__total">
-          <text class="reward-alldone__total-icon">🪙</text>
+          <view class="coin coin--lg"><text class="coin__sym">¥</text></view>
           <text class="reward-alldone__total-text">+{{coins}}</text>
           <text class="reward-alldone__total-suffix">金币!</text>
         </view>

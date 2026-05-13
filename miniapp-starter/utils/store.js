@@ -5,8 +5,8 @@ const SCHEMA_VERSION = 2
 
 // Subset of state fields synced to cloud. Everything else is local-only:
 // transient UI state (editTaskId, editNotebookId), OCR jobs (ephemeral and
-// large), and app-wide config that's the same for everyone (rewardRules,
-// shopItems, schemaVersion).
+// large), and app-wide config that's the same for everyone (shopItems,
+// schemaVersion).
 // NOTE: `profile` carries both nickname AND avatar (a cloud:// fileID), so
 // the avatar is synced through the existing entry — no separate field needed.
 const SYNC_FIELDS = [
@@ -14,14 +14,8 @@ const SYNC_FIELDS = [
   'coins', 'streakDays', 'perfectDays', 'bonusByDay',
   'pendingShareCoins',
   'pet', 'lastReward',
-  'profile',
-  // One-time test grant flag: synced so a device that already received the
-  // 1000 coins doesn't re-grant on a fresh install once cloud hydrates.
-  'testCoinsGranted'
+  'profile'
 ]
-
-// Amount of the one-time test coin grant — see grantTestCoinsIfNeeded.
-const TEST_COIN_GRANT = 1000
 
 // === Date helpers (local timezone, YYYY-MM-DD) === //
 
@@ -60,6 +54,34 @@ function compareDateStr(a, b) {
 function getCurrentTime() {
   const date = new Date()
   return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+}
+
+// === Reward constants — kept in sync with V1-VALUES-DESIGN.md. === //
+
+const REWARD_PER_TASK = 10
+const REWARD_DAILY_PERFECT_PER_TASK = 10  // base bonus per task on first all-done of day
+const REWARD_WEEKLY_STREAK = 50            // every 7 consecutive perfect days
+
+// Daily-perfect bonus is scaled by completion hour of the last task — keyed on
+// evening hours since homework is an evening task. Finishing before 19:00 (7
+// PM) doubles the bonus; 19:00–20:00 = ×1.5; 20:00–21:00 = ×1.25; on/after
+// 21:00 the base bonus (×1) applies. Each tier matches hour < hourEnd, so
+// anything earlier than the first hourEnd is also ×2 (afternoon, morning, or
+// past-midnight all fall into that bucket).
+const EARLY_BIRD_TIERS = [
+  { hourEnd: 19, multiplier: 2,    label: '早完成加成 ×2', window: '21:00 前一整天 / 当晚 19:00 前' },
+  { hourEnd: 20, multiplier: 1.5,  label: '加成 ×1.5',     window: '19:00–20:00' },
+  { hourEnd: 21, multiplier: 1.25, label: '加成 ×1.25',    window: '20:00–21:00' }
+]
+
+// Returns the daily-perfect bonus multiplier for a given Date (or now). Pure.
+function dailyPerfectMultiplier(date) {
+  const d = date || new Date()
+  const h = d.getHours()
+  for (const tier of EARLY_BIRD_TIERS) {
+    if (h < tier.hourEnd) return tier.multiplier
+  }
+  return 1
 }
 
 // === Pet helpers === //
@@ -322,22 +344,10 @@ const defaultState = {
   // coins yet. Filled by the shareReward cloud function on the sharer's
   // user_state doc; claimed (added to coins, reset to 0) on next hydrate.
   pendingShareCoins: 0,
-  // One-time test grant. Flips to true after grantTestCoinsIfNeeded credits
-  // +1000 coins on first launch. Synced across devices so the second device
-  // doesn't re-grant once cloud hydrate lands.
-  testCoinsGranted: false,
-  // Local-only coin ledger for debugging. Each entry: {at, delta, reason}.
-  coinLogs: [],
   editTaskId: null,
   editNotebookId: null,
   ocrCurrentJob: null,
   ocrJobs: [],
-  rewardRules: [
-    { title: '完成单项作业', coins: 10 },
-    { title: '当日全部完成', coins: '+完成数量×10' },
-    { title: '分享被保存', coins: 3 },
-    { title: '连续 7 天全完成', coins: 50 }
-  ],
   // Empty pet object → triggers first-time setup flow on the pet tab.
   pet: {},
   // Each item lifts one primary stat back to a comfy zone and may nudge a
@@ -394,8 +404,6 @@ function migrateState(raw) {
     if (typeof raw.pendingShareCoins !== 'number') raw.pendingShareCoins = 0
     if (typeof raw.streakDays !== 'number') raw.streakDays = 0
     if (typeof raw.coins !== 'number') raw.coins = 0
-    if (typeof raw.testCoinsGranted !== 'boolean') raw.testCoinsGranted = false
-    if (!Array.isArray(raw.coinLogs)) raw.coinLogs = []
     // Pet schema upgrade: legacy data had {name, emoji, level, growth,
     // happiness, fullness} but no species / cleanliness / health / age. If
     // we see a name without a species, treat it as already-set-up (infer
@@ -487,7 +495,6 @@ function loadState() {
     const raw = wx.getStorageSync(STORAGE_KEY)
     if (raw && typeof raw === 'object') {
       _stateCache = migrateState(raw)
-      grantTestCoinsIfNeeded()
       console.log(`[perf] loadState (first call): ${Date.now() - t0}ms`)
       return _stateCache
     }
@@ -495,28 +502,8 @@ function loadState() {
     console.warn('loadState failed', error)
   }
   _stateCache = clone(defaultState)
-  grantTestCoinsIfNeeded()
   console.log(`[perf] loadState (first call, fresh): ${Date.now() - t0}ms`)
   return _stateCache
-}
-
-// One-time +1000 test coin grant. Runs after the first migrateState (or
-// fresh-default load) and self-disables via the synced testCoinsGranted flag.
-// Cross-device dedupe relies on cloud-sync overwriting the flag during hydrate
-// — worst case (both devices launch offline before either syncs) each grants
-// once, which the user has explicitly accepted as fine for a test grant.
-// Skipped in read-only mode so we don't write into a state we can't push.
-function grantTestCoinsIfNeeded() {
-  if (!_stateCache) return
-  if (_stateCache.testCoinsGranted === true) return
-  if (cloudSync.isReadOnly()) return
-  _stateCache.coins = (_stateCache.coins || 0) + TEST_COIN_GRANT
-  _stateCache.testCoinsGranted = true
-  if (!Array.isArray(_stateCache.coinLogs)) _stateCache.coinLogs = []
-  _stateCache.coinLogs.push({ at: Date.now(), delta: TEST_COIN_GRANT, reason: 'test-grant' })
-  _stateCache.updatedAt = Date.now()
-  saveState(_stateCache)
-  console.log(`[store] 测试金币 ${TEST_COIN_GRANT} 已发`)
 }
 
 function saveState(state) {
@@ -1401,11 +1388,6 @@ function revertTask(taskId, dateStr) {
   })
 }
 
-// Reward constants — kept in sync with rewardRules + V1-VALUES-DESIGN.md.
-const REWARD_PER_TASK = 10
-const REWARD_DAILY_PERFECT_PER_TASK = 10  // bonus = N × this on first all-done of day
-const REWARD_WEEKLY_STREAK = 50            // every 7 consecutive perfect days
-
 function finishTask(taskId, dateStr) {
   const day = dateStr || todayStr()
   return updateState((state) => {
@@ -1418,6 +1400,16 @@ function finishTask(taskId, dateStr) {
     if (!task) return state
     const nb = state.notebooks.find((n) => n.id === task.notebookId)
     if (!nb) return state
+
+    // Temporary diagnostic — fires on every finishTask so you can see in
+    // Console whether the running build is new or stale. Look for
+    // `[reward] finishTask`.
+    const _diagH = new Date(now).getHours()
+    const _diagM = String(new Date(now).getMinutes()).padStart(2, '0')
+    console.log(
+      `[reward] finishTask taskId=${taskId} day=${day} now=${_diagH}:${_diagM}`,
+      `perfectDaysHasToday=${Array.isArray(state.perfectDays) && state.perfectDays.includes(day)}`
+    )
     const cur = getTaskState(task, nb, day)
     const segMs = cur.currentSegmentStartedAt ? Math.max(0, now - cur.currentSegmentStartedAt) : 0
     const totalMs = (cur.accumulatedMs || 0) + segMs
@@ -1441,10 +1433,23 @@ function finishTask(taskId, dateStr) {
     if (allDone) {
       if (!Array.isArray(state.perfectDays)) state.perfectDays = []
       if (!state.perfectDays.includes(day)) {
-        // Bonus = today's item count × per-task coin → effectively doubles
-        // the day's earnings when everything is finished.
-        dailyBonus = todayItems.length * REWARD_DAILY_PERFECT_PER_TASK
+        // Bonus = today's item count × per-task coin, doubling the day's
+        // earnings on a regular all-done. Early-bird tiers further scale by
+        // completion hour (×2 / ×1.5 / ×1.25 before 19/20/21, see
+        // EARLY_BIRD_TIERS) — only the daily bonus is scaled, not the per-task
+        // +10 or the weekly streak.
+        const baseBonus = todayItems.length * REWARD_DAILY_PERFECT_PER_TASK
+        const nowDate = new Date(now)
+        const multiplier = dailyPerfectMultiplier(nowDate)
+        dailyBonus = Math.round(baseBonus * multiplier)
         reward += dailyBonus
+        // Temporary diagnostic — verify the running build picked up the new
+        // evening-hour tiers + which tier actually fires. Remove once the
+        // user has confirmed the multiplier is being read correctly.
+        console.log(
+          `[reward] all-done @ ${nowDate.getHours()}:${String(nowDate.getMinutes()).padStart(2,'0')}`,
+          `tasks=${todayItems.length} base=${baseBonus} ×${multiplier} → dailyBonus=${dailyBonus}`
+        )
 
         // Snapshot streak BEFORE the increment so revertTask can restore it.
         const prevStreakDays = state.streakDays || 0
@@ -1475,10 +1480,6 @@ function finishTask(taskId, dateStr) {
     }
 
     state.coins += reward
-    if (state.pet && state.pet.species) {
-      state.pet = commitPetDecay(state.pet)
-      state.pet.happiness = Math.min(state.pet.happiness + 6, 100)
-    }
     state.lastReward = { reward, dailyBonus, weeklyBonus, taskId, finishedAt: now }
     return state
   })
@@ -1759,7 +1760,7 @@ function pickRenameCandidate(state, baseName) {
 //                 No dedupe; every imported task starts as todo.
 //   'overwrite' — replace options.targetNotebookId's metadata + tasks.
 //                 KEEPS the original notebook id, so existing progress
-//                 (coins / coinLogs / streak history) stays intact —
+//                 (coins / streak history) stays intact —
 //                 only this notebook's task rows are swapped out.
 // Returns the resulting notebook id (caller usually navigates to it), or
 // null if the device is read-only or the payload is invalid.
@@ -1907,6 +1908,12 @@ module.exports = {
   applyHydratedState,
   getStateForSync,
   getUpdatedAt,
+  // reward rules (read-only constants exposed for UI display + tests)
+  REWARD_PER_TASK,
+  REWARD_DAILY_PERFECT_PER_TASK,
+  REWARD_WEEKLY_STREAK,
+  EARLY_BIRD_TIERS,
+  dailyPerfectMultiplier,
   // misc
   getCurrentTime
 }

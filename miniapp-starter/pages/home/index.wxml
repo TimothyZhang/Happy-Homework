@@ -22,10 +22,24 @@
 
       <view class="pet-talk">
         <view class="pet-bubble">
-          <text class="pet-bubble-text">{{petMessage}}</text>
+          <text class="pet-bubble-text {{petMessageFading ? 'is-fading' : ''}}">{{petMessage}}</text>
         </view>
         <view class="pet-mascot">
           <text class="pet-emoji">{{pet.emoji}}</text>
+        </view>
+      </view>
+
+      <view class="bonus-row">
+        <view wx:if="{{bonusActive}}" class="bonus-chip bonus-chip--active">
+          <text class="bonus-chip__icon">{{bonusIcon}}</text>
+          <text class="bonus-chip__label">{{bonusLabel}}</text>
+        </view>
+        <view wx:elif="{{bonusLabel}}" class="bonus-chip">
+          <text class="bonus-chip__label">{{bonusLabel}}</text>
+        </view>
+        <view wx:else class="bonus-chip-placeholder"></view>
+        <view class="bonus-help" bindtap="openRewardRules">
+          <text class="bonus-help__q">?</text>
         </view>
       </view>
     </view>
@@ -73,4 +87,55 @@
                 subtitle="{{allDoneSubtitle}}"
                 pet-emoji="{{pet.emoji}}"
                 bind:skip="handleSkipAllDone" />
+
+  <view wx:if="{{rewardRulesOpen}}" class="rules-mask" bindtap="closeRewardRules">
+    <view class="rules-sheet" catchtap="noop">
+      <view class="rules-title">金币奖励规则</view>
+
+      <view class="rules-section">
+        <view class="rules-row">
+          <text class="rules-row__name">完成单项作业</text>
+          <text class="rules-row__amt">+10</text>
+        </view>
+        <view class="rules-row">
+          <text class="rules-row__name">当日全部完成（首次）</text>
+          <text class="rules-row__amt">+ 任务数 × 10</text>
+        </view>
+        <view class="rules-row">
+          <text class="rules-row__name">连续 7 天全完成</text>
+          <text class="rules-row__amt">+50</text>
+        </view>
+        <view class="rules-row">
+          <text class="rules-row__name">分享被保存</text>
+          <text class="rules-row__amt">+3 / 次</text>
+        </view>
+      </view>
+
+      <view class="rules-divider"></view>
+
+      <view class="rules-subtitle">早完成加成（叠加在「当日全完成」上）</view>
+      <view class="rules-section">
+        <view class="rules-row">
+          <text class="rules-row__name">晚上 19:00 前完成</text>
+          <text class="rules-row__amt">×2</text>
+        </view>
+        <view class="rules-row">
+          <text class="rules-row__name">19:00 – 20:00 完成</text>
+          <text class="rules-row__amt">×1.5</text>
+        </view>
+        <view class="rules-row">
+          <text class="rules-row__name">20:00 – 21:00 完成</text>
+          <text class="rules-row__amt">×1.25</text>
+        </view>
+        <view class="rules-row">
+          <text class="rules-row__name">21:00 之后完成</text>
+          <text class="rules-row__amt">×1</text>
+        </view>
+      </view>
+
+      <view class="rules-hint">举例：14 项作业在 18:30 全完成 → 14×10 (单项) + 14×10×2 (早完成加成) = 420 金币</view>
+
+      <view class="rules-close" bindtap="closeRewardRules">知道了</view>
+    </view>
+  </view>
 </view>
