@@ -1,0 +1,9 @@
+# 默认不入仓真实手写图(隐私 + repo 体积)。想 commit 某张就单独 `git add -f`。
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.heic
+
+# eval-homework-ocr.js --report 写到这里
+_reports/
