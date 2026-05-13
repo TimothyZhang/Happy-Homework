@@ -60,4 +60,30 @@
     </view>
   </view>
 
+  <view wx:if="{{isAdmin}}" class="card admin-card" bindtap="handleOpenAdmin" bindlongpress="handleToggleOpenidCard">
+    <view class="admin-row">
+      <view class="admin-text">
+        <text class="admin-title">🛠 管理后台</text>
+        <text class="admin-hint">查看所有用户、调整金币</text>
+      </view>
+      <text class="admin-arrow">›</text>
+    </view>
+  </view>
+
+  <view wx:if="{{adminCheckDone && showOpenidCard && myOpenid}}" class="card openid-card">
+    <view class="section-header">
+      <text class="section-title">我的 openid</text>
+      <text class="openid-badge {{isAdmin ? 'admin' : ''}}">{{isAdmin ? '管理员' : '未加白'}}</text>
+    </view>
+    <view class="openid-box" bindtap="handleCopyOpenid">
+      <text class="openid-value selectable">{{myOpenid}}</text>
+      <text class="openid-copy">复制</text>
+    </view>
+    <text class="openid-hint">
+      {{isAdmin
+        ? '已是管理员。长按上方「管理后台」可隐藏此卡片。'
+        : '把这串 openid 粘给开发者,加进 cloudfunctions/adminPanel/index.js 的 ADMIN_OPENIDS_HARDCODED 数组后重新部署即可。'}}
+    </text>
+  </view>
+
 </view>

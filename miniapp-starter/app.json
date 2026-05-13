@@ -10,7 +10,9 @@
     "pages/ocr-result/index",
     "pages/pet/index",
     "pages/profile/index",
-    "pages/stats/index"
+    "pages/stats/index",
+    "pages/admin/index",
+    "pages/admin-detail/index"
   ],
   "subpackages": [
     {

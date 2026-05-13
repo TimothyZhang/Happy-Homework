@@ -1,0 +1,57 @@
+<view class="page">
+  <view class="card">
+    <view class="section-header">
+      <text class="section-title">用户列表</text>
+      <text class="subtle">共 {{total}} 个</text>
+    </view>
+    <input class="input search-input"
+           placeholder="搜索昵称或 openid"
+           value="{{keyword}}"
+           bindinput="handleKeywordInput" />
+  </view>
+
+  <view wx:if="{{loading}}" class="empty-block">加载中…</view>
+
+  <view wx:elif="{{error}}" class="card error-card">
+    <text class="error-text">{{error}}</text>
+  </view>
+
+  <view wx:elif="{{filteredUsers.length === 0}}" class="empty-block">
+    <text>没有匹配的用户</text>
+  </view>
+
+  <view wx:else class="user-list">
+    <view wx:for="{{filteredUsers}}"
+          wx:key="openid"
+          class="card user-row"
+          data-openid="{{item.openid}}"
+          bindtap="handleOpenDetail">
+      <view class="user-avatar">
+        <image wx:if="{{item.avatar}}" class="avatar-img" src="{{item.avatar}}" mode="aspectFill" />
+        <view wx:else class="avatar-fallback">{{item.avatarInitial}}</view>
+      </view>
+
+      <view class="user-info">
+        <view class="user-line top">
+          <text class="user-name">{{item.displayName}}</text>
+          <text class="coin-pill">🪙 {{item.coins}}</text>
+        </view>
+
+        <view class="user-line">
+          <text class="openid-text">{{item.shortOpenid}}</text>
+          <text class="subtle">{{item.updatedAtDisplay}}</text>
+        </view>
+
+        <view class="user-stats">
+          <text class="stat-pill">🔥 {{item.streakDays}} 天</text>
+          <text wx:if="{{item.pet}}" class="stat-pill">
+            {{item.pet.emoji}} {{item.petDisplayName}} Lv.{{item.pet.level}}
+          </text>
+          <text wx:else class="stat-pill subtle">未养宠物</text>
+          <text class="stat-pill">📚 {{item.notebookCount}} 本</text>
+          <text class="stat-pill">📝 {{item.taskCount}} 项</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

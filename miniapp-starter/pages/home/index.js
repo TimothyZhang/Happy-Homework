@@ -1,6 +1,7 @@
 const store = require('../../utils/store')
 const cloudSync = require('../../utils/cloud-sync')
 const shareReward = require('../../utils/share-reward')
+const adminInbox = require('../../utils/admin-inbox')
 const perf = require('../../utils/perf')
 
 function formatElapsed(ms) {
@@ -200,6 +201,17 @@ Page({
         this.refreshState()
         const label = r.count > 1 ? `${r.count} 位好友保存了你的作业` : '好友保存了你分享的作业'
         wx.showToast({ title: `${label}，+${r.total} 金币`, icon: 'none', duration: 2400 })
+      }).catch(() => {})
+
+      // 拉 admin 调整 inbox。 throttle 30s，失败静默。
+      adminInbox.claimPendingAdminCoins().then((r) => {
+        if (!r) return
+        const summary = store.applyAdminCoinClaim({ items: r.items })
+        if (!summary || summary.totalApplied === 0) return
+        this.refreshState()
+        const t = summary.totalApplied
+        const label = t > 0 ? `管理员奖励 +${t} 金币` : `管理员扣除 ${t} 金币`
+        wx.showToast({ title: label, icon: 'none', duration: 2400 })
       }).catch(() => {})
     }
   },

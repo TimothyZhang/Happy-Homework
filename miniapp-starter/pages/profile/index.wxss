@@ -138,3 +138,88 @@
   color: #245bdb;
 }
 .sync-btn[disabled] { opacity: 0.6; }
+
+/* === Admin entry === */
+
+.admin-card {
+  margin-top: 24rpx;
+}
+.admin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18rpx;
+}
+.admin-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6rpx;
+  flex: 1;
+}
+.admin-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+.admin-hint {
+  font-size: 24rpx;
+  color: #6b7785;
+}
+.admin-arrow {
+  font-size: 40rpx;
+  color: #c1c8d2;
+  line-height: 1;
+}
+
+/* === Openid debug card === */
+
+.openid-card {
+  margin-top: 24rpx;
+}
+.openid-badge {
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+  background: #fff5e6;
+  color: #b26a00;
+}
+.openid-badge.admin {
+  background: #e8f7ee;
+  color: #067647;
+}
+.openid-box {
+  margin-top: 18rpx;
+  padding: 18rpx 20rpx;
+  background: #f7f9fc;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+.openid-value {
+  flex: 1;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 24rpx;
+  color: #1f2329;
+  word-break: break-all;
+  line-height: 1.5;
+}
+.openid-value.selectable {
+  user-select: text;
+}
+.openid-copy {
+  flex-shrink: 0;
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  background: #245bdb;
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+.openid-hint {
+  margin-top: 14rpx;
+  font-size: 22rpx;
+  color: #6b7785;
+  line-height: 1.6;
+}

@@ -1682,6 +1682,61 @@ function applyShareRewardClaim({ total, count, notebooks }) {
   return next
 }
 
+// Apply an admin-coin-inbox claim. `items` is the array returned by
+// adminPanel.claimAdminCoins, in createdAt-asc order. We walk each item:
+//   coins += item.delta, clamp ≥0
+// 实际 applied 可能小于 item.delta（减太多被 clamp 到 0）；记录到 coinLogs
+// 里的也是 applied 后的实际 delta，避免显示"减了 200"但金币只少了 50。
+// Returns a summary { totalApplied, addedTotal, deductedTotal, count, items } or
+// null if nothing applied.
+function applyAdminCoinClaim({ items }) {
+  if (!Array.isArray(items) || items.length === 0) return null
+  let summary = null
+  updateState((state) => {
+    const logs = Array.isArray(state.coinLogs) ? state.coinLogs : []
+    let totalApplied = 0
+    let addedTotal = 0
+    let deductedTotal = 0
+    let coins = typeof state.coins === 'number' ? state.coins : 0
+    const appliedItems = []
+    for (const it of items) {
+      const requested = Math.trunc(Number(it.delta) || 0)
+      if (!requested) continue
+      const next = Math.max(0, coins + requested)
+      const applied = next - coins
+      coins = next
+      totalApplied += applied
+      if (applied > 0) addedTotal += applied
+      else if (applied < 0) deductedTotal += applied
+      const reason = (it.reason || '').toString()
+      logs.push({
+        at: Number(it.createdAt) || Date.now(),
+        delta: applied,
+        reason: `admin-adjust:${reason}`,
+        adminOpenid: it.adminOpenid || '',
+        auditId: it.auditId || ''
+      })
+      appliedItems.push({ requested, applied, reason })
+    }
+    state.coins = coins
+    state.coinLogs = logs
+    state.lastAdminCoinClaim = {
+      receivedAt: Date.now(),
+      totalApplied,
+      count: items.length
+    }
+    summary = {
+      totalApplied,
+      addedTotal,
+      deductedTotal,
+      count: items.length,
+      items: appliedItems
+    }
+    return state
+  })
+  return summary
+}
+
 // Build the metadata block for a freshly-imported notebook from a share
 // payload. Does NOT touch state — pure derivation.
 function buildNotebookFromShare(n, today, order, name) {
@@ -1885,6 +1940,7 @@ module.exports = {
   serializeNotebookForShare,
   importSharedNotebook,
   applyShareRewardClaim,
+  applyAdminCoinClaim,
   // cloud-sync interface (for cloud-sync module's use; pages should use
   // cloudSync.hydrateIfStale directly)
   applyHydratedState,
