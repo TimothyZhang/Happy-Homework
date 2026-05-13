@@ -46,7 +46,7 @@ const INBOX_CLAIM_LIMIT = 200       // 单次 claim 最多拉多少条 inbox 记
 // 也可以同时配环境变量 ADMIN_OPENIDS（逗号分隔），两边都会生效。
 // 把你自己的 openid 加在这里：
 const ADMIN_OPENIDS_HARDCODED = [
-  // 'oXXXXXXXXXXXXXXXXXXXXXXXX'
+  'ouEU23X1jzDKNgAiWKpO9kQukUm8'  // Tim (蛋仔) — 注意第 17 位是大写 O 不是 0
 ]
 
 function getAdminOpenids() {
