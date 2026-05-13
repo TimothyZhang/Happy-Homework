@@ -17,17 +17,13 @@ samples/
 
 ```json
 {
-  "id": "homework-2026-04-20",
-  "image": "homework-2026-04-20.jpg",
-  "capturedAt": "2026-04-20",
-  "notes": "三年级手写作业登记本,字迹中等",
   "groundTruth": [
     { "subject": "语文", "content": "17课生字" },
     { "subject": "语文", "content": "17课抄书本" },
     { "subject": "数学", "content": "口算" },
     { "subject": "数学", "content": "练习六(1)改错明天交" },
     { "subject": "数学", "content": "四单元举一反三(周三交)" },
-    { "subject": "英语", "content": "L15、L16课目标" },
+    { "subject": "英语", "content": "L15、L16课目标", "reason": "「目L15」是「L51课」的「目标」的意思" },
     { "subject": "英语", "content": "明天听L15~L16" },
     { "subject": "英语", "content": "改卷子" }
   ]
@@ -35,13 +31,10 @@ samples/
 ```
 
 字段:
-- `id`(可选):缺省用文件名(去掉 .json)
-- `image`(必填):图片路径,相对于本 JSON 文件;允许绝对路径
-- `capturedAt`(可选):YYYY-MM-DD,纯标注用
-- `notes`(可选):备注(字迹清晰度、特殊场景等)
 - `groundTruth`(必填):期望的作业列表,每条 `{subject, content}`
   - `subject`:`语文|数学|英语|科学|道法|美术|音乐|体育|劳动|其他` 或空字符串
   - `content`:作业完整内容(含截止日如"周三交"、范围如"练习六(1)"等)
+  - `reason`:为什么识别结果是这样的
 
 ## 添加新样本
 

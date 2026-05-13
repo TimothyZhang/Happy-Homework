@@ -1,8 +1,4 @@
 {
-  "id": "homework-2026-04-20",
-  "image": "homework-2026-04-20.jpg",
-  "capturedAt": "2026-04-20",
-  "notes": "三年级手写作业登记本(第8周周一)。手写字迹中等清晰度,'举一反三' / '明天交' 等小字偏潦草。",
   "groundTruth": [
     { "subject": "语文", "content": "17课生字" },
     { "subject": "语文", "content": "17课抄书本" },

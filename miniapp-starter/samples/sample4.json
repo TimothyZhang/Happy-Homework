@@ -1,0 +1,13 @@
+{
+  "groundTruth": [
+    { "subject": "语文", "content": "六单元习作（200内）" },
+    { "subject": "语文", "content": "目P49~47（1-6题）" },
+    { "subject": "语文", "content": "预习22,23课" },
+    { "subject": "数学", "content": "口算" },
+    { "subject": "数学", "content": "目P60" },
+    { "subject": "数学", "content": "小练习" },
+    { "subject": "英语", "content": "目L20" },
+    { "subject": "英语", "content": "研学单" },
+    { "subject": "英语", "content": "改听、目、U5卷" }
+  ]
+}

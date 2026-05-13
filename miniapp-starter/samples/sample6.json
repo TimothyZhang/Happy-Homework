@@ -1,0 +1,14 @@
+{
+  "groundTruth": [
+    { "subject": "语文", "content": "20课生抄本" },
+    { "subject": "语文", "content": "目标P43语积" },
+    { "subject": "语文", "content": "复习词语" },
+    { "subject": "语文", "content": "预习21课" },
+    { "subject": "数学", "content": "口算" },
+    { "subject": "数学", "content": "小练习改错" },
+    { "subject": "英语", "content": "背19课文+单词" },
+    { "subject": "英语", "content": "完成研学单" },
+    { "subject": "英语", "content": "改百词" },
+    { "subject": "音乐", "content": "明天带口风琴", "reason": "其他里有\"音:\"，表示音乐" }
+  ]
+}
