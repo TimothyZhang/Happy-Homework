@@ -243,184 +243,6 @@ function commitPetDecay(pet) {
   return { ...petWithDecay(pet), lastDecayAt: Date.now() }
 }
 
-// === Default seed === //
-
-function seedNotebooks() {
-  const today = todayStr()
-  const y1 = addDays(today, -1)
-  const y2 = addDays(today, -2)
-  const tom = addDays(today, 1)
-  return [
-    // overdue (2 days ago)
-    {
-      id: 'nb_seed_old2',
-      name: y2,
-      mode: 'one-shot',
-      startDate: y2,
-      endDate: y2,
-      recurrence: null,
-      createdAt: Date.now() - 172800000,
-      order: 0
-    },
-    // overdue (yesterday) — has both done and not-done tasks
-    {
-      id: 'nb_seed_old1',
-      name: y1,
-      mode: 'one-shot',
-      startDate: y1,
-      endDate: y1,
-      recurrence: null,
-      createdAt: Date.now() - 86400000,
-      order: 1
-    },
-    // today
-    {
-      id: 'nb_seed_today',
-      name: today,
-      mode: 'one-shot',
-      startDate: today,
-      endDate: today,
-      recurrence: null,
-      createdAt: Date.now(),
-      order: 2
-    },
-    // recurring daily — backdated 2 days so demo shows the past-missed
-    // occurrences feature on home today view
-    {
-      id: 'nb_seed_recur',
-      name: '每日口算',
-      mode: 'recurring',
-      startDate: y2,
-      endDate: null,
-      recurrence: { type: 'daily', weekdays: [] },
-      createdAt: Date.now() - 172800000,
-      order: 3
-    },
-    // tomorrow (won't show today)
-    {
-      id: 'nb_seed_tom',
-      name: tom,
-      mode: 'one-shot',
-      startDate: tom,
-      endDate: tom,
-      recurrence: null,
-      createdAt: Date.now(),
-      order: 4
-    }
-  ]
-}
-
-function seedTasks() {
-  const now = Date.now()
-  return [
-    // 2 days ago — still not done → overdue
-    {
-      id: 'tk_seed_old2_1',
-      notebookId: 'nb_seed_old2',
-      subject: '语文',
-      content: '阅读《小王子》第 3 章并写读后感',
-      estimatedMinutes: 30,
-      order: 0,
-      createdAt: now - 172800000,
-      status: 'todo',
-      startedAt: null,
-      currentSegmentStartedAt: null,
-      accumulatedMs: 0,
-      completedAt: null,
-      actualMinutes: null
-    },
-    // yesterday — one done, one overdue
-    {
-      id: 'tk_seed_old1_1',
-      notebookId: 'nb_seed_old1',
-      subject: '数学',
-      content: '应用题练习 5 道',
-      estimatedMinutes: 25,
-      order: 1,
-      createdAt: now - 86400000,
-      status: 'done',
-      startedAt: now - 86000000,
-      currentSegmentStartedAt: null,
-      accumulatedMs: 1500000,
-      completedAt: now - 80000000,
-      actualMinutes: 25
-    },
-    {
-      id: 'tk_seed_old1_2',
-      notebookId: 'nb_seed_old1',
-      subject: '英语',
-      content: 'Unit 5 单词默写',
-      estimatedMinutes: 15,
-      order: 2,
-      createdAt: now - 86400000,
-      status: 'todo',
-      startedAt: null,
-      currentSegmentStartedAt: null,
-      accumulatedMs: 0,
-      completedAt: null,
-      actualMinutes: null
-    },
-    // today
-    {
-      id: 'tk_seed_today_1',
-      notebookId: 'nb_seed_today',
-      subject: '语文',
-      content: '完成《春晓》抄写 2 遍，并朗读 3 次',
-      estimatedMinutes: 20,
-      order: 3,
-      createdAt: now,
-      status: 'todo',
-      startedAt: null,
-      currentSegmentStartedAt: null,
-      accumulatedMs: 0,
-      completedAt: null,
-      actualMinutes: null
-    },
-    {
-      id: 'tk_seed_today_2',
-      notebookId: 'nb_seed_today',
-      subject: '科学',
-      content: '观察豆子发芽并记录',
-      estimatedMinutes: 10,
-      order: 4,
-      createdAt: now,
-      status: 'todo',
-      startedAt: null,
-      currentSegmentStartedAt: null,
-      accumulatedMs: 0,
-      completedAt: null,
-      actualMinutes: null
-    },
-    // recurring daily
-    {
-      id: 'tk_seed_recur_1',
-      notebookId: 'nb_seed_recur',
-      subject: '数学',
-      content: '口算练习 2 页',
-      estimatedMinutes: 25,
-      order: 5,
-      createdAt: now,
-      occurrences: {}
-    },
-    // tomorrow
-    {
-      id: 'tk_seed_tom_1',
-      notebookId: 'nb_seed_tom',
-      subject: '英语',
-      content: '听写课文 Unit 6',
-      estimatedMinutes: 20,
-      order: 6,
-      createdAt: now,
-      status: 'todo',
-      startedAt: null,
-      currentSegmentStartedAt: null,
-      accumulatedMs: 0,
-      completedAt: null,
-      actualMinutes: null
-    }
-  ]
-}
-
 const defaultState = {
   schemaVersion: SCHEMA_VERSION,
   // ms timestamp of last sync-relevant local mutation. 0 = never written, so
@@ -428,7 +250,9 @@ const defaultState = {
   updatedAt: 0,
   // 服务端账本权威值的本地缓存。hydrate / coinLedger flush / claim 之后被
   // 重写。不在 SYNC_FIELDS 里 —— 客户端 push 不带这个字段。
-  coins: 0,
+  // 新用户首次启动从 100 起步(在 cloud-sync.createInitialDoc 里 seed
+  // 进云端 user_state.state.coins,之后服务端账本独占维护)。
+  coins: 100,
   // 未上报到 coinLedger 的事件队列。每次 coin 变更同时 push 进来,
   // coin-ledger.flush() 按批次提交后,server 返回 appliedEventIds 用来 drain。
   pendingCoinEvents: [],
@@ -469,8 +293,8 @@ const defaultState = {
     { id: 7, emoji: '🏃', name: '健身房一次', effect: '健康+55 开心+5',     price: 35, happiness: 5,  fullness: 0,  cleanliness: 0,  health: 55 },
     { id: 8, emoji: '🎀', name: '粉色蝴蝶结', effect: '开心+15 形象更可爱', price: 50, happiness: 15, fullness: 0,  cleanliness: 0,  health: 0  }
   ],
-  notebooks: seedNotebooks(),
-  tasks: seedTasks(),
+  notebooks: [],
+  tasks: [],
   profile: { nickname: '', avatar: '' }
 }
 
@@ -582,8 +406,8 @@ function migrateState(raw) {
     ...clone(defaultState),
     ...raw,
     schemaVersion: SCHEMA_VERSION,
-    notebooks: notebooks.length ? notebooks : seedNotebooks(),
-    tasks: notebooks.length ? tasks : seedTasks(),
+    notebooks,
+    tasks,
     editTaskId: null,
     editNotebookId: null
   }
@@ -666,6 +490,14 @@ function getStateForSync() {
 
 function getUpdatedAt() {
   return loadState().updatedAt || 0
+}
+
+// 仅给 cloud-sync.createInitialDoc 用 —— 首次建云文档时把本地缓存的
+// coins(新用户 defaultState 100 或老用户的最后余额)seed 进去。
+// 后续 push 不带 coins, 服务端账本独占维护。
+function getLocalCoins() {
+  const s = loadState()
+  return typeof s.coins === 'number' ? s.coins : 0
 }
 
 // === Notebook scheduling === //
@@ -1662,6 +1494,16 @@ function finishTask(taskId, dateStr) {
     const todayItems = tasksForDate(state, day)
     const allDone = todayItems.length > 0 && todayItems.every((it) => it.occurrence.status === 'done')
 
+    // Whether today's home view is now empty (all visible items done). When
+    // `day === today` this is the same as `allDone`; when finishing a backlog
+    // item from a past day, tasksForDate(state, day) sees only that single past
+    // occurrence, so allDone may be true while today still has pending items.
+    // Used by the home page to gate the "今日全部完成" toast so a single backlog
+    // tap doesn't fire it.
+    const todayViewItems = day === today ? todayItems : tasksForDate(state, today)
+    const todayCleared = todayViewItems.length > 0 &&
+      todayViewItems.every((it) => it.occurrence.status === 'done')
+
     if (allDone) {
       if (!Array.isArray(state.perfectDays)) state.perfectDays = []
       if (!state.perfectDays.includes(day)) {
@@ -1717,7 +1559,8 @@ function finishTask(taskId, dateStr) {
       dailyBonus,
       weeklyBonus,
       taskId,
-      finishedAt: now
+      finishedAt: now,
+      todayCleared
     }
     return state
   })
@@ -2298,6 +2141,7 @@ module.exports = {
   applyHydratedState,
   getStateForSync,
   getUpdatedAt,
+  getLocalCoins,
   // coin-ledger interface (for utils/coin-ledger module)
   getPendingCoinEvents,
   applyServerCoinResult,
@@ -2322,7 +2166,8 @@ module.exports = {
 cloudSync.init({
   applyHydratedState,
   getStateForSync,
-  getUpdatedAt
+  getUpdatedAt,
+  getLocalCoins
 })
 
 // Wire coin-ledger with the same init pattern as cloud-sync. coin-ledger 自己

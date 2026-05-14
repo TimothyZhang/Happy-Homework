@@ -165,9 +165,17 @@ async function hydrate() {
     if (!doc) {
       // First time on cloud for this user. Push current local state as the
       // starting point and claim the session.
+      // Seed coins from local default into the cloud doc — coins 不在
+      // SYNC_FIELDS, 后续 push 不带它, 服务端账本由 coinLedger / shareReward.claim
+      // / adminPanel.claimAdminCoins 独占。只在首次建文档时 seed 一次, 让
+      // 新用户的 defaultState.coins (100) 真的反映到云端起点。
       const localState = _store.getStateForSync()
       const localUpdatedAt = _store.getUpdatedAt()
-      await createInitialDoc(localSessionId, localState, localUpdatedAt)
+      const seedCoins = typeof _store.getLocalCoins === 'function' ? _store.getLocalCoins() : undefined
+      const initialState = (typeof seedCoins === 'number')
+        ? { ...localState, coins: seedCoins }
+        : localState
+      await createInitialDoc(localSessionId, initialState, localUpdatedAt)
       return { changed: false }
     }
 

@@ -3,7 +3,7 @@
   /* Card now hosts only the "+ 新建作业本" CTA — drop horizontal padding so
      the button can stretch wall-to-wall, and bump vertical padding so it
      still looks like a chunky banner. */
-  padding: 32rpx 28rpx;
+  padding: 32rpx 0;
 }
 
 .add-nb-btn {

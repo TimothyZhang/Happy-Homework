@@ -210,10 +210,14 @@
 .rules-sheet {
   width: 100%;
   max-width: 640rpx;
+  max-height: 85vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   background: #ffffff;
   border-radius: 28rpx;
   padding: 36rpx 36rpx 28rpx;
   box-shadow: 0 24rpx 64rpx rgba(15, 23, 42, 0.24);
+  box-sizing: border-box;
 }
 .rules-title {
   font-size: 34rpx;

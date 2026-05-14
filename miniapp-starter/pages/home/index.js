@@ -103,9 +103,10 @@ function decorateItem(item, now) {
   if (occ.status === 'doing' && occ.currentSegmentStartedAt) {
     elapsedMs += Math.max(0, now - occ.currentSegmentStartedAt)
   }
-  // The "overdue" treatment (red row bg, 逾期 chip) only applies while the
-  // task is still open. Once it's done, drop the urgency styling.
-  const visualOverdue = !!item.isOverdue && occ.status !== 'done'
+  // Done rows render via a different wxml branch that doesn't apply the
+  // is-overdue red row bg, so we can keep isOverdue=true even after completion
+  // to preserve the overdue-date chip.
+  const visualOverdue = !!item.isOverdue
   const occurrenceDate = item.occurrenceDate || ''
   const rowOrder = store.getRowOrder(item.task, item.notebook, occurrenceDate)
   return {
@@ -403,9 +404,12 @@ Page({
       app.globalData.petAnimQueue = 'celebrating'
     }
 
-    if (bonusCoins > 0 && this.data.isToday) {
+    if (bonusCoins > 0 && this.data.isToday && lr.todayCleared) {
       // 全完成: queue allDone after the task pop has had time to fade.
-      // Gated to today view because the subtitle assumes "今日".
+      // Gated to today view because the subtitle assumes "今日"; also gated to
+      // `todayCleared` so finishing a single past-day backlog item (which
+      // earns a per-past-day perfect bonus) doesn't fire the toast while
+      // today still has pending rows.
       const subtitle = weeklyBonus > 0
         ? '今日全部完成 · 连续 7 天!'
         : '今日全部完成!'

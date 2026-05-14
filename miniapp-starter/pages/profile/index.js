@@ -4,13 +4,6 @@ const perf = require('../../utils/perf')
 
 const AVATAR_CLOUD_PATH_PREFIX = 'avatars'
 
-// 掩码 openid:头 4 + 省略号 + 尾 8,够人工核对又不显眼。openid 不能用来
-// 直接登录别人账号(per-appId 绑定),但仍属 PII,默认不裸放给肩窥。
-function maskOpenid(openid) {
-  if (!openid || openid.length <= 14) return openid || ''
-  return `${openid.slice(0, 4)}…${openid.slice(-8)}`
-}
-
 Page({
   data: {
     profile: { nickname: '', avatar: '' },
@@ -20,11 +13,7 @@ Page({
     syncing: false,
     // admin 入口可见性。whoami 返回 isAdmin=true 才渲染管理后台卡片。
     isAdmin: false,
-    adminCheckDone: false,
-    myOpenid: '',
-    myOpenidDisplay: '',   // 掩码后的展示版,默认只露前 4 + 后 8;肩窥防御
-    showFullOpenid: false, // 点 openid 卡可临时展开看完整,再点一次收回
-    showOpenidCard: false  // 长按 sync card 可切换显示;给配置 admin 用
+    adminCheckDone: false
   },
 
   onShow() {
@@ -54,16 +43,9 @@ Page({
         data: { action: 'whoami' }
       })
       const r = (res && res.result) || {}
-      const openid = r.openid || ''
       this.setData({
         isAdmin: !!r.isAdmin,
-        myOpenid: openid,
-        myOpenidDisplay: maskOpenid(openid),
-        showFullOpenid: false,
-        adminCheckDone: true,
-        // 没有被加白时默认就把 openid 卡片露出来,方便复制粘给我配置。
-        // 已经是 admin 后默认收起,需要时长按再开。
-        showOpenidCard: !r.isAdmin
+        adminCheckDone: true
       })
     } catch (e) {
       // 云函数没部署 / 不存在 — 静默隐藏入口,不打扰普通用户。
@@ -74,29 +56,6 @@ Page({
 
   handleOpenAdmin() {
     wx.navigateTo({ url: '/pages/admin/index' })
-  },
-
-  handleCopyOpenid() {
-    if (!this.data.myOpenid) {
-      wx.showToast({ title: '尚未拿到 openid', icon: 'none' })
-      return
-    }
-    wx.setClipboardData({
-      data: this.data.myOpenid,
-      success: () => wx.showToast({ title: '已复制 openid', icon: 'success' }),
-      fail: () => wx.showToast({ title: '复制失败', icon: 'none' })
-    })
-  },
-
-  // 点 openid 文本块本身切换"完整 / 掩码"显示。复制按钮始终复制完整版,
-  // 所以掩码只影响肉眼可见的肩窥/截图风险,不影响给开发者配 admin 的流程。
-  handleToggleOpenidReveal() {
-    this.setData({ showFullOpenid: !this.data.showFullOpenid })
-  },
-
-  // 长按 openid 卡片可隐藏/展开 — admin 状态默认隐藏避免打扰。
-  handleToggleOpenidCard() {
-    this.setData({ showOpenidCard: !this.data.showOpenidCard })
   },
 
   refreshSyncStatus() {
