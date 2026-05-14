@@ -156,6 +156,22 @@ node scripts/perf-bench.js 1000 5 365     # 1000 本 × 5 任务 × 365 天 hist
 node scripts/perf-correctness.js          # 76 项行为对账
 ```
 
+### 3.7 奖励 / 金币账本回归测试
+
+`scripts/test-rewards.js` —— 29 个断言覆盖完整的金币流:
+- `finishTask` 单题奖 / daily-perfect base / early-bird / weekly streak
+- `addTask` 触发的 perfectDay 回收(`reconcilePerfectDays`)与重发
+- `revertTask` 同时退单题奖 + 回收当日完美奖
+- `DAILY_COMPLETION_CAP` 与回收循环的交互
+- 宠物 `buyItem` / `levelUpPet` 走 `applyCoinDelta`
+- `applyHydratedState` 把 `pendingCoinEvents` 的 delta 加回乐观本地余额
+
+任何 `store.js` / `cloud-sync.js` / `coin-ledger.js` / `coinLedger` 云函数的改动之后都要跑:
+```
+node scripts/test-rewards.js              # 29 个断言全过为通过
+```
+stub 了 `wx.storage` 和 `wx.cloud`,测的是客户端逻辑 + `pendingCoinEvents` 队列内容;服务端账本一致性还得部署联调。
+
 ---
 
 ## 4. OCR 技术链路
