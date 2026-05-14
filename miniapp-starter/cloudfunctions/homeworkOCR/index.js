@@ -39,6 +39,66 @@ try {
   cloud = null
 }
 
+const OCR_RATE_COLLECTION = 'ocr_rate_limit'
+const OCR_RATE_WINDOW_MS = 60 * 1000
+const OCR_RATE_MAX_PER_WINDOW = 10
+
+// mockRawText 旁路只在本地/预发联调用 —— 生产部署不要置这个环境变量,
+// 否则任意 client 都能塞一段假"识别结果",后续 ocr-result 页就用假数据
+// 走完打卡链路。
+const MOCK_RAW_TEXT_ALLOWED = !!process.env.OCR_ALLOW_MOCK_RAW_TEXT
+
+function getAdminOpenids() {
+  // 跟 adminPanel 共用同一个 env 白名单。这里只用 env 不读硬编码列表,
+  // 避免两个云函数行为不一致。
+  const raw = (process.env.ADMIN_OPENIDS || '').trim()
+  if (!raw) return new Set()
+  return new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))
+}
+
+function isOcrAdmin(openid) {
+  if (!openid) return false
+  return getAdminOpenids().has(openid)
+}
+
+// per-openid 滑动窗口限流。每个用户在 OCR_RATE_COLLECTION 里一条文档:
+// { _openid, count, windowStart }。每次调 OCR 累加 count,跨过 window 重置。
+// 目的不是精确防刷,而是挡住恶意脚本无脑批量调 = 烧 OpenAI/Azure 算力。
+async function checkOcrRateLimit(openid) {
+  if (!cloud) return true   // 本地联调没有 cloud SDK,跳过
+  const db = cloud.database()
+  try {
+    await db.createCollection(OCR_RATE_COLLECTION)
+  } catch (e) {
+    // 已存在或权限问题都让后续 query 自然失败
+  }
+  const now = Date.now()
+  const res = await db.collection(OCR_RATE_COLLECTION)
+    .where({ _openid: openid })
+    .limit(1)
+    .get()
+  const doc = (res.data && res.data[0]) || null
+  if (!doc) {
+    await db.collection(OCR_RATE_COLLECTION).add({
+      data: { _openid: openid, count: 1, windowStart: now }
+    })
+    return true
+  }
+  if (now - (doc.windowStart || 0) > OCR_RATE_WINDOW_MS) {
+    await db.collection(OCR_RATE_COLLECTION).doc(doc._id).update({
+      data: { count: 1, windowStart: now }
+    })
+    return true
+  }
+  if ((doc.count || 0) >= OCR_RATE_MAX_PER_WINDOW) {
+    return false
+  }
+  await db.collection(OCR_RATE_COLLECTION).doc(doc._id).update({
+    data: { count: db.command.inc(1) }
+  })
+  return true
+}
+
 /**
  * homeworkOCR 云函数
  *
@@ -47,9 +107,54 @@ try {
  * 2. 传入 mockRawText，便于本地联调拆分逻辑
  */
 async function main(event = {}) {
+  const ctx = cloud ? cloud.getWXContext() : {}
+  const callerOpenid = (ctx && ctx.OPENID) || ''
+
+  // diagnose 只对管理员开放 —— 这个端点会列出哪些 OCR-相关环境变量已配
+  // (含 OPENAI/AZURE/TENCENT key 名)、Azure endpoint URL、deployment 名,
+  // 给攻击者递侦察图。普通用户没有任何用得到这个信息的场景。
   if (event && event.diagnose === true) {
+    if (!isOcrAdmin(callerOpenid)) {
+      return { ok: false, reason: 'not_admin' }
+    }
     return collectDiagnostics()
   }
+
+  // 生产环境拒绝匿名调用 —— OpenAI/Azure 按 token 计费,如果云函数没接
+  // OPENID 闸,有人拿到 appId + cloud env 后能脚本无限调用刷算力。
+  // 本地联调没有 cloud SDK 时 callerOpenid 为空,放行不挡。
+  if (cloud && !callerOpenid) {
+    return { ok: false, reason: 'no_openid' }
+  }
+
+  // mockRawText 旁路在生产环境直接关掉。
+  if (event && event.mockRawText && !MOCK_RAW_TEXT_ALLOWED) {
+    return {
+      ok: false,
+      errorCode: 'MOCK_DISABLED',
+      error: 'mockRawText 仅在显式开启 OCR_ALLOW_MOCK_RAW_TEXT 的环境可用'
+    }
+  }
+
+  // per-openid 限流。10 次/60s,正常用户改一张作业图不会触发。
+  if (callerOpenid) {
+    try {
+      const allowed = await checkOcrRateLimit(callerOpenid)
+      if (!allowed) {
+        return {
+          ok: false,
+          errorCode: 'RATE_LIMITED',
+          error: '识别频率过高,稍后再试',
+          retryAfterMs: OCR_RATE_WINDOW_MS
+        }
+      }
+    } catch (e) {
+      // 限流逻辑挂了不阻塞业务 —— 真正的防线是上面的 OPENID 闸,这里只是
+      // 限流软层。打一行 warn 便于排查 ocr_rate_limit 集合是否有问题。
+      console.warn('homeworkOCR rate-limit check failed', e && e.errMsg)
+    }
+  }
+
   try {
     const recognition = await recognizeRegisterText(event)
     // Provider(主要是 OpenAI Vision)若已经直接吐出结构化 drafts,直接用,
@@ -57,21 +162,50 @@ async function main(event = {}) {
     const drafts = (Array.isArray(recognition.drafts) && recognition.drafts.length > 0)
       ? recognition.drafts
       : parseHomeworkRegister(recognition.rawText)
+
+    // 识别成功后清云存储里的原图。我们已经把作业文本提取到客户端 state,
+    // 原图(孩子手写作业,含可能的姓名/班级/家长签名)再保留没必要,
+    // 也避免长期合规风险。失败只 warn,不阻塞响应。
+    // 注意:只删 wx.cloud.uploadFile 上传的 fileID,不要碰本地 imagePath。
+    if (event.imageFileID && cloud) {
+      try {
+        await cloud.deleteFile({ fileList: [event.imageFileID] })
+      } catch (cleanupErr) {
+        console.warn('homeworkOCR cleanup failed', {
+          message: cleanupErr && cleanupErr.message
+        })
+      }
+    }
+
     return {
       ok: true,
       source: recognition.source,
       providerWarning: recognition.providerWarning || '',
+      // 已清掉的 fileID 仍然回传 —— 客户端打日志/诊断用,不会再去访问。
       imageFileID: event.imageFileID || '',
       rawText: recognition.rawText,
       drafts
     }
   } catch (error) {
+    // 不打 stack —— 上游 SDK 偶尔会把请求体片段(prompt / 图片元数据)
+    // 嵌进 stack,云函数日志在腾讯云侧保留期较长,减少敏感面。
     console.error('homeworkOCR failed', {
       code: error.code,
       message: error.message,
-      requestId: error.requestId || '',
-      stack: error.stack
+      requestId: error.requestId || ''
     })
+
+    // 识别失败也清原图。客户端没有用 fileID 复跑的路径(失败后弹框 →
+    // 看演示 / 重新选图都不会复用旧 fileID),留着只会让云存储攒垃圾。
+    if (event.imageFileID && cloud) {
+      try {
+        await cloud.deleteFile({ fileList: [event.imageFileID] })
+      } catch (cleanupErr) {
+        console.warn('homeworkOCR cleanup-on-error failed', {
+          message: cleanupErr && cleanupErr.message
+        })
+      }
+    }
 
     return {
       ok: false,
@@ -908,7 +1042,10 @@ async function getTempFileUrl(imageFileID) {
     const fileInfo = response && response.fileList && response.fileList[0]
     return (fileInfo && fileInfo.tempFileURL) || ''
   } catch (error) {
-    console.warn('getTempFileURL failed, fallback to base64', error)
+    console.warn('getTempFileURL failed, fallback to base64', {
+      code: error && error.code,
+      message: error && error.message
+    })
     return ''
   }
 }

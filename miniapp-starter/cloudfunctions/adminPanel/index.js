@@ -37,10 +37,17 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const USER_COLLECTION = 'user_state'
 const AUDIT_COLLECTION = 'coin_adjustments'
 const INBOX_COLLECTION = 'admin_coin_inbox'
+const RATE_COLLECTION = 'admin_action_rate'
+const LEDGER_COLLECTION = 'coin_ledger'    // 和 coinLedger 云函数共用
 const LIST_LIMIT_DEFAULT = 100
 const LIST_LIMIT_MAX = 1000
 const DELTA_MAX_ABS = 1000000
 const INBOX_CLAIM_LIMIT = 200       // 单次 claim 最多拉多少条 inbox 记录
+
+// adjustCoins 限流。admin 是人工操作,30 次/分钟足够;主要是挡住 admin
+// 账号一旦被盗后,攻击者脚本无限刷调整的场景。
+const ADJUST_RATE_WINDOW_MS = 60 * 1000
+const ADJUST_RATE_MAX_PER_WINDOW = 30
 
 // 硬编码管理员 openid 列表 —— 改这里比去云开发面板配环境变量省事(且 diff 可见)。
 // 也可以同时配环境变量 ADMIN_OPENIDS（逗号分隔），两边都会生效。
@@ -96,6 +103,10 @@ exports.main = async (event = {}) => {
       return await getUser(event)
     }
     if (action === 'adjustCoins') {
+      const rateOk = await checkAdminRateLimit(callerOpenid, 'adjustCoins')
+      if (!rateOk) {
+        return { ok: false, reason: 'rate_limited', retryAfterMs: ADJUST_RATE_WINDOW_MS }
+      }
       return await adjustCoins({ ...event, adminOpenid: callerOpenid })
     }
     if (action === 'listAdjustments') {
@@ -106,6 +117,39 @@ exports.main = async (event = {}) => {
     console.error('[adminPanel] action failed', action, e)
     return { ok: false, reason: 'internal_error', message: (e && e.errMsg) || String(e) }
   }
+}
+
+// 每个 admin × action 一条文档。每次调用查一次,跨过 window 重置 count,
+// 没跨过且 count 满了就拒。
+//   { _openid: adminOpenid, action: 'adjustCoins', count, windowStart }
+async function checkAdminRateLimit(adminOpenid, action) {
+  await ensureCollection(RATE_COLLECTION)
+  const db = cloud.database()
+  const now = Date.now()
+  const res = await db.collection(RATE_COLLECTION)
+    .where({ _openid: adminOpenid, action })
+    .limit(1)
+    .get()
+  const doc = (res.data && res.data[0]) || null
+  if (!doc) {
+    await db.collection(RATE_COLLECTION).add({
+      data: { _openid: adminOpenid, action, count: 1, windowStart: now }
+    })
+    return true
+  }
+  if (now - (doc.windowStart || 0) > ADJUST_RATE_WINDOW_MS) {
+    await db.collection(RATE_COLLECTION).doc(doc._id).update({
+      data: { count: 1, windowStart: now }
+    })
+    return true
+  }
+  if ((doc.count || 0) >= ADJUST_RATE_MAX_PER_WINDOW) {
+    return false
+  }
+  await db.collection(RATE_COLLECTION).doc(doc._id).update({
+    data: { count: db.command.inc(1) }
+  })
+  return true
 }
 
 async function ensureCollection(name) {
@@ -250,9 +294,12 @@ async function adjustCoins({ openid, delta, reason, adminOpenid }) {
   }
 }
 
-// 任意用户都能调（不走 admin 白名单）：拉自己 inbox 里所有 unclaimed 记录、删除、
-// 顺带把审计记录的 claimed 标记为 true 并回填 appliedDelta。
-// 客户端拿到 items 后本地累加到 coins、追加 coinLogs，由 cloud-sync 自然 push 回云端。
+// 任意用户都能调（不走 admin 白名单）：拉自己 inbox 里所有 unclaimed 记录、
+// 服务端做 clamp ≥0、直接更新 user_state.state.coins、写 coin_ledger 审计、
+// 删除 inbox、标记 audit。最终把 newBalance + items(含 applied) 一起返。
+//
+// 客户端拿到 newBalance 后直接 set 本地 state.coins,不再做自己的累加 ——
+// state.coins 是服务端账本,client 端只反映。items 给 coinLogs 显示用。
 async function claimAdminCoins(callerOpenid) {
   if (!callerOpenid) return { ok: false, reason: 'no_openid' }
   await ensureCollection(INBOX_COLLECTION)
@@ -262,18 +309,90 @@ async function claimAdminCoins(callerOpenid) {
   // 云函数 admin SDK 不依赖 ACL，直接 by _openid 过滤更稳。
   const res = await db.collection(INBOX_COLLECTION)
     .where({ _openid: callerOpenid, claimed: false })
-    .orderBy('createdAt', 'asc')   // 按时间序，客户端按这个顺序累加 + clamp
+    .orderBy('createdAt', 'asc')
     .limit(INBOX_CLAIM_LIMIT)
     .get()
 
   const rows = res.data || []
   if (rows.length === 0) {
-    return { ok: true, total: 0, count: 0, items: [] }
+    const cur = await readServerBalance(callerOpenid)
+    return { ok: true, total: 0, count: 0, items: [], newBalance: cur }
   }
 
-  // 删除 inbox 记录（一条一条删；WeChat cloud DB 的批量删 API 受限）。
-  // 删除失败也别阻塞领取 —— 还有 audit collection 兜底，不会重复领。
-  // 我们用 doc.remove() 一次一条，参考 shareReward.claimRewards。
+  // 读当前余额,作为 clamp 走逻辑的起点。
+  const startBalance = await readServerBalance(callerOpenid)
+  let balance = startBalance
+  let totalApplied = 0
+  let addedTotal = 0
+  let deductedTotal = 0
+  const appliedItems = []
+  for (const r of rows) {
+    const requested = Math.trunc(Number(r.delta) || 0)
+    const next = Math.max(0, balance + requested)
+    const applied = next - balance
+    balance = next
+    totalApplied += applied
+    if (applied > 0) addedTotal += applied
+    else if (applied < 0) deductedTotal += applied
+    appliedItems.push({
+      requested,
+      applied,
+      reason: r.reason || '',
+      adminOpenid: r.adminOpenid || '',
+      auditId: r.auditId || '',
+      createdAt: r.createdAt || 0,
+      inboxId: r._id
+    })
+  }
+
+  // 1) 写 ledger summary,优先做(失败的话不动余额)。
+  const eventId = `admin_claim_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+  try {
+    await ensureCollection(LEDGER_COLLECTION)
+    await db.collection(LEDGER_COLLECTION).add({
+      data: {
+        _openid: callerOpenid,
+        eventId,
+        kind: 'admin_coin_claim',
+        delta: totalApplied,
+        balanceAfter: null,
+        meta: {
+          count: rows.length,
+          inboxIds: rows.map((r) => r._id),
+          appliedItems: appliedItems.map((it) => ({
+            requested: it.requested,
+            applied: it.applied,
+            auditId: it.auditId
+          }))
+        },
+        clientTs: 0,
+        createdAt: Date.now()
+      }
+    })
+  } catch (e) {
+    console.warn('[adminPanel] ledger write failed', e && e.errMsg)
+    return { ok: false, reason: 'ledger_write_failed' }
+  }
+
+  // 2) 更新余额。totalApplied 可能是 0(全被 clamp 掉),那就不写。
+  if (totalApplied !== 0) {
+    try {
+      const upd = await db.collection(USER_COLLECTION)
+        .where({ _openid: callerOpenid })
+        .update({ data: { state: { coins: db.command.inc(totalApplied) } } })
+      if (!upd || !upd.stats || upd.stats.updated === 0) {
+        console.warn('[adminPanel] balance update affected 0 rows; user_state missing?')
+        return { ok: false, reason: 'no_user_state', eventId }
+      }
+    } catch (e) {
+      console.warn('[adminPanel] balance update failed', e && e.errMsg)
+      return { ok: false, reason: 'balance_update_failed', eventId }
+    }
+  }
+  const newBalance = totalApplied === 0 ? startBalance : balance
+
+  // 3) 删除 inbox + 标记 audit。两个都是 best-effort。失败的话 ledger 已经
+  //    有 eventId,重领不会真的二次入账(不过这版还没做严格 dedup,人工对账)。
   for (const r of rows) {
     try {
       await db.collection(INBOX_COLLECTION).doc(r._id).remove()
@@ -281,36 +400,57 @@ async function claimAdminCoins(callerOpenid) {
       console.warn('[adminPanel] inbox remove failed', r._id, e && e.errMsg)
     }
   }
-
-  // 给 audit 标 claimed。失败不阻塞 —— 审计准确性次要。
-  // 注意：appliedDelta 此时还不知道（要等客户端 clamp 后回报），先写 requested delta，
-  // 等客户端调用 reportClaimResult action（如果需要更精确）。先简化：直接记 delta。
   await ensureCollection(AUDIT_COLLECTION)
-  for (const r of rows) {
-    if (!r.auditId) continue
+  for (const it of appliedItems) {
+    if (!it.auditId) continue
     try {
-      await db.collection(AUDIT_COLLECTION).doc(r.auditId).update({
+      await db.collection(AUDIT_COLLECTION).doc(it.auditId).update({
         data: {
           claimed: true,
           claimedAt: Date.now(),
-          appliedDelta: r.delta  // 客户端 clamp 不在审计这层处理，记原始 delta
+          appliedDelta: it.applied
         }
       })
     } catch (e) {
-      console.warn('[adminPanel] audit mark-claimed failed', r.auditId, e && e.errMsg)
+      console.warn('[adminPanel] audit mark-claimed failed', it.auditId, e && e.errMsg)
     }
   }
 
-  const total = rows.reduce((s, r) => s + (Number(r.delta) || 0), 0)
-  const items = rows.map((r) => ({
-    delta: Number(r.delta) || 0,
-    reason: r.reason || '',
-    adminOpenid: r.adminOpenid || '',
-    auditId: r.auditId || '',
-    createdAt: r.createdAt || 0
+  // 给 client 的 items 不带 inboxId(它没用),但保留 applied + requested
+  // 用于 coinLogs 显示。
+  const clientItems = appliedItems.map((it) => ({
+    requested: it.requested,
+    applied: it.applied,
+    delta: it.applied,           // 保持和老 client 字段名兼容
+    reason: it.reason,
+    adminOpenid: it.adminOpenid,
+    auditId: it.auditId,
+    createdAt: it.createdAt
   }))
 
-  return { ok: true, total, count: rows.length, items }
+  return {
+    ok: true,
+    total: totalApplied,    // 兼容字段:老 client 把这个当 total
+    totalApplied,
+    addedTotal,
+    deductedTotal,
+    count: rows.length,
+    items: clientItems,
+    newBalance,
+    eventId
+  }
+}
+
+async function readServerBalance(openid) {
+  const db = cloud.database()
+  const res = await db.collection(USER_COLLECTION)
+    .where({ _openid: openid })
+    .field({ state: true })
+    .limit(1)
+    .get()
+  const doc = (res.data && res.data[0]) || null
+  if (!doc || !doc.state) return 0
+  return typeof doc.state.coins === 'number' ? doc.state.coins : 0
 }
 
 async function listAdjustments(event) {
