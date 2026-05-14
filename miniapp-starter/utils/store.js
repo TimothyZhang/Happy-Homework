@@ -1039,6 +1039,7 @@ function addTask(payload) {
       Object.assign(base, defaultOccurrence())
     }
     state.tasks.push(base)
+    reconcilePerfectDays(state)
     return state
   })
 }
@@ -1262,6 +1263,41 @@ function resumeTask(taskId, dateStr) {
   })
 }
 
+// Claw back the daily bonus (and weekly bonus if any) recorded for `day`,
+// restore the pre-completion streak snapshot, and remove `day` from
+// perfectDays. No-op if the day wasn't perfect or has no bonus log. Coins
+// clip to 0 rather than going negative — the user may have spent some.
+// Used by revertTask (a finished task got un-done) and reconcilePerfectDays
+// (a newly added task broke an all-done day).
+function revokePerfectDay(state, day) {
+  if (!Array.isArray(state.perfectDays) || !state.perfectDays.includes(day)) return
+  const log = state.bonusByDay && state.bonusByDay[day]
+  if (log) {
+    const totalBonus = (log.dailyBonus || 0) + (log.weeklyBonus || 0)
+    state.coins = Math.max(0, (state.coins || 0) - totalBonus)
+    state.streakDays = Math.max(0, log.prevStreakDays || 0)
+    delete state.bonusByDay[day]
+  }
+  state.perfectDays = state.perfectDays.filter((d) => d !== day)
+}
+
+// After tasks are added (addTask / importSharedNotebook), any previously
+// perfect day that now has an undone occurrence is no longer perfect.
+// Revoke the bonus for each such day; finishTask will re-credit fresh
+// (with the now-larger task base) when the user clears the day again.
+// This blocks the "add 1 trivial task → grab early-bird bonus → add the
+// real homework" exploit. Walks newest-first so multi-day streak
+// snapshots unwind in the right order.
+function reconcilePerfectDays(state) {
+  if (!Array.isArray(state.perfectDays) || state.perfectDays.length === 0) return
+  const days = state.perfectDays.slice().sort().reverse()
+  for (const d of days) {
+    const items = tasksForDate(state, d)
+    const stillAllDone = items.length > 0 && items.every((it) => it.occurrence.status === 'done')
+    if (!stillAllDone) revokePerfectDay(state, d)
+  }
+}
+
 // Send a done task back to undone (paused) — used for "误点完成" recovery.
 // Keeps accumulatedMs so the user picks up where they left off. Also claws
 // back the +10 single-task reward; if reverting breaks an all-done day,
@@ -1310,16 +1346,7 @@ function revertTask(taskId, dateStr) {
       if (n > 0) state.completionsByDay[completionDay] = n - 1
     }
 
-    if (Array.isArray(state.perfectDays) && state.perfectDays.includes(day)) {
-      const log = state.bonusByDay && state.bonusByDay[day]
-      if (log) {
-        const totalBonus = (log.dailyBonus || 0) + (log.weeklyBonus || 0)
-        state.coins = Math.max(0, state.coins - totalBonus)
-        state.streakDays = Math.max(0, log.prevStreakDays || 0)
-        delete state.bonusByDay[day]
-      }
-      state.perfectDays = state.perfectDays.filter((d) => d !== day)
-    }
+    revokePerfectDay(state, day)
 
     return state
   })
@@ -1805,6 +1832,7 @@ function importSharedNotebook(payload, options) {
         state.tasks.push(row)
       }
       resultId = target.id
+      reconcilePerfectDays(state)
       return state
     }
     if (mode === 'overwrite') {
@@ -1836,6 +1864,7 @@ function importSharedNotebook(payload, options) {
         state.tasks.push(row)
       }
       resultId = replaced.id
+      reconcilePerfectDays(state)
       return state
     }
     // 'new' or 'rename'
@@ -1852,6 +1881,7 @@ function importSharedNotebook(payload, options) {
       row.order = cursor++
       state.tasks.push(row)
     }
+    reconcilePerfectDays(state)
     return state
   })
   return resultId
