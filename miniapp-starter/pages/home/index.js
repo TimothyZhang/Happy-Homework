@@ -103,9 +103,10 @@ function decorateItem(item, now) {
   if (occ.status === 'doing' && occ.currentSegmentStartedAt) {
     elapsedMs += Math.max(0, now - occ.currentSegmentStartedAt)
   }
-  // The "overdue" treatment (red row bg, 逾期 chip) only applies while the
-  // task is still open. Once it's done, drop the urgency styling.
-  const visualOverdue = !!item.isOverdue && occ.status !== 'done'
+  // Done rows render via a different wxml branch that doesn't apply the
+  // is-overdue red row bg, so we can keep isOverdue=true even after completion
+  // to preserve the overdue-date chip.
+  const visualOverdue = !!item.isOverdue
   const occurrenceDate = item.occurrenceDate || ''
   const rowOrder = store.getRowOrder(item.task, item.notebook, occurrenceDate)
   return {
