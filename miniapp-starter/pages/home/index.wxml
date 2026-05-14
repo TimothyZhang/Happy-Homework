@@ -117,7 +117,7 @@
       <view class="rules-section">
         <view class="rules-row">
           <text class="rules-row__name">当日全部完成（首次）</text>
-          <text class="rules-row__amt">+ 任务数 × 10</text>
+          <text class="rules-row__amt">+ 当日单项金币之和</text>
         </view>
         <view class="rules-row">
           <text class="rules-row__name">连续 7 天全完成</text>

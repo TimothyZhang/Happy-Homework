@@ -280,7 +280,6 @@ console.log('\n[reward] exported constants:')
 check('REWARD_TASK_OVERDUE = 5',  store.REWARD_TASK_OVERDUE, 5)
 check('REWARD_TASK_TODAY = 10',   store.REWARD_TASK_TODAY, 10)
 check('REWARD_TASK_FUTURE = 15',  store.REWARD_TASK_FUTURE, 15)
-check('REWARD_DAILY_PERFECT_PER_TASK = 10', store.REWARD_DAILY_PERFECT_PER_TASK, 10)
 check('REWARD_WEEKLY_STREAK = 50', store.REWARD_WEEKLY_STREAK, 50)
 check('DAILY_COMPLETION_CAP = 20', store.DAILY_COMPLETION_CAP, 20)
 check('EARLY_BIRD_TIERS length = 3', store.EARLY_BIRD_TIERS.length, 3)
@@ -387,7 +386,7 @@ check('t21.rewardKind = capped',     t21.rewardKind, 'capped')
 // Last lastReward is for t25 → also capped + perfect-day fired.
 check('lastReward.taskReward = 0 (t25 was capped)', s.lastReward.taskReward, 0)
 check('lastReward.rewardKind = capped',             s.lastReward.rewardKind, 'capped')
-check('lastReward.dailyBonus = 200 (min(25,20)×10)', s.lastReward.dailyBonus, 200)
+check('lastReward.dailyBonus = 200 (sum of 25 rewardPaid)', s.lastReward.dailyBonus, 200)
 
 // === Test 9g: revert refunds the exact rewardPaid + frees a cap slot ===
 console.log('\n[reward] revert respects rewardPaid + cap counter:')
@@ -413,6 +412,39 @@ store.finishTask('t1', today)
 s = store.getStateWithComputed()
 check('refinish freed slot → coins = 200 (+10)', s.coins, 200)
 check('refinish freed slot → completionsByDay[today] = 20', s.completionsByDay[today], 20)
+
+// === Test 9h: daily-perfect base = sum(rewardPaid), not N × 10 ===
+// Future perfect-day: 2 tomorrow tasks finished today.
+// Per-task: 2×15=30. Daily-perfect base = sum(rewardPaid) = 30.
+// 22:00 (no early-bird). Total = 30 + 30 = 60.
+console.log('\n[reward] daily-perfect = sum of rewardPaid (per-tier):')
+seedTasksOnDate(2, tomorrow)
+store = freshStore()
+store.finishTask('t1', tomorrow)
+store.finishTask('t2', tomorrow)
+s = store.getStateWithComputed()
+check('2 future all-done → coins = 60 (30 + 30)', s.coins, 60)
+check('  → lastReward.dailyBonus = 30',  s.lastReward.dailyBonus, 30)
+
+// Overdue perfect-day: 2 yesterday tasks finished today.
+// Per-task: 2×5=10. Daily-perfect base = 10. Total = 20.
+seedTasksOnDate(2, yesterday)
+store = freshStore()
+store.finishTask('t1', yesterday)
+store.finishTask('t2', yesterday)
+s = store.getStateWithComputed()
+check('2 overdue all-done → coins = 20 (10 + 10)', s.coins, 20)
+check('  → lastReward.dailyBonus = 10',  s.lastReward.dailyBonus, 10)
+
+// 25-task cap recap: same coin total (400) as before but verified the path
+// goes through sum(rewardPaid) instead of min(N,20)×10 — confirmed by the
+// 200 daily-perfect being 20×10+5×0 (not 25×10 reduced via cap arithmetic).
+seedNTasksToday(25)
+store = freshStore()
+for (let i = 1; i <= 25; i++) store.finishTask(`t${i}`, today)
+s = store.getStateWithComputed()
+check('25 today re-check → dailyBonus = 200 (sum of 20×10 + 5×0)',
+  s.lastReward.dailyBonus, 200)
 
 // === Test 10: PET_SPECIES includes parrot ===
 console.log('\n[species] roster:')

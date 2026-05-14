@@ -64,8 +64,7 @@ function getCurrentTime() {
 const REWARD_TASK_OVERDUE = 5
 const REWARD_TASK_TODAY = 10
 const REWARD_TASK_FUTURE = 15
-const REWARD_DAILY_PERFECT_PER_TASK = 10  // base bonus per task on first all-done of day
-const REWARD_WEEKLY_STREAK = 50            // every 7 consecutive perfect days
+const REWARD_WEEKLY_STREAK = 50  // every 7 consecutive perfect days
 
 // Anti-farm cap: only the first N task completions on any given calendar day
 // pay coins (both the per-task reward AND the daily-perfect base-per-task
@@ -1503,12 +1502,15 @@ function finishTask(taskId, dateStr) {
     if (allDone) {
       if (!Array.isArray(state.perfectDays)) state.perfectDays = []
       if (!state.perfectDays.includes(day)) {
-        // Daily-perfect base = min(N, 20) × 10 — same 20-cap rule applied
-        // here so a 30-task day doesn't pay 300 on the bonus while per-task
-        // only paid 200. Early-bird extra (flat +50/+30/+20) stacks on top.
-        // Weekly streak is tracked separately, not part of dailyBonus.
-        const cappedCount = Math.min(todayItems.length, DAILY_COMPLETION_CAP)
-        const baseBonus = cappedCount * REWARD_DAILY_PERFECT_PER_TASK
+        // Daily-perfect base = sum of rewardPaid across this day's tasks (i.e.
+        // mirror whatever per-task coins were actually credited). Tasks beyond
+        // the 20-cap have rewardPaid=0 already, so the cap propagates here for
+        // free. Early-bird extra (flat +50/+30/+20) stacks on top. Weekly
+        // streak is tracked separately, not part of dailyBonus.
+        const baseBonus = todayItems.reduce(
+          (sum, it) => sum + (it.occurrence.rewardPaid || 0),
+          0
+        )
         dailyBonus = baseBonus + earlyBirdBonus(new Date(now))
         reward += dailyBonus
 
@@ -2037,7 +2039,6 @@ module.exports = {
   REWARD_TASK_OVERDUE,
   REWARD_TASK_TODAY,
   REWARD_TASK_FUTURE,
-  REWARD_DAILY_PERFECT_PER_TASK,
   REWARD_WEEKLY_STREAK,
   DAILY_COMPLETION_CAP,
   EARLY_BIRD_TIERS,
