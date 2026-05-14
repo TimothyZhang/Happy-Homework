@@ -13,9 +13,7 @@ Page({
     syncing: false,
     // admin 入口可见性。whoami 返回 isAdmin=true 才渲染管理后台卡片。
     isAdmin: false,
-    adminCheckDone: false,
-    myOpenid: '',
-    showOpenidCard: false  // 长按 sync card 可切换显示;给配置 admin 用
+    adminCheckDone: false
   },
 
   onShow() {
@@ -47,11 +45,7 @@ Page({
       const r = (res && res.result) || {}
       this.setData({
         isAdmin: !!r.isAdmin,
-        myOpenid: r.openid || '',
-        adminCheckDone: true,
-        // 没有被加白时默认就把 openid 卡片露出来,方便复制粘给我配置。
-        // 已经是 admin 后默认收起,需要时长按再开。
-        showOpenidCard: !r.isAdmin
+        adminCheckDone: true
       })
     } catch (e) {
       // 云函数没部署 / 不存在 — 静默隐藏入口,不打扰普通用户。
@@ -62,23 +56,6 @@ Page({
 
   handleOpenAdmin() {
     wx.navigateTo({ url: '/pages/admin/index' })
-  },
-
-  handleCopyOpenid() {
-    if (!this.data.myOpenid) {
-      wx.showToast({ title: '尚未拿到 openid', icon: 'none' })
-      return
-    }
-    wx.setClipboardData({
-      data: this.data.myOpenid,
-      success: () => wx.showToast({ title: '已复制 openid', icon: 'success' }),
-      fail: () => wx.showToast({ title: '复制失败', icon: 'none' })
-    })
-  },
-
-  // 长按 openid 卡片可隐藏/展开 — admin 状态默认隐藏避免打扰。
-  handleToggleOpenidCard() {
-    this.setData({ showOpenidCard: !this.data.showOpenidCard })
   },
 
   refreshSyncStatus() {
