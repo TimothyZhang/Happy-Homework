@@ -1382,6 +1382,16 @@ function finishTask(taskId, dateStr) {
     const todayItems = tasksForDate(state, day)
     const allDone = todayItems.length > 0 && todayItems.every((it) => it.occurrence.status === 'done')
 
+    // Whether today's home view is now empty (all visible items done). When
+    // `day === today` this is the same as `allDone`; when finishing a backlog
+    // item from a past day, tasksForDate(state, day) sees only that single past
+    // occurrence, so allDone may be true while today still has pending items.
+    // Used by the home page to gate the "今日全部完成" toast so a single backlog
+    // tap doesn't fire it.
+    const todayViewItems = day === today ? todayItems : tasksForDate(state, today)
+    const todayCleared = todayViewItems.length > 0 &&
+      todayViewItems.every((it) => it.occurrence.status === 'done')
+
     if (allDone) {
       if (!Array.isArray(state.perfectDays)) state.perfectDays = []
       if (!state.perfectDays.includes(day)) {
@@ -1433,7 +1443,8 @@ function finishTask(taskId, dateStr) {
       dailyBonus,
       weeklyBonus,
       taskId,
-      finishedAt: now
+      finishedAt: now,
+      todayCleared
     }
     return state
   })
