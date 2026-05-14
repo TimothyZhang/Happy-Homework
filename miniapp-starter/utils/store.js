@@ -64,7 +64,7 @@ function getCurrentTime() {
 const REWARD_TASK_OVERDUE = 5
 const REWARD_TASK_TODAY = 10
 const REWARD_TASK_FUTURE = 15
-const REWARD_WEEKLY_STREAK = 50  // every 7 consecutive perfect days
+const REWARD_WEEKLY_STREAK = 100  // every 7 consecutive perfect days
 
 // Anti-farm cap: only the first N task completions on any given calendar day
 // pay coins (both the per-task reward AND the daily-perfect base-per-task
@@ -103,6 +103,67 @@ function earlyBirdBonus(date) {
     if (h < tier.hourEnd) return tier.bonus
   }
   return 0
+}
+
+// Projects how many additional coins the user would earn if they finished
+// every pending item in `items` and the last finish lands before `cutoffHour`
+// (a tier deadline: 19/20/21). Used by the pet-tips strip to render lines
+// like "19:00 前完成所有作业，可获得 X 金币".
+//
+// Math mirrors finishTask:
+//   - per-task: tier.amount (5/10/15) for each pending, subject to the day's
+//     20-cap (already-spent slots from state.completionsByDay[today] are
+//     consumed first).
+//   - daily-perfect (today only — the projection deliberately ignores the
+//     side-effect of overdue/future items completing their own day's perfect
+//     bonus, which would be hard to read in a one-line tip): if today has at
+//     least one item and today isn't already a perfect day, add
+//     sum(rewardPaid for today's items after projection) + early-bird at
+//     cutoff.
+//   - per-task amounts for capped pending tasks are 0, and they contribute 0
+//     to the daily-perfect sum too — so the cap propagates cleanly here.
+//
+// `state` reads: completionsByDay[today], perfectDays.
+// `items` shape: array of { occurrenceDate, occurrence: { status, rewardPaid } }
+// — i.e. the raw output of tasksForDate (pre-decoration).
+function projectedReward(state, items, cutoffHour) {
+  if (!Array.isArray(items) || items.length === 0) return 0
+  const today = todayStr()
+  const completionsToday =
+    (state && state.completionsByDay && state.completionsByDay[today]) || 0
+  let capRemaining = Math.max(0, DAILY_COMPLETION_CAP - completionsToday)
+
+  let perTaskTotal = 0
+  let todayRewardPaidSum = 0
+  let todayHasItems = false
+
+  for (const item of items) {
+    const isToday = item.occurrenceDate === today
+    if (isToday) todayHasItems = true
+    const occ = item.occurrence || {}
+
+    if (occ.status === 'done') {
+      if (isToday) todayRewardPaidSum += (occ.rewardPaid || 0)
+      continue
+    }
+
+    const tier = perTaskReward(item.occurrenceDate, today)
+    const pay = capRemaining > 0 ? tier.amount : 0
+    if (pay > 0) capRemaining--
+    perTaskTotal += pay
+    if (isToday) todayRewardPaidSum += pay
+  }
+
+  let dailyBonus = 0
+  const alreadyPerfect =
+    Array.isArray(state && state.perfectDays) && state.perfectDays.includes(today)
+  if (todayHasItems && !alreadyPerfect) {
+    const cutoffDate = new Date()
+    cutoffDate.setHours(cutoffHour - 1, 59, 0, 0)
+    dailyBonus = todayRewardPaidSum + earlyBirdBonus(cutoffDate)
+  }
+
+  return perTaskTotal + dailyBonus
 }
 
 // === Pet helpers === //
@@ -2044,6 +2105,7 @@ module.exports = {
   EARLY_BIRD_TIERS,
   earlyBirdBonus,
   perTaskReward,
+  projectedReward,
   // misc
   getCurrentTime
 }

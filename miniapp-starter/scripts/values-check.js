@@ -280,7 +280,7 @@ console.log('\n[reward] exported constants:')
 check('REWARD_TASK_OVERDUE = 5',  store.REWARD_TASK_OVERDUE, 5)
 check('REWARD_TASK_TODAY = 10',   store.REWARD_TASK_TODAY, 10)
 check('REWARD_TASK_FUTURE = 15',  store.REWARD_TASK_FUTURE, 15)
-check('REWARD_WEEKLY_STREAK = 50', store.REWARD_WEEKLY_STREAK, 50)
+check('REWARD_WEEKLY_STREAK = 100', store.REWARD_WEEKLY_STREAK, 100)
 check('DAILY_COMPLETION_CAP = 20', store.DAILY_COMPLETION_CAP, 20)
 check('EARLY_BIRD_TIERS length = 3', store.EARLY_BIRD_TIERS.length, 3)
 check('tier[0] bonus = 50', store.EARLY_BIRD_TIERS[0].bonus, 50)
@@ -445,6 +445,90 @@ for (let i = 1; i <= 25; i++) store.finishTask(`t${i}`, today)
 s = store.getStateWithComputed()
 check('25 today re-check → dailyBonus = 200 (sum of 20×10 + 5×0)',
   s.lastReward.dailyBonus, 200)
+
+// === Test 9i: projectedReward — pure helper for "完成所有可获得 X 金币" tips ===
+console.log('\n[reward] projectedReward forecasts:')
+{
+  const T = today  // today string from outer scope, pinned at 22:00
+  const Y = dateAtOffset(-1)
+  const M = dateAtOffset(1)
+  const emptyState = { completionsByDay: {}, perfectDays: [] }
+
+  // No items at all → 0
+  check('empty items → 0', store.projectedReward(emptyState, [], 19), 0)
+
+  // 1 pending today, cutoff=19: per-task 10 + daily-perfect (10 + 50) = 70
+  check('1 today pending, cutoff=19 → 70',
+    store.projectedReward(emptyState,
+      [{ occurrenceDate: T, occurrence: { status: 'todo' } }], 19), 70)
+
+  // Same, cutoff=22 (no early-bird): 10 + 10 = 20
+  check('1 today pending, cutoff=22 → 20',
+    store.projectedReward(emptyState,
+      [{ occurrenceDate: T, occurrence: { status: 'todo' } }], 22), 20)
+
+  // 1 done today (paid 10) + 1 pending today, cutoff=19:
+  // per-task 10 + daily-perfect (10 done + 10 pending + 50) = 80
+  check('1 done + 1 pending today, cutoff=19 → 80',
+    store.projectedReward(emptyState, [
+      { occurrenceDate: T, occurrence: { status: 'done', rewardPaid: 10 } },
+      { occurrenceDate: T, occurrence: { status: 'todo' } }
+    ], 19), 80)
+
+  // 1 pending overdue + 1 pending today, cutoff=19:
+  // per-task: 5 (overdue) + 10 (today) = 15
+  // daily-perfect for today: 10 (the pending today) + 50 = 60
+  // total = 75
+  check('1 overdue + 1 today pending, cutoff=19 → 75',
+    store.projectedReward(emptyState, [
+      { occurrenceDate: Y, occurrence: { status: 'todo' } },
+      { occurrenceDate: T, occurrence: { status: 'todo' } }
+    ], 19), 75)
+
+  // 1 pending future (no today item), cutoff=19:
+  // per-task: 15. No today items → no daily-perfect projected.
+  // total = 15.
+  check('1 future pending (no today), cutoff=19 → 15',
+    store.projectedReward(emptyState,
+      [{ occurrenceDate: M, occurrence: { status: 'todo' } }], 19), 15)
+
+  // Today already a perfect day, 0 pending today, but 1 overdue pending:
+  // perfect skipped (today is perfect). Only per-task overdue 5.
+  check('today already perfect + 1 overdue pending → 5',
+    store.projectedReward({ completionsByDay: {}, perfectDays: [T] },
+      [{ occurrenceDate: Y, occurrence: { status: 'todo' } }], 19), 5)
+
+  // Cap exhausted (completionsToday = 20): 3 pending today pay 0.
+  // todayRewardPaidSum = 0 (no rewardPaid), early-bird 50 still applies because
+  // the projection still completes today's perfect-day (all 3 done, just paid 0).
+  // total = 0 + 50 = 50.
+  check('cap exhausted, 3 today pending, cutoff=19 → 50 (early-bird only)',
+    store.projectedReward({ completionsByDay: { [T]: 20 }, perfectDays: [] }, [
+      { occurrenceDate: T, occurrence: { status: 'todo' } },
+      { occurrenceDate: T, occurrence: { status: 'todo' } },
+      { occurrenceDate: T, occurrence: { status: 'todo' } }
+    ], 19), 50)
+
+  // Partial cap: completionsToday = 18, 5 pending today. First 2 pay 10, rest 0.
+  // perTask = 20. todayRewardPaidSum = 20. daily-perfect = 20 + 50 = 70.
+  // total = 90.
+  check('partial cap (2 slots left), 5 today pending, cutoff=19 → 90',
+    store.projectedReward({ completionsByDay: { [T]: 18 }, perfectDays: [] },
+      Array.from({ length: 5 }, () =>
+        ({ occurrenceDate: T, occurrence: { status: 'todo' } })
+      ), 19), 90)
+
+  // Three cutoff comparison (3 today pending, no done):
+  //   cutoff=19: per-task 30 + (30 + 50) = 110
+  //   cutoff=20: per-task 30 + (30 + 30) = 90
+  //   cutoff=21: per-task 30 + (30 + 20) = 80
+  const threeToday = Array.from({ length: 3 }, () =>
+    ({ occurrenceDate: T, occurrence: { status: 'todo' } })
+  )
+  check('3 today pending, cutoff=19 → 110', store.projectedReward(emptyState, threeToday, 19), 110)
+  check('3 today pending, cutoff=20 → 90',  store.projectedReward(emptyState, threeToday, 20), 90)
+  check('3 today pending, cutoff=21 → 80',  store.projectedReward(emptyState, threeToday, 21), 80)
+}
 
 // === Test 10: PET_SPECIES includes parrot ===
 console.log('\n[species] roster:')

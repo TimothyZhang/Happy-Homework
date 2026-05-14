@@ -75,10 +75,14 @@ function buildPetMessage({ isToday, totalCount, pendingCount, remainingMinutes }
 function buildPetTips(ctx) {
   const tips = [buildPetMessage(ctx)]
   if (!ctx.isToday || ctx.pendingCount === 0) return tips
+  // Each tip shows total coins the user would earn (per-task + daily-perfect
+  // + early-bird) if they finish all pending today-view items by that cutoff.
+  // Gate by the current early-bird tier so we don't show a deadline that
+  // already passed. ctx.projected19/20/21 come from store.projectedReward.
   const b = store.earlyBirdBonus()
-  if (b >= 50) tips.push('🏆 19:00 前完成所有作业，额外奖励 50 金币')
-  if (b >= 30) tips.push('⏱ 20:00 前完成所有作业，额外奖励 30 金币')
-  if (b >= 20) tips.push('⏰ 21:00 前完成所有作业，额外奖励 20 金币')
+  if (b >= 50 && ctx.projected19 > 0) tips.push(`🏆 19:00 前完成所有作业，可获得 ${ctx.projected19} 金币`)
+  if (b >= 30 && ctx.projected20 > 0) tips.push(`⏱ 20:00 前完成所有作业，可获得 ${ctx.projected20} 金币`)
+  if (b >= 20 && ctx.projected21 > 0) tips.push(`⏰ 21:00 前完成所有作业，可获得 ${ctx.projected21} 金币`)
   return tips
 }
 
@@ -244,11 +248,21 @@ Page({
     const total = decorated.length
     const remainingMinutes = undoneItems
       .reduce((s, it) => s + Number(it.estimatedMinutes || 0), 0)
+    // Project total coins earnable if the user finishes all pending items by
+    // each tier deadline. Only today view computes this (tomorrow/future views
+    // can't trigger today's early-bird math). projectedReward consults the
+    // raw (un-decorated) items so it can read occurrence.rewardPaid.
+    const projected19 = isToday ? store.projectedReward(state, raw, 19) : 0
+    const projected20 = isToday ? store.projectedReward(state, raw, 20) : 0
+    const projected21 = isToday ? store.projectedReward(state, raw, 21) : 0
     const petTipCtx = {
       isToday,
       totalCount: total,
       pendingCount: undoneItems.length,
-      remainingMinutes
+      remainingMinutes,
+      projected19,
+      projected20,
+      projected21
     }
     this._petTipCtx = petTipCtx
     this._petTips = buildPetTips(petTipCtx)

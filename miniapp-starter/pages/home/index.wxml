@@ -121,7 +121,7 @@
         </view>
         <view class="rules-row">
           <text class="rules-row__name">连续 7 天全完成</text>
-          <text class="rules-row__amt">+50</text>
+          <text class="rules-row__amt">+100</text>
         </view>
         <view class="rules-row">
           <text class="rules-row__name">分享被保存</text>
