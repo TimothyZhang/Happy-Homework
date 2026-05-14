@@ -179,6 +179,24 @@ function projectedReward(state, items, cutoffHour) {
   return perTaskTotal + dailyBonus
 }
 
+// 当日已经入账的金币 —— sum(rewardPaid for today's items) + bonusByDay[day]
+// 里的 dailyBonus(已含 baseBonus + early-bird) + weeklyBonus。家用 page 在
+// 显示"今天作业全部完成"时,用这个数告诉小朋友今天挣到了多少金币。
+// 注意 bonusByDay 只在 perfectDays 包含 day 时才有 entry,未完美的天数走
+// 纯 rewardPaid 求和。
+function coinsEarnedOn(state, day) {
+  if (!state || !day) return 0
+  const items = tasksForDate(state, day)
+  let taskTotal = 0
+  for (const it of items) {
+    const occ = it.occurrence || {}
+    if (occ.status === 'done') taskTotal += (occ.rewardPaid || 0)
+  }
+  const b = state.bonusByDay && state.bonusByDay[day]
+  const bonusTotal = b ? ((b.dailyBonus || 0) + (b.weeklyBonus || 0)) : 0
+  return taskTotal + bonusTotal
+}
+
 // === Pet helpers === //
 
 const PET_SPECIES = [
@@ -2187,6 +2205,7 @@ module.exports = {
   earlyBirdBonus,
   perTaskReward,
   projectedReward,
+  coinsEarnedOn,
   // misc
   getCurrentTime
 }
