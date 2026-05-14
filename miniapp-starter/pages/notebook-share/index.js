@@ -64,17 +64,19 @@ Page({
       return
     }
     try {
-      const payload = JSON.parse(decodeURIComponent(raw))
-      if (!payload || !payload.n) throw new Error('payload invalid')
-      // Normalize: WXML reads payload.t.length unconditionally, so ensure it
-      // exists even on payloads that arrived without a tasks array.
-      if (!Array.isArray(payload.t)) payload.t = []
-      const from = (payload.from || '').trim() || '好友'
+      const rawPayload = JSON.parse(decodeURIComponent(raw))
+      // sanitize 把 schema 收敛到已知字段、字符串截断、数组截 200。攻击者
+      // 构造 100k 条任务的 ?d= 想撑爆 setData / 本地存储,在这一关就被截掉。
+      const payload = store.sanitizeSharePayload(rawPayload)
+      if (!payload) throw new Error('payload invalid')
+      // 不再用 payload.from(发送者昵称)—— 历史 share URL 里可能还有,
+      // 但接收端统一显示通用文案以避免昵称被路径泄露。WeChat 聊天卡片本身
+      // 会显示这条消息是谁发的,已经够了。
       this.setData({
         payload,
         arrangedTasks: arrangeBySubject(payload.t),
         notebookSummary: summarize(payload.n),
-        sharerLabel: `${from}分享给你的作业本`
+        sharerLabel: '好友分享给你的作业本'
       })
       wx.setNavigationBarTitle({ title: payload.n.name || '导入作业本' })
     } catch (e) {
@@ -163,20 +165,19 @@ Page({
 
   // Forward the same shared payload onward — re-encode rather than relying
   // on `currentRoute + options`, so we don't rebuild the URL by hand.
-  // Overwrite `from` with the current user's nickname so the third recipient
-  // sees the immediate re-sharer, not the original author whose name was
-  // baked into payload by serializeNotebookForShare. payload.sharer (openid)
-  // is left alone — reward attribution still goes to the original creator.
+  // payload 里不再含发送者昵称(serializeNotebookForShare 已不写、转发也
+  // 不补)—— share URL 是 PII 泄露面,昵称不入路径。WeChat 转发的卡片
+  // 本身会显示"X 转发给你",身份信息有别的地方承载,不需要塞 URL。
+  // payload.sharer (openid) 保留 —— 奖励归属还是要回到原作者。
   onShareAppMessage() {
     const payload = this.data.payload
     if (!payload || !payload.n) {
       return { title: '作业本', path: '/pages/tasks/index' }
     }
-    const state = store.getStateWithComputed()
-    const myNickname = ((state.profile && state.profile.nickname) || '').trim()
-    const forwarded = { ...payload, from: myNickname }
-    const fromLabel = myNickname || '好友'
-    const title = `${fromLabel}分享给你的作业：${payload.n.name}`
+    // 显式剔除 from,即使老 payload 上携带也别带出去。
+    const forwarded = { ...payload }
+    delete forwarded.from
+    const title = `好友分享给你的作业：${payload.n.name}`
     const encoded = encodeURIComponent(JSON.stringify(forwarded))
     return { title, path: `/pages/notebook-share/index?d=${encoded}` }
   }

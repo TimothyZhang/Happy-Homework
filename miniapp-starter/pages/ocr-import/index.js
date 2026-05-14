@@ -2,6 +2,17 @@ const store = require('../../utils/store')
 
 const CLOUD_PATH_PREFIX = 'homework-register'
 
+// 单次上传 5MB 上限。压缩后通常 < 1MB,留 5x 余量给原图或异常情况。
+// 太大的图会让云函数下载 / base64 / OpenAI 上传都变慢甚至超时,也容易
+// 拉高云存储费用。
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+
+// 同一个 app 实例(从启动到杀进程)内允许的 OCR 次数上限。即使云函数
+// 已经按 openid 限流,客户端这里早点拦,省一次往返 + 上传带宽 + 给
+// 用户更明确的提示。30 次对正常用户绰绰有余 —— 一周打卡撑死也就十几次。
+const OCR_SESSION_LIMIT = 30
+let ocrCallsThisSession = 0
+
 const mockRawText = `语文：抄写第3课生字两遍
 数学：练习册第12页第1-5题
 英语：背诵单词1-20
@@ -167,6 +178,14 @@ Page({
       success: (res) => {
         const file = res.tempFiles && res.tempFiles[0]
         if (!file) return
+        if (file.size && file.size > MAX_UPLOAD_BYTES) {
+          wx.showToast({
+            title: '图片超过 5MB,请换小一点的',
+            icon: 'none',
+            duration: 2400
+          })
+          return
+        }
         this.setData({ imagePath: file.tempFilePath })
       }
     })
@@ -208,6 +227,18 @@ Page({
       return
     }
 
+    // 客户端先把次数挡一下,真识别(走云函数)才算一次,mock 不算。
+    if (!this.data.useMockData && this.data.canUseCloud) {
+      if (ocrCallsThisSession >= OCR_SESSION_LIMIT) {
+        wx.showToast({
+          title: '本次启动已识别太多次,稍后再试',
+          icon: 'none',
+          duration: 2400
+        })
+        return
+      }
+    }
+
     this.setData({ isRecognizing: true })
 
     if (this.data.useMockData || !this.data.canUseCloud) {
@@ -216,6 +247,7 @@ Page({
     }
 
     try {
+      ocrCallsThisSession += 1
       const uploadFilePath = await this.prepareImageForUpload(this.data.imagePath)
       const uploadRes = await wx.cloud.uploadFile({
         cloudPath: `${CLOUD_PATH_PREFIX}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`,

@@ -222,10 +222,12 @@ Page({
         wx.showToast({ title: `${label}，+${r.total} 金币`, icon: 'none', duration: 2400 })
       }).catch(() => {})
 
-      // 拉 admin 调整 inbox。 throttle 30s，失败静默。
+      // 拉 admin 调整 inbox。 throttle 30s，失败静默。server 现在做服务端
+      // clamp + 余额更新,返 newBalance/items(含 applied)/totalApplied 等,
+      // 客户端只做 UI 闪 toast + coinLogs 记录。
       adminInbox.claimPendingAdminCoins().then((r) => {
         if (!r) return
-        const summary = store.applyAdminCoinClaim({ items: r.items })
+        const summary = store.applyAdminCoinClaim(r)
         if (!summary || summary.totalApplied === 0) return
         this.refreshState()
         const t = summary.totalApplied

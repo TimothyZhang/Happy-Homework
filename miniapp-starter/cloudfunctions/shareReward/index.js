@@ -18,8 +18,31 @@ const cloud = require('wx-server-sdk')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
 const COLLECTION = 'share_rewards_inbox'
+const USER_COLLECTION = 'user_state'
+const LEDGER_COLLECTION = 'coin_ledger'   // 和 coinLedger 云函数共用
 const REWARD_PER_SAVE = 3
 const HISTORY_KEEP = 200          // 单方向最多保留多少条记录
+const NOTEBOOK_ID_MAX_LEN = 100
+const NOTEBOOK_NAME_MAX_LEN = 60
+
+// 接收方在 credit 时可能塞控制字符 / 零宽 / bidi 标记,污染分享方的奖励
+// toast 文案和 admin 审计日志。统一从输入字段里剥掉。
+// 用 RegExp(string) 构造,源里只出现 \u 转义 —— 字面量会让源文件含不可见
+// 控制字符,git 直接当 binary 处理,diff 没法读。覆盖范围:
+//   U+0000-U+001F  C0 控制字符 (含 tab/lf/cr)
+//   U+007F         DEL
+//   U+200B-U+200F  ZWSP / ZWNJ / ZWJ / LRM / RLM
+//   U+202A-U+202E  bidi embed / override / PDF
+//   U+2066-U+2069  bidi isolate (LRI / RLI / FSI / PDI)
+//   U+FEFF         BOM / ZWNBSP
+const BAD_CHARS_RE = new RegExp(
+  '[\\u0000-\\u001F\\u007F\\u200B-\\u200F\\u202A-\\u202E\\u2066-\\u2069\\uFEFF]',
+  'g'
+)
+
+function sanitizeShortString(input, maxLen) {
+  return String(input || '').replace(BAD_CHARS_RE, '').slice(0, maxLen)
+}
 
 exports.main = async (event = {}) => {
   const ctx = cloud.getWXContext()
@@ -64,7 +87,10 @@ async function ensureCollection() {
 }
 
 async function creditShare({ callerOpenid, sharerOpenid, notebookId, notebookName }) {
-  if (!sharerOpenid || !notebookId) {
+  if (typeof sharerOpenid !== 'string' || typeof notebookId !== 'string') {
+    return { ok: false, reason: 'invalid_args' }
+  }
+  if (!sharerOpenid || !notebookId || notebookId.length > NOTEBOOK_ID_MAX_LEN) {
     return { ok: false, reason: 'invalid_args' }
   }
   // 自己保存自己的分享不算
@@ -72,8 +98,29 @@ async function creditShare({ callerOpenid, sharerOpenid, notebookId, notebookNam
     return { ok: false, reason: 'self_save' }
   }
 
-  await ensureCollection()
+  const safeNotebookName = sanitizeShortString(notebookName, NOTEBOOK_NAME_MAX_LEN)
+
+  // 校验 notebookId 真的归属于 sharer。没有这一步,任意用户都可以调
+  // credit(sharerOpenid: <任意>, notebookId: <任意字符串>) 给目标 openid
+  // 灌金币 —— per-(caller,notebook) dedup 只要换字符串就绕过。
   const db = cloud.database()
+  const userRes = await db.collection(USER_COLLECTION)
+    .where({ _openid: sharerOpenid })
+    .field({ state: true })
+    .limit(1)
+    .get()
+  const sharerDoc = (userRes.data && userRes.data[0]) || null
+  if (!sharerDoc) {
+    return { ok: false, reason: 'sharer_not_found' }
+  }
+  const notebooks = Array.isArray(sharerDoc.state && sharerDoc.state.notebooks)
+    ? sharerDoc.state.notebooks
+    : []
+  if (!notebooks.some((nb) => nb && nb.id === notebookId)) {
+    return { ok: false, reason: 'notebook_not_owned' }
+  }
+
+  await ensureCollection()
   // 同一个接收人对同一个 notebook 只计一次
   const dedupKey = `${callerOpenid}__${notebookId}`
   const existing = await db.collection(COLLECTION)
@@ -89,7 +136,7 @@ async function creditShare({ callerOpenid, sharerOpenid, notebookId, notebookNam
       _openid: sharerOpenid,             // 这条收件人是分享方
       importerOpenid: callerOpenid,
       notebookId,
-      notebookName,
+      notebookName: safeNotebookName,
       amount: REWARD_PER_SAVE,
       dedupKey,
       claimed: false,
@@ -112,19 +159,64 @@ async function claimRewards(callerOpenid) {
 
   const rows = res.data || []
   if (rows.length === 0) {
-    return { ok: true, total: 0, count: 0 }
+    // 没领的也回一个 newBalance,让 client 在 claim 之后能用同一个值对齐
+    // (state.coins 是服务端账本,client 没法本地推断)。
+    const cur = await readServerBalance(callerOpenid)
+    return { ok: true, total: 0, count: 0, newBalance: cur }
   }
 
   const total = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
-  const ids = rows.map((r) => r._id)
 
-  // 批量删除：单条删一遍。WeChat cloud DB 的 batch 操作有限，循环最稳妥。
-  for (const id of ids) {
+  // 1) 写一条 ledger summary entry,做审计。先写 ledger 再改余额:这样
+  //    余额改失败的话,审计上能看到"应入账但没成功"。
+  const eventId = `share_claim_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+  try {
+    await ensureLedgerCollection()
+    await db.collection(LEDGER_COLLECTION).add({
+      data: {
+        _openid: callerOpenid,
+        eventId,
+        kind: 'share_reward_claim',
+        delta: total,
+        balanceAfter: null,    // 写完余额后没必要回填,审计够用
+        meta: {
+          count: rows.length,
+          notebookIds: rows.map((r) => r.notebookId).filter(Boolean)
+        },
+        clientTs: 0,
+        createdAt: Date.now()
+      }
+    })
+  } catch (e) {
+    console.warn('[shareReward] ledger write failed', e && e.errMsg)
+    return { ok: false, reason: 'ledger_write_failed' }
+  }
+
+  // 2) 原子 inc 余额。如果 user_state 不存在(0 rows updated),拒绝并把
+  //    ledger 这条标记为 voided —— 但 WeChat cloud 没法事务回滚,这里
+  //    只能 best-effort,记一条 warn,client 下次会再试。
+  let newBalance = null
+  try {
+    const upd = await db.collection(USER_COLLECTION)
+      .where({ _openid: callerOpenid })
+      .update({ data: { state: { coins: db.command.inc(total) } } })
+    if (!upd || !upd.stats || upd.stats.updated === 0) {
+      console.warn('[shareReward] balance update affected 0 rows; user_state missing?')
+      return { ok: false, reason: 'no_user_state', eventId }
+    }
+    newBalance = await readServerBalance(callerOpenid)
+  } catch (e) {
+    console.warn('[shareReward] balance update failed', e && e.errMsg)
+    return { ok: false, reason: 'balance_update_failed', eventId }
+  }
+
+  // 3) 删除 inbox(best-effort)。已经入账了,删除失败下次仍可能重领 ——
+  //    但 ledger eventId 已经记录,人工对账时能发现。
+  for (const r of rows) {
     try {
-      await db.collection(COLLECTION).doc(id).remove()
+      await db.collection(COLLECTION).doc(r._id).remove()
     } catch (e) {
-      // 删除失败也别阻塞领取 —— 后面 claimed=true 兜底
-      console.warn('[shareReward] remove failed', id, e && e.errMsg)
+      console.warn('[shareReward] remove failed', r._id, e && e.errMsg)
     }
   }
 
@@ -132,6 +224,28 @@ async function claimRewards(callerOpenid) {
     ok: true,
     total,
     count: rows.length,
-    notebooks: rows.map((r) => r.notebookName || '').filter(Boolean)
+    notebooks: rows.map((r) => r.notebookName || '').filter(Boolean),
+    newBalance
   }
+}
+
+async function ensureLedgerCollection() {
+  const db = cloud.database()
+  try {
+    await db.createCollection(LEDGER_COLLECTION)
+  } catch (e) {
+    // 已存在或权限问题,后续 add 自然失败
+  }
+}
+
+async function readServerBalance(openid) {
+  const db = cloud.database()
+  const res = await db.collection(USER_COLLECTION)
+    .where({ _openid: openid })
+    .field({ state: true })
+    .limit(1)
+    .get()
+  const doc = (res.data && res.data[0]) || null
+  if (!doc || !doc.state) return 0
+  return typeof doc.state.coins === 'number' ? doc.state.coins : 0
 }

@@ -13,6 +13,8 @@
 // - Never block the UI for a network round-trip. Failures are silent + retry
 //   on next mutation.
 
+const coinLedger = require('./coin-ledger')
+
 const COLLECTION = 'user_state'
 const HYDRATE_DEBOUNCE_MS = 30000  // page onShow re-check throttle
 const PUSH_DEBOUNCE_MS = 200       // batch rapid setData ticks (drag, ticker)
@@ -163,9 +165,17 @@ async function hydrate() {
     if (!doc) {
       // First time on cloud for this user. Push current local state as the
       // starting point and claim the session.
+      // Seed coins from local default into the cloud doc — coins 不在
+      // SYNC_FIELDS, 后续 push 不带它, 服务端账本由 coinLedger / shareReward.claim
+      // / adminPanel.claimAdminCoins 独占。只在首次建文档时 seed 一次, 让
+      // 新用户的 defaultState.coins (100) 真的反映到云端起点。
       const localState = _store.getStateForSync()
       const localUpdatedAt = _store.getUpdatedAt()
-      await createInitialDoc(localSessionId, localState, localUpdatedAt)
+      const seedCoins = typeof _store.getLocalCoins === 'function' ? _store.getLocalCoins() : undefined
+      const initialState = (typeof seedCoins === 'number')
+        ? { ...localState, coins: seedCoins }
+        : localState
+      await createInitialDoc(localSessionId, initialState, localUpdatedAt)
       return { changed: false }
     }
 
@@ -344,7 +354,12 @@ async function forceSync() {
       await actuallyPush(p.state, p.updatedAt)
     }
   }
-  // 2. Bypass debounce.
+  // 2. Flush coin events 同步进 server 账本,这样紧接着 hydrate 拿到的
+  //    state.coins 就是把 pending 算上后的最终值,UI 不会闪。
+  if (!_readOnly) {
+    try { await coinLedger.flush() } catch (e) { /* 失败下次重试 */ }
+  }
+  // 3. Bypass debounce.
   _lastHydrateAt = 0
   return hydrate()
 }

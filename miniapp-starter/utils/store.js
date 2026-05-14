@@ -1,4 +1,5 @@
 const cloudSync = require('./cloud-sync')
+const coinLedger = require('./coin-ledger')
 
 const STORAGE_KEY = 'homework-pet-v1'
 const SCHEMA_VERSION = 2
@@ -9,9 +10,16 @@ const SCHEMA_VERSION = 2
 // schemaVersion).
 // NOTE: `profile` carries both nickname AND avatar (a cloud:// fileID), so
 // the avatar is synced through the existing entry — no separate field needed.
+//
+// `coins` 故意不在 sync list 里 —— 余额改成由服务端账本独占维护(coinLedger
+// 云函数 + shareReward.claim + adminPanel.claimAdminCoins),客户端 push 整包
+// state 时不携带 coins,避免 localStorage 篡改秒变 999999。本地 state.coins
+// 仅作即时 UI 缓存,通过 hydrate 或事件 flush 的 newBalance 校准。
+// `pendingCoinEvents` 也只在本机持久化 —— 它是未上报的 coin 事件队列,
+// flush 成功后会被 drain。跨设备切换时未上报的事件会丢(很少),可接受。
 const SYNC_FIELDS = [
   'notebooks', 'tasks',
-  'coins', 'streakDays', 'perfectDays', 'bonusByDay', 'completionsByDay',
+  'streakDays', 'perfectDays', 'bonusByDay', 'completionsByDay',
   'pendingShareCoins',
   'pet', 'lastReward',
   'profile'
@@ -72,6 +80,11 @@ const REWARD_WEEKLY_STREAK = 100  // every 7 consecutive perfect days
 // doesn't earn coins. Counter is keyed on the wall-clock day of the finish,
 // not the task's occurrence date.
 const DAILY_COMPLETION_CAP = 20
+
+// coinLogs 单 array 保留多少条 —— 超过就 slice 最近的。云端单文档 16MB
+// 上限,本地 wx storage 默认 10MB,长期重度调整(admin 自己 / 测试号)会
+// 不知不觉撑爆。200 条够人工审查近期账单,更早的进审计 collection 兜底。
+const COIN_LOG_KEEP = 200
 
 // Returns { amount, kind } for a single task completion. `taskDay` is the
 // task's occurrence date (YYYY-MM-DD); `today` is the wall-clock day of
@@ -235,7 +248,14 @@ const defaultState = {
   // ms timestamp of last sync-relevant local mutation. 0 = never written, so
   // anything from cloud will win on first hydrate.
   updatedAt: 0,
+  // 服务端账本权威值的本地缓存。hydrate / coinLedger flush / claim 之后被
+  // 重写。不在 SYNC_FIELDS 里 —— 客户端 push 不带这个字段。
+  // 新用户首次启动从 100 起步(在 cloud-sync.createInitialDoc 里 seed
+  // 进云端 user_state.state.coins,之后服务端账本独占维护)。
   coins: 100,
+  // 未上报到 coinLedger 的事件队列。每次 coin 变更同时 push 进来,
+  // coin-ledger.flush() 按批次提交后,server 返回 appliedEventIds 用来 drain。
+  pendingCoinEvents: [],
   streakDays: 0,
   // YYYY-MM-DD strings for days where every task got completed. Used to
   // compute consecutive-perfect-day streak. Pruned to ~14 days of history.
@@ -314,6 +334,7 @@ function migrateState(raw) {
     if (typeof raw.pendingShareCoins !== 'number') raw.pendingShareCoins = 0
     if (typeof raw.streakDays !== 'number') raw.streakDays = 0
     if (typeof raw.coins !== 'number') raw.coins = 0
+    if (!Array.isArray(raw.pendingCoinEvents)) raw.pendingCoinEvents = []
     // Pet schema upgrade: legacy data had {name, emoji, level, growth,
     // happiness, fullness} but no species / cleanliness / health / age. If
     // we see a name without a species, treat it as already-set-up (infer
@@ -419,8 +440,12 @@ function loadState() {
 function saveState(state) {
   _stateCache = state
   wx.setStorageSync(STORAGE_KEY, state)
-  // Push synced subset to cloud (debounced inside cloud-sync).
+  // Push synced subset to cloud (debounced inside cloud-sync). coins +
+  // pendingCoinEvents 都不在 SYNC_FIELDS,这里只推非 coin 字段。
   cloudSync.pushState(pickSyncFields(state), state.updatedAt)
+  // 顺手让 coin-ledger debounced flush。queue 为空时是个 no-op,有事件就
+  // 批量上送 coinLedger.commit。
+  coinLedger.scheduleFlush()
 }
 
 function pickSyncFields(state) {
@@ -432,6 +457,11 @@ function pickSyncFields(state) {
 // Called by cloud-sync after a hydrate determines remote is newer (or after
 // the user "switches to this device"). Overlays the synced subset onto local
 // cache + storage WITHOUT triggering a push back.
+//
+// 注意:remoteSyncedFields 是从云端 user_state.state 拉下来的整个 state 子集
+// (包括 coins,因为云端 doc 上有这个字段 —— 由 coinLedger / shareReward.claim
+// / adminPanel.claimAdminCoins 维护)。客户端 push 不写 coins,但 hydrate 必须
+// 把 coins 当 truth 拉下来。
 function applyHydratedState(remoteSyncedFields, remoteUpdatedAt) {
   const cur = loadState()
   const next = {
@@ -439,8 +469,19 @@ function applyHydratedState(remoteSyncedFields, remoteUpdatedAt) {
     ...remoteSyncedFields,
     updatedAt: remoteUpdatedAt || Date.now()
   }
+  // pendingCoinEvents 不在 SYNC_FIELDS,所以 spread 之后保留 cur 的本地队列。
+  // 服务端 coins 没看过这些 pending,我们把它们的 delta 先乐观加上去,UI 不会
+  // 看到 coins 短暂回落 —— 后续 coin-ledger.flush 会把它们送上,服务端返
+  // newBalance 就是这个加完的值。
+  const pending = Array.isArray(next.pendingCoinEvents) ? next.pendingCoinEvents : []
+  if (pending.length > 0) {
+    const pendingDelta = pending.reduce((s, ev) => s + (Math.trunc(Number(ev.delta) || 0)), 0)
+    next.coins = Math.max(0, (typeof next.coins === 'number' ? next.coins : 0) + pendingDelta)
+  }
   _stateCache = next
   wx.setStorageSync(STORAGE_KEY, next)
+  // 触发 flush 让 pending 队列尽快归零,本机和云端 coins 对齐。
+  coinLedger.scheduleFlush()
 }
 
 function getStateForSync() {
@@ -449,6 +490,14 @@ function getStateForSync() {
 
 function getUpdatedAt() {
   return loadState().updatedAt || 0
+}
+
+// 仅给 cloud-sync.createInitialDoc 用 —— 首次建云文档时把本地缓存的
+// coins(新用户 defaultState 100 或老用户的最后余额)seed 进去。
+// 后续 push 不带 coins, 服务端账本独占维护。
+function getLocalCoins() {
+  const s = loadState()
+  return typeof s.coins === 'number' ? s.coins : 0
 }
 
 // === Notebook scheduling === //
@@ -807,6 +856,65 @@ function updateState(updater) {
   next.updatedAt = Date.now()
   saveState(next)
   return { ...next }
+}
+
+// === Server-authoritative coin ledger === //
+//
+// 余额改成由服务端账本独占维护(见 cloudfunctions/coinLedger + shareReward.claim
+// + adminPanel.claimAdminCoins)。客户端这边:
+//   - 每次 coin 变更都同时改 state.coins(乐观 UI)+ 推一条 event 进 queue
+//   - utils/coin-ledger 模块 debounce 把 queue 批量送给 coinLedger.commit
+//   - server 返回 newBalance + appliedEventIds,client 用来对齐 state.coins
+//     和 drain queue
+//   - 任何 claim(share / admin)直接返回 newBalance,client set 即可
+//
+// applyCoinDelta 是给 updateState 的 updater 函数内调用的工具 —— 它同时改
+// state.coins(本地缓存)和 state.pendingCoinEvents(事件队列)。
+
+function genEventId() {
+  return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+// In-updater coin mutation. Caller must be inside `updateState((state) => {...})`.
+// kind: 'task_reward' | 'task_refund' | 'pet_purchase' | 'level_upgrade' | 'pet_skin_switch'
+// delta: signed integer matching kind's allowed range (server re-validates).
+// meta:  optional debug context for the ledger entry (taskId, itemId, etc.).
+function applyCoinDelta(state, kind, delta, meta) {
+  if (!delta) return
+  const d = Math.trunc(Number(delta) || 0)
+  if (!d) return
+  // 乐观更新本地缓存 —— 服务端 commit 后会回 newBalance 覆盖纠偏
+  state.coins = Math.max(0, (state.coins || 0) + d)
+  if (!Array.isArray(state.pendingCoinEvents)) state.pendingCoinEvents = []
+  state.pendingCoinEvents.push({
+    eventId: genEventId(),
+    kind,
+    delta: d,
+    ts: Date.now(),
+    meta: meta || null
+  })
+}
+
+// Read-only snapshot of unflushed events; coin-ledger module pulls this batch.
+function getPendingCoinEvents() {
+  const events = loadState().pendingCoinEvents
+  return Array.isArray(events) ? events.slice() : []
+}
+
+// Drain events that the server confirmed applied, and snap local coins to
+// the server-returned balance. Called from coin-ledger after a successful
+// commit (or after a claim returns newBalance with no events).
+function applyServerCoinResult({ appliedEventIds, newBalance }) {
+  const drained = Array.isArray(appliedEventIds) ? new Set(appliedEventIds) : null
+  updateState((state) => {
+    if (drained && Array.isArray(state.pendingCoinEvents)) {
+      state.pendingCoinEvents = state.pendingCoinEvents.filter((ev) => !drained.has(ev.eventId))
+    }
+    if (typeof newBalance === 'number' && Number.isFinite(newBalance)) {
+      state.coins = Math.max(0, Math.trunc(newBalance))
+    }
+    return state
+  })
 }
 
 // === Notebook CRUD === //
@@ -1265,16 +1373,20 @@ function resumeTask(taskId, dateStr) {
 
 // Claw back the daily bonus (and weekly bonus if any) recorded for `day`,
 // restore the pre-completion streak snapshot, and remove `day` from
-// perfectDays. No-op if the day wasn't perfect or has no bonus log. Coins
-// clip to 0 rather than going negative — the user may have spent some.
-// Used by revertTask (a finished task got un-done) and reconcilePerfectDays
-// (a newly added task broke an all-done day).
+// perfectDays. No-op if the day wasn't perfect or has no bonus log. The
+// claw-back goes through applyCoinDelta so the server ledger sees a
+// 'task_refund' event (coins clip to 0 inside applyCoinDelta if user has
+// spent the bonus already). Used by revertTask (a finished task got
+// un-done) and reconcilePerfectDays (a newly added task broke an
+// all-done day).
 function revokePerfectDay(state, day) {
   if (!Array.isArray(state.perfectDays) || !state.perfectDays.includes(day)) return
   const log = state.bonusByDay && state.bonusByDay[day]
   if (log) {
     const totalBonus = (log.dailyBonus || 0) + (log.weeklyBonus || 0)
-    state.coins = Math.max(0, (state.coins || 0) - totalBonus)
+    if (totalBonus > 0) {
+      applyCoinDelta(state, 'task_refund', -totalBonus, { day, reason: 'perfect_day_clawback' })
+    }
     state.streakDays = Math.max(0, log.prevStreakDays || 0)
     delete state.bonusByDay[day]
   }
@@ -1333,7 +1445,9 @@ function revertTask(taskId, dateStr) {
       t.id === taskId ? applyTaskState(t, nb, day, patch) : t
     )
 
-    state.coins = Math.max(0, (state.coins || 0) - refund)
+    if (refund > 0) {
+      applyCoinDelta(state, 'task_refund', -refund, { taskId, day, reason: 'task_revert' })
+    }
 
     // Free up the slot in the cap counter for the wall-clock day the
     // completion happened on. cur.completedAt may be null on legacy data;
@@ -1462,7 +1576,11 @@ function finishTask(taskId, dateStr) {
       }
     }
 
-    state.coins += reward
+    if (reward > 0) {
+      applyCoinDelta(state, 'task_reward', reward, {
+        taskId, day, rewardKind, taskReward, dailyBonus, weeklyBonus
+      })
+    }
     state.lastReward = {
       reward,
       taskReward,
@@ -1485,7 +1603,7 @@ function buyItem(itemId) {
     if (!item || state.coins < item.price) return state
     if (!state.pet || !state.pet.species) return state
     state.pet = commitPetDecay(state.pet)
-    state.coins -= item.price
+    applyCoinDelta(state, 'pet_purchase', -item.price, { itemId: item.id, itemName: item.name })
     state.pet.happiness   = Math.min(state.pet.happiness   + (item.happiness   || 0), 100)
     state.pet.fullness    = Math.min(state.pet.fullness    + (item.fullness    || 0), 100)
     state.pet.cleanliness = Math.min(state.pet.cleanliness + (item.cleanliness || 0), 100)
@@ -1508,9 +1626,10 @@ function levelUpPet() {
       result = { ok: false, reason: 'not-enough-coins', cost }
       return state
     }
-    state.coins -= cost
+    const fromLevel = state.pet.level || 1
+    applyCoinDelta(state, 'level_upgrade', -cost, { fromLevel, toLevel: fromLevel + 1 })
     state.pet = commitPetDecay(state.pet)
-    state.pet.level = (state.pet.level || 1) + 1
+    state.pet.level = fromLevel + 1
     // Tiny celebration: top off the most decay-prone stats so the upgrade
     // moment feels rewarding instead of immediately needy.
     state.pet.happiness = Math.min((state.pet.happiness || 0) + 20, 100)
@@ -1566,7 +1685,8 @@ function switchPetSpecies(species) {
       result = { ok: false, reason: 'not-enough-coins', cost: PET_SWITCH_COST }
       return state
     }
-    state.coins -= PET_SWITCH_COST
+    const fromSpecies = state.pet.species
+    applyCoinDelta(state, 'pet_skin_switch', -PET_SWITCH_COST, { fromSpecies, toSpecies: species })
     state.pet = commitPetDecay(state.pet)
     state.pet.species = species
     state.pet.emoji = entry.emoji
@@ -1639,9 +1759,13 @@ function updateProfileAvatar(avatar) {
 // Build a clean payload to embed into a WeChat share path.
 // Strips per-occurrence state (status / elapsed / completedAt) — the
 // receiver imports a fresh notebook with all tasks reset to "todo".
-// `from` carries the sharer's nickname (empty if not set).
 // `sharer` carries sharer's openid (when available) + a stable notebook id,
 // so the receiver can credit a save back to the sharer via cloud function.
+//
+// 注意:不再写 `from` 字段(昵称)。原因:share URL 可能被截图、转发到群、
+// 沉淀在 WeChat 服务端日志里;昵称是给孩子取的,放进 URL = PII 外流。
+// 接收方落地页统一显示「好友分享给你的作业本」即可;WeChat 聊天 UI 自带
+// 显示消息发件人,已经回答了"谁发的"。
 function serializeNotebookForShare(notebookId, sharerOpenid) {
   const state = loadState()
   const nb = state.notebooks.find((n) => n.id === notebookId)
@@ -1658,7 +1782,6 @@ function serializeNotebookForShare(notebookId, sharerOpenid) {
     }))
   return {
     v: 1,
-    from: (state.profile && state.profile.nickname) || '',
     sharer: sharerOpenid || '',
     nbId: nb.id,
     n: {
@@ -1672,14 +1795,20 @@ function serializeNotebookForShare(notebookId, sharerOpenid) {
   }
 }
 
-// Apply share-save coins claimed from cloud. Caller passes the total coins
-// already aggregated by the cloud function; we just credit them locally and
-// record a lastReward so the UI can flash a "+X 金币" message.
-function applyShareRewardClaim({ total, count, notebooks }) {
+// Apply share-save coins claimed from cloud. Cloud function已经服务端入账,
+// 这里只做本地缓存校准 + 触发 toast UI。
+// payload: { total, count, notebooks, newBalance }
+function applyShareRewardClaim({ total, count, notebooks, newBalance }) {
   if (!total || total <= 0) return null
   let next = null
   updateState((state) => {
-    state.coins = (state.coins || 0) + total
+    // 服务端账本权威 —— 直接 set,不再 +=。
+    if (typeof newBalance === 'number' && Number.isFinite(newBalance)) {
+      state.coins = Math.max(0, Math.trunc(newBalance))
+    } else {
+      // 老版云函数没返 newBalance,fallback 走 += 以免本次 claim 看不到金币。
+      state.coins = (state.coins || 0) + total
+    }
     state.lastShareReward = {
       total,
       count: count || 0,
@@ -1692,32 +1821,27 @@ function applyShareRewardClaim({ total, count, notebooks }) {
   return next
 }
 
-// Apply an admin-coin-inbox claim. `items` is the array returned by
-// adminPanel.claimAdminCoins, in createdAt-asc order. We walk each item:
-//   coins += item.delta, clamp ≥0
-// 实际 applied 可能小于 item.delta（减太多被 clamp 到 0）；记录到 coinLogs
-// 里的也是 applied 后的实际 delta，避免显示"减了 200"但金币只少了 50。
-// Returns a summary { totalApplied, addedTotal, deductedTotal, count, items } or
-// null if nothing applied.
-function applyAdminCoinClaim({ items }) {
+// Apply an admin-coin-inbox claim. Server 已经完成 clamp ≥0 + 余额更新 +
+// 审计写入,本地这边只:
+//   - 把 state.coins 校准到 server 返的 newBalance
+//   - 追加 coinLogs(用 item.applied 而不是 item.requested,因为 server 已 clamp)
+//   - 触发 lastAdminCoinClaim 给 UI 闪 toast
+//
+// payload: { totalApplied, addedTotal, deductedTotal, count, items, newBalance }
+//   items[i] = { requested, applied, delta, reason, adminOpenid, auditId, createdAt }
+//   (delta 字段是老 client 兼容字段,等价 applied)
+function applyAdminCoinClaim({ items, totalApplied, addedTotal, deductedTotal, newBalance }) {
   if (!Array.isArray(items) || items.length === 0) return null
   let summary = null
   updateState((state) => {
     const logs = Array.isArray(state.coinLogs) ? state.coinLogs : []
-    let totalApplied = 0
-    let addedTotal = 0
-    let deductedTotal = 0
-    let coins = typeof state.coins === 'number' ? state.coins : 0
     const appliedItems = []
     for (const it of items) {
-      const requested = Math.trunc(Number(it.delta) || 0)
-      if (!requested) continue
-      const next = Math.max(0, coins + requested)
-      const applied = next - coins
-      coins = next
-      totalApplied += applied
-      if (applied > 0) addedTotal += applied
-      else if (applied < 0) deductedTotal += applied
+      // Server 已经做过 clamp;applied 字段就是真实入账值。老版兼容:如果
+      // 只有 delta 没有 applied,把 delta 当 applied 用。
+      const applied = typeof it.applied === 'number' ? it.applied : (Number(it.delta) || 0)
+      const requested = typeof it.requested === 'number' ? it.requested : applied
+      if (!applied && !requested) continue
       const reason = (it.reason || '').toString()
       logs.push({
         at: Number(it.createdAt) || Date.now(),
@@ -1728,17 +1852,30 @@ function applyAdminCoinClaim({ items }) {
       })
       appliedItems.push({ requested, applied, reason })
     }
-    state.coins = coins
-    state.coinLogs = logs
+    // 服务端账本权威 —— 直接 set。老版云函数没返 newBalance 的话维持原值
+    // (后续 hydrate 会拉到正确值)。
+    if (typeof newBalance === 'number' && Number.isFinite(newBalance)) {
+      state.coins = Math.max(0, Math.trunc(newBalance))
+    }
+    // 防止 coinLogs 无限增长。云端单文档 + 客户端 storage 都有上限,长期
+    // 重度调整的用户(测试号 / admin 自己)会撑爆。只留最近 200 条够审查。
+    state.coinLogs = logs.length > COIN_LOG_KEEP ? logs.slice(-COIN_LOG_KEEP) : logs
+    const totalAppliedFinal = typeof totalApplied === 'number'
+      ? totalApplied
+      : appliedItems.reduce((s, it) => s + (it.applied || 0), 0)
     state.lastAdminCoinClaim = {
       receivedAt: Date.now(),
-      totalApplied,
+      totalApplied: totalAppliedFinal,
       count: items.length
     }
     summary = {
-      totalApplied,
-      addedTotal,
-      deductedTotal,
+      totalApplied: totalAppliedFinal,
+      addedTotal: typeof addedTotal === 'number'
+        ? addedTotal
+        : appliedItems.reduce((s, it) => s + (it.applied > 0 ? it.applied : 0), 0),
+      deductedTotal: typeof deductedTotal === 'number'
+        ? deductedTotal
+        : appliedItems.reduce((s, it) => s + (it.applied < 0 ? it.applied : 0), 0),
       count: items.length,
       items: appliedItems
     }
@@ -1811,13 +1948,89 @@ function pickRenameCandidate(state, baseName) {
 //                 only this notebook's task rows are swapped out.
 // Returns the resulting notebook id (caller usually navigates to it), or
 // null if the device is read-only or the payload is invalid.
+// 分享 payload 的边界。攻击者可以构造任意大 / 任意脏的链接,所以收到的
+// 一切都要截断 + 类型校验。常规作业本任务不会超过几十条,200 已经很宽。
+const SHARE_MAX_TASKS = 200
+const SHARE_MAX_CONTENT = 500
+const SHARE_MAX_SUBJECT = 16
+const SHARE_MAX_NOTEBOOK_NAME = 80
+const SHARE_MAX_FROM = 24
+const SHARE_MAX_ID = 100
+const SHARE_MAX_DATE_STR = 16   // 'YYYY-MM-DD' 是 10 位,留点余量
+const SHARE_MAX_TASK_MINUTES = 600
+
+function safeShareString(s, maxLen) {
+  if (typeof s !== 'string') return ''
+  return s.slice(0, maxLen)
+}
+
+// 把任意来源的 share payload 规范化成已知 schema。
+// - 未知字段直接丢
+// - 字符串过长截断
+// - 数组过长截断
+// - 类型不对 fallback 到默认值
+// 没有合法 `n` 就返回 null,调用方判 null 即可。
+function sanitizeSharePayload(payload) {
+  if (!payload || typeof payload !== 'object' || !payload.n || typeof payload.n !== 'object') {
+    return null
+  }
+  const n = payload.n
+  const mode = n.mode === 'recurring' ? 'recurring' : 'one-shot'
+  const recurrence = mode === 'recurring' && n.recurrence && typeof n.recurrence === 'object'
+    ? {
+        type: n.recurrence.type === 'weekly' ? 'weekly' : 'daily',
+        weekdays: Array.isArray(n.recurrence.weekdays)
+          ? n.recurrence.weekdays
+              .slice(0, 7)
+              .filter((w) => Number.isInteger(w) && w >= 1 && w <= 7)
+          : []
+      }
+    : null
+  const safeN = {
+    name: safeShareString(n.name, SHARE_MAX_NOTEBOOK_NAME),
+    mode,
+    startDate: safeShareString(n.startDate, SHARE_MAX_DATE_STR),
+    // endDate: 三态 —— 长期重复本是 null,one-shot 是日期字符串,缺省让
+    // importSharedNotebook 内部按 today 兜底,所以这里 undefined 也保留。
+    endDate: n.endDate === null
+      ? null
+      : n.endDate === undefined
+        ? undefined
+        : safeShareString(n.endDate, SHARE_MAX_DATE_STR),
+    recurrence
+  }
+  const rawTasks = Array.isArray(payload.t) ? payload.t.slice(0, SHARE_MAX_TASKS) : []
+  const safeTasks = rawTasks.map((it) => {
+    if (!it || typeof it !== 'object') return { s: '', c: '' }
+    const mNum = Number(it.m)
+    return {
+      s: safeShareString(it.s, SHARE_MAX_SUBJECT),
+      c: safeShareString(it.c, SHARE_MAX_CONTENT),
+      m: Number.isFinite(mNum) && mNum > 0 && mNum <= SHARE_MAX_TASK_MINUTES
+        ? Math.trunc(mNum)
+        : 0
+    }
+  })
+  return {
+    v: 1,
+    from: safeShareString(payload.from, SHARE_MAX_FROM),
+    sharer: safeShareString(payload.sharer, SHARE_MAX_ID),
+    nbId: safeShareString(payload.nbId, SHARE_MAX_ID),
+    n: safeN,
+    t: safeTasks
+  }
+}
+
 function importSharedNotebook(payload, options) {
-  if (!payload || !payload.n) return null
+  // 即使调用方已经 sanitize 过,这里再做一次 —— 防止其它入口(批量导入
+  // 脚本之类)漏 sanitize。
+  const safe = sanitizeSharePayload(payload)
+  if (!safe) return null
   const opts = options || {}
   const mode = opts.mode || 'new'
   const targetId = opts.targetNotebookId
-  const n = payload.n
-  const tasks = Array.isArray(payload.t) ? payload.t : []
+  const n = safe.n
+  const tasks = safe.t
   const today = todayStr()
   let resultId = null
   updateState((state) => {
@@ -1951,6 +2164,7 @@ module.exports = {
   updateProfileAvatar,
   // sharing
   serializeNotebookForShare,
+  sanitizeSharePayload,
   importSharedNotebook,
   applyShareRewardClaim,
   applyAdminCoinClaim,
@@ -1959,6 +2173,10 @@ module.exports = {
   applyHydratedState,
   getStateForSync,
   getUpdatedAt,
+  getLocalCoins,
+  // coin-ledger interface (for utils/coin-ledger module)
+  getPendingCoinEvents,
+  applyServerCoinResult,
   // reward rules (read-only constants exposed for UI display + tests)
   REWARD_TASK_OVERDUE,
   REWARD_TASK_TODAY,
@@ -1980,5 +2198,14 @@ module.exports = {
 cloudSync.init({
   applyHydratedState,
   getStateForSync,
-  getUpdatedAt
+  getUpdatedAt,
+  getLocalCoins
+})
+
+// Wire coin-ledger with the same init pattern as cloud-sync. coin-ledger 自己
+// 不 require store(它只用 init 传进来的接口),所以这两个 require 在文件顶部
+// 不会产生循环依赖。
+coinLedger.init({
+  getPendingCoinEvents,
+  applyServerCoinResult
 })
