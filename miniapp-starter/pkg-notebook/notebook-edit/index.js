@@ -170,11 +170,19 @@ Page({
     if (this.data.isEdit) {
       store.updateNotebook(this.data.notebookId, payload)
       wx.showToast({ title: '已保存', icon: 'success' })
+      setTimeout(() => wx.navigateBack(), 200)
     } else {
-      store.addNotebook(payload)
+      const next = store.addNotebook(payload)
+      const newId = next && next._lastNotebookId
       wx.showToast({ title: '已新建', icon: 'success' })
+      setTimeout(() => {
+        if (newId) {
+          wx.redirectTo({ url: `/pages/notebook-detail/index?id=${newId}` })
+        } else {
+          wx.navigateBack()
+        }
+      }, 200)
     }
-    setTimeout(() => wx.navigateBack(), 200)
   },
 
   handleDelete() {

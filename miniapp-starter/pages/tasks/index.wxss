@@ -219,3 +219,24 @@
   font-weight: 700;
   color: #1f2329;
 }
+
+.toggle-completed-row {
+  margin-top: 24rpx;
+  display: flex;
+  justify-content: center;
+}
+
+.toggle-completed-btn {
+  background: rgba(255, 255, 255, 0.7);
+  color: #5f6b7a;
+  font-size: 26rpx;
+  font-weight: 500;
+  padding: 12rpx 32rpx;
+  border-radius: 999rpx;
+  border: 1rpx solid #dbe1e8;
+  line-height: 1.5;
+}
+
+.toggle-completed-btn::after {
+  border: none;
+}

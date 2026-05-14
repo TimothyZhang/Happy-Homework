@@ -3,15 +3,22 @@
     <button class="primary-btn add-nb-btn" bindtap="handleAddNotebook">+ 新建作业本</button>
   </view>
 
-  <view wx:if="{{notebooks.length === 0}}" class="card">
+  <view wx:if="{{notebooks.length === 0 && completedNotebooks.length === 0}}" class="card">
     <view class="empty-state">
       <text class="empty-emoji">📒</text>
       <text class="empty-text">还没有作业本，点上方「+ 新建作业本」开始吧</text>
     </view>
   </view>
 
+  <view wx:if="{{notebooks.length === 0 && completedNotebooks.length > 0 && !showCompleted}}" class="card">
+    <view class="empty-state">
+      <text class="empty-emoji">🎉</text>
+      <text class="empty-text">所有作业本都完成啦！点下方查看已完成</text>
+    </view>
+  </view>
+
   <view wx:for="{{notebooks}}" wx:key="id"
-        class="notebook-card {{item.activeToday ? 'active-today' : ''}} {{item.allDone ? 'all-done' : ''}}"
+        class="notebook-card {{item.activeToday ? 'active-today' : ''}}"
         data-id="{{item.id}}"
         bindtap="handleOpenNotebook">
     <view class="nb-row">
@@ -33,5 +40,37 @@
         </view>
       </view>
     </view>
+  </view>
+
+  <block wx:if="{{showCompleted}}">
+    <view wx:for="{{completedNotebooks}}" wx:key="id"
+          class="notebook-card all-done"
+          data-id="{{item.id}}"
+          bindtap="handleOpenNotebook">
+      <view class="nb-row">
+        <view class="nb-body">
+          <view class="nb-title-row">
+            <text class="nb-name">{{item.name}}</text>
+            <text class="nb-mode mode-{{item.mode}}">{{item.modeLabel}}</text>
+          </view>
+          <view class="nb-chips">
+            <text wx:if="{{item.recurrenceLabel}}" class="chip rec-chip">{{item.recurrenceLabel}}</text>
+            <text class="chip range-chip">{{item.rangeLabel}}</text>
+          </view>
+          <view class="nb-progress">
+            <view class="progress-track">
+              <view class="progress-fill" style="width: {{item.progressPercent}}%"></view>
+            </view>
+            <text class="progress-text">{{item.doneCount}} / {{item.taskCount}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <view wx:if="{{completedNotebooks.length > 0}}" class="toggle-completed-row">
+    <button class="toggle-completed-btn" bindtap="handleToggleCompleted">
+      {{showCompleted ? '收起已完成' : '显示已完成 (' + completedNotebooks.length + ')'}}
+    </button>
   </view>
 </view>

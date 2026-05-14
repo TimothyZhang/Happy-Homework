@@ -44,7 +44,7 @@
 ### 当前未完成
 - OCR 识别质量进一步调优（多 provider 并行合并、confidence 入 `needsConfirm`）
 - OCR 错误码分级提示 + 失败重试 / 配额耗尽提示
-- `coinLogs / ocrDraftItems` 等日志型数据的长期沉淀（目前只有最新快照）
+- `ocrDraftItems` 等日志型数据的长期沉淀（目前只有最新快照；`coinLogs` 已落 `coin_ledger`）
 - 多孩子 / 多家庭账号体系
 - OCR 计费方案与云数据库读写预算评估
 - 离线写入队列 + 联网批量 push
@@ -89,16 +89,27 @@
 - `custom-tab-bar`：自定义底部导航（字号 30rpx，每 tab 页 onShow 同步 selected）
 - `utils/store.js`：业务状态 + 进程内缓存 + schema 迁移 + 写后触发云推送
 - `utils/cloud-sync.js`：跨端云同步（`user_state` 集合，单设备 claim）
+- `utils/coin-ledger.js`：把 `pendingCoinEvents` 队列 debounced 上送 `coinLedger.commit`
 - `utils/share-reward.js`：包装 `shareReward` 云函数（whoami / credit / claim），并把 openid 缓存到 storage
+- `utils/admin-inbox.js`：拉/清自己的 `admin_coin_inbox`（任意用户可调，不走 admin 白名单）
 - `utils/navigation.js`：页面跳转封装
 - `scripts/perf-bench.js` / `perf-correctness.js` / `values-check.js`：Node 端性能基准 + 76 项行为对账 + V1 数值设计校验（已通过 `project.config.json` `packOptions.ignore` 排除打包）
 
 ### 云函数
 - `cloudfunctions/homeworkOCR`：OCR，多 provider 兜底（OpenAI Vision / 腾讯云 / 微信 OpenAPI / Tesseract.js），已部署到 `cloud1-d8gkzu6ls85efd509`
+- `cloudfunctions/coinLedger`：服务端金币账本（`commit` 接收 `pendingCoinEvents` 入账 + dedup；`balance` 查余额）
 - `cloudfunctions/shareReward`：分享奖励（whoami / credit / claim 三个 action，使用独立 `share_rewards_inbox` 集合，避免和单设备同步模型冲突）
+- `cloudfunctions/adminPanel`：管理员后台（listUsers / getUser / adjustCoins / listAdjustments + 任意用户可调的 claimAdminCoins）
+
+> 📌 任何云函数代码改动后必须先 `cd <fn-dir> && npm install --omit=dev` 把 `node_modules` 装出来再 `tcb fn code update`，否则 SCF 在线 build 经常 UpdateFailed 但 CLI 仍报"成功"。验证：`tcb fn detail <name> --json | grep -E '"Status"|"CodeSize"'`，Status 必须是 Active。
 
 ### 云数据库
-- 集合 `user_state`：每个用户一份完整 state 快照（详见 `CLOUD-SETUP.md`）
+- `user_state`：每个用户一份完整 state 快照（详见 `CLOUD-SETUP.md`）
+- `coin_ledger`：金币事件流（`{eventId, kind, delta, balanceAfter, meta, createdAt}`），eventId dedup
+- `coin_adjustments`：管理员调金币审计（不可变）
+- `admin_coin_inbox`：待领取的管理员调整
+- `admin_action_rate`：admin × action 限流计数（30 次/分钟）
+- `share_rewards_inbox`：分享方未领取的 +3 奖励记录
 
 ## 当前实现状态
 
@@ -144,7 +155,7 @@ node scripts/perf-correctness.js          # 76 项行为对账
 ### 技术侧
 1. OCR 多 provider 并行合并（取识别行数最多者），把 confidence 字段纳入 `needsConfirm`
 2. OCR 错误码分级 + 失败重试
-3. `coinLogs / ocrDraftItems` 拆出来单独建集合做长期沉淀
+3. `ocrDraftItems` 拆出来单独建集合做长期沉淀（`coinLogs` 已落 `coin_ledger`）
 4. 多孩子 / 多家庭账号体系
 5. 离线写入队列 + 联网批量 push
 6. 极限规模下 list 页虚拟滚动

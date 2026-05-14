@@ -1,6 +1,6 @@
 'use strict'
 
-// 金币账本云函数。
+// 金币账本云函数 (v2: level_upgrade 上限从 -100000 收紧到 -10000)。
 //
 // 历史背景:state.coins 之前在 cloud-sync 的 SYNC_FIELDS 里随 state 一起
 // 整包 push,客户端篡改 localStorage 就能直接覆盖云端余额。这个云函数把
@@ -42,17 +42,17 @@ const MAX_BATCH_ABS_DELTA = 100000
 //
 // 数值参考 store.js V1-VALUES-DESIGN:
 //   task_reward    : 单次完成最高 = REWARD_TASK_FUTURE(15) + dailyBonus
-//                    (最多 20×15 = 300) + weeklyBonus(100) ≈ 415
+//                    (最多 20×15 + 50 早完成 = 350) + weeklyBonus(100) ≈ 465
 //   task_refund    : 上限对称
 //   pet_purchase   : 道具最贵 50,留余量
-//   level_upgrade  : 升级成本曲线可能很大,放宽
-//   pet_skin_switch: PET_SWITCH_COST,几十块
+//   level_upgrade  : LEVEL_COSTS_PLATEAU=2000,留 5x 余量给后续调表
+//   pet_skin_switch: PET_SWITCH_COST=100,留余量
 const EVENT_RULES = {
-  task_reward:     { min: 1,        max: 500 },
-  task_refund:     { min: -500,     max: -1 },
-  pet_purchase:    { min: -200,     max: -1 },
-  level_upgrade:   { min: -100000,  max: -1 },
-  pet_skin_switch: { min: -1000,    max: -1 }
+  task_reward:     { min: 1,       max: 500 },
+  task_refund:     { min: -500,    max: -1 },
+  pet_purchase:    { min: -200,    max: -1 },
+  level_upgrade:   { min: -10000,  max: -1 },
+  pet_skin_switch: { min: -1000,   max: -1 }
 }
 
 exports.main = async (event = {}) => {
@@ -207,17 +207,36 @@ async function commitEvents(openid, events) {
     // 一次性更新 user_state.state.coins。用 inc 保证和 cloud-sync 自然 push
     // 的字段不打架(其它字段 push 的是整对象,但 cloud-sync push 已经把
     // coins 从 SYNC_FIELDS 里剔除,所以 coins 字段只有我们写)。
+    let incApplied = false
     try {
-      await db.collection(USER_COLLECTION)
+      const upd = await db.collection(USER_COLLECTION)
         .where({ _openid: openid })
         .update({ data: { state: { coins: db.command.inc(netDelta) } } })
+      incApplied = !!(upd && upd.stats && upd.stats.updated > 0)
+      if (!incApplied) {
+        console.warn('[coinLedger] balance update affected 0 rows; user_state missing for', openid)
+      }
     } catch (e) {
-      // 余额更新失败但 ledger 已经写了 —— 这是 inconsistency,返回 server-side
-      // newBalance 算出来的值给 client 当真;下次 commit 时 balance 取自
-      // user_state 又会回到老值,client 会再次重发这些事件(eventId 是同一批,
-      // 服务端 dedup 跳过)。最终需要人工对账 ledger 来修。打个 warn。
-      console.warn('[coinLedger] balance update failed but ledger written', e && e.errMsg)
-      stopReason = stopReason || 'balance_update_failed'
+      console.warn('[coinLedger] balance update threw', e && e.errMsg)
+    }
+    if (!incApplied) {
+      // 余额更新失败,ledger 条目已经写了 → roll back 这批 ledger,让 client
+      // 下次重试时 server dedup 不会拦住事件、能重新走完整流程。如果 rollback
+      // 自己也失败,残留 orphan ledger 条目只是审计噪声,balance 仍是对的。
+      for (const eid of appliedEventIds) {
+        try {
+          await db.collection(LEDGER_COLLECTION)
+            .where({ _openid: openid, eventId: eid })
+            .remove()
+        } catch (e) {
+          console.warn('[coinLedger] ledger rollback failed for', eid, e && e.errMsg)
+        }
+      }
+      return {
+        ok: false,
+        reason: 'balance_update_failed',
+        rolledBackEventIds: appliedEventIds
+      }
     }
   }
 

@@ -195,10 +195,10 @@ OCR 链路本身已通,识别质量经过手写体优先调整后明显改善。
 
 ### 数据范围
 
-同步:`notebooks / tasks / coins / streakDays / perfectDays / bonusByDay / pendingShareCoins / pet / lastReward / profile`
-仅本地:`editTaskId / editNotebookId / ocrCurrentJob / ocrJobs / shopItems / schemaVersion`
+同步:`notebooks / tasks / streakDays / perfectDays / bonusByDay / completionsByDay / pet / lastReward / profile`
+仅本地:`coins / pendingCoinEvents / editTaskId / editNotebookId / ocrCurrentJob / ocrJobs / shopItems / schemaVersion`
 
-(白名单写在 `utils/store.js` 的 `SYNC_FIELDS` 常量。)
+(白名单写在 `utils/store.js` 的 `SYNC_FIELDS` 常量。`coins` 由服务端账本 `coinLedger` / `shareReward.claim` / `adminPanel.claimAdminCoins` 维护,客户端 push 不带它;`pendingCoinEvents` 是本地未上报的事件队列,跨设备切换时未上报事件会丢——很少,可接受。)
 
 ### 已知限制
 

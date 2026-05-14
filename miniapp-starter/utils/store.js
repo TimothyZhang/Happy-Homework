@@ -20,7 +20,6 @@ const SCHEMA_VERSION = 2
 const SYNC_FIELDS = [
   'notebooks', 'tasks',
   'streakDays', 'perfectDays', 'bonusByDay', 'completionsByDay',
-  'pendingShareCoins',
   'pet', 'lastReward',
   'profile'
 ]
@@ -269,10 +268,6 @@ const defaultState = {
   // so a 22:00 finish of yesterday's task counts toward today's quota.
   // Pruned to ~14 days alongside perfectDays.
   completionsByDay: {},
-  // Coins credited from share-saves that haven't been applied to local
-  // coins yet. Filled by the shareReward cloud function on the sharer's
-  // user_state doc; claimed (added to coins, reset to 0) on next hydrate.
-  pendingShareCoins: 0,
   editTaskId: null,
   editNotebookId: null,
   ocrCurrentJob: null,
@@ -331,7 +326,6 @@ function migrateState(raw) {
     if (!Array.isArray(raw.perfectDays)) raw.perfectDays = []
     if (!raw.bonusByDay || typeof raw.bonusByDay !== 'object') raw.bonusByDay = {}
     if (!raw.completionsByDay || typeof raw.completionsByDay !== 'object') raw.completionsByDay = {}
-    if (typeof raw.pendingShareCoins !== 'number') raw.pendingShareCoins = 0
     if (typeof raw.streakDays !== 'number') raw.streakDays = 0
     if (typeof raw.coins !== 'number') raw.coins = 0
     if (!Array.isArray(raw.pendingCoinEvents)) raw.pendingCoinEvents = []
@@ -1371,14 +1365,41 @@ function resumeTask(taskId, dateStr) {
   })
 }
 
+// Recompute streakDays from perfectDays: count the trailing run of
+// consecutive calendar days ending at the latest entry. perfectDays itself
+// is pruned to 14 days, so this caps at the same horizon — long-running
+// streaks beyond that are bounded by the pruning, not by this walk.
+function recomputeStreak(perfectDays) {
+  if (!Array.isArray(perfectDays) || perfectDays.length === 0) return 0
+  const sorted = perfectDays.slice().sort()
+  let count = 1
+  let cursor = sorted[sorted.length - 1]
+  for (let i = sorted.length - 2; i >= 0; i--) {
+    if (sorted[i] === addDays(cursor, -1)) {
+      count++
+      cursor = sorted[i]
+    } else {
+      break
+    }
+  }
+  return count
+}
+
 // Claw back the daily bonus (and weekly bonus if any) recorded for `day`,
-// restore the pre-completion streak snapshot, and remove `day` from
+// recompute streakDays from the remaining perfectDays, and remove `day` from
 // perfectDays. No-op if the day wasn't perfect or has no bonus log. The
 // claw-back goes through applyCoinDelta so the server ledger sees a
 // 'task_refund' event (coins clip to 0 inside applyCoinDelta if user has
 // spent the bonus already). Used by revertTask (a finished task got
 // un-done) and reconcilePerfectDays (a newly added task broke an
 // all-done day).
+//
+// 注意:历史上这里用 `log.prevStreakDays` 做快照恢复,只对"revert 最近一天"
+// 是对的。如果用户回去 revert 一个更早的 perfect 日,streak 应该按
+// 剩下的 perfectDays 重算,而不是回到那一天被记进 streak 时的值。
+// 已知遗留 corner case: revokePerfectDay 不级联回收下游已发的 weeklyBonus
+// (e.g. revert day 1 → day 7 的 +100 应该作废但代码不动它)。改起来要重扫
+// perfectDays 找所有 ≡ 0 mod 7 的 streak 命中点,scope 大,暂记 TODO。
 function revokePerfectDay(state, day) {
   if (!Array.isArray(state.perfectDays) || !state.perfectDays.includes(day)) return
   const log = state.bonusByDay && state.bonusByDay[day]
@@ -1387,10 +1408,10 @@ function revokePerfectDay(state, day) {
     if (totalBonus > 0) {
       applyCoinDelta(state, 'task_refund', -totalBonus, { day, reason: 'perfect_day_clawback' })
     }
-    state.streakDays = Math.max(0, log.prevStreakDays || 0)
     delete state.bonusByDay[day]
   }
   state.perfectDays = state.perfectDays.filter((d) => d !== day)
+  state.streakDays = recomputeStreak(state.perfectDays)
 }
 
 // After tasks are added (addTask / importSharedNotebook), any previously

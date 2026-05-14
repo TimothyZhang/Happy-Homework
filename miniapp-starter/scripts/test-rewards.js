@@ -28,6 +28,18 @@ global.wx = {
   cloud: { init: () => {}, callFunction: () => Promise.resolve({ result: {} }), database: () => null }
 }
 
+// Pin "now" to 22:00 so reward assertions don't drift with wall-clock time.
+// 22:00 is past 21:00 → earlyBirdBonus = 0, simplifying expected math. Tests
+// that need a specific tier (e.g. ≥+20 early-bird) call setNowHour() explicitly.
+const _realDateNow = Date.now
+function setNowHour(h, m) {
+  const d = new Date()
+  d.setHours(h, m || 0, 0, 0)
+  const fixed = d.getTime()
+  Date.now = () => fixed
+}
+setNowHour(22, 0)
+
 const path = require('path')
 const s = require(path.join(__dirname, '..', 'utils', 'store.js'))
 
@@ -48,7 +60,6 @@ function seed(stateOverride) {
     completionsByDay: {},
     tasks: [],
     notebooks: [],
-    pendingShareCoins: 0,
     pet: null,
     lastReward: null,
     profile: null,
@@ -86,6 +97,9 @@ assert('all events are task_reward', pendingLast(3).every((e) => e.kind === 'tas
 
 // ===== Scenario 2: exploit attempt — add 1 task, complete, add more =====
 console.log('\n[2] Exploit attempt: 1 task → complete (perfect+early bird) → add 2 more')
+// Pin to 18:00 for this scenario so early-bird tier kicks in (+50). Switch
+// back to 22:00 at the end so subsequent scenarios run at the default tier.
+setNowHour(18, 0)
 seed({ notebooks: [nb1], coins: 100 })
 s.addTask({ notebookId: 'nb1', subject: '语', content: 'x', estimatedMinutes: 5 })
 let t = st().tasks[0]
@@ -119,6 +133,8 @@ assert('streakDays back to 1', st().streakDays === 1)
 const reCreditedBonus = st().bonusByDay[today].dailyBonus
 assert('re-credited base = sum of 3 rewardPaid + early-bird ≥ original', reCreditedBonus >= firstBonus, `re=${reCreditedBonus} orig=${firstBonus}`)
 assert('no double-credit: bonus log has only one entry per day', Object.keys(st().bonusByDay).length === 1)
+// Restore default 22:00 (no early-bird) for downstream scenarios.
+setNowHour(22, 0)
 
 // ===== Scenario 3: future-day task should NOT revoke today =====
 console.log('\n[3] Add task on tomorrow notebook → today\'s perfect day intact')
@@ -154,6 +170,67 @@ assert('revert emitted task_refund (task_revert + perfect_day_clawback)',
   refundEvents.length === 2 &&
   refundEvents.some((e) => e.meta && e.meta.reason === 'task_revert') &&
   refundEvents.some((e) => e.meta && e.meta.reason === 'perfect_day_clawback'))
+
+// ===== Scenario 4b: revertTask on an older perfect day → streakDays recomputed =====
+// 之前的 bug:revokePerfectDay 直接 state.streakDays = log.prevStreakDays,
+// 在用户回退一个非"最近"的 perfect 日时会把 streak 错写成那天被记入前的值。
+// 修复后:从剩下的 perfectDays 重新算 trailing consecutive run。
+console.log('\n[4b] Revert older perfect day → streakDays recomputed from remaining perfectDays')
+const d1 = s.addDays(today, -3)
+const d2 = s.addDays(today, -2)
+const d3 = s.addDays(today, -1)
+// 模拟一个 4 天 streak(d1→d2→d3→today),挑 d1(最早)那天 revert。
+// 直接 seed perfectDays + bonusByDay + 一个 done 的 task 在 d1。
+seed({
+  notebooks: [nb1],
+  coins: 1000,
+  perfectDays: [d1, d2, d3, today],
+  streakDays: 4,
+  bonusByDay: {
+    [d1]: { dailyBonus: 10, weeklyBonus: 0, prevStreakDays: 0 },
+    [d2]: { dailyBonus: 10, weeklyBonus: 0, prevStreakDays: 1 },
+    [d3]: { dailyBonus: 10, weeklyBonus: 0, prevStreakDays: 2 },
+    [today]: { dailyBonus: 10, weeklyBonus: 0, prevStreakDays: 3 }
+  },
+  tasks: [{
+    id: 'tk_d1', notebookId: 'nb1', subject: '语', content: 'old', estimatedMinutes: 5,
+    order: 0, createdAt: 1, status: 'done', accumulatedMs: 60000,
+    completedAt: new Date(d1 + 'T20:00:00').getTime(),
+    actualMinutes: 1, currentSegmentStartedAt: null, rewardPaid: 10, rewardKind: 'today'
+  }]
+})
+s.revertTask('tk_d1', d1)
+// d1 被踢出 perfectDays;剩下 [d2, d3, today],3 个连续 → streakDays = 3
+assert('older revert: perfectDays no longer contains d1', !st().perfectDays.includes(d1))
+assert('older revert: streakDays recomputed to 3 (d2+d3+today)',
+  st().streakDays === 3, `streakDays=${st().streakDays}`)
+
+// ===== Scenario 4c: revert a middle perfect day → streak breaks =====
+// 4 天 streak,revert 中间的 d2 → 剩 [d1, d3, today] → 因为 d2 缺失,
+// d3+today 连续但 d1 断开 → trailing run = 2(d3+today)
+console.log('\n[4c] Revert middle perfect day → streak breaks at gap')
+seed({
+  notebooks: [nb1],
+  coins: 1000,
+  perfectDays: [d1, d2, d3, today],
+  streakDays: 4,
+  bonusByDay: {
+    [d1]: { dailyBonus: 10, weeklyBonus: 0, prevStreakDays: 0 },
+    [d2]: { dailyBonus: 10, weeklyBonus: 0, prevStreakDays: 1 },
+    [d3]: { dailyBonus: 10, weeklyBonus: 0, prevStreakDays: 2 },
+    [today]: { dailyBonus: 10, weeklyBonus: 0, prevStreakDays: 3 }
+  },
+  tasks: [{
+    id: 'tk_d2', notebookId: 'nb1', subject: '语', content: 'mid', estimatedMinutes: 5,
+    order: 0, createdAt: 1, status: 'done', accumulatedMs: 60000,
+    completedAt: new Date(d2 + 'T20:00:00').getTime(),
+    actualMinutes: 1, currentSegmentStartedAt: null, rewardPaid: 10, rewardKind: 'today'
+  }]
+})
+s.revertTask('tk_d2', d2)
+assert('mid revert: perfectDays no longer contains d2', !st().perfectDays.includes(d2))
+assert('mid revert: streakDays = 2 (d3+today, gap at d2)',
+  st().streakDays === 2, `streakDays=${st().streakDays}`)
 
 // ===== Scenario 5: DAILY_COMPLETION_CAP holds with reconcile loop =====
 console.log('\n[5] 20-task cap + perfect-day revoke + complete still pays bonus exactly once')
@@ -193,6 +270,15 @@ if (st().coins >= lvlCost) {
     `last=${JSON.stringify(last)} expected delta=${-lvlCost}`)
 }
 
+// switchPetSpecies: 不同物种 + 余额够 → 扣 PET_SWITCH_COST(100) 并发 pet_skin_switch 事件。
+const before = st().coins
+const r = s.switchPetSpecies(st().pet.species === 'sheep' ? 'cat' : 'sheep')
+assert('switchPetSpecies returns ok', r && r.ok)
+assert('switchPetSpecies deducts 100 locally', st().coins === before - 100)
+const lastSwitch = pendingLast(1)[0]
+assert('switchPetSpecies → pet_skin_switch event delta=-100',
+  lastSwitch.kind === 'pet_skin_switch' && lastSwitch.delta === -100)
+
 // ===== Scenario 7: pendingCoinEvents survive hydrate; coins re-applied =====
 console.log('\n[7] Hydrate with stale server coins re-applies pending delta')
 seed({ coins: 100 })
@@ -204,8 +290,7 @@ const pendingDelta = st().pendingCoinEvents.reduce((a, e) => a + e.delta, 0)
 // Simulate hydrate from a server that's behind by pendingDelta.
 const serverCoins = localCoinsAfter - pendingDelta
 s.applyHydratedState({
-  coins: serverCoins,
-  pendingShareCoins: 0
+  coins: serverCoins
 }, Date.now())
 assert('hydrate keeps local optimistic coins (server + pending re-applied)', st().coins === localCoinsAfter,
   `coins=${st().coins} expected=${localCoinsAfter}`)

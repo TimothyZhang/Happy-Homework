@@ -89,9 +89,10 @@
                 pet-emoji="{{pet.emoji}}"
                 bind:skip="handleSkipAllDone" />
 
-  <view wx:if="{{rewardRulesOpen}}" class="rules-mask" bindtap="closeRewardRules">
+  <view wx:if="{{rewardRulesOpen}}" class="rules-mask" bindtap="closeRewardRules" catchtouchmove="noop">
     <view class="rules-sheet" catchtap="noop">
       <view class="rules-title">金币奖励规则</view>
+      <scroll-view scroll-y="{{true}}" show-scrollbar="{{false}}" class="rules-scroll">
 
       <view class="rules-subtitle">完成单项作业（按作业日期）</view>
       <view class="rules-section">
@@ -152,6 +153,7 @@
       </view>
 
       <view class="rules-hint">举例：10 项当日作业 18:30 全完成 → 10×10 (单项) + 10×10 (全完成) + 50 (早完成) = 250 金币</view>
+      </scroll-view>
 
       <view class="rules-close" bindtap="closeRewardRules">知道了</view>
     </view>

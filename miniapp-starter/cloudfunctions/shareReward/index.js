@@ -15,6 +15,7 @@
 // 云函数用 admin 权限绕过 ACL，可以为任意 _openid 写记录、按 openid 查询删除。
 
 const cloud = require('wx-server-sdk')
+const crypto = require('crypto')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
 const COLLECTION = 'share_rewards_inbox'
@@ -169,9 +170,33 @@ async function claimRewards(callerOpenid) {
 
   // 1) 写一条 ledger summary entry,做审计。先写 ledger 再改余额:这样
   //    余额改失败的话,审计上能看到"应入账但没成功"。
-  const eventId = `share_claim_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+  // eventId 用 inbox 行 id 的稳定哈希 —— 上一次 claim 如果删 inbox 失败、
+  // 下次重读到同一批行,我们能通过查 ledger 发现"已入账过",直接跳过余额
+  // 变更只清 inbox,避免双倍到账。
+  await ensureLedgerCollection()
+  const inboxIds = rows.map((r) => r._id).slice().sort()
+  const inboxHash = crypto.createHash('sha256').update(inboxIds.join(',')).digest('hex').slice(0, 16)
+  const eventId = `share_claim:${inboxHash}`
+  const existingLedger = await db.collection(LEDGER_COLLECTION)
+    .where({ _openid: callerOpenid, eventId })
+    .limit(1)
+    .get()
+  if (existingLedger.data && existingLedger.data.length > 0) {
+    for (const r of rows) {
+      try { await db.collection(COLLECTION).doc(r._id).remove() } catch (e) {}
+    }
+    const curBalance = await readServerBalance(callerOpenid)
+    return {
+      ok: true,
+      total: 0,
+      count: 0,
+      notebooks: [],
+      newBalance: curBalance,
+      eventId,
+      alreadyApplied: true
+    }
+  }
   try {
-    await ensureLedgerCollection()
     await db.collection(LEDGER_COLLECTION).add({
       data: {
         _openid: callerOpenid,
@@ -181,6 +206,7 @@ async function claimRewards(callerOpenid) {
         balanceAfter: null,    // 写完余额后没必要回填,审计够用
         meta: {
           count: rows.length,
+          inboxIds,
           notebookIds: rows.map((r) => r.notebookId).filter(Boolean)
         },
         clientTs: 0,

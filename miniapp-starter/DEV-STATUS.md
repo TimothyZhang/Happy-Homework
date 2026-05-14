@@ -63,7 +63,7 @@
 - 同步链路:
   - `app.onLaunch` 异步 hydrate;每个 tab `onShow` 调 `hydrateIfStale()`(30s 防抖,launch in-flight 时 await 同一 promise 避免 race)
   - 每次 `saveState` 200ms 防抖 push 到云
-  - 同步白名单 `SYNC_FIELDS` = `notebooks / tasks / coins / streakDays / perfectDays / bonusByDay / pendingShareCoins / pet / lastReward / profile`(OCR 任务 / UI 临时态 / 固定配置不上云)
+  - 同步白名单 `SYNC_FIELDS` = `notebooks / tasks / streakDays / perfectDays / bonusByDay / completionsByDay / pet / lastReward / profile`(OCR 任务 / UI 临时态 / 固定配置 / `coins` + `pendingCoinEvents` 都不上云 —— 余额由服务端账本独占)
 - 单设备占用:云端 doc 持有 `sessionId`,与本机不一致时弹 modal「用此设备 / 只读浏览」;只读模式 `updateState` 直接 return + 4s 节流 toast
 - 「我的」页面有「数据同步」卡片:状态 pill + 「立即同步 / 用此设备」按钮
 - 集合权限「仅创建者可读写」,`_openid` 自动过滤,无需云函数
@@ -81,7 +81,18 @@
 - `pkg-notebook/notebook-edit/` + `pkg-notebook/notebook-task-edit/` 拆为子包,`preloadRule` 配置在用户进 home/tasks/calendar/notebook-detail 时预热
 - 日历 tab 月历格子构建在 `wx.nextTick` 延后,首屏 chrome 先出
 
-### 9. 作业本分享 — **真实闭环**
+### 9. 服务端金币账本 + 管理员后台 — **已上线**
+- `state.coins` 不再在 `SYNC_FIELDS` 里随业务 state 一起 push,余额改由服务端独占维护:
+  - 客户端每次 coin 变更 → 乐观本地 `+= delta` + 事件入队 `pendingCoinEvents`
+  - `utils/coin-ledger` 500ms 防抖把队列批量送 `coinLedger.commit`
+  - 服务端校验 kind / delta 范围(`task_reward 1-500` / `task_refund -500--1` / `pet_purchase -200--1` / `level_upgrade -100000--1` / `pet_skin_switch -1000--1`),原子 `inc` 用户余额,写 `coin_ledger` 审计
+  - server 返 `newBalance` + `appliedEventIds`,client drain 队列 + 把 coins 校准成服务端值
+- 客户端 hydrate 时把未上报的 `pendingCoinEvents.delta` 加回服务端拉到的 `coins`,UI 不闪
+- `pages/admin-detail` + `cloudfunctions/adminPanel`:管理员(`ADMIN_OPENIDS_HARDCODED` + `ADMIN_OPENIDS` env)能查用户列表 / 调金币(写 `admin_coin_inbox` + `coin_adjustments` 审计)/ 看 `coinLogs`
+- 任意用户登录都会触发 `claimAdminCoins`,把自己的 inbox 调整服务端 clamp ≥0 后入账并发 toast
+- `shareReward.claim`(分享被保存 +3)同样改为服务端原子 inc 后返 `newBalance`
+
+### 10. 作业本分享 — **真实闭环**
 - `pages/notebook-detail` 「📤 分享作业本」按钮调 `onShareAppMessage`:把作业本元数据 + 任务列表 URI-encode 进 share path（`/pages/notebook-share/index?d=...`）
 - 接收方点卡片落到 `pages/notebook-share`:解码 → 显示「{发送方昵称}分享给你的作业本」+ 任务预览 → 「💾 保存」走 `store.importSharedNotebook` 生成新本,任务全部 reset 为 todo;支持「📤 分享」转发同 payload
 - 「我的」页加了 `<input type="nickname">` 行,点击自动回填微信昵称,不需要手输;`profile.nickname` 入 `SYNC_FIELDS`,跨设备保持一致
@@ -102,7 +113,7 @@
 - 多孩子家庭只能共用一份数据
 - 没有「家长查看 / 孩子操作」的权限分层
 - 没有家庭成员邀请 / 关联机制
-- `coinLogs / ocrDraftItems` 这些日志型数据没有独立持久化,只在 `user_state.state` 里取最新快照
+- `ocrDraftItems` 这些日志型数据没有独立持久化,只在 `user_state.state` 里取最新快照(金币事件已经走 `coin_ledger` 集合落库,见下方「服务端金币账本」)
 
 未来如果要做家庭体系,需要在 `user_state` 之上加 `families / children` 关系(`CLOUD-DATA-NOTES.md` 已有草案)。
 
@@ -149,7 +160,7 @@
 
 ### 仍然是 mock / 原型的部分
 - 多家庭、多孩子账号体系(目前一个 openid = 一份独立 state)
-- `coinLogs / ocrDraftItems` 等日志型数据的长期沉淀(只有最新快照)
+- `ocrDraftItems` 等日志型数据的长期沉淀(只有最新快照;`coinLogs` 已落 `coin_ledger`)
 - 完整线上化容错能力(重试 / 限流处理 / 错误分级)
 - OCR 识别质量(对手写登记本仍偏弱)
 - 单 doc 同步粒度(未来大数据量需要拆分)
@@ -187,7 +198,7 @@
 
 ### 第三优先级:账号 / 同步粒度
 - 把 `user_state` 拓成 `families / children` 关系(对应 `CLOUD-DATA-NOTES.md` 已有的草案)
-- 把 `coinLogs / ocrDraftItems` 拆出来单独建集合做长期沉淀
+- `ocrDraftItems` 拆出来单独建集合做长期沉淀(`coinLogs` 已落 `coin_ledger`)
 - 单 doc 同步太粗时,把 `tasks` 拆成集合(按 `notebookId` 索引)
 - 离线写入队列 + 网络恢复后批量 push
 - 「用此设备」前先 push 本机一次,减少切换时数据丢失

@@ -32,6 +32,7 @@
 // 管理员白名单：环境变量 ADMIN_OPENIDS（逗号分隔）。未配置 = 无管理员。
 
 const cloud = require('wx-server-sdk')
+const crypto = require('crypto')
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 
 const USER_COLLECTION = 'user_state'
@@ -346,9 +347,38 @@ async function claimAdminCoins(callerOpenid) {
   }
 
   // 1) 写 ledger summary,优先做(失败的话不动余额)。
-  const eventId = `admin_claim_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+  // eventId 改为 inbox 行 id 的稳定哈希 —— 这样如果上一次 claim 删 inbox
+  // 失败、下次重读到同一批行时,我们能通过查 ledger 发现"这批已入账过",
+  // 直接跳过余额变更只清 inbox,避免双倍到账。
+  await ensureCollection(LEDGER_COLLECTION)
+  const inboxIds = rows.map((r) => r._id).slice().sort()
+  const inboxHash = crypto.createHash('sha256').update(inboxIds.join(',')).digest('hex').slice(0, 16)
+  const eventId = `admin_claim:${inboxHash}`
+  const existingLedger = await db.collection(LEDGER_COLLECTION)
+    .where({ _openid: callerOpenid, eventId })
+    .limit(1)
+    .get()
+  if (existingLedger.data && existingLedger.data.length > 0) {
+    // 已经入过账。这次 claim 的"应得"为 0 —— 余额不动,只把残留的 inbox
+    // 行删掉(可能上次 delete 也失败,best-effort 再试一次)+ 标 audit。
+    for (const r of rows) {
+      try { await db.collection(INBOX_COLLECTION).doc(r._id).remove() } catch (e) {}
+    }
+    const curBalance = await readServerBalance(callerOpenid)
+    return {
+      ok: true,
+      total: 0,
+      totalApplied: 0,
+      addedTotal: 0,
+      deductedTotal: 0,
+      count: 0,
+      items: [],
+      newBalance: curBalance,
+      eventId,
+      alreadyApplied: true
+    }
+  }
   try {
-    await ensureCollection(LEDGER_COLLECTION)
     await db.collection(LEDGER_COLLECTION).add({
       data: {
         _openid: callerOpenid,
@@ -358,7 +388,7 @@ async function claimAdminCoins(callerOpenid) {
         balanceAfter: null,
         meta: {
           count: rows.length,
-          inboxIds: rows.map((r) => r._id),
+          inboxIds,
           appliedItems: appliedItems.map((it) => ({
             requested: it.requested,
             applied: it.applied,

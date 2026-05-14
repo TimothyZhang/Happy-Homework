@@ -32,11 +32,15 @@ miniapp-starter/
 ├── utils/
 │   ├── store.js               # 业务状态 + 进程内缓存 + schema 迁移 + saveState 触发云推送
 │   ├── cloud-sync.js          # 跨端同步（user_state 集合，单设备 session 占用）
+│   ├── coin-ledger.js         # 把 pendingCoinEvents 队列 debounced flush 到 coinLedger 云函数
 │   ├── share-reward.js        # 包装 shareReward 云函数（whoami / credit / claim）+ openid 缓存
+│   ├── admin-inbox.js         # 拉/清自己的 admin_coin_inbox（任意用户可调，不走 admin 白名单）
 │   └── navigation.js          # 页面跳转封装
 ├── cloudfunctions/
 │   ├── homeworkOCR/           # 多 provider 兜底 OCR 云函数（OpenAI / 腾讯云 / 微信 OpenAPI / Tesseract.js）
-│   └── shareReward/           # 分享奖励云函数（独立 share_rewards_inbox 集合）
+│   ├── coinLedger/            # 服务端账本：commit 接收 pendingCoinEvents、按 kind / delta 校验入账
+│   ├── shareReward/           # 分享奖励云函数（独立 share_rewards_inbox 集合）
+│   └── adminPanel/            # 管理员后台：调金币 / 列用户 / 审计 + claimAdminCoins 任意用户领
 ├── scripts/                   # Node 端：perf-bench / perf-correctness / values-check（V1 数值校验），不打包进小程序
 └── docs（README / PRD / TECH-OVERVIEW / CLOUD-SETUP / DEV-STATUS / PRODUCT-DOCS-INDEX / CLOUD-DATA-NOTES / V1-VALUES-DESIGN / V1-PET-ANIMATION-SPEC）
 ```
@@ -108,9 +112,12 @@ OCR 上传 + 草稿确认链路（详见 `V1-PRD-homework-register-ocr.md`）。
 {
   schemaVersion, updatedAt,                                  // 版本 + 同步时间戳
   notebooks, tasks,                                          // 核心业务
-  coins, streakDays, perfectDays, bonusByDay,                // 奖励
-  pendingShareCoins,                                         // 分享金币的去重标记
-  pet, lastReward,                                           // 宠物
+  coins,                                                     // 服务端账本权威值的本地缓存（不参与 push，靠 hydrate / flush 校准）
+  pendingCoinEvents,                                         // 未上报的 coin 事件队列（仅本地）
+  streakDays, perfectDays, bonusByDay, completionsByDay,     // 奖励 + 20-cap 计数
+  pet, lastReward, lastLevelUp, lastShareReward,             // 宠物 + UI hint
+  lastAdminCoinClaim,                                        // admin 调金币 toast hint
+  coinLogs,                                                  // admin 调金币明细（最近 200 条，仅 admin claim 写）
   profile,                                                   // { nickname, avatar } —— 分享发送方身份
   shopItems,                                                 // 静态配置（不同步）
   editTaskId, editNotebookId,                                // UI 临时态（不同步）
@@ -136,11 +143,13 @@ OCR 上传 + 草稿确认链路（详见 `V1-PRD-homework-register-ocr.md`）。
 - 只读模式下 `updateState` 直接 return，4s 节流 toast
 
 ### 3.5 同步白名单（`SYNC_FIELDS`）
-同步 `notebooks / tasks / coins / streakDays / perfectDays / bonusByDay / pendingShareCoins / pet / lastReward / profile`。OCR 任务、UI 临时态、静态配置（shopItems）都本地保留。
+同步 `notebooks / tasks / streakDays / perfectDays / bonusByDay / completionsByDay / pet / lastReward / profile`。OCR 任务、UI 临时态、静态配置（shopItems）、coin 余额 / 事件队列 都本地保留。
 
 要点：
+- **`coins` 不在白名单里**：余额由服务端账本（`coinLedger` / `shareReward.claim` / `adminPanel.claimAdminCoins`）独占维护，客户端 push 整包 state 时不带 coins，避免 localStorage 篡改秒变 999999；客户端 `state.coins` 仅是即时 UI 缓存，hydrate 或 flush 后被服务端 `newBalance` 覆盖
+- **`pendingCoinEvents` 也不在白名单里**：本机未上报的 coin 事件队列，跨设备切换时未上报的事件会丢（很少），可接受
+- `completionsByDay` 同步是为了让 20-cap 计数跨设备生效（在 A 设备完成 18 项 → B 设备打开 → 当天只剩 2 个名额）
 - `profile` 在白名单里是为了让分享发送方的昵称（和头像 fileID）跟着用户跨设备走
-- `pendingShareCoins` 同步是为了避免同账号在另一台设备上重复领取
 
 ### 3.6 性能要点
 对 1000 个作业本 / 5000+ 个作业的目标场景做了若干 O(N+M) 改造：
@@ -206,20 +215,24 @@ stub 了 `wx.storage` 和 `wx.cloud`,测的是客户端逻辑 + `pendingCoinEven
 
 ## 5. 云数据库
 
-### 在用集合：`user_state`
+### 在用集合
 
-详见 `CLOUD-SETUP.md` 末尾的「跨设备数据同步」章节。要点：
-- 一个 `_openid` 一条文档，整个用户 state 打包存在 `state` 字段里
-- 文档结构：`{ _id, _openid, state, sessionId, claimedAt, updatedAt }`
-- 权限「仅创建者可读写」，`_openid` 自动注入，无需云函数代理
-- 单文档存全状态：取舍是简单 + 写就是 replace；多设备并发由「单设备登录」机制规避
+| 集合 | 写入方 | 用途 |
+| --- | --- | --- |
+| `user_state` | cloud-sync push（业务字段）+ 各 coin 云函数 `inc(state.coins)` | 每个 `_openid` 一条文档，整个用户 state 打包存在 `state` 字段。详见 `CLOUD-SETUP.md`「跨设备数据同步」 |
+| `coin_ledger` | `coinLedger.commit` / `shareReward.claim` / `adminPanel.claimAdminCoins` | 事件级账本：每条记录 `{eventId, kind, delta, balanceAfter, meta, createdAt}`，dedup 靠 eventId |
+| `coin_adjustments` | `adminPanel.adjustCoins` | 管理员调金币的不可变审计 `{targetOpenid, adminOpenid, delta, reason, claimed, claimedAt, appliedDelta}` |
+| `admin_coin_inbox` | `adjustCoins` 写入 → `claimAdminCoins` 读出后删 | 待目标用户领取的调整记录，避开 cloud-sync 单设备写模型冲突 |
+| `admin_action_rate` | `adminPanel.checkAdminRateLimit` | admin × action 限流计数（30 次/分钟） |
+| `share_rewards_inbox` | `shareReward.credit` 写入 → `shareReward.claim` 读出后删 | 分享方未领取的奖励记录，dedup key `${importerOpenid}__${notebookId}` |
+
+`user_state` 权限「仅创建者可读写」，`_openid` 自动注入，业务字段读写无需云函数代理；其它集合由云函数用 admin SDK 跨 openid 操作，客户端不直接访问。
+
+WeChat 云数据库的 `update({data: {state: subset}})` 走 MongoDB 的 `$set` 自动展平成 `state.X` dot-path，所以 cloud-sync 的整包 push 和 coin 云函数的 `inc(state.coins)` 互不覆盖，多个写入方共用 `state` 子字段安全。
 
 ### 设计草案（未实现）
 
-`CLOUD-DATA-NOTES.md` 里有更规范化的多表方案：`users / families / children / homeworkTasks / coinLogs / pets / shopOrders / ocrJobs / ocrDraftItems`。当前 v1 故意没采纳，原因：
-- 多表化在 MVP 阶段不解决关键问题
-- `_openid = 主键` 的单文档模型一行代码就能上云，验证产品价值更快
-- 真要做长期分析或多家庭体系时再拆表（届时 `state` 里的 `tasks` / `coinLogs` 等数组就是迁移源）
+`CLOUD-DATA-NOTES.md` 里有更规范化的多表方案：`users / families / children / homeworkTasks / coinLogs / pets / shopOrders / ocrJobs / ocrDraftItems`。`coin_ledger` 已经把"金币流水"独立沉淀了；其它如 `homeworkTasks` / `children` 等仍在 `user_state.state` 里，要做跨家庭分析才会拆。
 
 ---
 
@@ -260,7 +273,7 @@ stub 了 `wx.storage` 和 `wx.cloud`,测的是客户端逻辑 + `pendingCoinEven
 
 1. **OCR 识别质量调优**：多 provider 并行合并、把腾讯云 confidence 字段纳入 `needsConfirm` 判定
 2. **OCR 错误码分级 + provider 来源 + 置信度展示**：现有 `errorCode` 已传到端，前端没分级展示
-3. **数据模型分表**：当前同步是把 `tasks` 数组整段推。等数据更大时拆成 `tasks` 集合，按 `notebookId` 索引；`coinLogs / ocrDraftItems` 也独立沉淀
+3. **数据模型分表**：当前同步是把 `tasks` 数组整段推。等数据更大时拆成 `tasks` 集合，按 `notebookId` 索引；`ocrDraftItems` 也独立沉淀（`coinLogs` 已落 `coin_ledger`）
 4. **多家庭 / 多孩子账号**：当前 sessionId 只能识别同账号下哪台设备活跃，没有「孩子身份」概念
 5. **离线写入队列**：断网累积，联网批量 push
 6. **「用此设备」前先 push 本机一次**：减少切换时数据丢失

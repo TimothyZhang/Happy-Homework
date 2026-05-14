@@ -208,16 +208,20 @@
   padding: 40rpx;
 }
 .rules-sheet {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-width: 640rpx;
   max-height: 85vh;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
   background: #ffffff;
   border-radius: 28rpx;
   padding: 36rpx 36rpx 28rpx;
   box-shadow: 0 24rpx 64rpx rgba(15, 23, 42, 0.24);
   box-sizing: border-box;
+}
+.rules-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 .rules-title {
   font-size: 34rpx;

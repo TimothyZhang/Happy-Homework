@@ -67,7 +67,9 @@ function decorateNotebook(nb, tasks, today) {
 
 Page({
   data: {
-    notebooks: []
+    notebooks: [],
+    completedNotebooks: [],
+    showCompleted: false
   },
 
   onShow() {
@@ -101,8 +103,18 @@ Page({
       if (!eb) return 1
       return ea < eb ? 1 : -1
     })
-    const notebooks = sorted.map((nb) => decorateNotebook(nb, tasksByNb[nb.id] || [], today))
-    this.setData({ notebooks }, perfStamp ? () => perf.markPaint(perfStamp) : undefined)
+    const all = sorted.map((nb) => decorateNotebook(nb, tasksByNb[nb.id] || [], today))
+    const notebooks = []
+    const completedNotebooks = []
+    for (const nb of all) {
+      if (nb.allDone) completedNotebooks.push(nb)
+      else notebooks.push(nb)
+    }
+    this.setData({ notebooks, completedNotebooks }, perfStamp ? () => perf.markPaint(perfStamp) : undefined)
+  },
+
+  handleToggleCompleted() {
+    this.setData({ showCompleted: !this.data.showCompleted })
   },
 
   handleAddNotebook() {
