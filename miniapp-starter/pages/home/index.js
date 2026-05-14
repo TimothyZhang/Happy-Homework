@@ -46,12 +46,16 @@ function buildBonusChip(isToday, pendingCount) {
   return { active: false, icon: '', label: '当前无加成' }
 }
 
-function buildPetMessage({ isToday, totalCount, pendingCount, remainingMinutes }) {
+function buildPetMessage({ isToday, totalCount, pendingCount, remainingMinutes, coinsToday }) {
   const timeStr = remainingMinutes > 0 ? formatDuration(remainingMinutes) : ''
 
   if (isToday) {
     if (totalCount === 0) return '今天还没有作业安排，可以陪我玩一会儿～'
-    if (pendingCount === 0) return '太棒了，今天的作业全部完成啦！🎉'
+    if (pendingCount === 0) {
+      return coinsToday > 0
+        ? `太棒了，今天的作业全部完成啦！🎉 共获得 ${coinsToday} 金币～`
+        : '太棒了，今天的作业全部完成啦！🎉'
+    }
     if (pendingCount === 1) {
       return timeStr
         ? `就剩最后 1 项啦，预计 ${timeStr}，冲呀～`
@@ -258,11 +262,13 @@ Page({
     const projected19 = isToday ? store.projectedReward(state, raw, 19) : 0
     const projected20 = isToday ? store.projectedReward(state, raw, 20) : 0
     const projected21 = isToday ? store.projectedReward(state, raw, 21) : 0
+    const coinsToday = isToday ? store.coinsEarnedOn(state, selectedDate) : 0
     const petTipCtx = {
       isToday,
       totalCount: total,
       pendingCount: undoneItems.length,
       remainingMinutes,
+      coinsToday,
       projected19,
       projected20,
       projected21
