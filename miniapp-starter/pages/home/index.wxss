@@ -218,9 +218,13 @@
   padding: 36rpx 36rpx 28rpx;
   box-shadow: 0 24rpx 64rpx rgba(15, 23, 42, 0.24);
   box-sizing: border-box;
+  /* clip 溢出,防止 scroll-view 不收缩时把「知道了」挤出 sheet */
+  overflow: hidden;
 }
 .rules-scroll {
-  flex: 1 1 auto;
+  /* basis 0 — WeChat scroll-view 用 flex-basis: auto 会撑到内容高度,
+     close 按钮被挤出视口;改 0 后才按 flex-grow 分空间 */
+  flex: 1 1 0;
   min-height: 0;
 }
 .rules-title {
@@ -263,6 +267,7 @@
 .rules-close {
   margin-top: 24rpx;
   height: 80rpx;
+  flex-shrink: 0;
   border-radius: 16rpx;
   background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
   color: #ffffff;
