@@ -7,8 +7,11 @@
 chi_sim.traineddata
 eng.traineddata
 
-# 云函数依赖（部署时通过 npm 安装或随 deploy 上传）
+# 云函数依赖（部署时通过 npm 安装或随 deploy 上传）。
+# package-lock.json 也忽略:我们走 WeChat CLI --remote-npm-install,SCF 服务端
+# 按 package.json 现场装,本地 lock 既不影响构建也不需要跨机一致。
 miniapp-starter/cloudfunctions/*/node_modules/
+miniapp-starter/cloudfunctions/*/package-lock.json
 
 # 本地秘钥
 .secrets.env
