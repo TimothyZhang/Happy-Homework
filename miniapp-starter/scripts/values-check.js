@@ -850,5 +850,69 @@ check('imported task with history → estimatedMinutes is multiple of 5',
 check('imported task w/o history → estimatedMinutes = 0',
   unmatched && unmatched.estimatedMinutes, 0)
 
+// === Test 16: duplicateNotebook — local clone preserves fields, resets status ===
+console.log('\n[duplicate] duplicateNotebook:')
+seedNTasksToday(0)
+store = freshStore()
+store.addNotebook({ name: '语文', mode: 'one-shot', startDate: today, endDate: today })
+const dupSrcId = store.findNotebookByName('语文').id
+store.addTask({ notebookId: dupSrcId, subject: '语文', content: '抄写课文', estimatedMinutes: 15 })
+store.addTask({ notebookId: dupSrcId, subject: '语文', content: '默写词语', estimatedMinutes: 10 })
+// Mark one task as done so we can verify status is reset on copy.
+const dupSrcTasks = store.getStateWithComputed().tasks.filter((t) => t.notebookId === dupSrcId)
+store.finishTask(dupSrcTasks[0].id, today)
+
+const dupNewId = store.duplicateNotebook(dupSrcId, '语文 复制')
+check('duplicateNotebook returns new id', !!dupNewId && dupNewId !== dupSrcId, true)
+const afterDup = store.getStateWithComputed()
+const dupNew = afterDup.notebooks.find((n) => n.id === dupNewId)
+check('new notebook has the given name', dupNew && dupNew.name, '语文 复制')
+check('new notebook copies mode', dupNew.mode, 'one-shot')
+check('new notebook copies startDate', dupNew.startDate, today)
+const dupNewTasks = afterDup.tasks
+  .filter((t) => t.notebookId === dupNewId)
+  .sort((a, b) => (a.order || 0) - (b.order || 0))
+check('new notebook has 2 tasks', dupNewTasks.length, 2)
+check('new task[0] content preserved', dupNewTasks[0].content, '抄写课文')
+check('new task[0] estimatedMinutes preserved', dupNewTasks[0].estimatedMinutes, 15)
+check('new task[0] subject preserved', dupNewTasks[0].subject, '语文')
+check('new task[0] status reset to todo', dupNewTasks[0].status, 'todo')
+check('new task[0] completedAt cleared', dupNewTasks[0].completedAt, null)
+check('new task[0] has fresh id (not shared with source)',
+  dupNewTasks[0].id !== dupSrcTasks[0].id, true)
+const dupSrcAfter = afterDup.tasks.filter((t) => t.notebookId === dupSrcId)
+check('source notebook untouched (still 2 tasks)', dupSrcAfter.length, 2)
+const dupSrcDone = dupSrcAfter.find((t) => t.id === dupSrcTasks[0].id)
+check('source done task still done', dupSrcDone.status, 'done')
+
+// Reject duplicate name
+const dupRejectId = store.duplicateNotebook(dupSrcId, '语文 复制')
+check('duplicateNotebook rejects existing name → null', dupRejectId, null)
+
+// Reject empty / unknown source
+check('duplicateNotebook rejects empty name', store.duplicateNotebook(dupSrcId, '   '), null)
+check('duplicateNotebook rejects unknown source id',
+  store.duplicateNotebook('nb_does_not_exist', '随便'), null)
+
+// Recurring notebook: occurrences must be empty (fresh) on the copy
+seedNTasksToday(0)
+store = freshStore()
+store.addNotebook({
+  name: '每日练习', mode: 'recurring', startDate: today, endDate: null,
+  recurrence: { type: 'daily', weekdays: [] }
+})
+const recSrcId = store.findNotebookByName('每日练习').id
+store.addTask({ notebookId: recSrcId, subject: '数学', content: '口算', estimatedMinutes: 20 })
+const recSrcTasks = store.getStateWithComputed().tasks.filter((t) => t.notebookId === recSrcId)
+store.finishTask(recSrcTasks[0].id, today)
+const recNewId = store.duplicateNotebook(recSrcId, '每日练习 复制')
+const recAfter = store.getStateWithComputed()
+const recNew = recAfter.notebooks.find((n) => n.id === recNewId)
+check('recurring copy keeps mode=recurring', recNew.mode, 'recurring')
+check('recurring copy keeps recurrence type', recNew.recurrence && recNew.recurrence.type, 'daily')
+const recNewTasks = recAfter.tasks.filter((t) => t.notebookId === recNewId)
+check('recurring copy task occurrences reset to empty',
+  Object.keys(recNewTasks[0].occurrences || {}).length, 0)
+
 console.log(`\n  ${pass} passed, ${fail} failed.\n`)
 process.exit(fail === 0 ? 0 : 1)

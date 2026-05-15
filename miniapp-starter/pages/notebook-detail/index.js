@@ -149,21 +149,34 @@ Page({
   handleCopyNotebook() {
     const nb = this.data.notebook
     if (!nb) return
-    const tasks = this.data.tasks || []
-    const lines = [`📚 ${nb.name}`]
-    if (this.data.notebookSummary) lines.push(this.data.notebookSummary)
-    if (tasks.length === 0) {
-      lines.push('(暂无作业)')
-    } else {
-      lines.push('')
-      tasks.forEach((t, i) => {
-        const subj = t.subject ? `[${t.subject}] ` : ''
-        lines.push(`${i + 1}. ${subj}${t.content}（预计 ${t.estimatedMinutes} 分钟）`)
-      })
-    }
-    wx.setClipboardData({
-      data: lines.join('\n'),
-      success: () => wx.showToast({ title: '已复制', icon: 'success' })
+    const defaultName = `${nb.name} 复制`
+    wx.showModal({
+      title: '复制作业本',
+      editable: true,
+      placeholderText: '请输入新作业本名称',
+      content: defaultName,
+      confirmText: '复制',
+      success: (res) => {
+        if (!res.confirm) return
+        const name = (res.content || '').trim()
+        if (!name) {
+          wx.showToast({ title: '请填名称', icon: 'none' })
+          return
+        }
+        if (store.findNotebookByName(name)) {
+          wx.showToast({ title: '已存在同名作业本', icon: 'none' })
+          return
+        }
+        const newId = store.duplicateNotebook(this.data.notebookId, name)
+        if (!newId) {
+          wx.showToast({ title: '复制失败', icon: 'none' })
+          return
+        }
+        wx.showToast({ title: '已复制', icon: 'success' })
+        setTimeout(() => {
+          wx.redirectTo({ url: `/pages/notebook-detail/index?id=${newId}` })
+        }, 300)
+      }
     })
   },
 

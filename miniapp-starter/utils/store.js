@@ -983,6 +983,61 @@ function deleteNotebook(id) {
   })
 }
 
+// Duplicate a notebook locally: clone metadata + every task (preserving
+// subject/content/estimatedMinutes/order). Task progress is reset to fresh
+// todo — the copy is treated as a brand-new notebook. Returns the new
+// notebook id, or null if source is missing.
+// `newName` is required and must not collide with an existing notebook name.
+function duplicateNotebook(sourceNotebookId, newName) {
+  let resultId = null
+  updateState((state) => {
+    const src = state.notebooks.find((nb) => nb.id === sourceNotebookId)
+    if (!src) return state
+    const finalName = (newName || '').trim()
+    if (!finalName) return state
+    if (state.notebooks.some((nb) => (nb.name || '').trim() === finalName)) return state
+    const nb = {
+      id: genId('nb'),
+      name: finalName,
+      mode: src.mode === 'recurring' ? 'recurring' : 'one-shot',
+      startDate: src.startDate,
+      endDate: src.endDate,
+      recurrence: src.mode === 'recurring'
+        ? (src.recurrence || { type: 'daily', weekdays: [] })
+        : null,
+      createdAt: Date.now(),
+      order: state.notebooks.length
+    }
+    state.notebooks.push(nb)
+    const srcTasks = state.tasks
+      .filter((t) => t.notebookId === sourceNotebookId)
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+    const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
+    let cursor = maxOrder + 1
+    for (const t of srcTasks) {
+      const base = {
+        id: genId('tk'),
+        notebookId: nb.id,
+        subject: t.subject || '其他',
+        content: t.content || '',
+        estimatedMinutes: Number(t.estimatedMinutes || 0),
+        order: cursor++,
+        createdAt: Date.now()
+      }
+      if (nb.mode === 'recurring') {
+        base.occurrences = {}
+      } else {
+        Object.assign(base, defaultOccurrence())
+      }
+      state.tasks.push(base)
+    }
+    reconcilePerfectDays(state)
+    resultId = nb.id
+    return state
+  })
+  return resultId
+}
+
 function setEditNotebookId(id) {
   return updateState((state) => { state.editNotebookId = id; return state })
 }
@@ -2153,6 +2208,7 @@ module.exports = {
   addNotebook,
   updateNotebook,
   deleteNotebook,
+  duplicateNotebook,
   setEditNotebookId,
   clearEditNotebookId,
   getNotebookById,
