@@ -13,10 +13,6 @@ miniapp-starter/cloudfunctions/*/node_modules/
 # 本地秘钥
 .secrets.env
 
-# 预览构建产物：二维码 ~30min 就过期，info json 是一次性元数据。
-# 历史上有部分 preview-qr-v*.jpg 已经被 track，仓库里那几个先留着，
-# 新生成的不再入库。
-miniapp-starter/preview-qr-*.jpg
-miniapp-starter/preview-info-*.json
-!miniapp-starter/preview-qr-v[1-7].jpg
-!miniapp-starter/preview-qr.jpg
+# 临时产物目录：preview QR、preview-info、其它一次性 build artifact 都丢这里。
+# 整个 temp/ 不入库,本地随便用。
+miniapp-starter/temp/

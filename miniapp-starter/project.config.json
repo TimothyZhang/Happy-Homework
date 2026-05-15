@@ -5,7 +5,7 @@
     "ignore": [
       { "type": "folder", "value": "scripts" },
       { "type": "folder", "value": "samples" },
-      { "type": "regexp", "value": "preview-qr.*\\.jpg" },
+      { "type": "folder", "value": "temp" },
       { "type": "regexp", "value": ".*\\.md" }
     ],
     "include": []
