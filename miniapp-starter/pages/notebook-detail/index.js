@@ -62,7 +62,11 @@ Page({
     notebookSummary: '',
     tasks: [],
     dragId: null,
-    dragDy: 0
+    dragDy: 0,
+    // Bound to <page-meta disable-scroll>. WXML can't toggle catch/bind on
+    // touchmove dynamically, so we use bindtouchmove (lets ordinary swipes
+    // scroll the page) and flip this flag during a drag to suppress scroll.
+    disableScroll: false
   },
 
   onLoad(options) {
@@ -263,7 +267,7 @@ Page({
       q.select('.task-row').boundingClientRect()
       q.exec((rects) => { if (rects && rects[0]) this.itemHeightPx = rects[0].height + 12 })
     }
-    this.setData({ dragId: id, dragDy: 0 })
+    this.setData({ dragId: id, dragDy: 0, disableScroll: true })
     if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
   },
 
@@ -319,7 +323,7 @@ Page({
     if (fromIdx < 0) {
       this.dragStartY = null
       this.touchStartY = null
-      this.setData({ dragId: null, dragDy: 0 })
+      this.setData({ dragId: null, dragDy: 0, disableScroll: false })
       return
     }
     const [groupStart, groupEnd] = this._subjectGroupRange(list, fromIdx)
@@ -336,6 +340,6 @@ Page({
     }
     this.dragStartY = null
     this.touchStartY = null
-    this.setData({ dragId: null, dragDy: 0 })
+    this.setData({ dragId: null, dragDy: 0, disableScroll: false })
   }
 })

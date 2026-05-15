@@ -1,4 +1,4 @@
-<page-meta page-style="{{dragId ? 'overflow: hidden;' : ''}}" />
+<page-meta disable-scroll="{{disableScroll}}" />
 <view class="page">
   <view class="card header-card">
     <text class="nb-summary">{{notebookSummary}}</text>
@@ -17,9 +17,9 @@
           style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
           bindtouchstart="handleTouchStart"
           bindlongpress="handleLongPress"
-          catchtouchmove="handleTouchMove"
-          catchtouchend="handleTouchEnd"
-          catchtouchcancel="handleTouchEnd"
+          bindtouchmove="handleTouchMove"
+          bindtouchend="handleTouchEnd"
+          bindtouchcancel="handleTouchEnd"
           data-id="{{item.id}}">
       <view class="dot"></view>
       <view class="row-body">
