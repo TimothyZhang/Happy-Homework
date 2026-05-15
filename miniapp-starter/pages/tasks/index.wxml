@@ -3,7 +3,7 @@
     <button class="primary-btn add-nb-btn" bindtap="handleAddNotebook">+ 新建作业本</button>
   </view>
 
-  <view wx:if="{{notebooks.length === 0 && completedNotebooks.length === 0}}" class="card">
+  <view wx:if="{{notebooks.length === 0 && completedNotebooks.length === 0 && hiddenEmpty.length === 0}}" class="card">
     <view class="empty-state">
       <text class="empty-emoji">📒</text>
       <text class="empty-text">还没有作业本，点上方「+ 新建作业本」开始吧</text>
@@ -71,6 +71,35 @@
   <view wx:if="{{completedNotebooks.length > 0}}" class="toggle-completed-row">
     <button class="toggle-completed-btn" bindtap="handleToggleCompleted">
       {{showCompleted ? '收起已完成' : '显示已完成 (' + completedNotebooks.length + ')'}}
+    </button>
+  </view>
+
+  <block wx:if="{{showHiddenEmpty}}">
+    <view wx:for="{{hiddenEmpty}}" wx:key="id"
+          class="notebook-card all-done"
+          data-id="{{item.id}}"
+          bindtap="handleOpenNotebook">
+      <view class="nb-row">
+        <view class="nb-body">
+          <view class="nb-title-row">
+            <text class="nb-name">{{item.name}}</text>
+            <text class="nb-mode mode-{{item.mode}}">{{item.modeLabel}}</text>
+          </view>
+          <view class="nb-chips">
+            <text wx:if="{{item.recurrenceLabel}}" class="chip rec-chip">{{item.recurrenceLabel}}</text>
+            <text class="chip range-chip">{{item.rangeLabel}}</text>
+          </view>
+          <view class="nb-progress">
+            <text class="progress-text">空作业本 · 已过期</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </block>
+
+  <view wx:if="{{hiddenEmpty.length > 0}}" class="toggle-completed-row">
+    <button class="toggle-completed-btn" bindtap="handleToggleHiddenEmpty">
+      {{showHiddenEmpty ? '收起过期空本' : '显示过期空本 (' + hiddenEmpty.length + ')'}}
     </button>
   </view>
 </view>

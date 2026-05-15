@@ -69,7 +69,9 @@ Page({
   data: {
     notebooks: [],
     completedNotebooks: [],
-    showCompleted: false
+    hiddenEmpty: [],
+    showCompleted: false,
+    showHiddenEmpty: false
   },
 
   onShow() {
@@ -106,15 +108,27 @@ Page({
     const all = sorted.map((nb) => decorateNotebook(nb, tasksByNb[nb.id] || [], today))
     const notebooks = []
     const completedNotebooks = []
+    const hiddenEmpty = []
     for (const nb of all) {
-      if (nb.allDone) completedNotebooks.push(nb)
-      else notebooks.push(nb)
+      if (nb.allDone) {
+        completedNotebooks.push(nb)
+      } else if (nb.taskCount === 0) {
+        const end = effectiveEnd(nb)
+        if (end && end < today) hiddenEmpty.push(nb)
+        else notebooks.push(nb)
+      } else {
+        notebooks.push(nb)
+      }
     }
-    this.setData({ notebooks, completedNotebooks }, perfStamp ? () => perf.markPaint(perfStamp) : undefined)
+    this.setData({ notebooks, completedNotebooks, hiddenEmpty }, perfStamp ? () => perf.markPaint(perfStamp) : undefined)
   },
 
   handleToggleCompleted() {
     this.setData({ showCompleted: !this.data.showCompleted })
+  },
+
+  handleToggleHiddenEmpty() {
+    this.setData({ showHiddenEmpty: !this.data.showHiddenEmpty })
   },
 
   handleAddNotebook() {
