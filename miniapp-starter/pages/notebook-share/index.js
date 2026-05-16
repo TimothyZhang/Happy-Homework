@@ -3,18 +3,18 @@ const shareReward = require('../../utils/share-reward')
 
 const SUBJECT_ORDER = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
 
-// Mirror of arrangeBySubject in pages/notebook-detail/index.js so the share
-// preview groups tasks under the same subject headers as the detail page.
+// Mirrors arrangeBySubject in pages/notebook-detail — share preview is
+// read-only, grouped by subject only (planning view stays on detail page).
 function arrangeBySubject(rawTasks) {
   const subjectRank = (s) => {
     const i = SUBJECT_ORDER.indexOf(s)
     return i < 0 ? SUBJECT_ORDER.length : i
   }
   const list = rawTasks.map((t, idx) => ({
-    c: t.c || '',
-    s: t.s || '其他',
+    _idx: idx,
     subject: t.s || '其他',
-    _idx: idx
+    content: t.c || '',
+    estimatedMinutes: Number(t.m) || 0
   }))
   list.sort((a, b) => {
     const ra = subjectRank(a.subject)
@@ -53,6 +53,8 @@ Page({
     arrangedTasks: [],
     notebookSummary: '',
     sharerLabel: '',
+    sharerNickname: '',
+    sharerAvatar: '',
     error: '',
     importing: false
   },
@@ -69,9 +71,8 @@ Page({
       // 构造 100k 条任务的 ?d= 想撑爆 setData / 本地存储,在这一关就被截掉。
       const payload = store.sanitizeSharePayload(rawPayload)
       if (!payload) throw new Error('payload invalid')
-      // 不再用 payload.from(发送者昵称)—— 历史 share URL 里可能还有,
-      // 但接收端统一显示通用文案以避免昵称被路径泄露。WeChat 聊天卡片本身
-      // 会显示这条消息是谁发的,已经够了。
+      // URL 里只带 sharer (openid),不带昵称 —— PII 不入路径。
+      // 接收端拿 openid 异步去云端反查 profile,拿到再补 nickname/avatar。
       this.setData({
         payload,
         arrangedTasks: arrangeBySubject(payload.t),
@@ -79,6 +80,18 @@ Page({
         sharerLabel: '好友分享给你的作业本'
       })
       wx.setNavigationBarTitle({ title: payload.n.name || '导入作业本' })
+      if (payload.sharer) {
+        // 失败 / 没填 profile → 保持默认通用文案,不弹错。
+        shareReward.fetchSharerProfile(payload.sharer).then((profile) => {
+          if (!profile) return
+          const nickname = (profile.nickname || '').trim()
+          this.setData({
+            sharerNickname: nickname,
+            sharerAvatar: profile.avatar || '',
+            sharerLabel: nickname ? `${nickname} 分享给你的作业本` : '好友分享给你的作业本'
+          })
+        }).catch(() => {})
+      }
     } catch (e) {
       this.setData({ error: '分享数据已损坏，无法读取' })
     }

@@ -1896,15 +1896,17 @@ function serializeNotebookForShare(notebookId, sharerOpenid) {
   const state = loadState()
   const nb = state.notebooks.find((n) => n.id === notebookId)
   if (!nb) return null
-  // estimatedMinutes is intentionally omitted from the share payload so the
-  // receiver can auto-estimate against THEIR own history (different kid,
-  // different pace) instead of inheriting the sharer's number.
+  // estimatedMinutes 现在带在 payload 里 —— 接收页要展示"预计 X 分钟"
+  // chip 让落地页和分享方的 notebook-detail 视觉一致。buildTaskFromShare
+  // 仍然 `m || estimateTaskMinutes(...)`,即接收方导入后如果分享方没设过
+  // 估时,会按接收方自己的历史 fallback;设过的就继承。
   const tasks = state.tasks
     .filter((t) => t.notebookId === notebookId)
     .sort((a, b) => (a.order || 0) - (b.order || 0))
     .map((t) => ({
       s: t.subject || '其他',
-      c: t.content || ''
+      c: t.content || '',
+      m: Number(t.estimatedMinutes) || 0
     }))
   return {
     v: 1,

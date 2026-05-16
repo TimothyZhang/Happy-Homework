@@ -10,6 +10,17 @@
   background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
 }
 
+/* 离屏 canvas - 不能 hidden / display:none,否则 canvas node 拿不到。
+   固定到屏幕左外侧,5:4 比例对应 WeChat 分享卡片要求(500x400)。 */
+.share-canvas {
+  position: fixed;
+  top: 0;
+  left: -10000rpx;
+  width: 500rpx;
+  height: 400rpx;
+  pointer-events: none;
+}
+
 .scroll-area {
   flex: 1;
   min-height: 0;
