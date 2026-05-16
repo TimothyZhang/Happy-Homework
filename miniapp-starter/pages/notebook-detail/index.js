@@ -39,6 +39,22 @@ function clipText(ctx, text, maxWidth) {
   return s.slice(0, lo) + '…'
 }
 
+// Path a rounded rect — Canvas 2D in WeChat doesn't ship roundRect natively
+// across all base libs, so we trace it manually.
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + w - r, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+  ctx.lineTo(x + w, y + h - r)
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+  ctx.lineTo(x + r, y + h)
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+  ctx.lineTo(x, y + r)
+  ctx.quadraticCurveTo(x, y, x + r, y)
+  ctx.closePath()
+}
+
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
   const totalSec = Math.floor(ms / 1000)
@@ -213,9 +229,18 @@ Page({
     this.paintShareCard().catch(() => {})
   },
 
-  // 绘制 WeChat 分享卡片缩略图。WeChat 5:4 比例,canvas 500x400 (CSS rpx)。
-  // 内容刻意只放"作业本名 + 摘要 + 任务数",和接收页 header-card 对齐,
-  // 避免 detail 页面截图泄露规划切换器。结果路径缓存到 this.shareImagePath,
+  // 绘制 WeChat 分享卡片缩略图,排版完全对齐接收页 notebook-share:
+  //   📥 X 分享给你的作业本   ← sharer hint
+  //   作业本名字              ← 大字加粗
+  //   摘要                    ← 灰色小字
+  //   共 N 项作业             ← 蓝色加粗
+  //   ──── 学科 1 ────
+  //   • 任务...
+  //   • 任务...
+  //   ──── 学科 2 ────
+  //   ...
+  //   (任务超出可视区时:最后一行 "+N 项更多")
+  // canvas 用 600x480(5:4),够塞 ~10 行任务。结果路径缓存到 this.shareImagePath,
   // onShareAppMessage 同步取用。
   // 失败(canvas node 拿不到 / canvasToTempFilePath 报错)时,shareImagePath
   // 保持 null —— onShareAppMessage 不带 imageUrl,WeChat 回退到默认截图,
@@ -232,52 +257,114 @@ Page({
         }
         const canvas = res[0].node
         const ctx = canvas.getContext('2d')
-        // 物理像素分辨率:用 systemInfo.pixelRatio 把逻辑 500x400 转成
-        // 设备像素,避免 WeChat 卡片缩略图模糊。
         const sys = wx.getSystemInfoSync()
         const dpr = sys.pixelRatio || 2
-        const W = 500
-        const H = 400
+        const W = 600
+        const H = 480
         canvas.width = W * dpr
         canvas.height = H * dpr
         ctx.scale(dpr, dpr)
 
-        // 渐变背景,与 page 的浅蓝色系一致
+        // 渐变背景,与接收页 page 浅蓝色系一致
         const grad = ctx.createLinearGradient(0, 0, 0, H)
         grad.addColorStop(0, '#f7f9fc')
         grad.addColorStop(1, '#eef4ff')
         ctx.fillStyle = grad
         ctx.fillRect(0, 0, W, H)
 
-        // 顶部图标
-        ctx.font = '40px sans-serif'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'top'
-        ctx.fillText('📒', W / 2, 36)
+        // 白色卡片背景(模拟接收页的 .card 圆角块)
+        const padX = 28
+        const cardX = padX
+        const cardY = 24
+        const cardW = W - padX * 2
+        const cardH = H - 48
+        ctx.fillStyle = '#ffffff'
+        roundRect(ctx, cardX, cardY, cardW, cardH, 22)
+        ctx.fill()
 
-        // 作业本名字 —— 大字加粗,超过宽度的省略
-        ctx.fillStyle = '#1f2329'
-        ctx.font = 'bold 32px sans-serif'
-        ctx.textBaseline = 'top'
-        const name = clipText(ctx, nb.name || '作业本', W - 60)
-        ctx.fillText(name, W / 2, 96)
+        const innerX = cardX + 24
+        const innerW = cardW - 48
+        let y = cardY + 22
 
-        // 摘要 —— 灰色小字
+        // sharer hint —— 与接收页 .sharer-hint 文案一致(本地预览不知道
+        // 接收方反查到什么 nickname,所以用本地 profile.nickname,跟分享
+        // 卡片 title 对齐)。
+        const state = store.getStateWithComputed()
+        const myNickname = ((state.profile && state.profile.nickname) || '').trim()
+        const hintText = myNickname
+          ? `📥 ${myNickname} 分享给你的作业本`
+          : '📥 好友分享给你的作业本'
         ctx.fillStyle = '#6b7785'
-        ctx.font = '20px sans-serif'
-        const summary = clipText(ctx, this.summarize(nb), W - 60)
-        ctx.fillText(summary, W / 2, 150)
+        ctx.font = '18px sans-serif'
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'top'
+        ctx.fillText(clipText(ctx, hintText, innerW), innerX, y)
+        y += 30
 
-        // 任务数 —— 蓝色 pill 风格
-        const taskCount = this.data.tasks.filter((t) => !t.__header).length
+        // 作业本名字
+        ctx.fillStyle = '#1f2329'
+        ctx.font = 'bold 30px sans-serif'
+        ctx.fillText(clipText(ctx, nb.name || '作业本', innerW), innerX, y)
+        y += 42
+
+        // 摘要
+        ctx.fillStyle = '#6b7785'
+        ctx.font = '18px sans-serif'
+        ctx.fillText(clipText(ctx, this.summarize(nb), innerW), innerX, y)
+        y += 28
+
+        // 任务数
+        const allTasks = this.data.tasks.filter((t) => !t.__header)
         ctx.fillStyle = '#245bdb'
-        ctx.font = 'bold 24px sans-serif'
-        ctx.fillText(`共 ${taskCount} 项作业`, W / 2, 210)
+        ctx.font = 'bold 20px sans-serif'
+        ctx.fillText(`共 ${allTasks.length} 项作业`, innerX, y)
+        y += 32
 
-        // CTA
-        ctx.fillStyle = '#8a96a6'
-        ctx.font = '20px sans-serif'
-        ctx.fillText('点击查看 · 一键导入', W / 2, 320)
+        // 学科分组任务列表 —— 用接收页 arrangeBySubject 同款排序;
+        // 字段名差异:detail 的 task 已 decorate,有 .subject/.content,
+        // arrangeBySubject 直接按 .subject 分组。
+        const tasksBySubject = arrangeBySubject(
+          allTasks.map((t) => ({ subject: t.subject || '其他', content: t.content || '' }))
+        )
+
+        const lineH = 22
+        const subjectH = 26
+        const cardBottom = cardY + cardH - 16
+        let drawn = 0
+        let truncated = false
+        for (let i = 0; i < tasksBySubject.length; i++) {
+          const it = tasksBySubject[i]
+          // 学科 header(只画第一项)
+          if (it.firstOfSubject) {
+            // 学科 header 也会占一行,如果加上去就装不下任务,直接停
+            if (y + subjectH + lineH > cardBottom) {
+              truncated = true
+              break
+            }
+            ctx.fillStyle = '#245bdb'
+            ctx.font = 'bold 18px sans-serif'
+            ctx.fillText(it.subject, innerX, y)
+            y += subjectH
+          }
+          // 任务行
+          if (y + lineH > cardBottom) {
+            truncated = true
+            break
+          }
+          ctx.fillStyle = '#1f2329'
+          ctx.font = '18px sans-serif'
+          // 「• 内容」前缀对齐接收页的 .dot
+          const line = '• ' + clipText(ctx, it.content, innerW - 18)
+          ctx.fillText(line, innerX, y)
+          y += lineH
+          drawn++
+        }
+        if (truncated) {
+          const remaining = allTasks.length - drawn
+          ctx.fillStyle = '#8a96a6'
+          ctx.font = '16px sans-serif'
+          ctx.fillText(`+ 还有 ${remaining} 项 …`, innerX, Math.min(y, cardBottom - 4))
+        }
 
         wx.canvasToTempFilePath({
           canvas,
