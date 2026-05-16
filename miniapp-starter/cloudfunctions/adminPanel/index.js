@@ -27,6 +27,7 @@
 //   getUser          → 指定用户完整 state（admin only）
 //   adjustCoins      → 入 inbox + 写审计（admin only）
 //   listAdjustments  → 审计列表（admin only）
+//   listCoinLedger   → 金币流水（coin_ledger 服务端账本，admin only）
 //   claimAdminCoins  → 任意用户拉/清自己的 inbox（**不需要 admin**）
 //
 // 管理员白名单：环境变量 ADMIN_OPENIDS（逗号分隔）。未配置 = 无管理员。
@@ -112,6 +113,9 @@ exports.main = async (event = {}) => {
     }
     if (action === 'listAdjustments') {
       return await listAdjustments(event)
+    }
+    if (action === 'listCoinLedger') {
+      return await listCoinLedger(event)
     }
     return { ok: false, reason: 'unknown_action' }
   } catch (e) {
@@ -493,4 +497,33 @@ async function listAdjustments(event) {
   if (target) q = q.where({ targetOpenid: target })
   const res = await q.orderBy('createdAt', 'desc').skip(skip).limit(limit).get()
   return { ok: true, rows: res.data || [], limit, skip }
+}
+
+// 查询 coin_ledger(服务端权威金币账本)。
+// 不传 targetOpenid 时返回全局倒序流水(便于巡检),传了就只看那个用户。
+// 可选 kind 过滤(task_reward / pet_purchase / admin_coin_claim / ...)。
+async function listCoinLedger(event) {
+  await ensureCollection(LEDGER_COLLECTION)
+  const db = cloud.database()
+  const limit = Math.min(LIST_LIMIT_MAX, Math.max(1, Number(event.limit) || LIST_LIMIT_DEFAULT))
+  const skip = Math.max(0, Number(event.skip) || 0)
+  const target = (event.targetOpenid || '').trim()
+  const kind = (event.kind || '').trim()
+  const filter = {}
+  if (target) filter._openid = target
+  if (kind) filter.kind = kind
+  let q = db.collection(LEDGER_COLLECTION)
+  if (Object.keys(filter).length) q = q.where(filter)
+  const res = await q.orderBy('createdAt', 'desc').skip(skip).limit(limit).get()
+  const rows = res.data || []
+  let total = rows.length + skip
+  try {
+    let cq = db.collection(LEDGER_COLLECTION)
+    if (Object.keys(filter).length) cq = cq.where(filter)
+    const c = await cq.count()
+    if (c && typeof c.total === 'number') total = c.total
+  } catch (e) {
+    // count 失败不阻塞列表
+  }
+  return { ok: true, rows, total, limit, skip }
 }
