@@ -24,6 +24,21 @@ function formatDateHeader(dateStr, todayStr) {
   return { main: `${m}/${day} 周${w}`, sub }
 }
 
+// Truncate text with "…" so it fits maxWidth at the current ctx font.
+// Used by paintShareCard — long notebook names would overflow the 5:4 card.
+function clipText(ctx, text, maxWidth) {
+  const s = String(text || '')
+  if (ctx.measureText(s).width <= maxWidth) return s
+  let lo = 0
+  let hi = s.length
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (ctx.measureText(s.slice(0, mid) + '…').width <= maxWidth) lo = mid
+    else hi = mid - 1
+  }
+  return s.slice(0, lo) + '…'
+}
+
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
   const totalSec = Math.floor(ms / 1000)
@@ -193,6 +208,97 @@ Page({
       viewMode
     })
     this.startTickerIfNeeded()
+    // 重画分享卡片图。debounce 不必要 —— refreshState 也不频繁,
+    // canvas 操作即使串行也很快。
+    this.paintShareCard().catch(() => {})
+  },
+
+  // 绘制 WeChat 分享卡片缩略图。WeChat 5:4 比例,canvas 500x400 (CSS rpx)。
+  // 内容刻意只放"作业本名 + 摘要 + 任务数",和接收页 header-card 对齐,
+  // 避免 detail 页面截图泄露规划切换器。结果路径缓存到 this.shareImagePath,
+  // onShareAppMessage 同步取用。
+  // 失败(canvas node 拿不到 / canvasToTempFilePath 报错)时,shareImagePath
+  // 保持 null —— onShareAppMessage 不带 imageUrl,WeChat 回退到默认截图,
+  // 不至于把分享流程整个挂掉。
+  paintShareCard() {
+    return new Promise((resolve, reject) => {
+      const nb = this.data.notebook
+      if (!nb) { resolve(null); return }
+      const query = wx.createSelectorQuery().in(this)
+      query.select('#shareCanvas').fields({ node: true, size: true }).exec((res) => {
+        if (!res || !res[0] || !res[0].node) {
+          resolve(null)
+          return
+        }
+        const canvas = res[0].node
+        const ctx = canvas.getContext('2d')
+        // 物理像素分辨率:用 systemInfo.pixelRatio 把逻辑 500x400 转成
+        // 设备像素,避免 WeChat 卡片缩略图模糊。
+        const sys = wx.getSystemInfoSync()
+        const dpr = sys.pixelRatio || 2
+        const W = 500
+        const H = 400
+        canvas.width = W * dpr
+        canvas.height = H * dpr
+        ctx.scale(dpr, dpr)
+
+        // 渐变背景,与 page 的浅蓝色系一致
+        const grad = ctx.createLinearGradient(0, 0, 0, H)
+        grad.addColorStop(0, '#f7f9fc')
+        grad.addColorStop(1, '#eef4ff')
+        ctx.fillStyle = grad
+        ctx.fillRect(0, 0, W, H)
+
+        // 顶部图标
+        ctx.font = '40px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'top'
+        ctx.fillText('📒', W / 2, 36)
+
+        // 作业本名字 —— 大字加粗,超过宽度的省略
+        ctx.fillStyle = '#1f2329'
+        ctx.font = 'bold 32px sans-serif'
+        ctx.textBaseline = 'top'
+        const name = clipText(ctx, nb.name || '作业本', W - 60)
+        ctx.fillText(name, W / 2, 96)
+
+        // 摘要 —— 灰色小字
+        ctx.fillStyle = '#6b7785'
+        ctx.font = '20px sans-serif'
+        const summary = clipText(ctx, this.summarize(nb), W - 60)
+        ctx.fillText(summary, W / 2, 150)
+
+        // 任务数 —— 蓝色 pill 风格
+        const taskCount = this.data.tasks.filter((t) => !t.__header).length
+        ctx.fillStyle = '#245bdb'
+        ctx.font = 'bold 24px sans-serif'
+        ctx.fillText(`共 ${taskCount} 项作业`, W / 2, 210)
+
+        // CTA
+        ctx.fillStyle = '#8a96a6'
+        ctx.font = '20px sans-serif'
+        ctx.fillText('点击查看 · 一键导入', W / 2, 320)
+
+        wx.canvasToTempFilePath({
+          canvas,
+          x: 0,
+          y: 0,
+          width: W,
+          height: H,
+          destWidth: W * dpr,
+          destHeight: H * dpr,
+          fileType: 'png',
+          success: (r) => {
+            this.shareImagePath = r.tempFilePath
+            resolve(r.tempFilePath)
+          },
+          fail: (e) => {
+            this.shareImagePath = null
+            reject(e)
+          }
+        })
+      })
+    })
   },
 
   handleSwitchView(e) {
@@ -259,6 +365,12 @@ Page({
     // here the share still works, just no reward attribution.
     const myOpenid = shareReward.getMyOpenidSync() || ''
     const payload = store.serializeNotebookForShare(nb.id, myOpenid)
+    // shareImagePath 由 paintShareCard (refreshState 后异步执行) 缓存到
+    // 实例。第一次进入页面时可能还没画完,此时 imageUrl=undefined,WeChat
+    // 退化到截屏当前页 —— 这就是我们想避免的(规划切换器会出现在缩略图)。
+    // 实践中 onShow → refreshState → paintShareCard 在用户能点到分享按钮
+    // 之前已经跑完,首次未命中的概率很低;命中失败也只是退化,不报错。
+    const imageUrl = this.shareImagePath || undefined
     if (payload) {
       const encoded = encodeURIComponent(JSON.stringify(payload))
       const sharePath = `/pages/notebook-share/index?d=${encoded}`
@@ -266,10 +378,10 @@ Page({
       // grew very large, fall back to the local-only path rather than
       // silently producing a broken share link.
       if (sharePath.length <= 1024) {
-        return { title, path: sharePath }
+        return { title, path: sharePath, imageUrl }
       }
     }
-    return { title, path: `/pages/notebook-detail/index?id=${nb.id}` }
+    return { title, path: `/pages/notebook-detail/index?id=${nb.id}`, imageUrl }
   },
 
   handleDeleteNotebook() {

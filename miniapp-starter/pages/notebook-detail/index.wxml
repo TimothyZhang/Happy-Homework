@@ -1,5 +1,10 @@
 <page-meta disable-scroll="true" />
 <view class="page">
+  <!-- 隐藏离屏 canvas，用于绘制分享卡片缩略图。WeChat 分享 imageUrl 不能用
+       SVG / 当前页截图(会包含规划切换器),所以在这里画一张简版预览图,
+       canvasToTempFilePath 出 PNG 给 onShareAppMessage。
+       canvas 不能 hidden(会拿不到 node),用绝对定位移到屏幕外。 -->
+  <canvas type="2d" id="shareCanvas" class="share-canvas"></canvas>
   <scroll-view scroll-y="{{!disableScroll}}" class="scroll-area" enhanced="{{true}}" show-scrollbar="{{false}}">
   <view class="card header-card">
     <text class="nb-summary">{{notebookSummary}}</text>

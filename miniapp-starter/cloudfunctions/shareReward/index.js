@@ -2,10 +2,13 @@
 
 // 分享奖励云函数
 //
-// 三个 action：
-//   whoami — 返回调用者的 OPENID，用于客户端缓存自己的身份
-//   credit — 接收方导入分享的作业本时调用，往 INBOX 里写一条奖励记录
-//   claim  — 分享方拉取并领取属于自己的奖励记录（读 + 删除 + 返回总额）
+// 四个 action：
+//   whoami     — 返回调用者的 OPENID，用于客户端缓存自己的身份
+//   credit     — 接收方导入分享的作业本时调用，往 INBOX 里写一条奖励记录
+//   claim      — 分享方拉取并领取属于自己的奖励记录（读 + 删除 + 返回总额）
+//   getProfile — 按 openid 查分享者公开 profile (nickname/avatar)，给接收页展示
+//                "X 分享给你的作业本"。openid 不是机密(分享方主动写进 payload),
+//                返回也只限 profile 两个字段,不暴露其它 user_state。
 //
 // 使用 INBOX 集合而不是直接改 user_state，是为了避免和现有 cloud-sync
 // 的"单设备写"模型冲突 —— user_state 写入由分享方自己的设备控制，奖励
@@ -72,7 +75,39 @@ exports.main = async (event = {}) => {
     return claimRewards(callerOpenid)
   }
 
+  if (action === 'getProfile') {
+    return getProfile(event.openid)
+  }
+
   return { ok: false, reason: 'unknown_action' }
+}
+
+// 接收页用来展示"X 分享给你的作业本"。
+// openid 来自 share payload.sharer —— 分享方主动写进 URL 的,接收人天然知道,
+// 不算隐私。我们只回 nickname + avatar(分享方在 profile 页填的,等同于
+// "公开身份"),不回 coins/tasks/notebooks 等其它 user_state。
+async function getProfile(openid) {
+  if (typeof openid !== 'string' || !openid || openid.length > 100) {
+    return { ok: false, reason: 'invalid_args' }
+  }
+  const db = cloud.database()
+  const res = await db.collection(USER_COLLECTION)
+    .where({ _openid: openid })
+    .field({ state: true })
+    .limit(1)
+    .get()
+  const doc = (res.data && res.data[0]) || null
+  if (!doc || !doc.state) {
+    return { ok: true, profile: null }
+  }
+  const p = doc.state.profile || {}
+  return {
+    ok: true,
+    profile: {
+      nickname: sanitizeShortString(p.nickname, 40),
+      avatar: typeof p.avatar === 'string' ? p.avatar.slice(0, 500) : ''
+    }
+  }
 }
 
 // 第一次部署后集合可能还不存在 —— 用 admin SDK 懒建，开发者不必另外去

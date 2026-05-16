@@ -95,6 +95,17 @@ async function reportShareSave({ sharerOpenid, notebookId, notebookName }) {
   })
 }
 
+// Receiver fetches sharer's public profile (nickname + avatar) to render
+// "X 分享给你的作业本". Returns null if cloud unavailable, openid missing,
+// or sharer hasn't filled out profile. Failure is silent — the share page
+// falls back to the generic "好友分享" label.
+async function fetchSharerProfile(openid) {
+  if (!openid) return null
+  const r = await callFn({ action: 'getProfile', openid })
+  if (!r || !r.ok) return null
+  return r.profile || null
+}
+
 // Sharer pulls and consumes any pending reward records. Returns
 // { total, count, notebooks } on success, or null if nothing to claim or the
 // cloud call fails. Throttled to avoid hammering the cloud function on
@@ -114,5 +125,6 @@ module.exports = {
   getMyOpenidSync,
   preloadOpenid,
   reportShareSave,
+  fetchSharerProfile,
   claimPendingRewards
 }

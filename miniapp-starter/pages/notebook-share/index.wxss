@@ -14,14 +14,47 @@
 
 .header-card { margin-bottom: 12rpx; }
 
-.hint-pill {
-  display: inline-block;
-  padding: 8rpx 20rpx;
-  border-radius: 999rpx;
-  background: #eef4ff;
-  color: #245bdb;
-  font-size: 22rpx;
+.sharer-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
   margin-bottom: 18rpx;
+}
+
+.sharer-avatar {
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  background: #eef4ff;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.sharer-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36rpx;
+  line-height: 1;
+}
+
+.sharer-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sharer-name {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #1f2329;
+  line-height: 1.3;
+}
+
+.sharer-hint {
+  font-size: 22rpx;
+  color: #6b7785;
+  line-height: 1.3;
 }
 
 .nb-name {
@@ -148,9 +181,7 @@
   color: #ffffff;
 }
 
-/* 弱化次要操作（分享 / 取消 / 错误页返回）— 浅灰背景 + 深色文字。
-   让 「💾 保存」 在主操作组里独占视觉重点。 */
-.share-btn,
+/* 错误页的"返回"按钮 — 浅灰背景 + 深色文字,弱化于 save-btn。 */
 .ghost-btn {
   background: #f0f0f0;
   color: #1f2329;
