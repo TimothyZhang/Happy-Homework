@@ -612,27 +612,37 @@ function tasksForDate(state, dateStr, cache) {
   for (const task of state.tasks) {
     const nb = notebookById[task.notebookId]
     if (!nb) continue
-    const onSchedule = isNotebookActiveOn(nb, dateStr)
+    let onSchedule = false
     let isOverdue = false
     let completedOnDate = false
 
-    // For past/today views, also surface tasks actually completed that day.
-    // Recurring tasks are date-keyed via occurrences so onSchedule already
-    // covers them; this only matters for one-shot tasks completed off-schedule.
-    if (!isFuture && nb.mode === 'one-shot') {
-      const status = task.status || 'todo'
-      if (status === 'done' && task.completedAt &&
-          dateToStr(new Date(task.completedAt)) === dateStr) {
-        completedOnDate = true
-      }
-    }
+    // occurrenceDate 的语义是"这个 row 归属哪一天"。一次性 task 一律归 effectiveDueDate,
+    // 这样 finishTask 拿到的 day 就是 task 自己的 due,perTaskReward / perfectDays
+    // 都按 task 级日期走。recurring task 则归当前 dateStr(每天独立 occurrence)。
+    let oneShotDue = null
 
-    // Overdue: still-open one-shot whose due date already passed. Today only.
-    if (!onSchedule && isToday && nb.mode === 'one-shot') {
-      const due = nb.endDate || nb.startDate
-      if (compareDateStr(due, today) < 0 && (task.status || 'todo') !== 'done') {
-        isOverdue = true
+    if (nb.mode === 'one-shot') {
+      oneShotDue = effectiveDueDate(task, nb)
+      onSchedule = !!oneShotDue && oneShotDue === dateStr
+
+      // For past/today views, also surface tasks actually completed that day.
+      if (!isFuture) {
+        const status = task.status || 'todo'
+        if (status === 'done' && task.completedAt &&
+            dateToStr(new Date(task.completedAt)) === dateStr) {
+          completedOnDate = true
+        }
       }
+
+      // Overdue: still-open one-shot whose own due date already passed. Today only.
+      if (!onSchedule && isToday) {
+        if (oneShotDue && compareDateStr(oneShotDue, today) < 0 && (task.status || 'todo') !== 'done') {
+          isOverdue = true
+        }
+      }
+    } else {
+      // recurring: 沿用 notebook 调度判断(occurrence 按日期分层)。
+      onSchedule = isNotebookActiveOn(nb, dateStr)
     }
 
     if (!onSchedule && !isOverdue && !completedOnDate) continue
@@ -641,7 +651,9 @@ function tasksForDate(state, dateStr, cache) {
       task,
       notebook: nb,
       occurrence: occ,
-      occurrenceDate: dateStr,
+      // 一次性 task 用 effectiveDueDate 作为 occurrenceDate,跨视图保持一致
+      // (overdue task 显示在 today 但 occurrenceDate 仍是它的 dueDate)。
+      occurrenceDate: nb.mode === 'one-shot' ? (oneShotDue || dateStr) : dateStr,
       isOverdue
     })
   }
@@ -734,13 +746,14 @@ function dateCountsForMonth(state, year, monthIdx0) {
     if (!tasks || !tasks.length) continue
 
     if (nb.mode === 'one-shot') {
-      const due = nb.endDate || nb.startDate
-      if (!due) continue
-      const dueInMonth = compareDateStr(due, monthFirst) >= 0 &&
-                        compareDateStr(due, monthLast) <= 0
-      const dueIsPast = compareDateStr(due, today) < 0
-
+      // 一次性 task 现在按 task 级 dueDate 决定显示日。每个 task 自己有 due。
+      // notebook.endDate 仅作为缺失时的兜底,已被 effectiveDueDate 吸收。
       for (const t of tasks) {
+        const due = effectiveDueDate(t, nb)
+        if (!due) continue
+        const dueInMonth = compareDateStr(due, monthFirst) >= 0 &&
+                          compareDateStr(due, monthLast) <= 0
+        const dueIsPast = compareDateStr(due, today) < 0
         const status = t.status || 'todo'
         const isDone = status === 'done'
 
@@ -1021,6 +1034,7 @@ function duplicateNotebook(sourceNotebookId, newName) {
         subject: t.subject || '其他',
         content: t.content || '',
         estimatedMinutes: Number(t.estimatedMinutes || 0),
+        dueDate: t.dueDate || null,
         order: cursor++,
         createdAt: Date.now()
       }
@@ -1168,6 +1182,19 @@ function tasksOfNotebook(state, notebookId) {
     .sort((a, b) => (a.order || 0) - (b.order || 0))
 }
 
+// 规划模式按日期分组时,task 落到哪天的 folder。
+// - 周期性作业本无截止概念,直接返回 null。
+// - 一次性作业本:用 task.dueDate;没设过就退化到 notebook.endDate (最后一天);
+//   超出 notebook 范围(用户后来把 endDate 往前缩了)就钳到边界。
+function effectiveDueDate(task, notebook) {
+  if (!notebook || notebook.mode !== 'one-shot') return null
+  const fallback = notebook.endDate || notebook.startDate
+  let due = task.dueDate || fallback
+  if (notebook.startDate && due < notebook.startDate) due = notebook.startDate
+  if (notebook.endDate && due > notebook.endDate) due = notebook.endDate
+  return due
+}
+
 function addTask(payload) {
   return updateState((state) => {
     let notebookId = payload.notebookId
@@ -1205,6 +1232,9 @@ function addTask(payload) {
       subject: payload.subject || '其他',
       content: payload.content || '',
       estimatedMinutes: Number(payload.estimatedMinutes || 0),
+      // dueDate is opt-in (规划模式 / 编辑页手动设置). null = 跟随 notebook.endDate.
+      // Only meaningful for one-shot notebooks; recurring notebooks ignore it.
+      dueDate: payload.dueDate || null,
       order: maxOrder + 1,
       createdAt: Date.now()
     }
@@ -1227,6 +1257,8 @@ function updateTask(taskId, updates) {
       if ('content' in updates) next.content = updates.content
       if ('subject' in updates) next.subject = updates.subject
       if ('estimatedMinutes' in updates) next.estimatedMinutes = Number(updates.estimatedMinutes || 0)
+      // Pass null/'' to clear; only one-shot notebooks honor it (see arrangeByDate).
+      if ('dueDate' in updates) next.dueDate = updates.dueDate || null
       if ('notebookId' in updates && updates.notebookId !== t.notebookId) {
         next.notebookId = updates.notebookId
         // append to end of new notebook
@@ -2235,6 +2267,7 @@ module.exports = {
   // queries
   tasksForDate,
   tasksOfNotebook,
+  effectiveDueDate,
   dateCountsForMonth,
   isNotebookActiveOn,
   getTaskState,

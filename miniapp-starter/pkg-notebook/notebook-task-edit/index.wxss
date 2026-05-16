@@ -71,6 +71,32 @@
   line-height: 1.5;
 }
 
+.due-row {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.due-row picker {
+  flex: 1;
+  min-width: 0;
+}
+
+.due-clear {
+  flex-shrink: 0;
+  padding: 12rpx 22rpx;
+  border-radius: 999rpx;
+  background: #fff1f0;
+  color: #e54545;
+  font-size: 24rpx;
+}
+
+.due-hint {
+  align-self: flex-start;
+  font-size: 22rpx;
+  color: #6b7785;
+}
+
 .actions {
   margin-top: 28rpx;
 }

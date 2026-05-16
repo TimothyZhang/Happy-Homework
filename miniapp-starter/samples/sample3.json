@@ -4,6 +4,6 @@
     { "subject": "语文", "content": "背22课（3-6段，周三查）" },
     { "subject": "数学", "content": "口算" },
     { "subject": "数学", "content": "复习六单元" },
-    { "subject": "数学", "content": "目P61-P62" }
+    { "subject": "数学", "content": "目标P61～P62", "reason": "写的是\"目P61-62\"，做了适当改写" }
   ]
 }

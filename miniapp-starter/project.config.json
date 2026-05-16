@@ -3,10 +3,22 @@
   "cloudfunctionRoot": "cloudfunctions/",
   "packOptions": {
     "ignore": [
-      { "type": "folder", "value": "scripts" },
-      { "type": "folder", "value": "samples" },
-      { "type": "folder", "value": "temp" },
-      { "type": "regexp", "value": ".*\\.md" }
+      {
+        "type": "folder",
+        "value": "scripts"
+      },
+      {
+        "type": "folder",
+        "value": "samples"
+      },
+      {
+        "type": "folder",
+        "value": "temp"
+      },
+      {
+        "type": "regexp",
+        "value": ".*\\.md"
+      }
     ],
     "include": []
   },
