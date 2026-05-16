@@ -7,6 +7,9 @@ Component({
     // For 'allDone' this is the daily-perfect bonus (N×10 + early-bird) shown as
     // the big TOTAL.
     coins: { type: Number, value: 0 },
+    // Happiness gained on this finish. Rendered as a pink "+N 开心度" pill next
+    // to (task) or under (allDone) the coin chip. 0 → hide the pill entirely.
+    happiness: { type: Number, value: 0 },
     // Pet emoji to put center stage. Falls back to 🐾 if state has no species yet.
     petEmoji: { type: String, value: '🐾' },
     // Optional caption shown under the coin number. For 'task' this is the

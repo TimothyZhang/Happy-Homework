@@ -40,9 +40,9 @@ function buildBonusChip(isToday, pendingCount) {
     return { active: false, icon: '', label: '' }
   }
   const b = store.earlyBirdBonus()
-  if (b === 50) return { active: true, icon: '🏆', label: '早完成 +50' }
-  if (b === 30) return { active: true, icon: '⏱', label: '早完成 +30' }
-  if (b === 20) return { active: true, icon: '⏰', label: '早完成 +20' }
+  if (b === 50) return { active: true, icon: '🏆', label: '19 点前完成 +50' }
+  if (b === 30) return { active: true, icon: '⏱', label: '20 点前完成 +30' }
+  if (b === 20) return { active: true, icon: '⏰', label: '21 点前完成 +20' }
   return { active: false, icon: '', label: '当前无加成' }
 }
 
@@ -75,7 +75,8 @@ function buildPetMessage({ isToday, totalCount, pendingCount, remainingMinutes, 
 // Build the rotating list of speech-bubble lines shown next to the pet. The
 // first item is always the contextual progress message; the rest are the
 // early-finish bonus tips relevant to the current time (only show a tier the
-// user could still hit).
+// user could still hit), plus the happiness rules so kids know completing
+// homework is what keeps the pet happy.
 function buildPetTips(ctx) {
   const tips = [buildPetMessage(ctx)]
   if (!ctx.isToday || ctx.pendingCount === 0) return tips
@@ -87,6 +88,9 @@ function buildPetTips(ctx) {
   if (b >= 50 && ctx.projected19 > 0) tips.push(`🏆 19:00 前完成所有作业，可获得 ${ctx.projected19} 金币`)
   if (b >= 30 && ctx.projected20 > 0) tips.push(`⏱ 20:00 前完成所有作业，可获得 ${ctx.projected20} 金币`)
   if (b >= 20 && ctx.projected21 > 0) tips.push(`⏰ 21:00 前完成所有作业，可获得 ${ctx.projected21} 金币`)
+  // 开心度规则 — 道具不再加,只能通过做作业。
+  tips.push('💖 每完成一项作业，开心度 +5')
+  tips.push('💖 当日全部完成，开心度直接加满，12 小时不下降')
   return tips
 }
 
@@ -134,16 +138,38 @@ function decorateItem(item, now) {
   }
 }
 
+// After the user-controlled rowOrder sort, push subsequent items of the
+// same subject to the bottom so the list doesn't open with N rows of one
+// subject. First occurrence of each subject keeps its position; duplicates
+// trail at the end in their original sorted order. Empty subjects stay put
+// — they aren't really a "type" to dedup against.
+function pushDuplicateSubjectsToBack(items) {
+  const seen = new Set()
+  const firsts = []
+  const dupes = []
+  for (const it of items) {
+    const key = it.subject || ''
+    if (key && seen.has(key)) {
+      dupes.push(it)
+    } else {
+      if (key) seen.add(key)
+      firsts.push(it)
+    }
+  }
+  return firsts.concat(dupes)
+}
+
 // Sort undone purely by user-controlled rowOrder. Overdue / virtual /
 // today rows all live in the same orderable pool now — the user is free
 // to interleave a missed-Monday recurring row between today's tasks.
 function sortUndone(items) {
-  return items.sort((a, b) => {
+  const sorted = items.sort((a, b) => {
     const oa = a.rowOrder || 0
     const ob = b.rowOrder || 0
     if (oa !== ob) return oa - ob
     return (a.createdAt || 0) - (b.createdAt || 0)
   })
+  return pushDuplicateSubjectsToBack(sorted)
 }
 
 // Done sorted by most recent completion first.
@@ -182,6 +208,10 @@ Page({
     undoneItems: [],
     doneItems: [],
     pet: { emoji: '🐾' },
+    // Mood overlay for the home mascot — same derivation as pet page so the
+    // small SVG here never shows a different state than the big one. 'idle'
+    // when no pet has been set up yet.
+    animState: 'idle',
     petMessage: '',
     // True briefly while the pet-bubble text cross-fades to the next tip.
     petMessageFading: false,
@@ -196,9 +226,14 @@ Page({
     // Optional caption for the per-task toast: '提前完成 +5' / '补做 (历史作业)'
     // / '今日已达 20 项上限'. Empty for plain today-task finishes.
     taskRewardCaption: '',
+    // Per-task happiness delta (0–5). 0 hides the pink pill.
+    taskRewardHappiness: 0,
     allDoneVisible: false,
     allDoneCoins: 0,
-    allDoneSubtitle: ''
+    allDoneSubtitle: '',
+    // Perfect-day happiness top-up delta (the jump from current to 100).
+    // 0 when happiness was already at 100.
+    allDoneHappiness: 0
   },
 
   onShow() {
@@ -307,6 +342,7 @@ Page({
       undoneItems,
       doneItems,
       pet: (state.pet && state.pet.emoji) ? state.pet : this.data.pet,
+      animState: store.deriveAnimState(state.pet),
       petMessage,
       bonusActive: bonus.active,
       bonusIcon: bonus.icon,
@@ -397,8 +433,10 @@ Page({
       : Math.max(1, (lr.reward || 0) - dailyBonus - weeklyBonus)
     const taskCaption = captionForKind(lr.rewardKind)
     const bonusCoins = dailyBonus + weeklyBonus
+    const taskHappiness = lr.taskHappiness || 0
+    const allDoneHappiness = lr.allDoneHappiness || 0
 
-    this.showTaskReward(taskCoins, taskCaption)
+    this.showTaskReward(taskCoins, taskCaption, taskHappiness)
 
     // Flag the pet page to play one celebration animation on its next onShow.
     // Consumed in pages/pet/index.js. Cross-page because home & pet are
@@ -421,17 +459,18 @@ Page({
         : '今日全部完成!'
       const delay = TASK_ANIM_MS + TASK_TO_ALLDONE_GAP_MS
       this._allDoneTimer = setTimeout(() => {
-        this.showAllDone(bonusCoins, subtitle)
+        this.showAllDone(bonusCoins, subtitle, allDoneHappiness)
       }, delay)
     }
   },
 
-  showTaskReward(coins, caption) {
+  showTaskReward(coins, caption, happiness) {
     if (this._taskTimer) { clearTimeout(this._taskTimer); this._taskTimer = null }
     this.setData({
       taskRewardVisible: true,
       taskRewardCoins: coins,
-      taskRewardCaption: caption || ''
+      taskRewardCaption: caption || '',
+      taskRewardHappiness: happiness || 0
     })
     this._taskTimer = setTimeout(() => {
       this._taskTimer = null
@@ -439,12 +478,13 @@ Page({
     }, TASK_ANIM_MS)
   },
 
-  showAllDone(bonusCoins, subtitle) {
+  showAllDone(bonusCoins, subtitle, happiness) {
     if (this._allDoneHideTimer) { clearTimeout(this._allDoneHideTimer); this._allDoneHideTimer = null }
     this.setData({
       allDoneVisible: true,
       allDoneCoins: bonusCoins,
-      allDoneSubtitle: subtitle || ''
+      allDoneSubtitle: subtitle || '',
+      allDoneHappiness: happiness || 0
     })
     this._allDoneHideTimer = setTimeout(() => {
       this._allDoneHideTimer = null

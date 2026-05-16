@@ -178,34 +178,55 @@ store = freshStore()
 for (let i = 1; i <= 12; i++) store.finishTask(`t${i}`, today)
 check('12/12 → coins = 240', store.getStateWithComputed().coins, 240)
 
-// === Test 5: level cost table ===
-console.log('\n[level] cost curve:')
+// === Test 5: level exp curve — 勤奋玩家天数曲线 1,2,2,3,3,3,4,... ===
+console.log('\n[level] exp curve:')
 store = freshStore()
-check('getLevelCost(1) = 180', store.getLevelCost(1), 180)
-check('getLevelCost(2) = 500', store.getLevelCost(2), 500)
-check('getLevelCost(3) = 1000', store.getLevelCost(3), 1000)
-check('getLevelCost(4) = 2000', store.getLevelCost(4), 2000)
-check('getLevelCost(5) = 2000 (plateau)', store.getLevelCost(5), 2000)
-check('getLevelCost(8) = 2000 (plateau)', store.getLevelCost(8), 2000)
+check('LEVEL_MAX = 100', store.LEVEL_MAX, 100)
+check('LEVEL_EXP_TARGET_BASE = 200', store.LEVEL_EXP_TARGET_BASE, 200)
+check('EXP_PER_HOUR_HEALTHY = 10', store.EXP_PER_HOUR_HEALTHY, 10)
+check('STAT_HEALTHY_THRESHOLD = 60', store.STAT_HEALTHY_THRESHOLD, 60)
+// 天数曲线 D(k):1, 2,2, 3,3,3, 4,4,4,4, 5×5, 6×6, ...
+check('getLevelDays(1)  = 1',  store.getLevelDays(1), 1)
+check('getLevelDays(2)  = 2',  store.getLevelDays(2), 2)
+check('getLevelDays(3)  = 2',  store.getLevelDays(3), 2)
+check('getLevelDays(4)  = 3',  store.getLevelDays(4), 3)
+check('getLevelDays(6)  = 3',  store.getLevelDays(6), 3)
+check('getLevelDays(7)  = 4',  store.getLevelDays(7), 4)
+check('getLevelDays(10) = 4',  store.getLevelDays(10), 4)
+check('getLevelDays(11) = 5',  store.getLevelDays(11), 5)
+check('getLevelDays(15) = 5',  store.getLevelDays(15), 5)
+check('getLevelDays(16) = 6',  store.getLevelDays(16), 6)
+check('getLevelDays(99) = 14', store.getLevelDays(99), 14)
+// 对应 EXP target = days × BASE
+check('getLevelExpTarget(1)   = 200',  store.getLevelExpTarget(1), 200)
+check('getLevelExpTarget(2)   = 400',  store.getLevelExpTarget(2), 400)
+check('getLevelExpTarget(3)   = 400',  store.getLevelExpTarget(3), 400)
+check('getLevelExpTarget(4)   = 600',  store.getLevelExpTarget(4), 600)
+check('getLevelExpTarget(99)  = 2800', store.getLevelExpTarget(99), 2800)
+check('getLevelExpTarget(100) = 0 (max level)', store.getLevelExpTarget(100), 0)
+check('getLevelExpTarget(101) = 0 (above max)', store.getLevelExpTarget(101), 0)
 
-// === Test 6: levelUpPet — gates on coins, deducts cost, increments level ===
-console.log('\n[level] levelUpPet:')
+// === Test 6: levelUpPet stub — exp-only, no coin cost ===
+console.log('\n[level] levelUpPet (auto-upgrade stub):')
 seedNTasksToday(0)  // re-seed so we have a pet at level 1
 store = freshStore()
 const r1 = store.levelUpPet()
-check('coins=0 → not-enough-coins', r1.ok, false)
+check('exp=0 → not-enough-exp', r1.ok, false)
+check('not-enough-exp returns "need" remaining', r1.reason, 'not-enough-exp')
 
-// Manually grant 200 coins via finishing... easier to mutate the storage.
+// Manually grant 220 exp + push lastDecayAt forward so commitPetDecay 不再
+// 累加 (避免 stale-window 重复加) → 自动升级到 Lv.2。 Lv1→2 需 200 exp。
 const cur = JSON.parse(storage['homework-pet-v1'])
-cur.coins = 200
+cur.pet.exp = 220
+cur.pet.lastDecayAt = Date.now()
 storage['homework-pet-v1'] = JSON.stringify(cur)
 store = freshStore()
 const r2 = store.levelUpPet()
-check('coins=200 ≥ 180 → ok', r2.ok, true)
+check('exp=220 ≥ 200 → ok', r2.ok, true)
 check('level becomes 2', r2.level, 2)
 const afterLvl = store.getStateWithComputed()
-check('coins decremented by 180', afterLvl.coins, 20)
 check('pet.level = 2', afterLvl.pet.level, 2)
+check('pet.exp residual = 20', afterLvl.pet.exp, 20)
 
 // === Test 7: decay rates — 16h on each stat ===
 console.log('\n[decay] 16h drop sanity check:')
@@ -238,23 +259,29 @@ console.log('\n[shop] item sanity:')
 storage = {}
 store = freshStore()
 const items = store.defaultState.shopItems
-check('8 shop items', items.length, 8)
+// 道具改造后 shop 只承担 饱腹/清洁/健康 三个 stat。开心度只通过完成作业获得,
+// 因此 happiness-only 道具(玩具熊 / 蝴蝶结)已移除,商店从 8 项缩到 6 项。
+check('6 shop items', items.length, 6)
 for (const it of items) {
-  const sum = (it.happiness | 0) + (it.fullness | 0) + (it.cleanliness | 0) + (it.health | 0)
+  const sum = (it.fullness | 0) + (it.cleanliness | 0) + (it.health | 0)
   if (sum <= 0) {
     fail++
     console.log(`  ✗ item ${it.id} (${it.name}) has no stat boost`)
+  }
+  if ((it.happiness | 0) !== 0) {
+    fail++
+    console.log(`  ✗ item ${it.id} (${it.name}) leaks happiness ${it.happiness}`)
   }
 }
 const carrot = items.find((i) => i.id === 1)
 check('carrot price = 16',        carrot.price, 16)
 check('carrot fullness = 30',     carrot.fullness, 30)
-check('shop totals match design', items.map((i) => i.price), [16, 28, 18, 32, 18, 20, 35, 50])
+check('shop totals match design', items.map((i) => i.price), [16, 28, 18, 32, 20, 35])
 
-// Each primary stat needs at least 2 items (cheap + mid tier). The "primary"
-// stat is whichever attribute the item lifts the most.
-const STAT_KEYS = ['fullness', 'cleanliness', 'happiness', 'health']
-const primaryCounts = { fullness: 0, cleanliness: 0, happiness: 0, health: 0 }
+// 三个可购买 stat 各需要 ≥2 道具(便宜 + 中档)。开心度不在 shop 范畴,所以
+// 单独断言 0 个 happiness-primary 道具。
+const STAT_KEYS = ['fullness', 'cleanliness', 'health']
+const primaryCounts = { fullness: 0, cleanliness: 0, health: 0 }
 for (const it of items) {
   let primary = STAT_KEYS[0]
   for (const k of STAT_KEYS) if ((it[k] | 0) > (it[primary] | 0)) primary = k

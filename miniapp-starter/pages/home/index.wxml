@@ -24,8 +24,12 @@
         <view class="pet-bubble">
           <text class="pet-bubble-text {{petMessageFading ? 'is-fading' : ''}}">{{petMessage}}</text>
         </view>
-        <view class="pet-mascot">
-          <text class="pet-emoji">{{pet.emoji}}</text>
+        <view class="pet-mascot anim-{{animState}}">
+          <image wx:if="{{pet.species}}"
+                 class="pet-art"
+                 src="/assets/pets/{{pet.species}}.svg"
+                 mode="aspectFit" />
+          <text wx:else class="pet-emoji">{{pet.emoji || '🐾'}}</text>
         </view>
       </view>
 
@@ -78,6 +82,7 @@
   <reward-toast kind="task"
                 visible="{{taskRewardVisible}}"
                 coins="{{taskRewardCoins}}"
+                happiness="{{taskRewardHappiness}}"
                 subtitle="{{taskRewardCaption}}"
                 pet-emoji="{{pet.emoji}}"
                 bind:skip="handleSkipTaskReward" />
@@ -85,6 +90,7 @@
   <reward-toast kind="allDone"
                 visible="{{allDoneVisible}}"
                 coins="{{allDoneCoins}}"
+                happiness="{{allDoneHappiness}}"
                 subtitle="{{allDoneSubtitle}}"
                 pet-emoji="{{pet.emoji}}"
                 bind:skip="handleSkipAllDone" />

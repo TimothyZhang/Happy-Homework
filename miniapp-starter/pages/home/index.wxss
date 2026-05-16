@@ -142,12 +142,26 @@
   justify-content: center;
   flex-shrink: 0;
   box-shadow: 0 6rpx 18rpx rgba(255, 182, 72, 0.28);
+  overflow: hidden;
 }
 
 .pet-emoji {
   font-size: 64rpx;
   line-height: 1;
 }
+
+/* SVG mascot — kept slightly inset so it sits inside the round badge. */
+.pet-art {
+  width: 92rpx;
+  height: 92rpx;
+  display: block;
+}
+
+/* Mood overlays — mirror pet page so a sad/sick/dirty pet looks the same in
+   both views. See pages/pet/index.wxss .anim-* for the canonical values. */
+.pet-mascot.anim-sad   .pet-art { filter: grayscale(0.3); }
+.pet-mascot.anim-dirty .pet-art { filter: brightness(0.9); }
+.pet-mascot.anim-sick  .pet-art { filter: hue-rotate(-30deg) brightness(0.92); }
 
 /* === early-bird bonus chip + rules popup === */
 .bonus-row {
