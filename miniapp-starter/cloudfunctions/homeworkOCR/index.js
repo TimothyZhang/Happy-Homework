@@ -6,13 +6,12 @@ const https = require('https')
 // === OpenAI 模型 + reasoning effort 配对(此处改一个,另一个一起评估) ===
 // 默认走 gpt-5.5(对应 Azure 同名 deployment)。实测在小学生作业登记本手写体
 // 上召回 75%,显著优于 gpt-5(50%)和 gpt-4o(37%)。
-// reasoning effort:本来想用 'low'(17s 召回最稳),但腾讯云函数免费档 timeout
-// 上限是 60s,冷启动 + 图下载 + gpt-5.5 推理常会撞上限。改用 'none'(12s,
-// 召回与 'low' 都是 75%,只在个别细节略差,如"听写"识别成"抄写")。
+// reasoning effort:云函数 timeout 已经升到 120s(见 SCF 配置),gpt-5.5 + low
+// 端到端 17s 跑得动,recall 比 none 稳定高 10pp 左右(sample12 上 80% → 90%+)。
 // 'minimal' 在 gpt-5.5 上不被接受;gpt-5 / o-series 才支持。
 // 想覆盖,云函数 env 里设 OPENAI_OCR_MODEL / OPENAI_REASONING_EFFORT 仍会优先生效。
 const DEFAULT_OPENAI_MODEL = 'gpt-5.5'
-const DEFAULT_REASONING_EFFORT = 'none'
+const DEFAULT_REASONING_EFFORT = 'low'
 const DEFAULT_OPENAI_BASE_URL = 'https://api.openai.com/v1'
 
 const DEFAULT_MOCK_RAW_TEXT = `语文：抄写第3课生字两遍
@@ -438,7 +437,17 @@ async function recognizeWithOpenAiOcr(imageFileID) {
     '8. 英语课号常写作 "L15"、"L16"，注意首字母 L 不要识别成数字 4 或 1。',
     '9. 字迹模糊或 subject 为空时把 needsConfirm 设为 true，confidence 给"低"。',
     '10. 不确定的字用最可能的中文原文，不要编造内容。',
-    '11. 每条作业末尾常画"小方框 口"、"对勾 ✓/√"、"小圆圈 ○" 当完成标记（家长/学生勾掉用），这些是图形不是字，不要把它们识成 "10"、"D"、"0" 之类并入 content。'
+    '11. 每条作业末尾常画"小方框 口"、"对勾 ✓/√"、"小圆圈 ○" 当完成标记（家长/学生勾掉用），这些是图形不是字，不要把它们识成 "10"、"D"、"0" 之类并入 content。',
+    '12. 常见缩写要补全成完整词。学生在登记本上写得快时会用单字缩写，识别后请还原成完整词写进 content（rawText 保留原样）：',
+    '    - "目X" / "目PXX" / "目XX-XX" → "目标X" / "目标PXX" / "目标XX-XX"，例如 "目P51-52" → "目标P51-52"。',
+    '    - "预X" / "预X,Y" / "预X、Y" / "预X课" → "预习第X课" / "预习第X、Y课"，例如 "预5,6" → "预习第5、6课"。',
+    '    - "复X" → "复习X"，例如 "复百词" → "复习百词"。',
+    '    只在"单字 + 数字 / 页码 / 范围"这种缩写模式下补全；原文已经写全的（如"目标24课"、"预习25课"、"复习"独立成条）保持不变。',
+    '13. 常见小学作业词参考词典。字迹模糊但能依稀辨形时优先匹配下列已知词，避免识成形似但语义不通的字（仍受规则 10「不编造」约束，看不出就别套）：',
+    '    - 语文：学习单、研学单、习作、抄书本、生字、复习、预习、目标（常缩"目"）。',
+    '    - 数学：口算、举一反三、每周一讲、目标（常缩"目"）、小练习、改错、习作。',
+    '    - 英语：听写、复习、百词、研学单、L 课（L15、L16）。',
+    '    例：手写"百词"易被识成"白词/单词/台词"，"研学单"易被识成"听写单/所学单"——这两种情况按词典回到"百词"和"研学单"。'
   ].join('\n')
 
   const response = await callOpenAiVision(apiKey, {
