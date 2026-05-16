@@ -4,9 +4,13 @@
   <block wx:if="{{kind === 'task'}}">
     <view class="reward-task" catchtap="handleSkip">
       <text class="reward-task__pet">{{petEmoji}}</text>
-      <view class="reward-task__coin">
+      <view wx:if="{{coins > 0}}" class="reward-task__coin">
         <view class="coin coin--sm"><text class="coin__sym">¥</text></view>
         <text class="reward-task__coin-text">+{{coins}}</text>
+      </view>
+      <view wx:if="{{happiness > 0}}" class="reward-task__happy">
+        <text class="reward-task__happy-icon">💖</text>
+        <text class="reward-task__happy-text">+{{happiness}} 开心</text>
       </view>
       <text wx:if="{{subtitle}}" class="reward-task__caption">{{subtitle}}</text>
     </view>
@@ -57,6 +61,14 @@
           <text class="reward-alldone__total-text">+{{coins}}</text>
           <text class="reward-alldone__total-suffix">金币!</text>
         </view>
+      </view>
+
+      <!-- Happiness top-up line — only appears when the perfect-day bump
+           moved happiness up (i.e. it wasn't already at 100). Sits below the
+           big coin total in the same card. -->
+      <view wx:if="{{happiness > 0}}" class="reward-alldone__happy">
+        <text class="reward-alldone__happy-icon">💖</text>
+        <text class="reward-alldone__happy-text">开心度 +{{happiness}}，加满啦！</text>
       </view>
     </view>
   </block>

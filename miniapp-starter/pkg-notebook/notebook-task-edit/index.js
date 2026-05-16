@@ -17,10 +17,15 @@ Page({
     formSubject: '语文',
     formSubjectIndex: 0,
     subjectOptions: SUBJECT_OPTIONS,
-    // Auto-estimate (existing): suggested minutes from finished history of
-    // (content, subject). Same heuristic as before.
+    // Auto-estimate: suggested minutes from finished history of
+    // (content, subject) — time-weighted average via store.estimateTaskMinutes.
+    // When new mode + the minutes field hasn't been touched, the estimate is
+    // written straight into formMinutes; estAutoFilled tracks that so a
+    // subsequent recalc (content/subject change) can still replace it. Once
+    // the user types into the minutes input, the lock flips and we leave it.
     formEstMinutes: 0,
     formEstHint: '',
+    estAutoFilled: false,
     // Auto-infer subject (new): when the user hasn't manually chosen a
     // subject yet, we look up history for this content and pre-fill if one
     // subject dominates. The hint chip shows so it's not a surprise.
@@ -150,15 +155,38 @@ Page({
 
   recalcEstimate() {
     const content = (this.data.formContent || '').trim()
+    // We may overwrite formMinutes only when it's empty OR we put the current
+    // value there ourselves. As soon as the user types into the minutes input
+    // (handleMinutesInput flips estAutoFilled to false), this latch closes
+    // and recalcs become non-destructive — hint stays informational.
+    const canAutoFill = !this.data.formMinutes || this.data.estAutoFilled
     if (!content) {
-      this.setData({ formEstHint: '', formEstMinutes: 0 })
+      const updates = { formEstHint: '', formEstMinutes: 0 }
+      if (canAutoFill && this.data.formMinutes) {
+        updates.formMinutes = ''
+        updates.estAutoFilled = false
+      }
+      this.setData(updates)
       return
     }
     const est = store.estimateTaskMinutes(content, this.data.formSubject || '')
     if (est) {
-      this.setData({ formEstMinutes: est, formEstHint: `预估 ${est} 分钟（基于历史，点这里使用）` })
+      const updates = {
+        formEstMinutes: est,
+        formEstHint: canAutoFill ? `已按历史预估 ${est} 分钟，可改` : `历史预估约 ${est} 分钟`
+      }
+      if (canAutoFill) {
+        updates.formMinutes = String(est)
+        updates.estAutoFilled = true
+      }
+      this.setData(updates)
     } else {
-      this.setData({ formEstMinutes: 0, formEstHint: '' })
+      const updates = { formEstMinutes: 0, formEstHint: '' }
+      if (canAutoFill && this.data.formMinutes) {
+        updates.formMinutes = ''
+        updates.estAutoFilled = false
+      }
+      this.setData(updates)
     }
   },
 
@@ -168,7 +196,7 @@ Page({
   },
 
   handleMinutesInput(e) {
-    this.setData({ formMinutes: e.detail.value })
+    this.setData({ formMinutes: e.detail.value, estAutoFilled: false })
   },
 
   handleSubjectChange(e) {
@@ -185,7 +213,7 @@ Page({
 
   handleAcceptEstimate() {
     if (this.data.formEstMinutes) {
-      this.setData({ formMinutes: String(this.data.formEstMinutes) })
+      this.setData({ formMinutes: String(this.data.formEstMinutes), estAutoFilled: true })
     }
   },
 
