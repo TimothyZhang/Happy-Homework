@@ -31,6 +31,21 @@
              bindinput="handleMinutesInput" />
       <view wx:if="{{formEstHint && !formMinutes}}" class="est-hint" bindtap="handleAcceptEstimate">{{formEstHint}}</view>
     </view>
+
+    <view wx:if="{{showDueDate}}" class="field">
+      <text class="field-label">截止日期（可选）</text>
+      <view class="due-row">
+        <picker mode="date"
+                value="{{formDueDate || notebookEndDate}}"
+                start="{{dueDateMin}}"
+                end="{{dueDateMax}}"
+                bindchange="handleDueDateChange">
+          <view class="input picker-value">{{formDueDate || '默认 ' + notebookEndDate}}</view>
+        </picker>
+        <view wx:if="{{formDueDate}}" class="due-clear" bindtap="handleClearDueDate">清除</view>
+      </view>
+      <text class="due-hint">不设则跟随作业本结束日期</text>
+    </view>
   </view>
 
   <view class="actions">

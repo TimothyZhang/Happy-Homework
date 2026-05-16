@@ -37,6 +37,17 @@ function isNotebookActiveOn(nb, dateStr) {
   return false
 }
 
+// Reference 镜像 store 里同名函数:一次性 task 的 due = task.dueDate || endDate,
+// 钳到 notebook 范围内。recurring 返回 null。
+function effectiveDueDate(task, nb) {
+  if (!nb || nb.mode !== 'one-shot') return null
+  const fallback = nb.endDate || nb.startDate
+  let due = task.dueDate || fallback
+  if (nb.startDate && due < nb.startDate) due = nb.startDate
+  if (nb.endDate && due > nb.endDate) due = nb.endDate
+  return due
+}
+
 function defaultOcc() {
   return {
     status: 'todo', startedAt: null, currentSegmentStartedAt: null,
@@ -60,7 +71,9 @@ function getTaskState(task, nb, dateStr) {
   return occ ? { ...defaultOcc(), ...occ } : defaultOcc()
 }
 
-// --- Reference (original) tasksForDate ---
+// --- Reference (镜像 store 当前规则) tasksForDate ---
+// 一次性 task 按 task 级 effectiveDueDate 决定显示日与逾期;recurring 沿用调度。
+// occurrenceDate 对一次性 task 是 effectiveDueDate(跨视图保持一致)。
 function refTasksForDate(state, dateStr) {
   const today = todayStr()
   const isFuture = compareDateStr(dateStr, today) > 0
@@ -72,25 +85,34 @@ function refTasksForDate(state, dateStr) {
   for (const task of state.tasks) {
     const nb = notebookById[task.notebookId]
     if (!nb) continue
-    const onSchedule = isNotebookActiveOn(nb, dateStr)
+    let onSchedule = false
     let isOverdue = false
     let completedOnDate = false
-    if (!isFuture && nb.mode === 'one-shot') {
-      const status = task.status || 'todo'
-      if (status === 'done' && task.completedAt &&
-          dateToStr(new Date(task.completedAt)) === dateStr) {
-        completedOnDate = true
+    let oneShotDue = null
+
+    if (nb.mode === 'one-shot') {
+      oneShotDue = effectiveDueDate(task, nb)
+      onSchedule = !!oneShotDue && oneShotDue === dateStr
+      if (!isFuture) {
+        const status = task.status || 'todo'
+        if (status === 'done' && task.completedAt &&
+            dateToStr(new Date(task.completedAt)) === dateStr) {
+          completedOnDate = true
+        }
       }
-    }
-    if (!onSchedule && isToday && nb.mode === 'one-shot') {
-      const due = nb.endDate || nb.startDate
-      if (compareDateStr(due, today) < 0 && (task.status || 'todo') !== 'done') {
-        isOverdue = true
+      if (!onSchedule && isToday) {
+        if (oneShotDue && compareDateStr(oneShotDue, today) < 0 && (task.status || 'todo') !== 'done') {
+          isOverdue = true
+        }
       }
+    } else {
+      onSchedule = isNotebookActiveOn(nb, dateStr)
     }
+
     if (!onSchedule && !isOverdue && !completedOnDate) continue
     const occ = getTaskState(task, nb, dateStr)
-    items.push({ taskId: task.id, nbId: nb.id, occurrenceDate: dateStr, status: occ.status, isOverdue })
+    const occurrenceDate = nb.mode === 'one-shot' ? (oneShotDue || dateStr) : dateStr
+    items.push({ taskId: task.id, nbId: nb.id, occurrenceDate, status: occ.status, isOverdue })
   }
 
   if (isToday) {

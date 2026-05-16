@@ -4,7 +4,7 @@
     { "subject": "语文", "content": "作业上本（5单元周五交）" },
     { "subject": "语文", "content": "目标22课改错，23课完成（在校）" },
     { "subject": "数学", "content": "口算" },
-    { "subject": "数学", "content": "目P53～54" },
+    { "subject": "数学", "content": "目标P53～P54", "reason":"写的是\"目P53～54\"，做了适当改写"},
     { "subject": "数学", "content": "举一反三(周五交)" },
     { "subject": "数学", "content": "作息表" },
     { "subject": "英语", "content": "背L22课文+单词" },

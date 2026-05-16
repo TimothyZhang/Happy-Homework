@@ -27,7 +27,21 @@ function describeRange(nb) {
 }
 
 function decorateNotebook(nb, tasks, today) {
-  const activeToday = store.isNotebookActiveOn(nb, today)
+  // 卡片"今日"chip 的判定:
+  //   - 一次性:本里有任意 task 今天到期(effectiveDueDate=today)或有过期未完成 task。
+  //     不再仅看 notebook.endDate,跟首页一致。
+  //   - 周期性:沿用 notebook 调度。
+  let activeToday = false
+  if (nb.mode === 'one-shot') {
+    for (const t of tasks) {
+      const due = store.effectiveDueDate(t, nb)
+      if (!due) continue
+      if (due === today) { activeToday = true; break }
+      if (due < today && (t.status || 'todo') !== 'done') { activeToday = true; break }
+    }
+  } else {
+    activeToday = store.isNotebookActiveOn(nb, today)
+  }
   // Count overall completion for one-shot, today's completion for recurring
   let doneCount = 0
   const totalCount = tasks.length

@@ -5,7 +5,7 @@
     { "subject": "语文", "content": "预习25,26,27课" },
     { "subject": "语文", "content": "复习" },
     { "subject": "数学", "content": "口算" },
-    { "subject": "数学", "content": "目P51-52" },
+    { "subject": "数学", "content": "目标P51～P52", "reason":"写的是\"目标P51～P52\"，做了适当改写" },
     { "subject": "数学", "content": "每周一讲" },
     { "subject": "数学", "content": "小练习" },
     { "subject": "英语", "content": "研学单" },

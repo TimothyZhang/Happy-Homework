@@ -1,7 +1,16 @@
-<page-meta disable-scroll="{{disableScroll}}" />
+<page-meta disable-scroll="true" />
 <view class="page">
+  <scroll-view scroll-y="{{!disableScroll}}" class="scroll-area" enhanced="{{true}}" show-scrollbar="{{false}}">
   <view class="card header-card">
     <text class="nb-summary">{{notebookSummary}}</text>
+    <view wx:if="{{canPlan}}" class="view-switch">
+      <view class="seg {{viewMode === 'subject' ? 'active' : ''}}"
+            data-mode="subject"
+            bindtap="handleSwitchView">📚 学科</view>
+      <view class="seg {{viewMode === 'date' ? 'active' : ''}}"
+            data-mode="date"
+            bindtap="handleSwitchView">📅 规划</view>
+    </view>
   </view>
 
   <view wx:if="{{tasks.length === 0}}" class="card">
@@ -12,8 +21,20 @@
   </view>
 
   <block wx:for="{{tasks}}" wx:key="id">
-    <view wx:if="{{item.firstOfSubject}}" class="subject-header">{{item.subject}}</view>
-    <view class="task-row {{item.status}} {{dragId === item.id ? 'is-dragging' : ''}}"
+    <view wx:if="{{viewMode === 'subject' && item.firstOfSubject}}" class="subject-header">{{item.subject}}</view>
+
+    <view wx:if="{{item.__header}}"
+          class="flow-row date-header {{item.isEmpty ? 'is-empty' : ''}}"
+          style="{{item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : ''}}">
+      <view class="date-main">
+        <text class="date-title">{{item.dateLabel}}</text>
+        <text wx:if="{{item.dateSub}}" class="date-sub">{{item.dateSub}}</text>
+      </view>
+      <text wx:if="{{item.isEmpty}}" class="date-empty">暂无作业，可拖入</text>
+    </view>
+
+    <view wx:if="{{!item.__header}}"
+          class="flow-row task-row {{item.status}} {{dragId === item.id ? 'is-dragging' : ''}}"
           style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
           bindtouchstart="handleTouchStart"
           bindlongpress="handleLongPress"
@@ -25,6 +46,7 @@
       <view class="row-body">
         <text class="row-content">{{item.content}}</text>
         <view class="row-chips">
+          <text wx:if="{{viewMode === 'date' && item.subject}}" class="chip subject-chip">{{item.subject}}</text>
           <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
           <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
         </view>
@@ -45,4 +67,5 @@
     <button class="full-btn copy-btn" bindtap="handleCopyNotebook">📋 复制作业本</button>
     <button class="full-btn danger-btn" bindtap="handleDeleteNotebook">🗑 删除作业本</button>
   </view>
+  </scroll-view>
 </view>

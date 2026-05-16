@@ -25,7 +25,14 @@ Page({
     // subject yet, we look up history for this content and pre-fill if one
     // subject dominates. The hint chip shows so it's not a surprise.
     inferredSubject: '',
-    showInferHint: false
+    showInferHint: false,
+    // 截止日期(仅多天一次性作业本显示)。空字符串 = 跟随作业本 endDate。
+    // dueDateMin/Max 是 picker 范围,跟随作业本起止日期。
+    showDueDate: false,
+    formDueDate: '',
+    dueDateMin: '',
+    dueDateMax: '',
+    notebookEndDate: ''
   },
 
   onLoad(options) {
@@ -59,7 +66,8 @@ Page({
         formContent: task.content || '',
         formMinutes: task.estimatedMinutes ? String(task.estimatedMinutes) : '',
         formSubject: SUBJECT_OPTIONS[subjIdx],
-        formSubjectIndex: subjIdx
+        formSubjectIndex: subjIdx,
+        ...this.computeDueDateFields(nb, task.dueDate || '')
       }, () => this.recalcEstimate())
       wx.setNavigationBarTitle({ title: '编辑作业' })
       return
@@ -76,9 +84,30 @@ Page({
       isEdit: false,
       notebookId,
       taskId: '',
-      notebookName: nb.name
+      notebookName: nb.name,
+      ...this.computeDueDateFields(nb, '')
     })
     wx.setNavigationBarTitle({ title: '新增作业' })
+  },
+
+  // 只在「多天的一次性作业本」里展示截止日期 picker。单天本只有一个日期,设了
+  // 也没意义;周期性作业本截止概念在 occurrence 层,跟 task.dueDate 不冲突。
+  computeDueDateFields(nb, currentDueDate) {
+    if (!nb || nb.mode !== 'one-shot') {
+      return { showDueDate: false, formDueDate: '', dueDateMin: '', dueDateMax: '', notebookEndDate: '' }
+    }
+    const start = nb.startDate
+    const end = nb.endDate || nb.startDate
+    if (!start || !end || start === end) {
+      return { showDueDate: false, formDueDate: '', dueDateMin: '', dueDateMax: '', notebookEndDate: end || '' }
+    }
+    return {
+      showDueDate: true,
+      formDueDate: currentDueDate || '',
+      dueDateMin: start,
+      dueDateMax: end,
+      notebookEndDate: end
+    }
   },
 
   // Debounced re-evaluation triggered on content / subject change.
@@ -160,8 +189,16 @@ Page({
     }
   },
 
+  handleDueDateChange(e) {
+    this.setData({ formDueDate: e.detail.value })
+  },
+
+  handleClearDueDate() {
+    this.setData({ formDueDate: '' })
+  },
+
   handleSave() {
-    const { formContent, formMinutes, formSubject, isEdit, taskId, notebookId } = this.data
+    const { formContent, formMinutes, formSubject, formDueDate, showDueDate, isEdit, taskId, notebookId } = this.data
     if (!formContent || !formContent.trim()) {
       wx.showToast({ title: '请填作业内容', icon: 'none' })
       return
@@ -171,6 +208,11 @@ Page({
       // Minutes is optional — addTask coerces blanks to 0.
       estimatedMinutes: formMinutes ? Number(formMinutes) : 0,
       subject: formSubject
+    }
+    // Only attach dueDate when the picker is shown (= 多天一次性作业本).
+    // 空字符串 → null,作业本默认按 endDate 落到最后一天 folder。
+    if (showDueDate) {
+      payload.dueDate = formDueDate || null
     }
     if (isEdit) {
       store.updateTask(taskId, payload)

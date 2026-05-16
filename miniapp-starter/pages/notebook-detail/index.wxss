@@ -1,8 +1,20 @@
+/* page-meta disable-scroll="true" + 内层 scroll-view 接管 —— 跟 home/calendar
+   一样。page-meta 单独不够,长按拖拽 mid-gesture 时 page 还会跟随;靠 scroll-view
+   的 scroll-y 切换才能真正锁住滚动(同样的坑 wxss 注释里在 home 已经记过)。 */
 .page {
-  min-height: 100vh;
-  padding: 24rpx;
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+}
+
+.scroll-area {
+  flex: 1;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 24rpx;
 }
 
 .card {
@@ -85,6 +97,88 @@
   font-weight: 700;
   color: #245bdb;
   letter-spacing: 1rpx;
+}
+
+/* 规划模式视图切换 —— 跟 summary 同一张卡片里,分段控件风格 */
+.view-switch {
+  display: flex;
+  margin-top: 16rpx;
+  padding: 4rpx;
+  background: #f0f3f8;
+  border-radius: 999rpx;
+}
+
+.view-switch .seg {
+  flex: 1;
+  text-align: center;
+  padding: 12rpx 0;
+  font-size: 24rpx;
+  color: #6b7785;
+  border-radius: 999rpx;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.view-switch .seg.active {
+  background: #ffffff;
+  color: #245bdb;
+  font-weight: 600;
+  box-shadow: 0 4rpx 12rpx rgba(31, 35, 41, 0.08);
+}
+
+/* 规划模式:每天 folder 的 header。min-height 让它高度接近 task-row,
+   这样拖拽算法用一份 itemH 估算就够稳。 */
+.date-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14rpx;
+  margin-top: 12rpx;
+  padding: 22rpx 22rpx;
+  min-height: 100rpx;
+  background: linear-gradient(135deg, #eef4ff 0%, #f7f9ff 100%);
+  border-radius: 22rpx;
+  transition: transform 0.16s ease;
+  box-sizing: border-box;
+}
+
+.date-header .date-main {
+  display: flex;
+  align-items: baseline;
+  gap: 14rpx;
+  flex: 1;
+  min-width: 0;
+}
+
+.date-header .date-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1546b5;
+  letter-spacing: 1rpx;
+}
+
+.date-header .date-sub {
+  font-size: 22rpx;
+  color: #245bdb;
+  padding: 4rpx 14rpx;
+  border-radius: 999rpx;
+  background: rgba(36, 91, 219, 0.12);
+}
+
+.date-header .date-empty {
+  font-size: 22rpx;
+  color: #8a96a6;
+  flex-shrink: 0;
+}
+
+.date-header.is-empty {
+  /* 空 folder 用更浅的背景提示"可拖入" */
+  background: #fafbfd;
+  border: 2rpx dashed #d0d6e0;
+}
+
+.subject-chip {
+  background: #eef4ff;
+  color: #245bdb;
 }
 
 .task-row {
