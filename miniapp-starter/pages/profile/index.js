@@ -1,6 +1,7 @@
 const cloudSync = require('../../utils/cloud-sync')
 const store = require('../../utils/store')
 const perf = require('../../utils/perf')
+const buildInfo = require('../../utils/build-info')
 
 const AVATAR_CLOUD_PATH_PREFIX = 'avatars'
 
@@ -13,7 +14,11 @@ Page({
     syncing: false,
     // admin 入口可见性。whoami 返回 isAdmin=true 才渲染管理后台卡片。
     isAdmin: false,
-    adminCheckDone: false
+    adminCheckDone: false,
+    // 版本号 + commit id。build-info 由 scripts/write-build-info.js 在
+    // upload 前生成 —— 本地开发(没跑过 script)显示 dev/unknown。
+    buildVersion: buildInfo.version || 'dev',
+    buildCommitId: buildInfo.commitId || 'unknown'
   },
 
   onShow() {
