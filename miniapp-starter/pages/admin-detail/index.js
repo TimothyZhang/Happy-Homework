@@ -13,6 +13,30 @@ function shortenOpenid(openid) {
   return `${openid.slice(0, 6)}…${openid.slice(-4)}`
 }
 
+// coin_ledger.kind → 中文标签。新增 kind 时在这里加一行即可。
+const LEDGER_KIND_LABELS = {
+  task_reward: '完成作业',
+  task_refund: '退还作业奖励',
+  pet_purchase: '宠物道具',
+  level_upgrade: '宠物升级',
+  pet_skin_switch: '切换皮肤',
+  admin_coin_claim: '管理员调整',
+  share_reward_claim: '分享奖励'
+}
+
+function summarizeMeta(meta) {
+  if (!meta || typeof meta !== 'object') return ''
+  // 常见字段抽出来,其它字段一律 JSON 折叠
+  const parts = []
+  if (meta.taskId) parts.push(`task:${meta.taskId}`)
+  if (meta.itemId) parts.push(`item:${meta.itemId}`)
+  if (meta.species) parts.push(`species:${meta.species}`)
+  if (meta.level) parts.push(`lv:${meta.level}`)
+  if (typeof meta.count === 'number') parts.push(`x${meta.count}`)
+  if (meta.reason) parts.push(meta.reason)
+  return parts.join(' · ')
+}
+
 Page({
   data: {
     openid: '',
@@ -30,6 +54,9 @@ Page({
     // logs
     adjustments: [],
     coinLogs: [],
+    ledger: [],
+    ledgerTotal: 0,
+    ledgerLoading: false,
     canUseCloud: typeof wx.cloud !== 'undefined'
   },
 
@@ -50,7 +77,7 @@ Page({
     }
     this.setData({ loading: true, error: '' })
     try {
-      const [userRes, logRes] = await Promise.all([
+      const [userRes, logRes, ledgerRes] = await Promise.all([
         wx.cloud.callFunction({
           name: 'adminPanel',
           data: { action: 'getUser', openid: this.data.openid }
@@ -58,6 +85,10 @@ Page({
         wx.cloud.callFunction({
           name: 'adminPanel',
           data: { action: 'listAdjustments', targetOpenid: this.data.openid, limit: 50 }
+        }),
+        wx.cloud.callFunction({
+          name: 'adminPanel',
+          data: { action: 'listCoinLedger', targetOpenid: this.data.openid, limit: 100 }
         })
       ])
 
@@ -94,6 +125,16 @@ Page({
         adminShort: shortenOpenid(r.adminOpenid)
       }))
 
+      const ledgerResult = (ledgerRes && ledgerRes.result) || {}
+      const ledger = (ledgerResult.rows || []).map((r) => ({
+        ...r,
+        kindLabel: LEDGER_KIND_LABELS[r.kind] || r.kind || '(未知)',
+        createdAtDisplay: formatAbsTime(r.createdAt),
+        signed: r.delta > 0 ? `+${r.delta}` : `${r.delta}`,
+        balanceAfterDisplay: (typeof r.balanceAfter === 'number') ? `${r.balanceAfter}` : '—',
+        metaSummary: summarizeMeta(r.meta)
+      }))
+
       this.setData({
         loading: false,
         summary,
@@ -102,7 +143,9 @@ Page({
         updatedAtDisplay: formatAbsTime(userResult.updatedAt),
         claimedAtDisplay: formatAbsTime(userResult.claimedAt),
         coinLogs: coinLogsDisplay,
-        adjustments
+        adjustments,
+        ledger,
+        ledgerTotal: typeof ledgerResult.total === 'number' ? ledgerResult.total : ledger.length
       })
     } catch (e) {
       console.error('[admin-detail] load failed', e)

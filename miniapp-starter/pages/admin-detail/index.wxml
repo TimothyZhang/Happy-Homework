@@ -164,11 +164,35 @@
       </view>
     </view>
 
-    <!-- coinLogs (该用户所有金币事件,不只是 admin 调整) -->
+    <!-- coin_ledger:服务端权威金币账本(全部事件:任务/宠物/管理员/分享…) -->
     <view class="card section-card">
       <view class="section-header">
-        <text class="section-title">用户金币流水</text>
-        <text class="subtle">最近 {{coinLogs.length}} 条</text>
+        <text class="section-title">金币流水(云端账本)</text>
+        <text class="subtle">共 {{ledgerTotal}} 条 · 显示前 {{ledger.length}}</text>
+      </view>
+      <view wx:if="{{ledger.length === 0}}" class="empty-block">暂无流水</view>
+      <view wx:else class="log-list">
+        <view wx:for="{{ledger}}" wx:key="_id" class="log-row">
+          <view class="log-line top">
+            <view class="ledger-kind-block">
+              <text class="ledger-kind">{{item.kindLabel}}</text>
+              <text class="subtle">{{item.createdAtDisplay}}</text>
+            </view>
+            <text class="log-delta {{item.delta > 0 ? 'add' : 'sub'}}">{{item.signed}}</text>
+          </view>
+          <view class="log-line">
+            <text class="subtle">余额变更后: {{item.balanceAfterDisplay}}</text>
+            <text wx:if="{{item.metaSummary}}" class="subtle">{{item.metaSummary}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <!-- coinLogs (客户端镜像,留作对账参考;coin_ledger 才是权威源) -->
+    <view class="card section-card">
+      <view class="section-header">
+        <text class="section-title">金币流水(本地)</text>
+        <text class="subtle">最近 {{coinLogs.length}} 条 · 仅供对账</text>
       </view>
       <view wx:if="{{coinLogs.length === 0}}" class="empty-block">暂无流水</view>
       <view wx:else class="log-list">
