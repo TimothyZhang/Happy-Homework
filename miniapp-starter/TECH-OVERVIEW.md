@@ -187,7 +187,7 @@ stub 了 `wx.storage` 和 `wx.cloud`,测的是客户端逻辑 + `pendingCoinEven
 
 当前 OCR 链路如下：
 
-1. 用户在 `pages/ocr-import` 选择图片(或从作业本详情页的「📷 拍照识别添加作业」入口进入，带 `notebookId`)
+1. 用户在 `pages/ocr-import` 选择图片(或从作业本详情页的「📷 拍照识别」入口进入，带 `notebookId`)
 2. 调用 `wx.cloud.uploadFile`
 3. 调用 `wx.cloud.callFunction({ name: 'homeworkOCR' })`
 4. 云函数返回 `rawText + drafts`

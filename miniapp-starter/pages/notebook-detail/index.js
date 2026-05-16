@@ -150,40 +150,6 @@ Page({
     wx.navigateTo({ url: `/pkg-notebook/notebook-edit/index?id=${this.data.notebookId}` })
   },
 
-  handleCopyNotebook() {
-    const nb = this.data.notebook
-    if (!nb) return
-    const defaultName = `${nb.name} 复制`
-    wx.showModal({
-      title: '复制作业本',
-      editable: true,
-      placeholderText: '请输入新作业本名称',
-      content: defaultName,
-      confirmText: '复制',
-      success: (res) => {
-        if (!res.confirm) return
-        const name = (res.content || '').trim()
-        if (!name) {
-          wx.showToast({ title: '请填名称', icon: 'none' })
-          return
-        }
-        if (store.findNotebookByName(name)) {
-          wx.showToast({ title: '已存在同名作业本', icon: 'none' })
-          return
-        }
-        const newId = store.duplicateNotebook(this.data.notebookId, name)
-        if (!newId) {
-          wx.showToast({ title: '复制失败', icon: 'none' })
-          return
-        }
-        wx.showToast({ title: '已复制', icon: 'success' })
-        setTimeout(() => {
-          wx.redirectTo({ url: `/pages/notebook-detail/index?id=${newId}` })
-        }, 300)
-      }
-    })
-  },
-
   onShareAppMessage() {
     const nb = this.data.notebook
     if (!nb) return { title: '作业本', path: '/pages/tasks/index' }

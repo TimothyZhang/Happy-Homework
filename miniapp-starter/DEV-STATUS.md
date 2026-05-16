@@ -56,7 +56,7 @@
   - 云开发环境 `cloud1-d8gkzu6ls85efd509`
 - 多 provider 兜底:OpenAI Vision OCR → 腾讯云 OCR(**GeneralHandwriting** → GeneralAccurate → GeneralBasic 顺序回退)→ 微信 OpenAPI → Tesseract.js
 - prompt 按语义拆分,共享前缀传递("17课生字、抄书本" → "17课生字" + "17课抄书本")
-- **作业本详情页「📷 拍照识别添加作业」按钮**:识别结果直接落到该作业本(而不是默认当日 one-shot),notebookId 经 `store.ocrCurrentJob` 流串
+- **作业本详情页「📷 拍照识别」按钮**:识别结果直接落到该作业本(而不是默认当日 one-shot),notebookId 经 `store.ocrCurrentJob` 流串
 
 ### 6. 跨端云同步 — **真实闭环已通**
 - `utils/cloud-sync.js` + 云数据库 `user_state` 集合,单设备 claim 模型
