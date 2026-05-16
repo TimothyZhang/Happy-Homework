@@ -20,7 +20,7 @@
   color: #6b7785;
 }
 
-/* Bottom-of-page action stack: edit / share / copy / delete */
+/* Bottom-of-page action stack: ocr / edit / share / delete */
 .bottom-actions {
   margin-top: 24rpx;
   display: flex;
@@ -52,14 +52,20 @@
   box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
 }
 
-/* All non-primary actions share a subdued light-gray look so the only
-   visually loud button is 「+ 新增作业」 above. */
+/* Non-destructive secondary actions: subdued gray so 「+ 新增作业」 above
+   stays the only loud blue button. */
 .bottom-actions .edit-btn,
-.bottom-actions .share-btn,
-.bottom-actions .copy-btn,
-.bottom-actions .danger-btn {
+.bottom-actions .share-btn {
   background: #f0f0f0;
   color: #1f2329;
+  box-shadow: none;
+}
+
+/* Destructive action: red text on a soft red tint — matches the per-task
+   delete chip (.icon-btn.del-btn) so 「删除」 reads consistently. */
+.bottom-actions .danger-btn {
+  background: #fff1f0;
+  color: #e54545;
   box-shadow: none;
 }
 
