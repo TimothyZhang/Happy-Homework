@@ -1,29 +1,3 @@
-.hero-card {
-  gap: 16rpx;
-}
-
-.eyebrow {
-  font-size: 24rpx;
-  color: #245bdb;
-  font-weight: 600;
-}
-
-.title {
-  display: block;
-  margin-top: 12rpx;
-  font-size: 40rpx;
-  font-weight: 700;
-  color: #182433;
-}
-
-.desc {
-  display: block;
-  margin-top: 12rpx;
-  color: #5b6574;
-  line-height: 1.7;
-  font-size: 26rpx;
-}
-
 .upload-card,
 .tips-card {
   margin-top: 24rpx;
@@ -43,26 +17,6 @@
   height: 360rpx;
   border-radius: 20rpx;
   background: #ffffff;
-}
-
-.mock-preview {
-  height: 360rpx;
-  border-radius: 20rpx;
-  background: linear-gradient(180deg, #f7faff 0%, #eef4ff 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.mock-preview-icon {
-  font-size: 72rpx;
-}
-
-.mock-preview-text {
-  margin-top: 16rpx;
-  font-size: 28rpx;
-  color: #44505e;
 }
 
 .preview-note,
@@ -99,13 +53,6 @@
   flex: 1;
 }
 
-.link-btn {
-  margin-top: 20rpx;
-  color: #245bdb;
-  background: transparent;
-  font-size: 26rpx;
-}
-
 .tip-item {
   display: flex;
   align-items: flex-start;
@@ -127,4 +74,11 @@
 
 .bottom-bar {
   margin-top: 24rpx;
+}
+
+/* WeChat <button> defaults to ~80% width with side margins; force full
+   width so 「开始识别」 spans the card edge-to-edge like other primary CTAs. */
+.bottom-bar .save-btn {
+  width: 100%;
+  margin: 0;
 }

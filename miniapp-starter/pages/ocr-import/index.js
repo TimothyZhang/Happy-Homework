@@ -152,7 +152,6 @@ Page({
     imagePath: '',
     isRecognizing: false,
     canUseCloud: typeof wx.cloud !== 'undefined',
-    useMockData: false,
     // 从作业本详情页进入时带过来的 notebookId,识别结果会落到该作业本;
     // 没有时退化为默认行为(进当日 one-shot 作业本)。
     notebookId: '',
@@ -199,11 +198,6 @@ Page({
     this.chooseImage('album')
   },
 
-  handleUseMockImage() {
-    this.setData({ imagePath: '', useMockData: true })
-    wx.showToast({ title: '已载入演示数据', icon: 'none' })
-  },
-
   async prepareImageForUpload(filePath) {
     if (!filePath) {
       return filePath
@@ -222,26 +216,24 @@ Page({
   },
 
   async handleStartRecognize() {
-    if (!this.data.imagePath && !this.data.useMockData) {
+    if (!this.data.imagePath) {
       wx.showToast({ title: '先选择一张登记本照片', icon: 'none' })
       return
     }
 
-    // 客户端先把次数挡一下,真识别(走云函数)才算一次,mock 不算。
-    if (!this.data.useMockData && this.data.canUseCloud) {
-      if (ocrCallsThisSession >= OCR_SESSION_LIMIT) {
-        wx.showToast({
-          title: '本次启动已识别太多次,稍后再试',
-          icon: 'none',
-          duration: 2400
-        })
-        return
-      }
+    // 客户端先把次数挡一下,30 次对正常用户绰绰有余。
+    if (this.data.canUseCloud && ocrCallsThisSession >= OCR_SESSION_LIMIT) {
+      wx.showToast({
+        title: '本次启动已识别太多次,稍后再试',
+        icon: 'none',
+        duration: 2400
+      })
+      return
     }
 
     this.setData({ isRecognizing: true })
 
-    if (this.data.useMockData || !this.data.canUseCloud) {
+    if (!this.data.canUseCloud) {
       this.runMockRecognition()
       return
     }
