@@ -70,4 +70,8 @@
     </view>
   </view>
 
+  <view class="build-info">
+    <text class="build-info-line">版本 {{buildVersion}}</text>
+    <text class="build-info-line dim">commit {{buildCommitId}}</text>
+  </view>
 </view>
