@@ -1,6 +1,6 @@
 <page-meta disable-scroll="true" />
 <view class="page">
-  <scroll-view scroll-y="{{!disableScroll}}" class="scroll-area" enhanced="{{true}}" show-scrollbar="{{false}}">
+  <scroll-view scroll-y="{{!disableScroll}}" class="scroll-area" show-scrollbar="{{false}}">
     <view class="card hero">
       <view class="seg-bar">
         <view class="seg-btn today-seg {{activeSegment === 'today' ? 'active' : ''}}"
