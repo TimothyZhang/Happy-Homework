@@ -1,105 +1,82 @@
 <view class="page">
   <view class="card header-card">
-    <button class="primary-btn add-nb-btn" bindtap="handleAddNotebook">+ 新建作业本</button>
-  </view>
-
-  <view wx:if="{{notebooks.length === 0 && completedNotebooks.length === 0 && hiddenEmpty.length === 0}}" class="card">
-    <view class="empty-state">
-      <text class="empty-emoji">📒</text>
-      <text class="empty-text">还没有作业本，点上方「+ 新建作业本」开始吧</text>
-    </view>
-  </view>
-
-  <view wx:if="{{notebooks.length === 0 && completedNotebooks.length > 0 && !showCompleted}}" class="card">
-    <view class="empty-state">
-      <text class="empty-emoji">🎉</text>
-      <text class="empty-text">所有作业本都完成啦！点下方查看已完成</text>
-    </view>
-  </view>
-
-  <view wx:for="{{notebooks}}" wx:key="id"
-        class="notebook-card {{item.activeToday ? 'active-today' : ''}}"
-        data-id="{{item.id}}"
-        bindtap="handleOpenNotebook">
-    <view class="nb-row">
-      <view class="nb-body">
-        <view class="nb-title-row">
-          <text class="nb-name">{{item.name}}</text>
-          <text class="nb-mode mode-{{item.mode}}">{{item.modeLabel}}</text>
-        </view>
-        <view class="nb-chips">
-          <text wx:if="{{item.recurrenceLabel}}" class="chip rec-chip">{{item.recurrenceLabel}}</text>
-          <text class="chip range-chip">{{item.rangeLabel}}</text>
-          <text wx:if="{{item.activeToday}}" class="chip today-chip">今日</text>
-        </view>
-        <view class="nb-progress">
-          <view class="progress-track">
-            <view class="progress-fill" style="width: {{item.progressPercent}}%"></view>
-          </view>
-          <text class="progress-text">{{item.doneCount}} / {{item.taskCount}}</text>
-        </view>
+    <button class="primary-btn add-nb-btn" bindtap="handleAddTask">+ 新建作业</button>
+    <view class="toolbar-row">
+      <view class="seg-group">
+        <text>分组：</text>
+        <text wx:for="{{GROUP_MODES}}" wx:key="key"
+              class="seg-btn {{groupMode === item.key ? 'active' : ''}}"
+              data-key="{{item.key}}"
+              bindtap="handleGroupChange">{{item.label}}</text>
+      </view>
+      <view class="seg-group">
+        <text>显示：</text>
+        <text wx:for="{{FILTER_MODES}}" wx:key="key"
+              class="seg-btn {{filterMode === item.key ? 'active' : ''}}"
+              data-key="{{item.key}}"
+              bindtap="handleFilterChange">{{item.label}}</text>
       </view>
     </view>
   </view>
 
-  <block wx:if="{{showCompleted}}">
-    <view wx:for="{{completedNotebooks}}" wx:key="id"
-          class="notebook-card all-done"
-          data-id="{{item.id}}"
-          bindtap="handleOpenNotebook">
-      <view class="nb-row">
-        <view class="nb-body">
-          <view class="nb-title-row">
-            <text class="nb-name">{{item.name}}</text>
-            <text class="nb-mode mode-{{item.mode}}">{{item.modeLabel}}</text>
-          </view>
-          <view class="nb-chips">
-            <text wx:if="{{item.recurrenceLabel}}" class="chip rec-chip">{{item.recurrenceLabel}}</text>
-            <text class="chip range-chip">{{item.rangeLabel}}</text>
-          </view>
-          <view class="nb-progress">
-            <view class="progress-track">
-              <view class="progress-fill" style="width: {{item.progressPercent}}%"></view>
+  <view wx:if="{{totalCount === 0}}" class="card">
+    <view class="empty-state">
+      <text class="empty-emoji">📝</text>
+      <text class="empty-text">还没有作业，点上方「+ 新建作业」开始吧</text>
+    </view>
+  </view>
+
+  <!-- 分组视图 -->
+  <block wx:if="{{groupMode !== 'none'}}">
+    <view wx:for="{{groups}}" wx:for-item="grp" wx:key="key" class="group-block">
+      <view class="group-title">
+        <text class="group-label">{{grp.label}}</text>
+        <text class="group-count">{{grp.tasks.length}}</text>
+      </view>
+      <view wx:for="{{grp.tasks}}" wx:key="id" wx:for-item="task"
+            class="task-card {{task.cleared ? 'all-done' : ''}} {{task.activeToday ? 'active-today' : ''}}"
+            data-id="{{task.id}}"
+            bindtap="handleEditTask">
+        <view class="nb-row">
+          <view class="nb-body">
+            <view class="nb-title-row">
+              <text class="nb-name">{{task.content}}</text>
+              <text class="nb-mode mode-{{task.mode}}">{{task.modeLabel}}</text>
             </view>
-            <text class="progress-text">{{item.doneCount}} / {{item.taskCount}}</text>
+            <view class="nb-chips">
+              <text wx:if="{{task.subject}}" class="chip rec-chip">{{task.subject}}</text>
+              <text class="chip range-chip">{{task.organization}}</text>
+              <text class="chip range-chip">{{task.scheduleLabel}}</text>
+              <text wx:if="{{task.activeToday}}" class="chip today-chip">今日</text>
+              <text wx:if="{{task.doneToday}}" class="chip today-chip">已完成</text>
+            </view>
           </view>
         </view>
       </view>
     </view>
   </block>
 
-  <view wx:if="{{completedNotebooks.length > 0}}" class="toggle-completed-row">
-    <button class="toggle-completed-btn" bindtap="handleToggleCompleted">
-      {{showCompleted ? '收起已完成' : '显示已完成 (' + completedNotebooks.length + ')'}}
-    </button>
-  </view>
-
-  <block wx:if="{{showHiddenEmpty}}">
-    <view wx:for="{{hiddenEmpty}}" wx:key="id"
-          class="notebook-card all-done"
+  <!-- 平铺视图 -->
+  <block wx:if="{{groupMode === 'none'}}">
+    <view wx:for="{{flatList}}" wx:key="id"
+          class="task-card {{item.cleared ? 'all-done' : ''}} {{item.activeToday ? 'active-today' : ''}}"
           data-id="{{item.id}}"
-          bindtap="handleOpenNotebook">
+          bindtap="handleEditTask">
       <view class="nb-row">
         <view class="nb-body">
           <view class="nb-title-row">
-            <text class="nb-name">{{item.name}}</text>
+            <text class="nb-name">{{item.content}}</text>
             <text class="nb-mode mode-{{item.mode}}">{{item.modeLabel}}</text>
           </view>
           <view class="nb-chips">
-            <text wx:if="{{item.recurrenceLabel}}" class="chip rec-chip">{{item.recurrenceLabel}}</text>
-            <text class="chip range-chip">{{item.rangeLabel}}</text>
-          </view>
-          <view class="nb-progress">
-            <text class="progress-text">空作业本 · 已过期</text>
+            <text wx:if="{{item.subject}}" class="chip rec-chip">{{item.subject}}</text>
+            <text class="chip range-chip">{{item.organization}}</text>
+            <text class="chip range-chip">{{item.scheduleLabel}}</text>
+            <text wx:if="{{item.activeToday}}" class="chip today-chip">今日</text>
+            <text wx:if="{{item.doneToday}}" class="chip today-chip">已完成</text>
           </view>
         </view>
       </view>
     </view>
   </block>
-
-  <view wx:if="{{hiddenEmpty.length > 0}}" class="toggle-completed-row">
-    <button class="toggle-completed-btn" bindtap="handleToggleHiddenEmpty">
-      {{showHiddenEmpty ? '收起过期空本' : '显示过期空本 (' + hiddenEmpty.length + ')'}}
-    </button>
-  </view>
 </view>

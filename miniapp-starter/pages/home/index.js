@@ -30,6 +30,15 @@ function formatShortMD(dateStr) {
   return `${Number(m[1])}/${Number(m[2])}`
 }
 
+// "5/16 Sat" — segment label format: 月/日 + 英文星期缩写。
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+function formatShortMDW(dateStr) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr || '')
+  if (!m) return ''
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  return `${Number(m[2])}/${Number(m[3])} ${WEEKDAY_SHORT[d.getDay()]}`
+}
+
 // Build the early-finish bonus chip data for the current hour. The chip shows
 // the flat extra you'd lock in by finishing the day's last task right now — so
 // it's only meaningful when there are pending tasks to finish today. When
@@ -116,16 +125,16 @@ function decorateItem(item, now) {
   // to preserve the overdue-date chip.
   const visualOverdue = !!item.isOverdue
   const occurrenceDate = item.occurrenceDate || ''
-  const rowOrder = store.getRowOrder(item.task, item.notebook, occurrenceDate)
+  const rowOrder = store.getRowOrder(item.task, occurrenceDate)
   return {
     // composite key — same task across multiple missed dates needs distinct
     // wx:key entries
     id: occurrenceDate ? `${item.task.id}__${occurrenceDate}` : item.task.id,
     taskId: item.task.id,
+    taskMode: item.task.mode || 'one-shot',
     occurrenceDate,
-    notebookId: item.notebook.id,
-    notebookName: item.notebook.name,
     subject: item.task.subject || '',
+    organization: item.task.organization || '其他',
     content: item.task.content,
     estimatedMinutes: item.task.estimatedMinutes,
     rowOrder,
@@ -190,7 +199,7 @@ Page({
   data: {
     selectedDate: '',
     isToday: true,
-    // 'today' | 'tomorrow' | 'calendar' — drives segment highlight.
+    // 'today' | 'tomorrow' | 'day-after' | 'calendar' — drives segment highlight.
     activeSegment: 'today',
     calendarOpen: false,
     // Locks the inner <scroll-view> while a task-list drag is in progress.
@@ -202,6 +211,7 @@ Page({
     disableScroll: false,
     todayLabel: '今天',
     tomorrowLabel: '明天',
+    dayAfterLabel: '后天',
     calendarLabel: '日历',
     overview: { totalCount: 0, pendingCount: 0, doneCount: 0 },
     remainingMinutesDisplay: '—',
@@ -279,6 +289,7 @@ Page({
   refreshState(opts = {}) {
     const today = store.todayStr()
     const tomorrow = store.addDays(today, 1)
+    const dayAfter = store.addDays(today, 2)
     const selectedDate = this.data.selectedDate || today
     const isToday = selectedDate === today
     const state = store.getStateWithComputed()
@@ -317,17 +328,19 @@ Page({
     const petMessage = this._petTips[this._petMessageIndex] || ''
     const bonus = buildBonusChip(isToday, undoneItems.length)
 
-    // Segment labels — "今天 5/10", "明天 5/11", and "日历" or "日历 5/15"
-    // when the user has picked a day that isn't today/tomorrow.
-    const todayLabel = `今天 ${formatShortMD(today)}`
-    const tomorrowLabel = `明天 ${formatShortMD(tomorrow)}`
-    const showCalDate = selectedDate && selectedDate !== today && selectedDate !== tomorrow
-    const calendarLabel = showCalDate ? `日历 ${formatShortMD(selectedDate)}` : '日历'
+    // Segment labels — 都是 "5/16 Sat" 格式;日历未选自定义日期时显示 "日历"。
+    const todayLabel = formatShortMDW(today)
+    const tomorrowLabel = formatShortMDW(tomorrow)
+    const dayAfterLabel = formatShortMDW(dayAfter)
+    const showCalDate = selectedDate &&
+      selectedDate !== today && selectedDate !== tomorrow && selectedDate !== dayAfter
+    const calendarLabel = showCalDate ? formatShortMDW(selectedDate) : '日历'
 
     let activeSegment
     if (this.data.calendarOpen) activeSegment = 'calendar'
     else if (selectedDate === today) activeSegment = 'today'
     else if (selectedDate === tomorrow) activeSegment = 'tomorrow'
+    else if (selectedDate === dayAfter) activeSegment = 'day-after'
     else activeSegment = 'calendar'
 
     this.setData({
@@ -336,6 +349,7 @@ Page({
       activeSegment,
       todayLabel,
       tomorrowLabel,
+      dayAfterLabel,
       calendarLabel,
       overview: { totalCount: total, pendingCount: undoneItems.length, doneCount: doneItems.length },
       remainingMinutesDisplay: formatDuration(remainingMinutes),
@@ -526,6 +540,12 @@ Page({
   onHide() { this.hideAllRewards(); this._stopPetMessageRotation() },
   onUnload() { this.hideAllRewards(); this._stopPetMessageRotation() },
 
+  handleAddTask() {
+    // 默认日期跟随首页当前选中(今天/明天/后天/日历选的日子)。
+    const date = this.data.selectedDate || store.todayStr()
+    wx.navigateTo({ url: `/pkg-notebook/task-edit/index?date=${date}` })
+  },
+
   // === Date segment === //
 
   handleSegmentTap(e) {
@@ -537,6 +557,9 @@ Page({
       this.refreshState()
     } else if (seg === 'tomorrow') {
       this.setData({ selectedDate: store.addDays(store.todayStr(), 1), calendarOpen: false })
+      this.refreshState()
+    } else if (seg === 'day-after') {
+      this.setData({ selectedDate: store.addDays(store.todayStr(), 2), calendarOpen: false })
       this.refreshState()
     } else if (seg === 'calendar') {
       // Open the calendar; selectedDate stays where it is — user picks a

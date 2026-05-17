@@ -3,6 +3,31 @@
   margin-top: 24rpx;
 }
 
+.tab-bar {
+  display: flex;
+  gap: 8rpx;
+  padding: 6rpx;
+  background: #eef4ff;
+  border-radius: 18rpx;
+}
+
+.tab-btn {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 12rpx;
+  border-radius: 14rpx;
+  font-size: 28rpx;
+  color: #5f6b7a;
+  font-weight: 500;
+}
+
+.tab-btn.active {
+  background: #ffffff;
+  color: #245bdb;
+  font-weight: 700;
+  box-shadow: 0 4rpx 12rpx rgba(36, 91, 219, 0.12);
+}
+
 .preview-box,
 .empty-box {
   margin-top: 24rpx;

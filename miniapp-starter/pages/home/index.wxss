@@ -32,7 +32,7 @@
      viewport inset — total ~24rpx of implicit horizontal inset that pulls
      the outer cards visibly inward vs other tabs that use
      <view class="page"> with 24rpx padding. Zero here so the cards align. */
-  padding: 24rpx 0 0 0;
+  padding: 0;
 }
 
 .card {
@@ -44,10 +44,8 @@
 
 .section-card { margin-top: 24rpx; }
 
-/* === date segment ===
-   "今天" stays visually prominent (twice as wide, larger font) but the brand
-   fill is reserved for whichever segment is actually selected — otherwise the
-   user can't tell which one they tapped. */
+/* === date segment === 4 个 seg 等宽,显示 "5/16 Sat" 格式。
+   今天用浅蓝底色标记(永久),active 选中后变深蓝白字。 */
 .seg-bar {
   display: flex;
   align-items: stretch;
@@ -58,24 +56,21 @@
 }
 
 .seg-btn {
+  flex: 1;
   text-align: center;
-  padding: 18rpx 8rpx;
+  padding: 14rpx 8rpx;
   border-radius: 14rpx;
   line-height: 1.2;
+  font-size: 24rpx;
   font-weight: 500;
   color: #6b7785;
 }
 
+/* 今天 segment 永久浅蓝标记,即使未选中也能一眼认出。 */
 .today-seg {
-  flex: 2;
-  font-size: 32rpx;
+  background: #eaf2ff;
+  color: #245bdb;
   font-weight: 700;
-  letter-spacing: 1rpx;
-}
-
-.small-seg {
-  flex: 1;
-  font-size: 24rpx;
 }
 
 .seg-btn.active {
@@ -305,6 +300,27 @@
   border-radius: 999rpx;
   background: #eef4ff;
   color: #245bdb;
+}
+
+.section-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.add-task-btn {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: #245bdb;
+  color: #ffffff;
+  font-size: 36rpx;
+  font-weight: 700;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4rpx 12rpx rgba(36, 91, 219, 0.25);
 }
 
 .done-section .section-title { color: #067647; }

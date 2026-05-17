@@ -79,6 +79,76 @@
   font-weight: 600;
 }
 
+.toolbar-row {
+  display: flex;
+  margin-top: 12rpx;
+  gap: 8rpx;
+}
+
+.seg-btn {
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  background: #f3f6fa;
+  color: #5f6b7a;
+}
+
+.seg-btn.active {
+  background: #eef4ff;
+  color: #245bdb;
+  font-weight: 600;
+}
+
+.check-dot {
+  width: 28rpx;
+  height: 28rpx;
+  border-radius: 50%;
+  border: 2rpx solid #c8d0dc;
+  margin-right: 14rpx;
+  flex-shrink: 0;
+  margin-top: 8rpx;
+}
+
+.check-dot.checked {
+  background: #245bdb;
+  border-color: #245bdb;
+}
+
+.check-dot.checked::after {
+  content: '✓';
+  color: #ffffff;
+  font-size: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.task-unchecked .row-content,
+.task-unchecked .row-chips {
+  opacity: 0.45;
+}
+
+.row-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+  margin-top: 10rpx;
+}
+
+.chip {
+  padding: 4rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  line-height: 1.5;
+  background: #f7f8fa;
+  color: #5f6b7a;
+}
+
+.org-chip { background: #f0e9ff; color: #6c3fdb; font-weight: 600; }
+.range-chip { background: #f3f6fa; color: #6b7785; }
+.est-chip { background: #f7f8fa; color: #6b7785; }
+
 .empty-state { padding: 40rpx 24rpx; text-align: center; }
 .empty-emoji { display: block; font-size: 72rpx; }
 .empty-text { display: block; margin-top: 16rpx; font-size: 26rpx; color: #6b7785; }

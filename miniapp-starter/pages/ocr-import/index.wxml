@@ -1,4 +1,9 @@
 <view class="page">
+  <view class="tab-bar">
+    <view class="tab-btn" bindtap="handleSwitchToTaskEdit">新增作业</view>
+    <view class="tab-btn active">拍照识别</view>
+  </view>
+
   <view class="card upload-card">
     <view class="section-header">
       <text class="section-title">1. 选择登记本照片</text>

@@ -138,7 +138,7 @@ Page({
   onShow() {
     const stamp = perf.markPageShow('pet')
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
-    if (tb) tb.setData({ selected: 3 })
+    if (tb) tb.setData({ selected: 1 })
     this.refreshState(stamp)
     // Consume celebration flag from home page (set in maybeShowReward).
     const app = getApp()

@@ -30,6 +30,30 @@
     </view>
   </view>
 
+  <view wx:if="{{bySubject.length > 0}}" class="card section-card">
+    <view class="section-header">
+      <text class="section-title">按学科</text>
+    </view>
+    <view wx:for="{{bySubject}}" wx:key="key" class="history-item">
+      <view class="row-between">
+        <text class="history-title">{{item.key}}</text>
+        <text class="status-badge status-done">{{item.done}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{byOrganization.length > 0}}" class="card section-card">
+    <view class="section-header">
+      <text class="section-title">按组织</text>
+    </view>
+    <view wx:for="{{byOrganization}}" wx:key="key" class="history-item">
+      <view class="row-between">
+        <text class="history-title">{{item.key}}</text>
+        <text class="status-badge status-done">{{item.done}}</text>
+      </view>
+    </view>
+  </view>
+
   <view class="card section-card">
     <view class="section-header">
       <text class="section-title">完成记录</text>
@@ -39,7 +63,7 @@
     <view wx:if="{{doneList.length}}">
       <view wx:for="{{doneList}}" wx:key="id" class="history-item">
         <view class="row-between">
-          <text class="history-title">{{item.notebookName}}</text>
+          <text class="history-title">{{item.subject}} · {{item.organization}}</text>
           <text class="status-badge status-done">{{item.doneOn || '已完成'}}</text>
         </view>
         <text class="task-content">{{item.content}}</text>

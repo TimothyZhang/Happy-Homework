@@ -1,91 +1,83 @@
 const store = require('../../utils/store')
 const cloudSync = require('../../utils/cloud-sync')
 const perf = require('../../utils/perf')
+const shareReward = require('../../utils/share-reward')
 
 const WEEKDAY_NAMES = ['一', '二', '三', '四', '五', '六', '日']
+const GROUP_MODES = [
+  { key: 'subject', label: '按学科' },
+  { key: 'organization', label: '按组织' },
+  { key: 'none', label: '不分组' }
+]
+const FILTER_MODES = [
+  { key: 'open', label: '待办' },
+  { key: 'all', label: '全部' }
+]
 
-function describeRecurrence(nb) {
-  if (!nb.recurrence) return '每日'
-  if (nb.recurrence.type === 'daily') return '每日'
-  if (nb.recurrence.type === 'weekly') {
-    const wds = (nb.recurrence.weekdays || []).slice().sort()
+function describeRecurrence(t) {
+  if (!t.recurrence) return '每日'
+  if (t.recurrence.type === 'daily') return '每日'
+  if (t.recurrence.type === 'weekly') {
+    const wds = (t.recurrence.weekdays || []).slice().sort()
     if (!wds.length) return '每周（未选日）'
     return '每周' + wds.map((w) => WEEKDAY_NAMES[w - 1]).join('、')
   }
   return ''
 }
 
-function describeRange(nb) {
-  if (nb.mode === 'one-shot') {
-    const start = nb.startDate
-    const end = nb.endDate || nb.startDate
-    if (start === end) return `${end}`
-    return `${start} → ${end}`
+function describeSchedule(t) {
+  if (t.mode === 'recurring') {
+    const tail = t.endDate ? `→ ${t.endDate}` : '→ 长期'
+    return `${describeRecurrence(t)} · ${t.startDate || ''} ${tail}`
   }
-  const tail = nb.endDate ? `→ ${nb.endDate}` : '→ 长期'
-  return `${nb.startDate} ${tail}`
+  const due = t.dueDate || t.endDate || t.startDate
+  return due || ''
 }
 
-function decorateNotebook(nb, tasks, today) {
-  // 卡片"今日"chip 的判定:
-  //   - 一次性:本里有任意 task 今天到期(effectiveDueDate=today)或有过期未完成 task。
-  //     不再仅看 notebook.endDate,跟首页一致。
-  //   - 周期性:沿用 notebook 调度。
+function isTaskDoneToday(task, today) {
+  if (task.mode === 'recurring') {
+    const occ = (task.occurrences || {})[today]
+    return !!(occ && occ.status === 'done')
+  }
+  return (task.status || 'todo') === 'done'
+}
+
+function isTaskAllCleared(task) {
+  // one-shot: status === done
+  // recurring: 永远不算"全部完成"(会持续)
+  if (task.mode === 'recurring') return false
+  return (task.status || 'todo') === 'done'
+}
+
+function decorateTask(t, today) {
+  const doneToday = isTaskDoneToday(t, today)
+  const cleared = isTaskAllCleared(t)
   let activeToday = false
-  if (nb.mode === 'one-shot') {
-    for (const t of tasks) {
-      const due = store.effectiveDueDate(t, nb)
-      if (!due) continue
-      if (due === today) { activeToday = true; break }
-      if (due < today && (t.status || 'todo') !== 'done') { activeToday = true; break }
-    }
+  if (t.mode === 'recurring') {
+    activeToday = store.isTaskActiveOn(t, today)
   } else {
-    activeToday = store.isNotebookActiveOn(nb, today)
+    const due = store.effectiveDueDate(t)
+    activeToday = due === today || (due && due < today && !cleared)
   }
-  // Count overall completion for one-shot, today's completion for recurring
-  let doneCount = 0
-  const totalCount = tasks.length
-  if (nb.mode === 'one-shot') {
-    for (const t of tasks) {
-      if ((t.status || 'todo') === 'done') doneCount++
-    }
-  } else {
-    for (const t of tasks) {
-      const occ = (t.occurrences || {})[today]
-      if (occ && occ.status === 'done') doneCount++
-    }
-  }
-  // Distinct subjects within this notebook (in the order they appear)
-  const seen = new Set()
-  const subjects = []
-  for (const t of tasks) {
-    const s = t.subject || ''
-    if (s && !seen.has(s)) { seen.add(s); subjects.push(s) }
-  }
-  // Visual fade-out: one-shot notebooks where every task is done. Recurring
-  // notebooks loop forever — they're never "complete", so they don't fade.
-  const allDone = nb.mode === 'one-shot' && totalCount > 0 && doneCount === totalCount
   return {
-    ...nb,
-    taskCount: totalCount,
-    doneCount,
-    subjects,
-    progressPercent: totalCount ? Math.round((doneCount / totalCount) * 100) : 0,
-    modeLabel: nb.mode === 'recurring' ? '重复' : '一次性',
-    rangeLabel: describeRange(nb),
-    recurrenceLabel: nb.mode === 'recurring' ? describeRecurrence(nb) : '',
-    activeToday,
-    allDone
+    ...t,
+    scheduleLabel: describeSchedule(t),
+    modeLabel: t.mode === 'recurring' ? '重复' : '一次性',
+    doneToday,
+    cleared,
+    activeToday
   }
 }
 
 Page({
   data: {
-    notebooks: [],
-    completedNotebooks: [],
-    hiddenEmpty: [],
-    showCompleted: false,
-    showHiddenEmpty: false
+    groupMode: 'subject',  // 'subject' | 'organization' | 'none'
+    filterMode: 'open',    // 'open' | 'all'
+    groups: [],            // [{ key, label, tasks: [decoratedTask] }]
+    flatList: [],          // when groupMode === 'none'
+    totalCount: 0,
+    GROUP_MODES,
+    FILTER_MODES
   },
 
   onShow() {
@@ -101,79 +93,111 @@ Page({
   refreshState(perfStamp) {
     const state = store.getStateWithComputed()
     const today = store.todayStr()
-    // Group tasks by notebook once → O(N+M) instead of N filters over M tasks.
-    const tasksByNb = {}
-    for (const t of state.tasks) {
-      const list = tasksByNb[t.notebookId] || (tasksByNb[t.notebookId] = [])
-      list.push(t)
-    }
-    // Sort by effective end date, latest first. Recurring notebooks without
-    // an end date are ongoing — treat them as "ends later than anything
-    // dated" and float them to the top.
-    const effectiveEnd = (nb) => nb.endDate || (nb.mode === 'one-shot' ? nb.startDate : null)
-    const sorted = [...state.notebooks].sort((a, b) => {
-      const ea = effectiveEnd(a)
-      const eb = effectiveEnd(b)
-      if (ea === eb) return (b.createdAt || 0) - (a.createdAt || 0)
-      if (!ea) return -1
-      if (!eb) return 1
-      return ea < eb ? 1 : -1
-    })
-    const all = sorted.map((nb) => decorateNotebook(nb, tasksByNb[nb.id] || [], today))
-    const notebooks = []
-    const completedNotebooks = []
-    const hiddenEmpty = []
-    for (const nb of all) {
-      if (nb.allDone) {
-        completedNotebooks.push(nb)
-      } else if (nb.taskCount === 0) {
-        const end = effectiveEnd(nb)
-        if (end && end < today) hiddenEmpty.push(nb)
-        else notebooks.push(nb)
+    const all = state.tasks.map((t) => decorateTask(t, today))
+
+    const filtered = this.data.filterMode === 'all'
+      ? all
+      : all.filter((t) => !t.cleared)
+
+    let groups = []
+    let flatList = []
+    if (this.data.groupMode === 'none') {
+      flatList = filtered.slice().sort((a, b) => {
+        // 活跃今日的排前面,然后按 createdAt 倒序
+        if (a.activeToday !== b.activeToday) return a.activeToday ? -1 : 1
+        return (b.createdAt || 0) - (a.createdAt || 0)
+      })
+    } else {
+      const key = this.data.groupMode
+      const buckets = new Map()
+      for (const t of filtered) {
+        const k = (t[key] || '其他')
+        if (!buckets.has(k)) buckets.set(k, [])
+        buckets.get(k).push(t)
+      }
+      groups = Array.from(buckets.entries()).map(([label, tasks]) => ({
+        key: `${key}-${label}`,
+        label,
+        tasks: tasks.sort((a, b) => {
+          if (a.activeToday !== b.activeToday) return a.activeToday ? -1 : 1
+          return (b.createdAt || 0) - (a.createdAt || 0)
+        })
+      }))
+      // 学科分组:按学科名字母 / 中文排;组织分组:固定顺序(校内/校外/其他)。
+      if (key === 'organization') {
+        const order = ['校内', '校外', '其他']
+        groups.sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label))
       } else {
-        notebooks.push(nb)
+        groups.sort((a, b) => a.label.localeCompare(b.label, 'zh'))
       }
     }
-    this.setData({ notebooks, completedNotebooks, hiddenEmpty }, perfStamp ? () => perf.markPaint(perfStamp) : undefined)
+
+    this.setData(
+      { groups, flatList, totalCount: filtered.length },
+      perfStamp ? () => perf.markPaint(perfStamp) : undefined
+    )
   },
 
-  handleToggleCompleted() {
-    this.setData({ showCompleted: !this.data.showCompleted })
+  handleGroupChange(event) {
+    const key = event.currentTarget.dataset.key
+    if (!key || key === this.data.groupMode) return
+    this.setData({ groupMode: key })
+    this.refreshState()
   },
 
-  handleToggleHiddenEmpty() {
-    this.setData({ showHiddenEmpty: !this.data.showHiddenEmpty })
+  handleFilterChange(event) {
+    const key = event.currentTarget.dataset.key
+    if (!key || key === this.data.filterMode) return
+    this.setData({ filterMode: key })
+    this.refreshState()
   },
 
-  handleAddNotebook() {
-    wx.navigateTo({ url: '/pkg-notebook/notebook-edit/index' })
+  handleAddTask() {
+    wx.navigateTo({ url: '/pkg-notebook/task-edit/index' })
   },
 
-  handleOpenNotebook(event) {
+  handleEditTask(event) {
     const { id } = event.currentTarget.dataset
-    wx.navigateTo({ url: `/pages/notebook-detail/index?id=${id}` })
+    wx.navigateTo({ url: `/pkg-notebook/task-edit/index?id=${id}` })
   },
 
-  handleEditNotebook(event) {
+  handleDeleteTask(event) {
     const { id } = event.currentTarget.dataset
-    wx.navigateTo({ url: `/pkg-notebook/notebook-edit/index?id=${id}` })
-  },
-
-  handleDeleteNotebook(event) {
-    const { id } = event.currentTarget.dataset
-    const nb = this.data.notebooks.find((n) => n.id === id)
-    if (!nb) return
+    const task = (this.data.flatList.concat(...this.data.groups.map((g) => g.tasks)))
+      .find((t) => t.id === id)
+    if (!task) return
     wx.showModal({
-      title: `删除作业本「${nb.name}」？`,
-      content: `本里 ${nb.taskCount} 项作业也会一起删除。`,
+      title: `删除「${task.content || '该作业'}」？`,
+      content: '历史完成记录不变,但这条作业以后不再出现。',
       confirmColor: '#e54545',
       success: (res) => {
         if (res.confirm) {
-          store.deleteNotebook(id)
+          store.deleteTask(id)
           this.refreshState()
           wx.showToast({ title: '已删除', icon: 'success' })
         }
       }
     })
+  },
+
+  handleShareEntry() {
+    // 引导 wx 分享面板 — 真正的 serializeTasksForShare 在 onShareAppMessage 里
+    // 落地。一次只能分一份,通常分享方拍一遍当日的全部任务。
+    wx.showShareMenu({ withShareTicket: false, menus: ['shareAppMessage'] })
+    wx.showToast({ title: '点右上角「···」分享', icon: 'none' })
+  },
+
+  // wx 分享面板回调 — 默认序列化当日全部任务。学科/组织过滤可在分享前
+  // 通过页面顶部 group toolbar 视觉筛选,但 payload 这里固定取 today
+  // 全部 task,避免过滤状态和分享内容不一致。
+  onShareAppMessage() {
+    const sharer = shareReward.getMyOpenidSync() || ''
+    const today = store.todayStr()
+    const payload = store.serializeTasksForShare(today, { sharerOpenid: sharer })
+    const encoded = encodeURIComponent(JSON.stringify(payload))
+    return {
+      title: `今天的作业 (${(payload.t || []).length} 项)`,
+      path: `/pages/notebook-share/index?d=${encoded}`
+    }
   }
 })

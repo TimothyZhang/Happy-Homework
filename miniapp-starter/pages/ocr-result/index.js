@@ -30,10 +30,7 @@ Page({
     subjectOptions,
     importedCount: 0,
     source: '',
-    providerWarning: '',
-    // 若 OCR job 上挂了 notebookId,导入时落到这本里,完成后退回该作业本详情;
-    // 没挂 notebookId 时走旧的"进入当日 one-shot 作业本 + 跳 tasks tab"的路径。
-    notebookId: ''
+    providerWarning: ''
   },
 
   onShow() {
@@ -52,7 +49,6 @@ Page({
       source: job.source || '',
       sourceLabel: getSourceLabel(job.source),
       providerWarning: job.providerWarning || '',
-      notebookId: job.notebookId || '',
       drafts: (job.drafts || []).map((draft) => ({
         ...draft,
         confidenceClass: getConfidenceClass(draft.confidence)
@@ -108,37 +104,27 @@ Page({
       return
     }
 
-    const { notebookId } = this.data
+    const today = store.todayStr()
     validDrafts.forEach((item) => {
-      const payload = {
+      // 拍照识别出的草稿统一作为一次性任务、落到今天。
+      store.addTask({
         subject: item.subject || '其他',
+        organization: store.DEFAULT_ORGANIZATION,
         content: item.content.trim(),
-        estimatedMinutes: 20
-      }
-      // 从作业本详情页发起的 OCR 把 drafts 落到这本里;否则让 store.addTask
-      // 走 legacy 分支,自动建/复用当日 one-shot 作业本。
-      if (notebookId) payload.notebookId = notebookId
-      store.addTask(payload)
+        estimatedMinutes: 20,
+        mode: 'one-shot',
+        startDate: today,
+        endDate: today
+      })
     })
 
     this.setData({ importedCount: validDrafts.length })
-    const isNotebookImport = !!notebookId
     wx.showModal({
       title: '导入成功',
-      content: isNotebookImport
-        ? `已往当前作业本添加 ${validDrafts.length} 条作业。`
-        : `已导入 ${validDrafts.length} 条作业，下一步可以去“作业”页继续编辑时间和优先级。`,
+      content: `已往今天添加 ${validDrafts.length} 条作业。`,
       showCancel: false,
       success: () => {
-        if (isNotebookImport) {
-          // 弹两页(ocr-result + ocr-import)回到作业本详情;失败时退回 tasks 兜底。
-          wx.navigateBack({
-            delta: 2,
-            fail: () => wx.switchTab({ url: '/pages/tasks/index' })
-          })
-        } else {
-          wx.switchTab({ url: '/pages/tasks/index' })
-        }
+        wx.switchTab({ url: '/pages/home/index' })
       }
     })
   }

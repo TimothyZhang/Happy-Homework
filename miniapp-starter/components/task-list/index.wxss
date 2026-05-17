@@ -93,7 +93,7 @@
 
 .doing-chip { background: #245bdb; color: #ffffff; font-weight: 700; }
 .subject-chip { background: #eef4ff; color: #245bdb; font-weight: 600; }
-.nb-chip { background: #f0e9ff; color: #6c3fdb; font-weight: 600; }
+.org-chip { background: #f0e9ff; color: #6c3fdb; font-weight: 600; }
 .est-chip { background: #f7f8fa; color: #6b7785; }
 .elapsed-chip { background: #eef4ff; color: #245bdb; }
 .overdue-chip { background: #fde2e2; color: #b42318; font-weight: 700; }
@@ -146,16 +146,23 @@
   align-items: stretch;
 }
 
+.task-row-swipable .swipe-action.swipe-action-double {
+  width: 240rpx;
+}
+
 .swipe-btn {
   flex: 1;
-  background: #245bdb;
-  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 28rpx;
   font-weight: 700;
+  color: #ffffff;
 }
+
+.revert-swipe-btn { background: #245bdb; }
+.edit-swipe-btn { background: #245bdb; }
+.delete-swipe-btn { background: #e54545; }
 
 .task-row-swipable .task-row {
   position: relative;
