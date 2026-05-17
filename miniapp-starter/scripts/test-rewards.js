@@ -374,25 +374,26 @@ s.buyItem(affordable.id)
 let last = pendingLast(1)[0]
 assert('buyItem → pet_purchase event', last.kind === 'pet_purchase' && last.delta === -affordable.price)
 
-// levelUpPet 现在花金币:Lv.1 → Lv.2 = 100 金币,扣金币 + level++ + 发
+// levelUpPet 现在花金币:Lv.1 → Lv.2 = 20 金币,扣金币 + level++ + 发
 // pet_level_up 事件。 金币不够时返 insufficient-coins。
 const coinsBefore = st().coins
 const levelBefore = st().pet.level
 const lvUp = s.levelUpPet()
-assert('levelUpPet ok at Lv.1 with 100+ coins', lvUp && lvUp.ok && lvUp.level === levelBefore + 1)
-assert('levelUpPet deducts getLevelCost(1) = 100', st().coins === coinsBefore - 100,
+assert('levelUpPet ok at Lv.1', lvUp && lvUp.ok && lvUp.level === levelBefore + 1)
+assert('levelUpPet deducts getLevelCost(1) = 20', st().coins === coinsBefore - 20,
   `before=${coinsBefore} after=${st().coins}`)
 last = pendingLast(1)[0]
-assert('levelUpPet → pet_level_up event delta=-100', last.kind === 'pet_level_up' && last.delta === -100)
+assert('levelUpPet → pet_level_up event delta=-20', last.kind === 'pet_level_up' && last.delta === -20)
 assert('levelUpPet stamps lastLeveledAt', st().pet.lastLeveledAt != null)
 
 // 金币不够时不动 state,返 insufficient-coins。
-seed({ coins: 50, pet: { species: 'cat', name: 'P', level: 1, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
+// Lv.50→51 cost = 1000,coins=500 → need=500。
+seed({ coins: 500, pet: { species: 'cat', name: 'P', level: 50, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
 const denyResult = s.levelUpPet()
 assert('levelUpPet denies when coins < cost',
-  denyResult && !denyResult.ok && denyResult.reason === 'insufficient-coins' && denyResult.need === 50)
-assert('denied levelUpPet does not touch coins', st().coins === 50)
-assert('denied levelUpPet does not touch level', st().pet.level === 1)
+  denyResult && !denyResult.ok && denyResult.reason === 'insufficient-coins' && denyResult.need === 500)
+assert('denied levelUpPet does not touch coins', st().coins === 500)
+assert('denied levelUpPet does not touch level', st().pet.level === 50)
 
 // switchPetSpecies: 不同物种 + 余额够 → 扣 PET_SWITCH_COST(100) 并发 pet_skin_switch 事件。
 seed({ coins: 500, pet: { species: 'cat', name: 'S', level: 1, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })

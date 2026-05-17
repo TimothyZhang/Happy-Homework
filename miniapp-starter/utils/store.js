@@ -249,17 +249,21 @@ function petAgeDays(pet) {
 const PET_DECAY_PER_HOUR = { fullness: 4, cleanliness: 3, happiness: 3, health: 2.5 }
 
 // 升级:手动按按钮花金币升级。 levelUpPet() 从 state.coins 扣 getLevelCost(level)
-// 后 level += 1。没有自动累加经验。Lv.k → Lv.k+1 的花费随 level 线性增长。
+// 后 level += 1。没有自动累加经验。Lv.k → Lv.k+1 的花费 = level × LEVEL_COST_PER_STEP。
 //
-// 曲线设计目标:勤奋玩家约 200 金币/天产出,Lv.1→2 一天能升,中后期慢慢加难度。
-//   Lv.1→2 : 100 金币
-//   Lv.2→3 : 200 金币
-//   Lv.3→4 : 300 金币
-//   ...
-//   Lv.99→100 : 9900 金币
-// 总成本约 sum(1..99) × 100 = 495000 金币,够长期目标。
+// 曲线设计目标:Lv.90-100 段约 2 周升一级(典型玩家 ~130 金币/天净产出 × 14 天
+// ≈ 1820 金币/级)。LEVEL_COST_PER_STEP = 20 让 Lv.99→100 = 1980 金币 ≈ 15 天。
+//
+//   Lv.1→2  :    20 金币 (≈ 头几小时)
+//   Lv.10→11:   200 金币 (≈ 1.5 天)
+//   Lv.50→51: 1000 金币 (≈ 1 周)
+//   Lv.90→91: 1800 金币 (≈ 2 周) ✓
+//   Lv.99→100: 1980 金币 (≈ 2 周) ✓
+//
+// 累计到 Lv.100 = sum(1..99) × 20 = 99000 金币 ≈ 2 年。前期飞快(开局头一天可
+// 连升 5-9 级),后期慢慢消耗 — 标准养成游戏曲线。
 const LEVEL_MAX = 100
-const LEVEL_COST_PER_STEP = 100
+const LEVEL_COST_PER_STEP = 20
 
 function getLevelCost(level) {
   const lvl = Math.max(1, level | 0)

@@ -178,37 +178,40 @@ store = freshStore()
 for (let i = 1; i <= 12; i++) store.finishTask(`t${i}`, today)
 check('12/12 → coins = 240', store.getStateWithComputed().coins, 240)
 
-// === Test 5: level cost curve — getLevelCost = level × 100 ===
+// === Test 5: level cost curve — getLevelCost = level × 20 ===
+// 曲线设计目标:Lv.90-99 段约 2 周/级。详见 store.js getLevelCost 注释。
 console.log('\n[level] coin cost curve:')
 store = freshStore()
 check('LEVEL_MAX = 100', store.LEVEL_MAX, 100)
-check('getLevelCost(1)   = 100',   store.getLevelCost(1),  100)
-check('getLevelCost(2)   = 200',   store.getLevelCost(2),  200)
-check('getLevelCost(10)  = 1000',  store.getLevelCost(10), 1000)
-check('getLevelCost(99)  = 9900',  store.getLevelCost(99), 9900)
+check('getLevelCost(1)   = 20',    store.getLevelCost(1),    20)
+check('getLevelCost(2)   = 40',    store.getLevelCost(2),    40)
+check('getLevelCost(10)  = 200',   store.getLevelCost(10),   200)
+check('getLevelCost(50)  = 1000',  store.getLevelCost(50),  1000)
+check('getLevelCost(90)  = 1800',  store.getLevelCost(90),  1800)
+check('getLevelCost(99)  = 1980',  store.getLevelCost(99),  1980)
 check('getLevelCost(100) = 0 (max level)', store.getLevelCost(100), 0)
 check('getLevelCost(101) = 0 (above max)', store.getLevelCost(101), 0)
 
 // === Test 6: levelUpPet — 花 getLevelCost(level) 金币升级 ===
 console.log('\n[level] levelUpPet (coin-cost):')
 seedNTasksToday(0)
-// seedNTasksToday 默认 coins=0,手动塞 150 进 storage 让 Lv.1→2 (cost=100) 能升、
-// 但残 50 不够升 Lv.2→3 (cost=200) — 一次 ok + 一次 insufficient。
+// seedNTasksToday 默认 coins=0,手动塞 30 进 storage 让 Lv.1→2 (cost=20) 能升、
+// 但残 10 不够升 Lv.2→3 (cost=40) — 一次 ok + 一次 insufficient。
 const raw = JSON.parse(storage['homework-pet-v1'])
-raw.coins = 150
+raw.coins = 30
 storage['homework-pet-v1'] = JSON.stringify(raw)
 store = freshStore()
 
 const r1 = store.levelUpPet()
-check('coins=150 → ok at Lv.1', r1.ok, true)
+check('coins=30 → ok at Lv.1', r1.ok, true)
 check('level becomes 2', r1.level, 2)
-check('coins after Lv.1→2 = 50', store.getStateWithComputed().coins, 50)
+check('coins after Lv.1→2 = 10', store.getStateWithComputed().coins, 10)
 
-// 再 levelUp 一次 → Lv.2→3 需 200,coins=50 → insufficient-coins,need=150
+// 再 levelUp 一次 → Lv.2→3 需 40,coins=10 → insufficient-coins,need=30
 const r2 = store.levelUpPet()
-check('coins=50 → insufficient-coins', r2.ok, false)
+check('coins=10 → insufficient-coins', r2.ok, false)
 check('insufficient-coins reason', r2.reason, 'insufficient-coins')
-check('need = 150 (cost 200 - coins 50)', r2.need, 150)
+check('need = 30 (cost 40 - coins 10)', r2.need, 30)
 check('level unchanged at 2', store.getStateWithComputed().pet.level, 2)
 
 // === Test 7: decay rates — 16h on each stat ===
