@@ -1,76 +1,79 @@
 <view class="page">
   <view class="card">
     <view class="section-header">
-      <text class="section-title">学习统计</text>
-    </view>
-  </view>
-
-  <view class="card section-card">
-    <view class="stats-grid">
-      <view class="stat-card">
-        <text class="stat-value">{{stats.todayTotal}}</text>
-        <text class="stat-label">今日总作业</text>
-      </view>
-      <view class="stat-card">
-        <text class="stat-value">{{stats.todayDone}}</text>
-        <text class="stat-label">今日已完成</text>
-      </view>
-      <view class="stat-card">
-        <text class="stat-value">{{stats.totalMinutes}}</text>
-        <text class="stat-label">预计总分钟</text>
-      </view>
-      <view class="stat-card">
-        <text class="stat-value">{{stats.coins}}</text>
-        <text class="stat-label">当前金币</text>
-      </view>
-      <view class="stat-card">
-        <text class="stat-value">{{stats.lifetimeDone}}</text>
-        <text class="stat-label">累计完成</text>
+      <text class="section-title">数据</text>
+      <view class="period-switch">
+        <view class="period-tab {{period === 'week' ? 'is-active' : ''}}"
+              data-period="week" bindtap="onSwitchPeriod">周</view>
+        <view class="period-tab {{period === 'month' ? 'is-active' : ''}}"
+              data-period="month" bindtap="onSwitchPeriod">月</view>
       </view>
     </view>
   </view>
 
-  <view wx:if="{{bySubject.length > 0}}" class="card section-card">
+  <view class="card section-card chart-card">
     <view class="section-header">
-      <text class="section-title">按学科</text>
+      <text class="section-title">作业数量</text>
+      <text class="subtle">{{period === 'week' ? '近 7 天' : '近 30 天'}}共 {{countTotal}} 项</text>
     </view>
-    <view wx:for="{{bySubject}}" wx:key="key" class="history-item">
-      <view class="row-between">
-        <text class="history-title">{{item.key}}</text>
-        <text class="status-badge status-done">{{item.done}}</text>
-      </view>
-    </view>
-  </view>
-
-  <view wx:if="{{byOrganization.length > 0}}" class="card section-card">
-    <view class="section-header">
-      <text class="section-title">按组织</text>
-    </view>
-    <view wx:for="{{byOrganization}}" wx:key="key" class="history-item">
-      <view class="row-between">
-        <text class="history-title">{{item.key}}</text>
-        <text class="status-badge status-done">{{item.done}}</text>
-      </view>
-    </view>
-  </view>
-
-  <view class="card section-card">
-    <view class="section-header">
-      <text class="section-title">完成记录</text>
-      <text class="subtle">最近 30 条</text>
-    </view>
-
-    <view wx:if="{{doneList.length}}">
-      <view wx:for="{{doneList}}" wx:key="id" class="history-item">
-        <view class="row-between">
-          <text class="history-title">{{item.subject}} · {{item.organization}}</text>
-          <text class="status-badge status-done">{{item.doneOn || '已完成'}}</text>
+    <scroll-view scroll-x="{{period === 'month'}}" class="chart-scroll">
+      <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
+            style="height: {{barAreaRpx + 60}}rpx;">
+        <view wx:for="{{countBars}}" wx:key="date" class="bar-col">
+          <view class="bar-stack" style="height: {{barAreaRpx}}rpx;">
+            <text wx:if="{{item.value > 0}}" class="bar-value">{{item.value}}</text>
+            <view class="bar bar-count {{item.isToday ? 'is-today' : ''}}"
+                  style="height: {{item.heightRpx}}rpx;"></view>
+          </view>
+          <text class="bar-label {{item.isToday ? 'is-today' : ''}}">{{item.label}}</text>
         </view>
-        <text class="task-content">{{item.content}}</text>
       </view>
+    </scroll-view>
+  </view>
+
+  <view class="card section-card chart-card">
+    <view class="section-header">
+      <text class="section-title">作业耗时</text>
+      <text class="subtle">共 {{minutesTotal}} 分钟</text>
     </view>
-    <view wx:else class="empty-block">
-      <text class="tip-text">还没有完成记录，先去首页打卡一项看看。</text>
+    <scroll-view scroll-x="{{period === 'month'}}" class="chart-scroll">
+      <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
+            style="height: {{barAreaRpx + 60}}rpx;">
+        <view wx:for="{{minutesBars}}" wx:key="date" class="bar-col">
+          <view class="bar-stack" style="height: {{barAreaRpx}}rpx;">
+            <text wx:if="{{item.value > 0}}" class="bar-value">{{item.value}}</text>
+            <view class="bar bar-minutes {{item.isToday ? 'is-today' : ''}}"
+                  style="height: {{item.heightRpx}}rpx;"></view>
+          </view>
+          <text class="bar-label {{item.isToday ? 'is-today' : ''}}">{{item.label}}</text>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view class="card section-card chart-card">
+    <view class="section-header">
+      <text class="section-title">金币</text>
+      <text class="subtle">获得 +{{coinGainTotal}} · 消耗 -{{coinSpendTotal}}</text>
     </view>
+    <scroll-view scroll-x="{{period === 'month'}}" class="chart-scroll">
+      <view class="bar-row coin-row {{period === 'month' ? 'is-month' : 'is-week'}}"
+            style="height: {{barAreaRpx * 2 + 80}}rpx;">
+        <view wx:for="{{coinBars}}" wx:key="date" class="bar-col coin-col">
+          <view class="bar-half bar-half-pos" style="height: {{barAreaRpx}}rpx;">
+            <text wx:if="{{item.gain > 0}}" class="bar-value">+{{item.gain}}</text>
+            <view wx:if="{{item.gain > 0}}" class="bar bar-coin-gain {{item.isToday ? 'is-today' : ''}}"
+                  style="height: {{item.gainHeightRpx}}rpx;"></view>
+          </view>
+          <view class="zero-line"></view>
+          <view class="bar-half bar-half-neg" style="height: {{barAreaRpx}}rpx;">
+            <view wx:if="{{item.spend > 0}}" class="bar bar-coin-spend {{item.isToday ? 'is-today' : ''}}"
+                  style="height: {{item.spendHeightRpx}}rpx;"></view>
+            <text wx:if="{{item.spend > 0}}" class="bar-value bar-value-neg">-{{item.spend}}</text>
+          </view>
+          <text class="bar-label {{item.isToday ? 'is-today' : ''}}">{{item.label}}</text>
+        </view>
+      </view>
+    </scroll-view>
   </view>
 </view>

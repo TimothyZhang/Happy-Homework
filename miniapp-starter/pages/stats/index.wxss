@@ -1,36 +1,172 @@
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16rpx;
+/* 周/月 切换 */
+.period-switch {
+  display: flex;
+  background: #eef2f7;
+  border-radius: 999rpx;
+  padding: 4rpx;
 }
 
-.stat-card {
-  padding: 24rpx;
-  border-radius: 24rpx;
-  background: #f8fafc;
-}
-
-.stat-value {
-  display: block;
-  font-size: 38rpx;
-  font-weight: 700;
-}
-
-.stat-label {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 24rpx;
+.period-tab {
+  padding: 10rpx 30rpx;
+  font-size: 26rpx;
   color: #6b7785;
+  border-radius: 999rpx;
 }
 
-.history-item {
-  margin-top: 20rpx;
-  padding: 24rpx;
-  border-radius: 24rpx;
-  background: #f8fafc;
+.period-tab.is-active {
+  background: #245bdb;
+  color: #ffffff;
+  font-weight: 600;
 }
 
-.history-title {
-  font-size: 30rpx;
-  font-weight: 700;
+/* chart card */
+.chart-card {
+  padding-bottom: 24rpx;
+}
+
+.chart-scroll {
+  margin-top: 16rpx;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.bar-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-around;
+  padding: 0 4rpx;
+  box-sizing: border-box;
+}
+
+/* 月模式横向滚动,每列固定窄宽 */
+.bar-row.is-month {
+  display: inline-flex;
+  justify-content: flex-start;
+  gap: 6rpx;
+  padding-right: 16rpx;
+}
+
+.bar-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* week:7 列均分 */
+.bar-row.is-week .bar-col {
+  flex: 1;
+  min-width: 0;
+}
+
+/* month:30 列固定宽 */
+.bar-row.is-month .bar-col {
+  width: 40rpx;
+  flex: none;
+}
+
+.bar-stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  width: 100%;
+}
+
+.bar {
+  width: 40rpx;
+  border-radius: 8rpx 8rpx 0 0;
+  transition: height 0.25s ease;
+}
+
+.bar-row.is-month .bar {
+  width: 24rpx;
+}
+
+.bar-count {
+  background: linear-gradient(180deg, #5b8def 0%, #245bdb 100%);
+}
+
+.bar-minutes {
+  background: linear-gradient(180deg, #ffc56b 0%, #ff9933 100%);
+}
+
+.bar-coin-gain {
+  background: linear-gradient(180deg, #6dd58c 0%, #1aab50 100%);
+  border-radius: 8rpx 8rpx 0 0;
+}
+
+.bar-coin-spend {
+  background: linear-gradient(0deg, #f08585 0%, #d94343 100%);
+  border-radius: 0 0 8rpx 8rpx;
+}
+
+.bar.is-today {
+  box-shadow: 0 0 0 4rpx rgba(36, 91, 219, 0.18);
+}
+
+.bar-value {
+  font-size: 20rpx;
+  color: #4a5566;
+  line-height: 1;
+  margin-bottom: 6rpx;
+}
+
+.bar-value-neg {
+  color: #b54040;
+  margin-top: 6rpx;
+  margin-bottom: 0;
+}
+
+.bar-row.is-month .bar-value {
+  font-size: 18rpx;
+}
+
+.bar-label {
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #7b8794;
+  line-height: 1.2;
+}
+
+.bar-row.is-month .bar-label {
+  font-size: 18rpx;
+}
+
+.bar-label.is-today {
+  color: #245bdb;
+  font-weight: 600;
+}
+
+/* 金币图:zero line 居中,上下两半 */
+.coin-row {
+  align-items: stretch;
+}
+
+.coin-col {
+  justify-content: flex-start;
+}
+
+.bar-half {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  align-items: center;
+}
+
+.bar-half-pos {
+  justify-content: flex-end;
+}
+
+.bar-half-neg {
+  justify-content: flex-start;
+}
+
+.zero-line {
+  width: 100%;
+  height: 2rpx;
+  background: #d4dae3;
+}
+
+.coin-col .bar-label {
+  margin-top: 8rpx;
 }

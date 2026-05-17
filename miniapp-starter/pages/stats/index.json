@@ -1,3 +1,4 @@
 {
-  "navigationBarTitleText": "学习统计"
+  "navigationBarTitleText": "数据",
+  "enablePullDownRefresh": true
 }

@@ -24,7 +24,7 @@ Page({
   onShow() {
     const stamp = perf.markPageShow('profile')
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
-    if (tb) tb.setData({ selected: 2 })
+    if (tb) tb.setData({ selected: 3 })
     this.setData({
       profile: store.getProfile(),
       syncStatus: cloudSync.getSyncStatus()

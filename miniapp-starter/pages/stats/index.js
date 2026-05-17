@@ -1,101 +1,176 @@
 const store = require('../../utils/store')
 
-function lifetimeDoneOnTask(t) {
-  if (t.mode === 'recurring') {
-    const occs = t.occurrences || {}
-    let n = 0
-    for (const k in occs) if (occs[k].status === 'done') n++
-    return n
+const PERIOD_DAYS = { week: 7, month: 30 }
+// 柱状区固定高度 (rpx),最大值占满,其余按比例。
+const BAR_AREA_RPX = 200
+
+function buildDateList(period) {
+  const days = PERIOD_DAYS[period] || 7
+  const today = store.todayStr()
+  const list = []
+  for (let i = days - 1; i >= 0; i--) {
+    list.push(store.addDays(today, -i))
   }
-  return (t.status || 'todo') === 'done' ? 1 : 0
+  return list
+}
+
+// "2026-05-18" → "5-18" (周模式) 或 "5/18" (月模式都一样)
+function shortLabel(dateStr) {
+  const [, m, d] = dateStr.split('-')
+  return `${Number(m)}/${Number(d)}`
+}
+
+// 周模式额外标 "今"
+function labelFor(dateStr, period, today) {
+  if (period === 'week' && dateStr === today) return '今'
+  return shortLabel(dateStr)
+}
+
+function aggregateTasks(state) {
+  const counts = {}   // dateStr -> done count
+  const minutes = {}  // dateStr -> sum actualMinutes
+  for (const t of state.tasks) {
+    if (t.mode !== 'recurring') {
+      if (t.status === 'done' && t.completedAt) {
+        const d = store.dateToStr(new Date(t.completedAt))
+        counts[d] = (counts[d] || 0) + 1
+        minutes[d] = (minutes[d] || 0) + (Number(t.actualMinutes) || 0)
+      }
+    } else {
+      const occs = t.occurrences || {}
+      for (const k in occs) {
+        const occ = occs[k]
+        if (occ && occ.status === 'done' && occ.completedAt) {
+          const d = store.dateToStr(new Date(occ.completedAt))
+          counts[d] = (counts[d] || 0) + 1
+          minutes[d] = (minutes[d] || 0) + (Number(occ.actualMinutes) || 0)
+        }
+      }
+    }
+  }
+  return { counts, minutes }
+}
+
+function aggregateCoins(state) {
+  const map = {}  // dateStr -> { gain, spend, net }
+  for (const log of (state.coinLogs || [])) {
+    if (!log || !log.ts) continue
+    const d = store.dateToStr(new Date(log.ts))
+    if (!map[d]) map[d] = { gain: 0, spend: 0, net: 0 }
+    const delta = Number(log.delta) || 0
+    if (delta > 0) map[d].gain += delta
+    else map[d].spend += -delta
+    map[d].net += delta
+  }
+  return map
+}
+
+function scaleBars(bars, valueKey) {
+  let max = 0
+  for (const b of bars) {
+    const v = b[valueKey] || 0
+    if (v > max) max = v
+  }
+  for (const b of bars) {
+    const v = b[valueKey] || 0
+    b.heightRpx = max > 0 ? Math.round((v / max) * BAR_AREA_RPX) : 0
+  }
+  return max
+}
+
+// 金币图:bar 上下两半,正向 gain 朝上,负向 spend 朝下,统一对 max(|gain|,|spend|) scale
+function scaleCoinBars(bars) {
+  let max = 0
+  for (const b of bars) {
+    if (b.gain > max) max = b.gain
+    if (b.spend > max) max = b.spend
+  }
+  for (const b of bars) {
+    b.gainHeightRpx = max > 0 ? Math.round((b.gain / max) * BAR_AREA_RPX) : 0
+    b.spendHeightRpx = max > 0 ? Math.round((b.spend / max) * BAR_AREA_RPX) : 0
+  }
+  return max
+}
+
+function buildCharts(state, period) {
+  const today = store.todayStr()
+  const dates = buildDateList(period)
+  const { counts, minutes } = aggregateTasks(state)
+  const coins = aggregateCoins(state)
+
+  const countBars = dates.map((d) => ({
+    date: d,
+    label: labelFor(d, period, today),
+    isToday: d === today,
+    value: counts[d] || 0
+  }))
+  scaleBars(countBars, 'value')
+
+  const minutesBars = dates.map((d) => ({
+    date: d,
+    label: labelFor(d, period, today),
+    isToday: d === today,
+    value: minutes[d] || 0
+  }))
+  scaleBars(minutesBars, 'value')
+
+  const coinBars = dates.map((d) => {
+    const c = coins[d] || { gain: 0, spend: 0, net: 0 }
+    return {
+      date: d,
+      label: labelFor(d, period, today),
+      isToday: d === today,
+      gain: c.gain,
+      spend: c.spend,
+      net: c.net
+    }
+  })
+  scaleCoinBars(coinBars)
+
+  return {
+    countBars,
+    minutesBars,
+    coinBars,
+    countTotal: countBars.reduce((s, b) => s + b.value, 0),
+    minutesTotal: minutesBars.reduce((s, b) => s + b.value, 0),
+    coinGainTotal: coinBars.reduce((s, b) => s + b.gain, 0),
+    coinSpendTotal: coinBars.reduce((s, b) => s + b.spend, 0)
+  }
 }
 
 Page({
   data: {
-    stats: {
-      todayTotal: 0,
-      todayDone: 0,
-      totalMinutes: 0,
-      coins: 0,
-      lifetimeDone: 0
-    },
-    bySubject: [],         // [{ key, done }]
-    byOrganization: [],    // [{ key, done }]
-    doneList: []
+    period: 'week',
+    barAreaRpx: BAR_AREA_RPX,
+    countBars: [],
+    minutesBars: [],
+    coinBars: [],
+    countTotal: 0,
+    minutesTotal: 0,
+    coinGainTotal: 0,
+    coinSpendTotal: 0
   },
 
   onShow() {
-    const state = store.getStateWithComputed()
-    const today = store.todayStr()
-    const todayItems = store.tasksForDate(state, today)
-    const todayDone = todayItems.filter((it) => it.occurrence.status === 'done')
-    const todayTotalMinutes = todayItems.reduce((s, it) => s + Number(it.task.estimatedMinutes || 0), 0)
-
-    let lifetimeDone = 0
-    const subjectCounts = {}
-    const orgCounts = {}
-    for (const t of state.tasks) {
-      const n = lifetimeDoneOnTask(t)
-      lifetimeDone += n
-      if (n > 0) {
-        const s = t.subject || '其他'
-        const o = t.organization || '其他'
-        subjectCounts[s] = (subjectCounts[s] || 0) + n
-        orgCounts[o] = (orgCounts[o] || 0) + n
-      }
-    }
-    const bySubject = Object.entries(subjectCounts)
-      .map(([key, done]) => ({ key, done }))
-      .sort((a, b) => b.done - a.done)
-    const orgOrder = ['校内', '校外', '其他']
-    const byOrganization = orgOrder
-      .map((key) => ({ key, done: orgCounts[key] || 0 }))
-      .filter((r) => r.done > 0)
-
-    this.setData({
-      stats: {
-        todayTotal: todayItems.length,
-        todayDone: todayDone.length,
-        totalMinutes: todayTotalMinutes,
-        coins: state.coins,
-        lifetimeDone
-      },
-      bySubject,
-      byOrganization
-    })
-
-    wx.nextTick(() => this._buildDoneList(state))
+    const tb = typeof this.getTabBar === 'function' && this.getTabBar()
+    if (tb) tb.setData({ selected: 2 })
+    this._refresh()
   },
 
-  _buildDoneList(state) {
-    const doneList = []
-    for (const t of state.tasks) {
-      if (t.mode !== 'recurring') {
-        if ((t.status || 'todo') === 'done') {
-          doneList.push({
-            id: t.id,
-            content: t.content,
-            subject: t.subject || '',
-            organization: t.organization || '其他',
-            doneOn: t.completedAt ? new Date(t.completedAt).toISOString().slice(0, 10) : ''
-          })
-        }
-      } else {
-        const occurrences = t.occurrences || {}
-        for (const dateStr of Object.keys(occurrences)) {
-          if (occurrences[dateStr].status === 'done') {
-            doneList.push({
-              id: `${t.id}_${dateStr}`,
-              content: t.content,
-              subject: t.subject || '',
-              organization: t.organization || '其他',
-              doneOn: dateStr
-            })
-          }
-        }
-      }
-    }
-    doneList.sort((a, b) => (b.doneOn || '').localeCompare(a.doneOn || ''))
-    this.setData({ doneList: doneList.slice(0, 30) })
+  onPullDownRefresh() {
+    this._refresh()
+    wx.stopPullDownRefresh()
+  },
+
+  _refresh() {
+    const state = store.getStateWithComputed()
+    const charts = buildCharts(state, this.data.period)
+    this.setData(charts)
+  },
+
+  onSwitchPeriod(e) {
+    const next = e.currentTarget.dataset.period
+    if (!next || next === this.data.period) return
+    this.setData({ period: next }, () => this._refresh())
   }
 })
