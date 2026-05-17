@@ -768,6 +768,47 @@ assert('重复消费 flag 返回 false', sFresh.consumeV2V3MigrationFlag() === f
 sFresh.getStateWithComputed()
 assert('v3 状态再次读取不再设 flag', sFresh.consumeV2V3MigrationFlag() === false)
 
+// ===== Scenario 10: hydrate 拿到无 schemaVersion + v2 notebooks 的 remote 数据 =====
+// 真实场景(1.0.0.26051701 bug):云端 user_state 没 schemaVersion 字段
+// (SYNC_FIELDS 历史漏了 schemaVersion),但 notebooks/tasks 是 v2 schema。
+// 修复前 migrate 把它当 v1 处理,所有 task 塞 nb_mig_today,endDate=today
+// → 首页"已完成"列表炸开。修复后走 v2→v3 平移,endDate 跟随原 notebook。
+console.log('\n[10] hydrate v2 schema 但 schemaVersion 字段缺失 → 应正确走 v2→v3 平移')
+wx._store = {}
+wx._store['homework-pet-v1'] = {
+  // 故意不写 schemaVersion 字段(模拟 SYNC_FIELDS 漏 sync)
+  coins: 0, streakDays: 0, perfectDays: [], bonusByDay: {},
+  completionsByDay: {}, pendingShareCoins: 0, editTaskId: null, editNotebookId: null,
+  ocrCurrentJob: null, ocrJobs: [], pet: {}, shopItems: [],
+  notebooks: [{
+    id: 'nb_v2_history', name: '历史本', mode: 'one-shot',
+    startDate: '2026-05-12', endDate: '2026-05-12', recurrence: null,
+    createdAt: 1, order: 0
+  }],
+  tasks: [{
+    id: 'tk_v2_done', notebookId: 'nb_v2_history',
+    subject: '语', content: '历史完成', estimatedMinutes: 5,
+    order: 0, createdAt: 1,
+    status: 'done',
+    completedAt: new Date('2026-05-12T20:00:00').getTime(),
+    accumulatedMs: 60000, actualMinutes: 1
+  }],
+  profile: { nickname: '' }
+}
+delete require.cache[require.resolve(require('path').join(__dirname, '..', 'utils', 'store.js'))]
+const sV2Hydrate = require(require('path').join(__dirname, '..', 'utils', 'store.js'))
+const stateAfterV2 = sV2Hydrate.getStateWithComputed()
+const tkV2 = stateAfterV2.tasks.find((t) => t.id === 'tk_v2_done')
+assert('v2 hydrate: task 保留原 id (没被 v1 fallback 重写成 tk_mig_*)', !!tkV2)
+assert('v2 hydrate: task.endDate 跟随原 notebook (历史 5/12,不是 today)',
+  tkV2 && tkV2.endDate === '2026-05-12', `endDate=${tkV2 && tkV2.endDate}`)
+assert('v2 hydrate: task.mode 平移为 one-shot', tkV2 && tkV2.mode === 'one-shot')
+const todayItemsV2 = sV2Hydrate.tasksForDate(stateAfterV2, today)
+const onTodayView = todayItemsV2.find((it) => it.task.id === 'tk_v2_done')
+assert('v2 hydrate: 历史 done task 不在 today 视图', !onTodayView)
+assert('v2 hydrate: notebooks 已被清空(走完 v2→v3 平移)',
+  stateAfterV2.notebooks.length === 0)
+
 // ===== Summary =====
 console.log(`\n=== ${passed} passed, ${failed} failed ===`)
 process.exit(failed === 0 ? 0 : 1)

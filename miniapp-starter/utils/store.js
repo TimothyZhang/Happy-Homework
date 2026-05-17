@@ -29,6 +29,10 @@ const DEFAULT_ORGANIZATION = '校内'
 // `pendingCoinEvents` 也只在本机持久化 —— 它是未上报的 coin 事件队列,
 // flush 成功后会被 drain。跨设备切换时未上报的事件会丢(很少),可接受。
 const SYNC_FIELDS = [
+  // schemaVersion 必须 sync — 否则 hydrate 拿到的 remote state 没这字段,
+  // migrate 把 v2 数据(有 notebooks + 无 schemaVersion)误判为 v1,走 fallback
+  // 把所有 task 塞进 nb_mig_today,首页"已完成"列表炸开。
+  'schemaVersion',
   'notebooks', 'tasks',
   'streakDays', 'perfectDays', 'bonusByDay', 'completionsByDay',
   // coinLogs 是客户端完整审计:每次 applyCoinDelta 都 append 一条,
@@ -463,10 +467,17 @@ function clone(data) { return JSON.parse(JSON.stringify(data)) }
 function migrateState(raw) {
   if (!raw || typeof raw !== 'object') return clone(defaultState)
 
-  // v1 → v2: 把老 tasks 都塞进一个"今天"的 one-shot notebook。这一步只有
-  // 早期(无 schemaVersion / schemaVersion=1)用户会触发,跑完后落到 v2 schema,
-  // 再统一交给下面的 v2→v3 平移。
-  if (!raw.schemaVersion || raw.schemaVersion < 2) {
+  // v1 → v2: 把老 tasks 都塞进一个"今天"的 one-shot notebook。
+  //
+  // 判定:真 v1 数据(无 schemaVersion **且** 没有 notebooks 数组结构)。
+  // 注意:云端 user_state 因为历史原因 schemaVersion 不在 SYNC_FIELDS,
+  // hydrate 拿到的 remote state 没有 schemaVersion 字段,但仍有 v2 schema 的
+  // notebooks/tasks(带 notebookId)。这种情况必须走下面的 v2→v3 平移,绝不能
+  // 命中本分支 — 一旦命中,所有 task 会被丢进 nb_mig_today,丢失原 notebook
+  // 关联,平移后所有 task 都变成 today 的 one-shot → 首页"已完成"列表炸开。
+  // (该 bug 在 1.0.0.26051701 体验版上确认过, see commitId 84e8795)
+  if ((!raw.schemaVersion || raw.schemaVersion < 2) &&
+      (!Array.isArray(raw.notebooks) || raw.notebooks.length === 0)) {
     const today = todayStr()
     const oldTasks = Array.isArray(raw.tasks) ? raw.tasks : []
     const notebooks = []
@@ -500,10 +511,17 @@ function migrateState(raw) {
   }
 
   // v2 → v3: 拍平 notebook,把 mode / startDate / endDate / recurrence 平移到
-  // task 上,加默认 organization='其他'。orphan task(notebookId 找不到本)
-  // 按 one-shot/今日 兜底。perfectDays / coinLogs / bonusByDay / completionsByDay
+  // task 上,加默认 organization。orphan task(notebookId 找不到本)按
+  // one-shot/今日 兜底。perfectDays / coinLogs / bonusByDay / completionsByDay
   // / pet exp 全部不动 —— 它们本来就是 task 粒度或全局粒度。
-  if (raw.schemaVersion === 2 && Array.isArray(raw.notebooks) && Array.isArray(raw.tasks)) {
+  //
+  // 判定放宽:不再要求 schemaVersion === 2,只要"还不是 v3 + 有 v2 形态的
+  // notebooks/tasks"就走平移。这是为了兼容云端 schemaVersion 字段丢失的场景
+  // (SYNC_FIELDS 历史漏了 schemaVersion,hydrate 拿到 schemaVersion=undefined
+  // 但 notebooks/tasks 仍是 v2 schema 的真实数据)。
+  if (raw.schemaVersion !== SCHEMA_VERSION &&
+      Array.isArray(raw.notebooks) && raw.notebooks.length > 0 &&
+      Array.isArray(raw.tasks)) {
     const today = todayStr()
     const nbById = {}
     for (const nb of raw.notebooks) nbById[nb.id] = nb
