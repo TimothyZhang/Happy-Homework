@@ -98,6 +98,8 @@ Page({
     shopItems: [],
     speciesOptions: store.PET_SPECIES,
     switchCost: store.PET_SWITCH_COST,
+    renameCost: store.PET_RENAME_COST,
+    petNameMax: store.PET_NAME_MAX_LEN,
     showSwitchPanel: false,
     switching: false,
     mode: 'view',          // 'setup' | 'view'
@@ -469,6 +471,45 @@ Page({
 
   // 用于 switch-mask / switch-sheet 的 catchtouchmove,阻止拖动穿透到背景页。
   noop() {},
+
+  // === Rename pet === //
+  // 弹 wx.showModal 收新名字(editable + placeholderText)。校验交给 store.renamePet,
+  // 这里仅在 UI 层做提示:空 / 超长 / 重名 / 金币不足 都用 toast 反馈。
+  handleOpenRename() {
+    const currentName = (this.data.pet && this.data.pet.name) || ''
+    wx.showModal({
+      title: `改名（${this.data.renameCost} 金币）`,
+      editable: true,
+      placeholderText: '给宠物起个新名字',
+      content: currentName,
+      confirmText: '确定',
+      cancelText: '取消',
+      success: (res) => {
+        if (!res.confirm) return
+        const newName = (res.content || '').trim()
+        if (!newName) {
+          wx.showToast({ title: '名字不能为空', icon: 'none' })
+          return
+        }
+        if (newName === currentName) return  // 同名,不扣金币静默返回
+        const r = store.renamePet(newName)
+        if (r && r.ok) {
+          this.refreshState()
+          wx.showToast({ title: `改名成功！现在叫 ${r.newName} 啦~`, icon: 'none' })
+        } else if (r && r.reason === 'name-too-long') {
+          wx.showToast({ title: `名字不能超过 ${r.max} 个字`, icon: 'none' })
+        } else if (r && r.reason === 'not-enough-coins') {
+          wx.showToast({ title: `金币不足，需要 ${r.cost}`, icon: 'none' })
+        } else if (r && r.reason === 'empty-name') {
+          wx.showToast({ title: '名字不能为空', icon: 'none' })
+        } else if (r && r.reason === 'same-name') {
+          // 静默 — UI 层已经早返回了,这里兜底
+        } else if (r && r.reason === 'no-pet') {
+          wx.showToast({ title: '还没有宠物', icon: 'none' })
+        }
+      }
+    })
+  },
 
   // === Switch species === //
   handleOpenSwitchPanel() {

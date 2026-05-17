@@ -999,5 +999,150 @@ check('formatSpentTime(80) = 1 小时 20 分', ht.formatSpentTime(80), '1 小时
 check('formatSpentTime(120) = 2 小时',  ht.formatSpentTime(120), '2 小时')
 check('formatSpentTime(125) = 2 小时 5 分', ht.formatSpentTime(125), '2 小时 5 分')
 
+// === Test 18: dueDate / overdue chip data wiring (components/task-list) ===
+// 卡片上的"延期"/"过期日"chip 由 (item.isOverdue, item.isMakeup, item.status)
+// 三元组决定。这里直接验证 tasksForDate 返回的字段:
+//   A) 一次性 task,dueDate=今天,今天完成 → 今天卡片 status='done',isOverdue=false,isMakeup=false
+//   B) 一次性 task,dueDate=2 天前,今天才完成 → 今天卡片 status='done', isMakeup=true,
+//      occurrenceDate=2 天前(WXML 显示成"延期自 …")
+//   C) 一次性 task,dueDate=5 天前,仍 todo → 今天卡片 status='todo', isOverdue=true
+console.log('\n[chip] 延期 / overdue 字段:')
+function seedOneShot({ dueDate, status, completedAt }) {
+  storage = {}
+  storage['homework-pet-v1'] = JSON.stringify({
+    schemaVersion: 3, coins: 0, streakDays: 0, perfectDays: [],
+    bonusByDay: {}, completionsByDay: {},
+    pendingShareCoins: 0,
+    editTaskId: null, editNotebookId: null,
+    ocrCurrentJob: null, ocrJobs: [],
+    pet: {
+      species: 'cat', emoji: '🐱', name: 'p',
+      bornAt: Date.now(), lastDecayAt: Date.now(),
+      level: 1, happiness: 80, fullness: 80, cleanliness: 80, health: 80
+    },
+    shopItems: [], notebooks: [],
+    tasks: [{
+      id: 'tA', subject: '语', content: 'A',
+      estimatedMinutes: 5, order: 1, createdAt: 1,
+      mode: 'one-shot', startDate: dueDate, endDate: dueDate, dueDate,
+      status, startedAt: null, currentSegmentStartedAt: null,
+      accumulatedMs: 0,
+      completedAt: completedAt || null, actualMinutes: null
+    }],
+    profile: { nickname: '' }
+  })
+}
+
+// Case A: dueDate=今天 + 今天完成 → 卡片不显示任何延期/过期 chip
+seedOneShot({ dueDate: todayStr(), status: 'done', completedAt: Date.now() })
+let s18 = freshStore()
+const itemsA = s18.tasksForDate(s18.getStateWithComputed(), todayStr())
+const rowA = itemsA.find((it) => it.task.id === 'tA')
+check('A) dueDate=today + done today → rowA exists', !!rowA, true)
+check('A) status=done', rowA && rowA.occurrence.status, 'done')
+check('A) isOverdue=false', !!(rowA && rowA.isOverdue), false)
+check('A) isMakeup=false',  !!(rowA && rowA.isMakeup),  false)
+
+// Case B: dueDate=2 天前 + 今天完成 → 今天卡片应是 makeup
+const due2dAgo = dateAtOffset(-2)
+seedOneShot({ dueDate: due2dAgo, status: 'done', completedAt: Date.now() })
+const s18b = freshStore()
+const itemsB = s18b.tasksForDate(s18b.getStateWithComputed(), todayStr())
+const rowB = itemsB.find((it) => it.task.id === 'tA')
+check('B) dueDate=-2d + done today → 今天卡片存在', !!rowB, true)
+check('B) status=done', rowB && rowB.occurrence.status, 'done')
+check('B) isMakeup=true',  !!(rowB && rowB.isMakeup),  true)
+check('B) isOverdue=false', !!(rowB && rowB.isOverdue), false)
+check('B) occurrenceDate=原 dueDate(WXML 用它拼"延期自 X")',
+  rowB && rowB.occurrenceDate, due2dAgo)
+
+// Case B 的另一面:同一 state 下,2 天前那天的卡片应该 isOverdue=true,
+// 但今天首页不会渲染它(只在历史/日历视图)。新 chip 规则:status=done +
+// isOverdue=true + isMakeup=false → 不展示任何 chip(完成的不再"标红色日期")。
+const itemsBPast = s18b.tasksForDate(s18b.getStateWithComputed(), due2dAgo)
+const rowBPast = itemsBPast.find((it) => it.task.id === 'tA')
+check('B-past) 2天前视图,行存在', !!rowBPast, true)
+check('B-past) status=done',     rowBPast && rowBPast.occurrence.status, 'done')
+check('B-past) isOverdue=true',  !!(rowBPast && rowBPast.isOverdue), true)
+check('B-past) isMakeup=false',  !!(rowBPast && rowBPast.isMakeup),  false)
+
+// Case C: dueDate=5 天前 + 仍 todo → 今天卡片 isOverdue=true,status=todo
+const due5dAgo = dateAtOffset(-5)
+seedOneShot({ dueDate: due5dAgo, status: 'todo', completedAt: null })
+const s18c = freshStore()
+const itemsC = s18c.tasksForDate(s18c.getStateWithComputed(), todayStr())
+const rowC = itemsC.find((it) => it.task.id === 'tA')
+check('C) dueDate=-5d + todo → 今天卡片存在', !!rowC, true)
+check('C) status=todo',    rowC && rowC.occurrence.status, 'todo')
+check('C) isOverdue=true', !!(rowC && rowC.isOverdue), true)
+check('C) isMakeup=false', !!(rowC && rowC.isMakeup),  false)
+
+// === Test 19: renamePet — gate, deduct, preserve ===
+// 改名走 pet_purchase kind(server 已识别),meta.type='rename' 表明用途。
+console.log('\n[rename] renamePet:')
+seedNTasksToday(0)
+let curR = JSON.parse(storage['homework-pet-v1'])
+curR.coins = 5
+curR.pet = {
+  species: 'cat', emoji: '🐱', name: '豆豆',
+  bornAt: Date.now() - 86400000, lastDecayAt: Date.now(),
+  level: 4, xp: 5,
+  happiness: 70, fullness: 65, cleanliness: 80, health: 88
+}
+storage['homework-pet-v1'] = JSON.stringify(curR)
+let sR = freshStore()
+check('PET_RENAME_COST = 10', sR.PET_RENAME_COST, 10)
+check('PET_NAME_MAX_LEN = 8', sR.PET_NAME_MAX_LEN, 8)
+
+// coins=5 < 10 → not-enough-coins
+const rr1 = sR.renamePet('小豆')
+check('coins=5 → not-enough-coins', rr1.ok, false)
+check('reason=not-enough-coins', rr1.reason, 'not-enough-coins')
+check('pet.name unchanged after rejected rename', sR.getStateWithComputed().pet.name, '豆豆')
+check('coins unchanged after rejected rename', sR.getStateWithComputed().coins, 5)
+
+// 充值到 50 后试空串 / 超长 / 同名 / 成功
+const curR2 = JSON.parse(storage['homework-pet-v1'])
+curR2.coins = 50
+storage['homework-pet-v1'] = JSON.stringify(curR2)
+sR = freshStore()
+
+const rr2 = sR.renamePet('   ')
+check('全空白 → empty-name', rr2.ok, false)
+check('reason=empty-name', rr2.reason, 'empty-name')
+
+const rr3 = sR.renamePet('123456789')  // 9 字 > 8
+check('9 字超长 → name-too-long', rr3.ok, false)
+check('reason=name-too-long', rr3.reason, 'name-too-long')
+check('max=8', rr3.max, 8)
+
+const rr4 = sR.renamePet('豆豆')  // 跟当前一样
+check('同名 → same-name', rr4.ok, false)
+check('reason=same-name', rr4.reason, 'same-name')
+check('coins 未变(没扣钱)', sR.getStateWithComputed().coins, 50)
+
+const rr5 = sR.renamePet('  小豆  ')  // trim 后 '小豆'
+check('trim 后 "小豆" → ok', rr5.ok, true)
+check('oldName=豆豆', rr5.oldName, '豆豆')
+check('newName=小豆(已 trim)', rr5.newName, '小豆')
+check('cost=10', rr5.cost, 10)
+const afterRename = sR.getStateWithComputed()
+check('coins 扣 10', afterRename.coins, 40)
+check('pet.name 已改', afterRename.pet.name, '小豆')
+check('pet.species 保留',   afterRename.pet.species, 'cat')
+check('pet.emoji 保留',     afterRename.pet.emoji, '🐱')
+check('pet.level 保留',     afterRename.pet.level, 4)
+check('pet.happiness 保留 ≈ 原值',
+  afterRename.pet.happiness >= 65 && afterRename.pet.happiness <= 70, true)
+
+// 改名事件用 pet_purchase kind + meta.type=rename(server 已识别此 kind)
+const logsR = sR.getStateWithComputed().coinLogs || []
+const renameLog = logsR.find((l) => l.kind === 'pet_purchase' &&
+  l.meta && l.meta.type === 'rename')
+check('renameLog 存在', !!renameLog, true)
+check('renameLog.delta = -10', renameLog && renameLog.delta, -10)
+check('renameLog.meta.oldName = 豆豆', renameLog && renameLog.meta.oldName, '豆豆')
+check('renameLog.meta.newName = 小豆', renameLog && renameLog.meta.newName, '小豆')
+
 console.log(`\n  ${pass} passed, ${fail} failed.\n`)
 process.exit(fail === 0 ? 0 : 1)

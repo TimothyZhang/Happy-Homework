@@ -259,6 +259,8 @@ const PET_SPECIES = [
 ]
 
 const PET_SWITCH_COST = 100
+const PET_RENAME_COST = 10
+const PET_NAME_MAX_LEN = 8
 
 function petAgeDays(pet) {
   if (!pet || !pet.bornAt) return 0
@@ -2081,6 +2083,50 @@ function switchPetSpecies(species) {
   return result
 }
 
+// Rename: 花 PET_RENAME_COST 金币改 pet.name。属性/等级/种类/头像保留。
+//   - reason='no-pet'         没设置过宠物
+//   - reason='empty-name'     trim 后为空
+//   - reason='name-too-long'  > PET_NAME_MAX_LEN
+//   - reason='same-name'      跟当前完全一致(trim 后)
+//   - reason='not-enough-coins' 余额不足
+//   - ok                       扣 10 金币 + state.pet.name = trimmed
+function renamePet(name) {
+  let result = null
+  updateState((state) => {
+    if (!state.pet || !state.pet.species) {
+      result = { ok: false, reason: 'no-pet' }
+      return state
+    }
+    const trimmed = (name == null ? '' : String(name)).trim()
+    if (!trimmed) {
+      result = { ok: false, reason: 'empty-name' }
+      return state
+    }
+    if (trimmed.length > PET_NAME_MAX_LEN) {
+      result = { ok: false, reason: 'name-too-long', max: PET_NAME_MAX_LEN }
+      return state
+    }
+    if (trimmed === state.pet.name) {
+      result = { ok: false, reason: 'same-name' }
+      return state
+    }
+    if ((state.coins || 0) < PET_RENAME_COST) {
+      result = { ok: false, reason: 'not-enough-coins', cost: PET_RENAME_COST }
+      return state
+    }
+    const oldName = state.pet.name
+    // 走已有的 pet_purchase kind(server 已识别,不必再 deploy 云函数;
+    // 客户端 coin-history 通过 meta.type=='rename' 把它显示成"改名宠物")。
+    applyCoinDelta(state, 'pet_purchase', -PET_RENAME_COST,
+      { type: 'rename', oldName, newName: trimmed })
+    state.pet = commitPetDecay(state.pet)
+    state.pet.name = trimmed
+    result = { ok: true, oldName, newName: trimmed, cost: PET_RENAME_COST }
+    return state
+  })
+  return result
+}
+
 // === OCR job (unchanged) === //
 
 function setCurrentOcrJob(job) {
@@ -2515,6 +2561,8 @@ module.exports = {
   // pet
   PET_SPECIES,
   PET_SWITCH_COST,
+  PET_RENAME_COST,
+  PET_NAME_MAX_LEN,
   PET_DECAY_PER_HOUR,
   LEVEL_MAX,
   XP_PER_LEVEL_BASE,
@@ -2527,6 +2575,7 @@ module.exports = {
   deriveAnimState,
   setupPet,
   switchPetSpecies,
+  renamePet,
   buyItem,
   levelUpPet,
   // ocr

@@ -169,6 +169,17 @@
       </view>
     </view>
 
+    <view class="card switch-card" bindtap="handleOpenRename">
+      <view class="switch-row">
+        <text class="switch-emoji">✏️</text>
+        <view class="switch-text">
+          <text class="switch-title">改宠物名字</text>
+          <text class="switch-sub">{{renameCost}} 金币更改名字，旧的名字会被清空</text>
+        </view>
+        <text class="switch-chev">›</text>
+      </view>
+    </view>
+
     <view class="card switch-card" bindtap="handleOpenSwitchPanel">
       <view class="switch-row">
         <text class="switch-emoji">🔄</text>

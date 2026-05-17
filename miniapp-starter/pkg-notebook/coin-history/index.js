@@ -67,6 +67,16 @@ function describeLog(log) {
   } else if (kind === 'task_refund') {
     sub = REFUND_REASONS[meta.reason] || '退款'
   } else if (kind === 'pet_purchase') {
+    // 改名复用 pet_purchase kind(server 端不必新增 EVENT_RULES),meta.type='rename'。
+    if (meta.type === 'rename') {
+      const oldN = meta.oldName || ''
+      const newN = meta.newName || ''
+      return {
+        title: '宠物改名',
+        sub: oldN && newN ? `${oldN} → ${newN}` : (newN || '改名'),
+        emoji: '✏️'
+      }
+    }
     sub = meta.itemName || '道具'
   } else if (kind === 'pet_skin_switch') {
     const to = SPECIES_LABELS[meta.toSpecies] || meta.toSpecies || ''
