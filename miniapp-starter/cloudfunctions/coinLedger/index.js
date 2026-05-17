@@ -1,6 +1,7 @@
 'use strict'
 
-// 金币账本云函数 (v2: level_upgrade 上限从 -100000 收紧到 -10000)。
+// 金币账本云函数 (v3: per-event 容错,单条不合法不再整批拒;单条 over-debit
+// clip 到 0 不再 for-loop break)。
 //
 // 历史背景:state.coins 之前在 cloud-sync 的 SYNC_FIELDS 里随 state 一起
 // 整包 push,客户端篡改 localStorage 就能直接覆盖云端余额。这个云函数把
@@ -8,7 +9,8 @@
 // 由服务端按 kind 校验后写入 user_state.state.coins + coin_ledger 审计。
 //
 // 接口:
-//   commit  → 批量提交事件,返回 { ok, appliedCount, newBalance, lastReason }
+//   commit  → 批量提交事件,返回 { ok, appliedCount, newBalance,
+//                                  appliedEventIds, droppedEventIds, clippedEventIds, lastReason }
 //   balance → 仅查当前余额
 //
 // 事件 schema(client → server):
@@ -17,6 +19,16 @@
 //     delta: number,      // 带符号整数
 //     ts: number,         // client 时间,仅用于审计
 //     meta?: object }     // taskId / itemId 之类,审计用
+//
+// v3 容错语义:
+// - 单条 schema 校验失败(legacy kind / 越界 delta / 缺字段)→ drop + drain,不入账。
+//   保护客户端 pending 队列不被一条"老版本残留"事件堵死;过去 v2 的整批拒会
+//   让所有后续 event 永远到不了 server(例:client 升级前 pet_level_up,server
+//   只认 level_upgrade)。
+// - 单条 balance 不够(balance + delta < 0)→ delta clip 到 -balance,balance 落到 0,
+//   仍然写 ledger(标 clipped + requestedDelta) + drain。过去 v2 的 break 会让
+//   该条以及之后所有 event 卡在队头(例:perfect_day_clawback 退 -65 但 server
+//   只有 18,导致 for-loop break,后续 +10 task_reward 全卡)。
 //
 // 设计上的弱点(刻意保留):
 // - 我们不真正反作弊"用户给自己刷分"。攻击者可以伪造 kind=task_reward 多个
@@ -122,14 +134,10 @@ async function commitEvents(openid, events) {
     return { ok: false, reason: 'too_many_events' }
   }
 
-  // 先把全部事件 schema 校验过一遍 —— 任何一条不合规直接整批拒,简化语义。
-  for (const ev of events) {
-    const v = validateEvent(ev)
-    if (!v.ok) return { ok: false, reason: 'bad_event', detail: v.reason, eventId: ev && ev.eventId }
-  }
-
-  // 批量累计 delta 也要在硬上限内
-  const totalAbs = events.reduce((s, ev) => s + Math.abs(Number(ev.delta) || 0), 0)
+  // 累计 abs delta 上限,防 DDoS。单条 event 的 schema / 余额校验放进主循环,
+  // 任何一条不合规不再整批拒 —— 老版本 client 残留的 obsolete kind / over-debit
+  // task_refund 会单条 drop 掉,后续 event 继续处理,不再 poison 整个队列。
+  const totalAbs = events.reduce((s, ev) => s + Math.abs(Number(ev && ev.delta) || 0), 0)
   if (totalAbs > MAX_BATCH_ABS_DELTA) {
     return { ok: false, reason: 'batch_delta_too_large' }
   }
@@ -152,61 +160,88 @@ async function commitEvents(openid, events) {
   await ensureCollection(LEDGER_COLLECTION)
 
   // 服务端 dedup:同一 eventId 已经入账过的跳过(retry 安全)。
-  const eventIds = events.map((ev) => ev.eventId)
-  const dupRes = await db.collection(LEDGER_COLLECTION)
-    .where({ _openid: openid, eventId: db.command.in(eventIds) })
-    .field({ eventId: true })
-    .limit(MAX_EVENTS_PER_CALL)
-    .get()
+  const eventIds = events.map((ev) => ev && ev.eventId).filter((id) => typeof id === 'string' && id.length > 0)
+  const dupRes = eventIds.length > 0
+    ? await db.collection(LEDGER_COLLECTION)
+        .where({ _openid: openid, eventId: db.command.in(eventIds) })
+        .field({ eventId: true })
+        .limit(MAX_EVENTS_PER_CALL)
+        .get()
+    : { data: [] }
   const seenIds = new Set((dupRes.data || []).map((d) => d.eventId))
 
-  const appliedEventIds = []
+  const appliedEventIds = []     // client 应当从 pending 排空的 eventId(实际入账 / 已 seen / 被丢弃)
+  const writtenEventIds = []     // 真正写进 ledger 的子集,用于 rollback
+  const droppedEventIds = []     // schema 校验失败被丢弃的 eventId(audit / 排查用)
+  const clippedEventIds = []     // delta 被 clip 到 0 的 eventId(audit)
   let netDelta = 0
   let stopReason = ''
   let appliedCount = 0
 
-  // 按顺序处理。先做余额校验(spend 不能让余额变负),通过后写 ledger。
-  // 中途遇到余额不足:停止,前面已写的 ledger + balance update 仍然有效。
-  // 已 seen 的 eventId:跳过,不计 appliedCount,但 newBalance 反映真实余额。
   for (const ev of events) {
-    if (seenIds.has(ev.eventId)) {
-      // 之前已经入账,余额已经包含它,跳过
+    const v = validateEvent(ev)
+    if (!v.ok) {
+      // legacy kind(如旧客户端的 pet_level_up)/ 越界 delta / 非法 eventId:
+      // 直接 drain 让 client 把它从 pending 移除,不写 ledger 不动 balance。
+      // 缺合法 eventId 的就只能 silently skip(没法 drain client)。
+      if (ev && typeof ev.eventId === 'string' && ev.eventId.length > 0) {
+        droppedEventIds.push(ev.eventId)
+        appliedEventIds.push(ev.eventId)
+      }
+      console.warn('[coinLedger] dropping bad event', v.reason, ev && ev.eventId)
       continue
     }
-    const delta = Math.trunc(Number(ev.delta))
-    if (balance + delta < 0) {
-      // 余额不够,提前停。前面已写的事件保留。
-      stopReason = 'insufficient_balance'
-      break
+
+    if (seenIds.has(ev.eventId)) {
+      // 之前已入账。也加进 appliedEventIds 让 client 排空 —— 应对上次返回包
+      // 丢了 / client 没 drain 成功的 retry。balance 已经包含它的效果,这里
+      // 不重复写 ledger 不重复 inc。
+      appliedEventIds.push(ev.eventId)
+      continue
     }
+
+    const requestedDelta = Math.trunc(Number(ev.delta))
+    let effectiveDelta = requestedDelta
+    let clipped = false
+    if (balance + requestedDelta < 0) {
+      // 服务端 balance 不允许负 —— clip 到 0(跟客户端 applyCoinDelta 的
+      // max(0, ...) 一致)。这样单条还不起钱的 event 不会 poison 后续 event,
+      // 该 event 仍然被 drain,只是 server 这边按 -balance 入账。
+      effectiveDelta = -balance
+      clipped = true
+    }
+
     try {
       await db.collection(LEDGER_COLLECTION).add({
         data: {
           _openid: openid,
           eventId: ev.eventId,
           kind: ev.kind,
-          delta,
-          balanceAfter: balance + delta,
+          delta: effectiveDelta,
+          ...(clipped ? { requestedDelta, clipped: true } : {}),
+          balanceAfter: balance + effectiveDelta,
           clientTs: Number(ev.ts) || 0,
           meta: ev.meta && typeof ev.meta === 'object' ? ev.meta : null,
           createdAt: Date.now()
         }
       })
     } catch (e) {
-      // 写 ledger 失败:停。已成功的保留,balance 不增。
+      // 写 ledger 失败:系统级问题(quota / 网络),break 让客户端下次整批重试。
+      // 已经写过的 ledger 条目下面会按 writtenEventIds rollback。
       stopReason = 'ledger_write_failed'
       break
     }
-    balance += delta
-    netDelta += delta
+    balance += effectiveDelta
+    netDelta += effectiveDelta
     appliedEventIds.push(ev.eventId)
+    writtenEventIds.push(ev.eventId)
+    if (clipped) clippedEventIds.push(ev.eventId)
     appliedCount += 1
   }
 
   if (netDelta !== 0) {
     // 一次性更新 user_state.state.coins。用 inc 保证和 cloud-sync 自然 push
-    // 的字段不打架(其它字段 push 的是整对象,但 cloud-sync push 已经把
-    // coins 从 SYNC_FIELDS 里剔除,所以 coins 字段只有我们写)。
+    // 的字段不打架(coins 不在 SYNC_FIELDS,所以 coins 字段只有我们写)。
     let incApplied = false
     try {
       const upd = await db.collection(USER_COLLECTION)
@@ -220,10 +255,9 @@ async function commitEvents(openid, events) {
       console.warn('[coinLedger] balance update threw', e && e.errMsg)
     }
     if (!incApplied) {
-      // 余额更新失败,ledger 条目已经写了 → roll back 这批 ledger,让 client
-      // 下次重试时 server dedup 不会拦住事件、能重新走完整流程。如果 rollback
-      // 自己也失败,残留 orphan ledger 条目只是审计噪声,balance 仍是对的。
-      for (const eid of appliedEventIds) {
+      // 余额更新失败,只 rollback 真正写进 ledger 的那批 —— seen / dropped 的
+      // 没写过 ledger,不需要 rollback。
+      for (const eid of writtenEventIds) {
         try {
           await db.collection(LEDGER_COLLECTION)
             .where({ _openid: openid, eventId: eid })
@@ -235,7 +269,7 @@ async function commitEvents(openid, events) {
       return {
         ok: false,
         reason: 'balance_update_failed',
-        rolledBackEventIds: appliedEventIds
+        rolledBackEventIds: writtenEventIds
       }
     }
   }
@@ -245,6 +279,8 @@ async function commitEvents(openid, events) {
     appliedCount,
     skippedCount: events.length - appliedCount,
     appliedEventIds,
+    droppedEventIds,
+    clippedEventIds,
     newBalance: balance,
     lastReason: stopReason
   }
