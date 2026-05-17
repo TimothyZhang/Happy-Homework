@@ -121,9 +121,13 @@ Page({
     ageDays: 0,
     // 升级:经验值满 → 用户手动点按钮触发升级动画。
     // xp = 当前已积累的 XP;xpNeeded = 升到下一级需要的 XP;xpPercent = 进度条百分比。
+    // xpPerHour / xpPerHourMax:当前实际速率 / 满速,用于显示"+X / h(满 Y)"
+    // 提示,让用户直观看到"照顾好宠物可以加快升级"。
     xp: 0,
     xpNeeded: 0,
     xpPercent: 0,
+    xpPerHour: 0,
+    xpPerHourMax: 0,
     canLevelUp: false,
     isMaxLevel: false,
     levelMax: store.LEVEL_MAX,
@@ -180,6 +184,10 @@ Page({
     const xpPercent = isMaxLevel ? 100
       : xpNeeded > 0 ? Math.max(0, Math.min(100, Math.floor(xp * 100 / xpNeeded))) : 0
     const canLevelUp = !isMaxLevel && xp >= xpNeeded
+    // 当前 mult 用 pet(已含 petWithDecay 的衰减结果,因为 state 来自 getStateWithComputed)。
+    // 显示一位小数足够区分 "+6.5 / h" vs "+10 / h",避免 "+6 / h" 失真。
+    const xpPerHourRaw = isSetup ? store.currentXpPerHour(pet) : 0
+    const xpPerHour = Math.round(xpPerHourRaw * 10) / 10
     this.setData({
       pet,
       coins: state.coins,
@@ -190,6 +198,8 @@ Page({
       xp,
       xpNeeded,
       xpPercent,
+      xpPerHour,
+      xpPerHourMax: store.XP_PER_HOUR_FULL,
       canLevelUp,
       isMaxLevel,
       levelBadge: levelBadge(pet.level || 1),

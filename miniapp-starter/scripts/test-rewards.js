@@ -376,25 +376,26 @@ assert('buyItem → pet_purchase event', last.kind === 'pet_purchase' && last.de
 
 // levelUpPet 现在花 XP,不花金币:扣 getXpForLevel(level) → level++,溢出 XP 留下。
 // xp 不够时返 insufficient-xp,不动 state,也不发 coin event。
-seed({ coins: 5000, pet: { species: 'sheep', name: '阿羊', level: 1, xp: 200, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
+// cost(1) = 120,seed 220 XP → 升一级剩 100。lastDecayAt = now 防 commit 时 catch-up 把 xp 拉高。
+seed({ coins: 5000, pet: { species: 'sheep', name: '阿羊', level: 1, xp: 220, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
 const coinsBefore6 = st().coins
 const xpBefore = st().pet.xp
 const levelBefore = st().pet.level
 const pendingBefore = st().pendingCoinEvents.length
 const lvUp = s.levelUpPet()
-assert('levelUpPet ok at Lv.1 (xp=200 ≥ 100)', lvUp && lvUp.ok && lvUp.level === levelBefore + 1)
-assert('levelUpPet deducts getXpForLevel(1) = 100; 溢出 100 留下', st().pet.xp === xpBefore - 100,
+assert('levelUpPet ok at Lv.1 (xp=220 ≥ 120)', lvUp && lvUp.ok && lvUp.level === levelBefore + 1)
+assert('levelUpPet deducts getXpForLevel(1) = 120; 溢出 100 留下', st().pet.xp === xpBefore - 120,
   `xpBefore=${xpBefore} after=${st().pet.xp}`)
 assert('levelUpPet 返回 xp = 100 (溢出)', lvUp.xp === 100)
 assert('levelUpPet 不动 coins', st().coins === coinsBefore6)
 assert('levelUpPet 不发 coin event', st().pendingCoinEvents.length === pendingBefore)
 assert('levelUpPet stamps lastLeveledAt', st().pet.lastLeveledAt != null)
 
-// xp 不够时不动 state,返 insufficient-xp。Lv.50→51 cost = 1472,xp=500 → need=972。
+// xp 不够时不动 state,返 insufficient-xp。Lv.50→51 cost = 1737,xp=500 → need=1237。
 seed({ coins: 0, pet: { species: 'cat', name: 'P', level: 50, xp: 500, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
 const denyResult = s.levelUpPet()
 assert('levelUpPet denies when xp < cost',
-  denyResult && !denyResult.ok && denyResult.reason === 'insufficient-xp' && denyResult.need === 972,
+  denyResult && !denyResult.ok && denyResult.reason === 'insufficient-xp' && denyResult.need === 1237,
   `result=${JSON.stringify(denyResult)}`)
 assert('denied levelUpPet does not touch xp', st().pet.xp === 500)
 assert('denied levelUpPet does not touch level', st().pet.level === 50)

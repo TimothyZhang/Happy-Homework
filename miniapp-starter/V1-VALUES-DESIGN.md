@@ -114,44 +114,53 @@
 
 > 维护提示：如果觉得开心补给开销太重,优先把玩具球价格降到 16-18(便宜档下限),不要降效果——道具效果跟其他三项保持对称才能让 buyItem 应用代码保持简单。
 
-## 5. 升级曲线（经验值,跟属性挂钩）
+## 5. 升级曲线（经验值,纯挂机累计）
 
-升级走 XP,不再花金币。XP 来源跟金币 1:1,但乘以「四项属性平均值倍率」 —— 不照顾宠物就升不上去。手动点按钮升级,播全屏动画。
+升级走 XP,不再花金币。**完成作业只发金币不发 XP**;XP 按时间挂机累计,速率与四项属性平均值挂钩。不照顾宠物 → 属性归零 → XP 几乎不涨 → 升级几乎不动。手动点按钮升级,播全屏动画。
 
-### 5.1 XP 来源（满属性下 = 跟金币 1:1）
+### 5.1 XP 累计规则（纯时间挂机）
 
 `attrMultiplier(pet) = (fullness + cleanliness + happiness + health) / 400`,clip 至 [0, 1]。
-`xpForReward(coins, pet) = floor(coins × attrMultiplier(pet))`。
+`currentXpPerHour(pet) = XP_PER_HOUR_FULL × attrMultiplier(pet)` = `10 × mult`。
 
-每次发金币的同时发 XP,XP 写到 `state.pet.xp`(随 `pet` 整体走 SYNC_FIELDS 同步,不进 coin ledger):
+XP 在每次 `commitPetDecay` 时按"挂机时长 × 满速 × 平均 mult"入账(写进 `state.pet.xp`,随 `pet` 整体走 SYNC_FIELDS 同步,不进 coin ledger):
 
-| 触发 | base coins | base XP（mult=1.0 时） |
-| --- | --- | --- |
-| 单题-当日 / 提前 / 补做 | 10 / 15 / 5 | 10 / 15 / 5 |
-| 单题 capped(≥20 项后) | 0 | 0 |
-| Daily-perfect base | sum(rewardPaid) | sum(xpPaid) |
-| Early-bird(<19/20/21) | 50 / 30 / 20 / 0 | × mult,floor |
-| Weekly streak(连 7 天) | 100 | × mult,floor |
+```
+elapsed_hours = (now - pet.lastDecayAt) / 3600000
+mult_start = attrMultiplier(pet)              // 衰减前(窗口起始)
+mult_end   = attrMultiplier(petWithDecay)     // 衰减后(窗口终点)
+avg_mult   = (mult_start + mult_end) / 2      // trapezoidal 积分近似
+xp_gained  = floor(elapsed_hours × 10 × avg_mult)
+pet.xp += xp_gained
+```
 
-**为什么 base XP 不在外面单乘一次,而是 `sum(xpPaid)`**：单题 XP 在 finishTask 当下已经 `floor(coins × mult)` 写进 `occurrence.xpPaid`,等到最后一题触发 daily-perfect 时直接累加这些 xpPaid 即可。这样 cap-aware(被 cap 的单题 xpPaid=0,自动不贡献)、跨时段一致(中途属性变化不会回溯改写已发的 xp)。Early-bird 和 weekly streak 是 finishTask 当下用当前 mult 一次性算。
+**为什么用 trapezoidal 平均**：长时间(比如 16h)不开 App 时,fullness 从 100 衰到 36,mult 从 1.0 衰到约 0.6。只取起点会高估、只取终点会低估,折中平均最公道。短时间(几分钟)两端 mult 几乎一致,平均和单点取值差异忽略不计。
 
-满速假设(mult=1.0、70% 完美日、22:00 无 early-bird)→ 日均约 **200 XP**(跟金币 §2 同步)。
+**commit 时机**:跟 `commitPetDecay` 完全一致 —— finishTask / buyItem / levelUpPet / switchPetSpecies 都会 catch-up。UI(pet 页 onShow / 主页 refresh)读 `getStateWithComputed()` 时调 `petWithDecay`(pure 版),实时算 XP 给玩家看,但不持久化 lastDecayAt。
+
+**满速估算(mult=1.0 全天保持)**：24h × 10 = **240 XP/天**。
+- 满属性持续保持:240/天
+- 半属性(mult≈0.5):120/天
+- 全空(mult=0):0/天
+- 实际典型用户(早晚各喂一次,日均 mult≈0.65):约 150/天
 
 ### 5.2 升级公式
 
-`getXpForLevel(level) = level × XP_PER_LEVEL_BASE + XP_PER_LEVEL_OFFSET = level × 28 + 72`,`LEVEL_MAX = 100`。线性等差,首项 100、公差 28。
+`getXpForLevel(level) = level × XP_PER_LEVEL_BASE + XP_PER_LEVEL_OFFSET = level × 33 + 87`,`LEVEL_MAX = 100`。线性等差,首项 120、公差 33。
 
-| 关键级 | 单步 cost | 累计 cost | 升一级耗时(满速 200 XP/天) | mult=0.65 时 |
+常量选 33 / 87 是为了让满速(240 XP/天)下两端时间接近 spec:Lv.1→2 = 120/240 = **0.5 天 ✓**,Lv.99→100 = 3354/240 = **13.97 天 ≈ 14 ✓**。
+
+| 关键级 | 单步 cost | 累计 cost | 升一级耗时(满速 240 XP/天) | mult=0.65 时 |
 | --- | ---: | ---: | ---: | ---: |
-| Lv.1→2    |  100 |    100 | 0.5 天 | 0.8 天 |
-| Lv.5→6    |  212 |    880 | 1.06 天 | 1.6 天 |
-| Lv.10→11  |  352 |   2520 | 1.76 天 | 2.7 天 |
-| Lv.20→21  |  632 |   7920 | 3.16 天 | 4.9 天 |
-| Lv.50→51  | 1472 |  36300 | 7.36 天 | 11.3 天 |
-| Lv.90→91  | 2592 | 113040 | 12.96 天 | 19.9 天 |
-| Lv.99→100 | 2844 | 145728 | **14.22 天** ✓ | 21.9 天 |
+| Lv.1→2    |  120 |    120 | 0.5 天 | 0.77 天 |
+| Lv.5→6    |  252 |   1020 | 1.05 天 | 1.6 天 |
+| Lv.10→11  |  417 |   2955 | 1.74 天 | 2.7 天 |
+| Lv.20→21  |  747 |   9255 | 3.11 天 | 4.8 天 |
+| Lv.50→51  | 1737 |  42675 | 7.24 天 | 11.1 天 |
+| Lv.90→91  | 3057 | 132975 | 12.74 天 | 19.6 天 |
+| Lv.99→100 | 3354 | 171963 | **13.97 天** ✓ | 21.5 天 |
 
-累计到 Lv.100 = 145728 XP ≈ **730 天满速 ≈ 2 年**。半喂场景(mult≈0.65)≈ 3 年,跟旧金币方案对齐。完全不喂(avg<30,mult≈0.25)≈ 8 年,"摆烂只刷作业"被自然劝退。
+累计到 Lv.100 = 171963 XP ≈ **716 天满速 ≈ 2 年**。半喂场景(mult≈0.65)≈ 3 年,跟旧金币方案对齐。完全不喂(avg<30,mult≈0.25)≈ 8 年,"摆烂只刷作业"被自然劝退。
 
 ### 5.3 levelUpPet() 行为
 
@@ -163,49 +172,54 @@ XP 满即可点 —— 没有金币 cost,没有 modal 弹窗。点击后扣 `get
 - `{ ok: false, reason: 'max-level' }` — 已满级
 - `{ ok: false, reason: 'insufficient-xp', need, have }` — XP 不够,UI 弹"还差 N XP"
 
-### 5.4 revertTask 退 XP
+### 5.4 revertTask / revokePerfectDay 不退 XP
 
-`occurrence.xpPaid` 在 finishTask 写,revertTask 据此精确扣回 `pet.xp`(`-xpPaid`)。perfect-day 的 `xpDailyBonus` / `xpWeeklyBonus` 存进 `bonusByDay[day]`,`revokePerfectDay` 扣回。clip 到 ≥ 0(用户可能升过一级把 xp 用掉了)。XP 不走云端账本,本地 pet.xp 是唯一 source of truth,不需要 `ledgerEventId` 守卫。
+XP 跟作业完全脱钩(挂机来的,不是奖励),所以撤销作业只退金币,**不退 XP**。这也意味着 `occurrence.xpPaid` / `bonusByDay[day].xpDailyBonus` 这种字段不存在,代码路径更干净。
 
 ### 5.5 视觉解锁
 
-等级显示从 `Lv.X` 开始,到 L3 加 ⭐,L5 加 👑。SVG 不变。升级 UI:XP 进度条(蓝色渐变,满了变金色+脉动);点击升级 → 触发 2.4s 全屏动画(暗背景 + 六颗星散开 + "LEVEL UP! Lv.X" 弹出),宠物同时 queue `celebrating` one-shot。
+等级显示从 `Lv.X` 开始,到 L3 加 ⭐,L5 加 👑。SVG 不变。升级 UI:XP 进度条(蓝色渐变,满了变金色+脉动);进度条下方一行小字"每小时 +X XP · 满速 10(照顾好宠物可以加快)",让玩家直观看到属性—速率的联动关系。点击升级 → 触发 2.4s 全屏动画(暗背景 + 六颗星散开 + "LEVEL UP! Lv.X" 弹出),宠物同时 queue `celebrating` one-shot。
 
 ## 6. 闭环验算（日均）
 
 ```
-满属性 (mult=1.0):
-  金币:  日均收入 ≈ 200,扣商店 ≈ 100 = 净 100 攒钱(主要给 PET_SWITCH_COST / 换皮 / 道具应急)
-  XP  :  日均产出 ≈ 200(跟金币同步,但与金币消费无关)→ 全部用来升级
+金币线 (与属性无关):
+  日均收入 ≈ 200  (§2 假设:12 项任务 / 70% 完美日)
+  日均消耗 ≈ 100-110  (§4,含 happiness 道具)
+  剩余    ≈ 90-100   →  攒着给换皮 / 道具应急
 
-属性平均 65 (mult=0.65,典型半喂):
-  金币:  同上 — 跟属性无关
-  XP  :  日均 ≈ 130 → Lv.99→100 ≈ 22 天/级,跟旧金币方案的节奏几乎一致
+XP 线 (与属性强挂钩):
+  满属性持续:  240 XP/天 → Lv.99→100 ≈ 14 天 ✓
+  典型半喂:    150 XP/天 → Lv.99→100 ≈ 22 天
+  完全摆烂:     0 XP/天  → 永远升不上
 ```
 
-按满速 XP 200/天 节奏:
-- Lv.1→Lv.10:   2520 XP ÷ 200 ≈ **13 天**(约 2 周到 Lv.10,初期甜头充足)
-- Lv.10→Lv.50:  33780 XP ÷ 200 ≈ **169 天**(约 5.6 个月到 Lv.50)
-- Lv.50→Lv.90:  76740 XP ÷ 200 ≈ **384 天**(约 1 年从 Lv.50 到 Lv.90)
-- Lv.90→Lv.100: 32688 XP ÷ 200 ≈ **163 天**(约 5.4 个月,平均 14 天/级 = 2 周 ✓)
-- 总:**到 Lv.100 满速 ≈ 730 天 ≈ 2 年**(平均 mult=1.0,理想玩家)
+按满速 240 XP/天:
+- Lv.1→Lv.10:   2955 XP ÷ 240 ≈ **12 天**(约 2 周到 Lv.10,初期甜头充足)
+- Lv.10→Lv.50:  39720 XP ÷ 240 ≈ **165 天**(约 5.5 个月到 Lv.50)
+- Lv.50→Lv.90:  90300 XP ÷ 240 ≈ **376 天**(约 1 年从 Lv.50 到 Lv.90)
+- Lv.90→Lv.100: 38988 XP ÷ 240 ≈ **162 天**(约 5.4 个月,平均 14 天/级 ✓)
+- 总:**到 Lv.100 满速 ≈ 716 天 ≈ 2 年**(理想玩家持续保持属性满)
 - 实际(mult≈0.65)≈ 3 年,跟旧金币方案对齐
 
 **节奏点评**:
 - 前 2 周升 10 级,孩子能高频感受到进度
 - 中期(Lv.10-50)5-9 个月,每级 1-2 周,稳态期
 - 后期(Lv.50+)真正的"长期目标",Lv.99→100 是真正的 2 周
-- **关键变化**:玩家完全不喂宠物 → mult 趋近 0 → XP 几乎不涨 → 升级几乎不动。形成"维持属性"的强约束,不靠惩罚靠 ROI 自然引导。
+- **关键变化**:XP 完全脱离作业奖励路径,变成"宠物状态的派生量"。
+  - 想升级 → 必须照顾宠物(否则 mult=0,XP 不动)
+  - 想多金币 → 多做作业(跟属性无关)
+  - 两条线分工清晰,互不污染。漏洞("只升级不喂")被自然封死。
 
 如果实际跑下来发现"升级太快/太慢",调节优先顺序：
-1. 先调 `XP_PER_LEVEL_BASE` / `XP_PER_LEVEL_OFFSET` 常量(`store.js` 顶部,默认 28 / 72)
-2. 调 `attrMultiplier` 公式(线性→平方根可让中等属性更友好)
-3. 不要去动单题 +5/+10/+15 的核心规则(用户硬性约束)
-4. 如果想让中后期更慢,改 `getXpForLevel` 公式成 `level² × X` 这种非线性曲线
+1. 调 `XP_PER_HOUR_FULL`(`store.js` 默认 10);改这个不动 cost 曲线就能整体加速 / 减速
+2. 调 `XP_PER_LEVEL_BASE` / `XP_PER_LEVEL_OFFSET`(默认 33 / 87);改公差能改变前后期相对节奏
+3. 调 `attrMultiplier` 公式(线性→平方根可让中等属性更友好);现在线性 0.5×@avg=50 略陡
+4. 不要去动单题 +5/+10/+15 的核心规则(用户硬性约束)
 
 ## 7. 校验脚本
 
-`scripts/values-check.js`(194 个断言)做这些验证:
+`scripts/values-check.js`(191 个断言)做这些验证:
 
 **奖励规则**
 - 完成今日单任务 → coins +10;补做昨日任务 → +5;提前完成明日任务 → +15
@@ -220,13 +234,14 @@ XP 满即可点 —— 没有金币 cost,没有 modal 弹窗。点击后扣 `get
 - 同样 8 项今日任务,在 18:30 完成 = 210;19:00 = 190;20:30 = 180;22:00 = 160
 
 **升级 cost(XP)**
-- `getXpForLevel(1) = 100, (2) = 128, (10) = 352, (50) = 1472, (90) = 2592, (99) = 2844, (100) = 0 (max), (101) = 0`
-- 常量:`XP_PER_LEVEL_BASE = 28`, `XP_PER_LEVEL_OFFSET = 72`
+- `getXpForLevel(1) = 120, (2) = 153, (10) = 417, (50) = 1737, (90) = 3057, (99) = 3354, (100) = 0 (max), (101) = 0`
+- 常量:`XP_PER_LEVEL_BASE = 33`, `XP_PER_LEVEL_OFFSET = 87`, `XP_PER_HOUR_FULL = 10`
 - `attrMultiplier`:四属性平均 / 100, clip [0,1]。fullPet=1.0, halfPet=0.5, emptyPet=0, no-species pet=0
-- `xpForReward(coins, pet) = floor(coins × mult)`
+- `currentXpPerHour(pet) = XP_PER_HOUR_FULL × mult`(0~10 之间)
 - `levelUpPet`:xp 不够时返 `{ ok: false, reason: 'insufficient-xp', need, have }` 且不动 state;够时 -cost / level +1 / 溢出 xp 留下 / **不发任何 coin event**(XP 不进云端账本)
-- `finishTask` 把 `xpPaid` 写到 occurrence、`xpDailyBonus` / `xpWeeklyBonus` 写到 `bonusByDay[day]`,供 revert / revoke 精确退款
-- 满属性下 finishTask 累加 pet.xp(满速等同金币);半属性 floor 一半;全空属性 → coins 照发 XP 不动
+- **finishTask 不再发 XP / 不写 xpPaid 字段**(XP 跟作业完全脱钩);只发金币
+- **XP 走 commitPetDecay 挂机累计**:24h 满属性→ avg 衰减后 mult≈0.625,trapezoidal 算出 150 XP;全空属性挂多久都 0 XP
+- revertTask / revokePerfectDay 也不退 XP
 
 **宠物衰减 + 商店**
 - 衰减:fullness 16h 后从 100 → 36(近似);health 16h 后从 100 → 60

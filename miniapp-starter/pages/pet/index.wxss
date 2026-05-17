@@ -551,6 +551,13 @@
 .xp-bar-max .xp-bar-fill {
   background: linear-gradient(90deg, #ffd166 0%, #f5a623 100%);
 }
+.xp-rate {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #6b7785;
+  line-height: 1.4;
+}
 @keyframes xp-ready-pulse {
   0%, 100% { filter: brightness(1);    box-shadow: 0 0 0 rgba(255, 156, 31, 0); }
   50%      { filter: brightness(1.15); box-shadow: 0 0 12rpx rgba(255, 156, 31, 0.5); }
