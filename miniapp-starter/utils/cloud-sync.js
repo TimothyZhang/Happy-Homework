@@ -63,19 +63,30 @@ function init(store) {
 
 function isReadOnly() { return _readOnly }
 
+// Returns { doc, error }:
+//   - { doc: <obj>, error: null }  → user has a cloud doc
+//   - { doc: null,  error: null }  → genuinely no doc (first-time user)
+//   - { doc: null,  error: <msg> } → fetch failed (network / sdk unavailable)
+//
+// 区分这三种状态很重要:之前所有错误都返回 null,导致 hydrate / push 误以为
+// "用户没文档" → 调 createInitialDoc 在已有文档的用户上又新建一条,产生
+// duplicate(同 _openid 多条 doc)。fix:只在 error===null && doc===null 时才
+// 当作"首次用户"建初始 doc;有 error 时永远不 create。
 async function fetchCloudDoc() {
   const d = db()
-  if (!d) { _lastError = 'wx.cloud unavailable'; return null }
+  if (!d) { _lastError = 'wx.cloud unavailable'; return { doc: null, error: _lastError } }
   try {
     // _openid is auto-injected by collection ACL "creator-only", so .get()
-    // returns at most one doc — this user's.
+    // returns at most one doc — this user's (除非数据库里已经有重复,
+    // 那种情况就交给后端去重处理)。
     const res = await d.collection(COLLECTION).get()
     _lastError = null
-    return (res.data && res.data[0]) || null
+    return { doc: (res.data && res.data[0]) || null, error: null }
   } catch (e) {
-    _lastError = (e && e.errMsg) || String(e)
+    const msg = (e && e.errMsg) || String(e)
+    _lastError = msg
     console.warn('[cloud-sync] fetchCloudDoc failed', e)
-    return null
+    return { doc: null, error: msg }
   }
 }
 
@@ -160,7 +171,14 @@ async function hydrate() {
   if (_hydrateInflight) return _hydrateInflight
   _hydrateInflight = (async () => {
     const localSessionId = getDeviceSessionId()
-    const doc = await fetchCloudDoc()
+    const { doc, error: fetchError } = await fetchCloudDoc()
+
+    if (fetchError) {
+      // 网络/SDK 失败 —— 区别于"确实没有 doc"。绝不能在这里走 createInitialDoc
+      // 分支,否则已有云端文档的用户每次网络抖一下就被多建一条 doc。
+      // 本地缓存继续可用,下次 onShow 或显式 forceSync 时再重试。
+      return { changed: false, error: fetchError }
+    }
 
     if (!doc) {
       // First time on cloud for this user. Push current local state as the
@@ -291,7 +309,13 @@ async function actuallyPush(state, updatedAt) {
       if (updated === 0) {
         // Either no doc yet (race with init) or we've been kicked. Probe to
         // distinguish.
-        const doc = await fetchCloudDoc()
+        const { doc, error: probeError } = await fetchCloudDoc()
+        if (probeError) {
+          // 探测失败:无法判断是"没文档"还是"被踢下线"。绝不调
+          // createInitialDoc —— 否则网络一抖就给已有文档的用户多建一条。
+          // 下次 saveState 触发 push 时会再走一遍流程,届时网络好了再处理。
+          return
+        }
         if (!doc) {
           // No cloud doc — create it with our state.
           await createInitialDoc(localSessionId, state, updatedAt)
@@ -397,7 +421,13 @@ async function forceSync() {
 async function reclaim() {
   console.log('[cloud-sync] reclaim invoked')
   const localSessionId = getDeviceSessionId()
-  const doc = await fetchCloudDoc()
+  const { doc, error: fetchError } = await fetchCloudDoc()
+  if (fetchError) {
+    // 拉云端文档失败,绝不能 createInitialDoc(会在已有用户上多建一条)。
+    // 把 _lastError 留给 UI 提示用户重试。
+    console.log('[cloud-sync] reclaim: fetch failed, abort', fetchError)
+    return false
+  }
   if (!doc) {
     console.log('[cloud-sync] reclaim: no cloud doc, seeding')
     const state = _store.getStateForSync()
