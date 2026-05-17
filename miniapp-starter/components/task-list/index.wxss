@@ -193,6 +193,13 @@
 .task-row-swipable .task-row {
   position: relative;
   z-index: 1;
+}
+
+/* transition 只在 drag 模式开启:拖动中邻居被 shiftY 推开有平滑动画。
+   松手时 dragId=null 让 .is-dragging-mode 立刻移除,transition 消失,
+   shiftY=0 瞬间应用,不再有"从下往上回原位"的过渡 — 那个过渡会让 row
+   跨过自己的 swipable 边界,被 overflow:hidden 露出底层 swipe-action。 */
+.task-list.is-dragging-mode .task-row-swipable .task-row {
   transition: transform 0.18s ease;
 }
 
