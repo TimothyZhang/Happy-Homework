@@ -12,7 +12,11 @@
   padding: 18rpx 18rpx 18rpx 32rpx;
   background: #f8fafc;
   border-radius: 22rpx;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  /* 不加 transform 的 transition — 拖动 reorder 时 shiftY 切换必须瞬间生效,
+     不然松手帧 row 会处于"过渡中跨 swipable 边界"的状态露出底层 swipe-action
+     (Tim 反复报的"松手过程中出现编辑按钮 + 从下往上动画"就是这个)。box-shadow
+     transition 仅给 is-dragging 时的阴影抬起用,留着。 */
+  transition: box-shadow 0.16s ease;
 }
 
 .task-row.is-overdue {
