@@ -20,6 +20,12 @@ const SCHEMA_VERSION = 2
 const SYNC_FIELDS = [
   'notebooks', 'tasks',
   'streakDays', 'perfectDays', 'bonusByDay', 'completionsByDay',
+  // coinLogs 是客户端完整审计:每次 applyCoinDelta 都 append 一条,
+  // cap 至 COIN_LOG_KEEP 条防 cloud doc 膨胀。和服务端 coin_ledger 互为
+  // 备份 —— ledger 漏了(client 端 pending event 没 flush 上就丢了 / 老
+  // 版本走 cloud-sync 直接覆写 coins 路径)时,本地这份是 source of truth。
+  // 也是 revokePerfectDay 检查"对应入账是否真的发生过"的依据。
+  'coinLogs',
   'pet', 'lastReward',
   'profile'
 ]
@@ -385,6 +391,12 @@ const defaultState = {
   // 未上报到 coinLedger 的事件队列。每次 coin 变更同时 push 进来,
   // coin-ledger.flush() 按批次提交后,server 返回 appliedEventIds 用来 drain。
   pendingCoinEvents: [],
+  // 客户端完整金币交易审计。append-only,cap 至 COIN_LOG_KEEP 条。和
+  // pendingCoinEvents 不同:flush 成功后 pending 会 drain,但 coinLogs
+  // 永不删 —— 既能事后对账(本地 vs 服务端 ledger),也是 revokePerfectDay
+  // 判定"对应 perfect 入账是否真发生过"的唯一依据。
+  // 进 SYNC_FIELDS,sync 到 user_state,admin 后台可读。
+  coinLogs: [],
   streakDays: 0,
   // YYYY-MM-DD strings for days where every task got completed. Used to
   // compute consecutive-perfect-day streak. Pruned to ~14 days of history.
@@ -457,6 +469,7 @@ function migrateState(raw) {
     if (typeof raw.streakDays !== 'number') raw.streakDays = 0
     if (typeof raw.coins !== 'number') raw.coins = 0
     if (!Array.isArray(raw.pendingCoinEvents)) raw.pendingCoinEvents = []
+    if (!Array.isArray(raw.coinLogs)) raw.coinLogs = []
     // Pet schema upgrade: legacy data had {name, emoji, level, growth,
     // happiness, fullness} but no species / cleanliness / health / age. If
     // we see a name without a species, treat it as already-set-up (infer
@@ -1032,20 +1045,35 @@ function genEventId() {
 // kind: 'task_reward' | 'task_refund' | 'pet_purchase' | 'level_upgrade' | 'pet_skin_switch'
 // delta: signed integer matching kind's allowed range (server re-validates).
 // meta:  optional debug context for the ledger entry (taskId, itemId, etc.).
+// 返回写入的 eventId(no-op 时返 null) —— finishTask 用来 stamp 到
+// bonusByDay[day].ledgerEventId,后续 revokePerfectDay 凭它判定那次入账
+// 真的发生过、可以放心退款。
 function applyCoinDelta(state, kind, delta, meta) {
-  if (!delta) return
+  if (!delta) return null
   const d = Math.trunc(Number(delta) || 0)
-  if (!d) return
+  if (!d) return null
+  const before = state.coins || 0
   // 乐观更新本地缓存 —— 服务端 commit 后会回 newBalance 覆盖纠偏
-  state.coins = Math.max(0, (state.coins || 0) + d)
+  state.coins = Math.max(0, before + d)
+  const after = state.coins
+  const eventId = genEventId()
+  const ts = Date.now()
   if (!Array.isArray(state.pendingCoinEvents)) state.pendingCoinEvents = []
-  state.pendingCoinEvents.push({
-    eventId: genEventId(),
-    kind,
-    delta: d,
-    ts: Date.now(),
-    meta: meta || null
+  state.pendingCoinEvents.push({ eventId, kind, delta: d, ts, meta: meta || null })
+  // 同步 append 到 coinLogs(永久审计,不随 flush drain)。带 balance
+  // before/after 方便事后看每条 event 对账面的真实影响 —— ledger 也存
+  // balanceAfter 但只服务端有,本地这份独立。
+  if (!Array.isArray(state.coinLogs)) state.coinLogs = []
+  state.coinLogs.push({
+    eventId, kind, delta: d, balanceBefore: before, balanceAfter: after,
+    ts, meta: meta || null
   })
+  // Prune 防 cloud doc 撑爆。早期记录进 coin_ledger 兜底(只要 flush 过),
+  // 本地这里只留最近 COIN_LOG_KEEP 条够人工审查。
+  if (state.coinLogs.length > COIN_LOG_KEEP) {
+    state.coinLogs = state.coinLogs.slice(state.coinLogs.length - COIN_LOG_KEEP)
+  }
+  return eventId
 }
 
 // Read-only snapshot of unflushed events; coin-ledger module pulls this batch.
@@ -1638,8 +1666,31 @@ function revokePerfectDay(state, day) {
   const log = state.bonusByDay && state.bonusByDay[day]
   if (log) {
     const totalBonus = (log.dailyBonus || 0) + (log.weeklyBonus || 0)
-    if (totalBonus > 0) {
-      applyCoinDelta(state, 'task_refund', -totalBonus, { day, reason: 'perfect_day_clawback' })
+    // 守卫:只有 bonusByDay[day] 带 ledgerEventId(代表 finishTask 入账
+    // 真的走过 applyCoinDelta → coinLogs/pending)才发 task_refund。
+    // 老路径残留(ledger 上线前 cloud-sync 直接覆写 coins,bonusByDay
+    // 跟着 sync 上去但没进 ledger)或 flush 丢失的虚账,没标记,只清
+    // bonusByDay 不退款 —— 否则就是 over-clawback(从根本没收过的钱
+    // 里扣回去)。张天晴一案净流出 -130 但没看到任何对应 reward,就是
+    // 这个 bug 造成的。
+    if (totalBonus > 0 && log.ledgerEventId) {
+      applyCoinDelta(state, 'task_refund', -totalBonus, {
+        day, reason: 'perfect_day_clawback', refundOf: log.ledgerEventId
+      })
+    } else if (totalBonus > 0) {
+      // 记一条 audit-only 的事件到 coinLogs(不动 coins,不入 pending),
+      // 事后能看到"想 revoke 但没对应入账,跳过"的痕迹。
+      if (!Array.isArray(state.coinLogs)) state.coinLogs = []
+      state.coinLogs.push({
+        eventId: genEventId(),
+        kind: 'perfect_day_clawback_skipped',
+        delta: 0, balanceBefore: state.coins || 0, balanceAfter: state.coins || 0,
+        ts: Date.now(),
+        meta: { day, reason: 'no_ledger_event_id', wouldRefund: -totalBonus }
+      })
+      if (state.coinLogs.length > COIN_LOG_KEEP) {
+        state.coinLogs = state.coinLogs.slice(state.coinLogs.length - COIN_LOG_KEEP)
+      }
     }
     delete state.bonusByDay[day]
   }
@@ -1884,6 +1935,10 @@ function finishTask(taskId, dateStr) {
         // Stash exact bonus paid + pre-update streak. revertTask refunds from
         // this map so the refund matches the credit even if task count or
         // streak state changes between finish and revert.
+        // ledgerEventId 在下面 applyCoinDelta 后回填 —— 标记这次 perfect
+        // 入账真的发生过(写进 coinLogs / pending queue)。revokePerfectDay
+        // 用它判断要不要发 task_refund:没标记的天数 = 老路径残留或 flush
+        // 丢失的虚账,只清 bonusByDay 不退款,避免 over-clawback。
         if (!state.bonusByDay || typeof state.bonusByDay !== 'object') state.bonusByDay = {}
         state.bonusByDay[day] = { dailyBonus, weeklyBonus, prevStreakDays }
       }
@@ -1901,9 +1956,15 @@ function finishTask(taskId, dateStr) {
     }
 
     if (reward > 0) {
-      applyCoinDelta(state, 'task_reward', reward, {
+      const eventId = applyCoinDelta(state, 'task_reward', reward, {
         taskId, day, rewardKind, taskReward, dailyBonus, weeklyBonus
       })
+      // 只有 perfect bonus 命中(dailyBonus / weeklyBonus > 0)才需要标
+      // ledgerEventId 给 revokePerfectDay 用。纯单题 reward 不会被 revoke
+      // 走 perfect 路径(那走的是 task_revert 的 cur.rewardPaid)。
+      if (eventId && state.bonusByDay && state.bonusByDay[day]) {
+        state.bonusByDay[day].ledgerEventId = eventId
+      }
     }
     state.lastReward = {
       reward,
