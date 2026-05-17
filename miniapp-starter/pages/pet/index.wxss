@@ -570,12 +570,14 @@
   border-radius: 0 999rpx 999rpx 0;
   animation: xp-preview-grow 2.4s ease-in-out infinite;
 }
+/* width 补 +9rpx 是 wxml 里 left 减了 9rpx 的对应补偿 —— 让最终视觉上预览段
+   还是 --preview-width %(下一小时实发 XP 长度),左端往左挪只是为了盖主条圆角。 */
 @keyframes xp-preview-grow {
-  0%   { width: 0;                    opacity: 0; }
-  10%  {                              opacity: 1; }
-  70%  { width: var(--preview-width); opacity: 1; }
-  90%  { width: var(--preview-width); opacity: 0; }
-  100% { width: 0;                    opacity: 0; }
+  0%   { width: 0;                                 opacity: 0; }
+  10%  {                                           opacity: 1; }
+  70%  { width: calc(var(--preview-width) + 9rpx); opacity: 1; }
+  90%  { width: calc(var(--preview-width) + 9rpx); opacity: 0; }
+  100% { width: 0;                                 opacity: 0; }
 }
 
 /* === 升级动画 overlay === */

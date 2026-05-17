@@ -111,9 +111,12 @@
                width 用 style 写动态值;动画由 .xp-bar-preview 的 keyframe 驱动。 -->
           <view class="xp-bar {{canLevelUp ? 'xp-bar-ready' : ''}}">
             <view class="xp-bar-fill" style="width: {{xpPercent}}%"></view>
+            <!-- left 往左挪 9rpx (= 主条 height 18rpx / 2 = 圆角半径) 盖住主条
+                 右端的圆弧,消除"圆角外背景透出"的断层;width 补 +9rpx 保持
+                 视觉上的 preview 长度跟下一小时实发 XP 一致。 -->
             <view wx:if="{{xpPreviewWidth > 0 && !canLevelUp}}"
                   class="xp-bar-preview"
-                  style="left: {{xpPercent}}%; --preview-width: {{xpPreviewWidth}}%"></view>
+                  style="left: calc({{xpPercent}}% - 9rpx); --preview-width: {{xpPreviewWidth}}%"></view>
           </view>
           <button class="level-up-btn {{canLevelUp ? '' : 'disabled'}}" bindtap="handleLevelUp">
             升到 Lv.{{pet.level + 1}}
