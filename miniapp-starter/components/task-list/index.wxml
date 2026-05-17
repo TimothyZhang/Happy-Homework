@@ -36,8 +36,7 @@
             data-id="{{item.id}}"
             data-task-id="{{item.taskId || item.id}}"
             data-occurrence-date="{{item.occurrenceDate}}">
-        <view wx:if="{{item.status === 'doing'}}" class="doing-strip"></view>
-        <view class="dot"></view>
+        <view class="status-stripe"></view>
         <view class="row-body">
           <view class="row-name-line">
             <text class="row-content">{{item.content}}</text>

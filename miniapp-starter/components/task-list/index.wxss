@@ -9,7 +9,7 @@
   display: flex;
   align-items: center;
   gap: 14rpx;
-  padding: 18rpx;
+  padding: 18rpx 18rpx 18rpx 32rpx;
   background: #f8fafc;
   border-radius: 22rpx;
   transition: transform 0.16s ease, box-shadow 0.16s ease;
@@ -26,16 +26,24 @@
   box-shadow: inset 0 0 0 1rpx rgba(36, 91, 219, 0.18);
 }
 
-.task-row.doing .doing-strip {
+/* 左侧整条状态色带 — 高度等于卡片,宽度 ≈ 旧圆点直径。颜色由 row 的状态类决定;
+   doing 时叠加脉动透明度动画。 */
+.status-stripe {
   position: absolute;
   left: 0;
-  top: 8rpx;
-  bottom: 8rpx;
-  width: 6rpx;
-  border-radius: 0 4rpx 4rpx 0;
+  top: 0;
+  bottom: 0;
+  width: 18rpx;
+  border-radius: 22rpx 0 0 22rpx;
+  background: #e54545;
+}
+
+.task-row.doing  .status-stripe {
   background: #245bdb;
   animation: doing-pulse 1.6s ease-in-out infinite;
 }
+.task-row.paused .status-stripe { background: #ff8c1a; }
+.task-row.done   .status-stripe { background: #07c160; }
 
 @keyframes doing-pulse {
   0%, 100% { opacity: 0.55; }
@@ -48,18 +56,6 @@
   box-shadow: 0 16rpx 40rpx rgba(31, 35, 41, 0.18);
   transform: scale(1.02);
 }
-
-.dot {
-  width: 18rpx;
-  height: 18rpx;
-  border-radius: 50%;
-  background: #e54545;
-  flex-shrink: 0;
-}
-
-.task-row.doing .dot { background: #245bdb; }
-.task-row.paused .dot { background: #ff8c1a; }
-.task-row.done .dot { background: #07c160; }
 
 .row-body {
   flex: 1;
@@ -87,23 +83,20 @@
   margin-top: 10rpx;
 }
 
+/* 除了 subject 之外的 chip 都用统一的灰黑色,避免行内五彩斑斓。
+   过期日期保留 font-weight 突出,但不再染红。 */
 .chip {
   padding: 4rpx 14rpx;
   border-radius: 999rpx;
   font-size: 20rpx;
   line-height: 1.5;
   white-space: nowrap;
-  background: #edf0f3;
-  color: #5f6b7a;
+  background: #f0f2f5;
+  color: #44505e;
 }
 
-.doing-chip { background: #245bdb; color: #ffffff; font-weight: 700; }
-.recurring-chip { background: #fff4d6; color: #b45309; font-weight: 600; }
 .subject-chip { background: #eef4ff; color: #245bdb; font-weight: 600; }
-.org-chip { background: #f0e9ff; color: #6c3fdb; font-weight: 600; }
-.est-chip { background: #f7f8fa; color: #6b7785; }
-.elapsed-chip { background: #eef4ff; color: #245bdb; }
-.overdue-chip { background: #fde2e2; color: #b42318; font-weight: 700; }
+.overdue-chip { font-weight: 700; }
 
 .row-actions {
   display: flex;
