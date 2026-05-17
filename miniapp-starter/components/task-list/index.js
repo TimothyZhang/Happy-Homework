@@ -97,13 +97,16 @@ Component({
       if (!item || item.status === 'done') return
       this._gestureMode = 'drag'
       this.dragStartY = this.touchStartY != null ? this.touchStartY : 0
-      // 每次 longpress 都重新 query — row 高度会随 chip 数量 / overdue 状态
-      // 变化,缓存旧值会让 slotsDelta 算错位、邻居 shiftY 推得不到位,留下
-      // 视觉缝隙。
-      this.itemHeightPx = null
-      const q = this.createSelectorQuery()
-      q.select('.task-row').boundingClientRect()
-      q.exec((rects) => { if (rects && rects[0]) this.itemHeightPx = rects[0].height + 12 })
+      // itemHeightPx 缓存:第一次 longpress query 一次,后续复用。如果在这
+      // 里强制重 query(this.itemHeightPx = null),query 是异步的,从重置到
+      // callback 回填中间这几十 ms 里 handleRowTouchMove 会用 fallback 140
+      // 算 shiftY/slotsDelta,跟随后回填的真实值不一致 — Tim 截图里 4 张
+      // row 全部消失就是这种 transform 状态混乱。
+      if (!this.itemHeightPx) {
+        const q = this.createSelectorQuery()
+        q.select('.task-row').boundingClientRect()
+        q.exec((rects) => { if (rects && rects[0]) this.itemHeightPx = rects[0].height + 12 })
+      }
       this.setData({ dragId: id, dragDy: 0 })
       if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
       this.triggerEvent('dragstart')
