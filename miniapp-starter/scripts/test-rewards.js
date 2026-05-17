@@ -851,6 +851,36 @@ assert('提前完成:5.16 视图 isMakeup=false(不算补做)',
 assert('提前完成:5.16 视图 isOverdue=false', yEarly[0] && yEarly[0].isOverdue === false)
 assert('提前完成:5.17(归属日/截止日)不再重复显示', tEarly.length === 0)
 
+// ===== Scenario L: formatRecurrenceLabel(一次性 / daily / weekly 多种) =====
+console.log('\n[L] formatRecurrenceLabel: 中文周期标签')
+
+assert('一次性 task → 空字符串',
+  s.formatRecurrenceLabel({ mode: 'one-shot' }) === '')
+assert('null task → 空字符串',
+  s.formatRecurrenceLabel(null) === '')
+assert('recurring + daily → 每天',
+  s.formatRecurrenceLabel({ mode: 'recurring', recurrence: { type: 'daily' } }) === '每天')
+assert('recurring + weekly + [1] → 每周一',
+  s.formatRecurrenceLabel({ mode: 'recurring',
+    recurrence: { type: 'weekly', weekdays: [1] } }) === '每周一')
+assert('recurring + weekly + [2,3,4] → 每周二三四',
+  s.formatRecurrenceLabel({ mode: 'recurring',
+    recurrence: { type: 'weekly', weekdays: [2, 3, 4] } }) === '每周二三四')
+assert('recurring + weekly + [4,2,3] (乱序) → 每周二三四',
+  s.formatRecurrenceLabel({ mode: 'recurring',
+    recurrence: { type: 'weekly', weekdays: [4, 2, 3] } }) === '每周二三四')
+assert('recurring + weekly + 7 全选 → 每天',
+  s.formatRecurrenceLabel({ mode: 'recurring',
+    recurrence: { type: 'weekly', weekdays: [1, 2, 3, 4, 5, 6, 7] } }) === '每天')
+assert('recurring + weekly + [7] → 每周日',
+  s.formatRecurrenceLabel({ mode: 'recurring',
+    recurrence: { type: 'weekly', weekdays: [7] } }) === '每周日')
+assert('recurring + weekly + 空 weekdays → 每周?',
+  s.formatRecurrenceLabel({ mode: 'recurring',
+    recurrence: { type: 'weekly', weekdays: [] } }) === '每周?')
+assert('recurring + 无 recurrence 字段 → 每天(默认)',
+  s.formatRecurrenceLabel({ mode: 'recurring' }) === '每天')
+
 // ===== Summary =====
 console.log(`\n=== ${passed} passed, ${failed} failed ===`)
 process.exit(failed === 0 ? 0 : 1)

@@ -133,6 +133,9 @@ function decorateItem(item, now) {
     taskMode: item.task.mode || 'one-shot',
     occurrenceDate,
     subject: item.task.subject || '',
+    // recurring 的具体周期标签:"每天" / "每周一" / "每周二三四" / 等。
+    // 一次性 task 为 ''(wxml 用 taskMode==='recurring' 过滤)。
+    recurrenceLabel: store.formatRecurrenceLabel(item.task),
     organization: item.task.organization || '其他',
     content: item.task.content,
     estimatedMinutes: item.task.estimatedMinutes,

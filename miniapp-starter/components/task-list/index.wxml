@@ -43,9 +43,9 @@
           <view class="row-name-line">
             <text class="row-content">{{item.content}}</text>
             <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
+            <text wx:if="{{item.taskMode === 'recurring'}}" class="chip recurring-chip">{{item.recurrenceLabel}}</text>
           </view>
           <view class="row-chips">
-            <text wx:if="{{item.taskMode === 'recurring'}}" class="chip recurring-chip">重复</text>
             <text wx:if="{{item.organization}}" class="chip org-chip">{{item.organization}}</text>
             <text wx:if="{{item.isOverdue && item.occurrenceDate}}" class="chip overdue-chip">{{item.occurrenceDate}}</text>
             <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>

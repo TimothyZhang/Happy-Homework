@@ -29,6 +29,7 @@ function decorateDayItems(items, now) {
         taskMode: it.task.mode || 'one-shot',
         occurrenceDate,
         subject: it.task.subject || '',
+        recurrenceLabel: store.formatRecurrenceLabel(it.task),
         organization: it.task.organization || '其他',
         content: it.task.content,
         estimatedMinutes: it.task.estimatedMinutes,

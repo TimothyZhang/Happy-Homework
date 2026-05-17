@@ -84,6 +84,29 @@ function getCurrentTime() {
   return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`
 }
 
+// 把 task.recurrence 渲染成用户友好的中文标签。
+//   daily                                  → "每天"
+//   weekly + weekdays=[1..7] 全选          → "每天"
+//   weekly + weekdays=[1]                  → "每周一"
+//   weekly + weekdays=[2,3,4]              → "每周二三四"
+//   weekly + weekdays 空                   → "每周?"(fallback,实际数据不该出现)
+// 非 recurring task 返回 ''。
+const WEEKDAY_CHARS = { 1: '一', 2: '二', 3: '三', 4: '四', 5: '五', 6: '六', 7: '日' }
+function formatRecurrenceLabel(task) {
+  if (!task || task.mode !== 'recurring') return ''
+  const rec = task.recurrence || { type: 'daily' }
+  if (rec.type === 'daily') return '每天'
+  if (rec.type === 'weekly') {
+    const wds = Array.isArray(rec.weekdays)
+      ? rec.weekdays.filter((w) => Number.isInteger(w) && w >= 1 && w <= 7).slice().sort()
+      : []
+    if (wds.length === 0) return '每周?'
+    if (wds.length === 7) return '每天'
+    return '每周' + wds.map((d) => WEEKDAY_CHARS[d]).join('')
+  }
+  return '重复'
+}
+
 // === Reward constants — kept in sync with V1-VALUES-DESIGN.md. === //
 
 // Per-task reward depends on whether the task's occurrence date is in the
@@ -2432,11 +2455,13 @@ module.exports = {
   revertTask,
   // queries
   tasksForDate,
+  tasksScheduledOn,
   effectiveDueDate,
   dateCountsForMonth,
   isTaskActiveOn,
   isRecurringTask,
   getTaskState,
+  formatRecurrenceLabel,
   // organization
   ORGANIZATIONS,
   DEFAULT_ORGANIZATION,
