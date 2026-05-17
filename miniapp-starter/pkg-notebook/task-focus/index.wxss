@@ -47,8 +47,8 @@
   background: #f0f2f5;
   color: #44505e;
 }
+/* 跟 task-list 一致:除 subject 外都走灰底深灰字,不要再染色 */
 .subject-chip { background: #ffffff; color: #245bdb; font-weight: 600; }
-.recurring-chip { background: #fff4d6; color: #b45309; font-weight: 600; }
 
 .content {
   display: block;
@@ -92,10 +92,12 @@
   font-family: "Menlo", "Monaco", "Helvetica Neue", sans-serif;
 }
 
+/* negative margin 抵消 page 横向 48rpx padding,让按钮顶到屏幕边 = 全屏宽 */
 .actions {
   display: flex;
   flex-direction: column;
   gap: 24rpx;
+  margin: 0 -48rpx;
 }
 
 .action-btn {
