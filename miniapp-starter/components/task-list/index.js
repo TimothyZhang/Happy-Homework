@@ -188,6 +188,16 @@ Component({
         const fromZoneIdx = dragZone.indexOf(fromIdx)
         const slotsDelta = Math.round(dragDy / itemH)
         const toZoneIdx = Math.max(0, Math.min(dragZone.length - 1, fromZoneIdx + slotsDelta))
+        // 临时调试 toast — 验证 reorder 入口和参数,Tim 测试后移除。
+        wx.showToast({
+          title: `dy=${Math.round(dragDy)} h=${Math.round(itemH)} ${fromZoneIdx}→${toZoneIdx}`,
+          icon: 'none',
+          duration: 3000
+        })
+        console.log('[drag-end]', {
+          dragId, dragDy, itemH, fromIdx, fromZoneIdx, toZoneIdx, slotsDelta,
+          dragZone, listIds: list.map((it) => it.id)
+        })
         // 无论是否 reorder,都要同步清 shiftY:reorder 分支虽然 triggerEvent
         // ('changed') 让父组件 refreshState→observer 重置 list,但那是异步的,
         // 中间存在"dragId 已清 / shiftY 仍残留"窗口,视觉上邻居 row 还停在
