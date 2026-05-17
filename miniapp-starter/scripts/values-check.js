@@ -889,10 +889,11 @@ check('imported task w/o history → estimatedMinutes = 0',
 
 // Test 16 (duplicateNotebook) 在 v3 已无意义,删除。
 
-// === Test 17: 首页 all-done 汇总 tip 文案 (utils/home-tips.js) ===
-// 验证当日全部完成时,pet-bubble 第二条 tip 显示"共耗时 X，获得 X 金币"。
-// 直接复用 store.coinsEarnedOn / store.tasksForDate,通过 buildPetTips 跑全链路。
-console.log('\n[home-tips] all-done summary tip:')
+// === Test 17: 首页 all-done celebration 合并 "共耗时 + 金币" 数字 (utils/home-tips.js) ===
+// 验证当日全部完成时,pet-bubble 唯一一条 celebration 文案里直接带数字,
+// 不再 push 第二条 stats tip。直接复用 store.coinsEarnedOn / store.tasksForDate,
+// 通过 buildPetTips 跑全链路。
+console.log('\n[home-tips] all-done celebration line:')
 
 function freshHomeTips() {
   const path = require('path').resolve(__dirname, '../utils/home-tips.js')
@@ -947,18 +948,21 @@ function homeTipFor(minutesList) {
 
 // 3 项 15+25+40=80 → 1 小时 20 分,coins = 3*10 + 3*10 = 60
 const tips3 = homeTipFor([15, 25, 40])
-check('3 项 15/25/40 → 第二条 tip = "共耗时 1 小时 20 分，获得 60 金币"',
-  tips3[1], '共耗时 1 小时 20 分，获得 60 金币')
+check('3 项 15/25/40 → tips 长度 = 1(不再 push 第二条)', tips3.length, 1)
+check('3 项 15/25/40 → celebration 含数字',
+  tips3[0], '太棒了，今天的作业全部完成啦！共耗时 1 小时 20 分，获得 60 金币 🎉')
 
 // 2 项 10+20=30 → 30 分,coins = 2*10 + 2*10 = 40
 const tips2 = homeTipFor([10, 20])
-check('2 项 10/20 → 第二条 tip = "共耗时 30 分，获得 40 金币"',
-  tips2[1], '共耗时 30 分，获得 40 金币')
+check('2 项 10/20 → tips 长度 = 1', tips2.length, 1)
+check('2 项 10/20 → celebration 含数字',
+  tips2[0], '太棒了，今天的作业全部完成啦！共耗时 30 分，获得 40 金币 🎉')
 
 // 整点小时:60 分 → "1 小时"(不带"0 分")
 const tips60 = homeTipFor([60])
-check('1 项 60 分钟 → "共耗时 1 小时，获得 X 金币"(无 0 分尾巴)',
-  tips60[1], '共耗时 1 小时，获得 20 金币')
+check('1 项 60 分钟 → tips 长度 = 1', tips60.length, 1)
+check('1 项 60 分钟 → celebration "1 小时"(无 0 分尾巴)',
+  tips60[0], '太棒了，今天的作业全部完成啦！共耗时 1 小时，获得 20 金币 🎉')
 
 // === Test 17b: 部分完成日不显示这条 tip ===
 console.log('\n[home-tips] partial day: no summary tip:')

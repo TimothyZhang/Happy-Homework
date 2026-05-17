@@ -29,15 +29,22 @@ function formatDuration(minutes) {
 }
 
 function buildPetMessage(ctx) {
-  const { isToday, totalCount, pendingCount, remainingMinutes, coinsToday } = ctx
+  const { isToday, totalCount, pendingCount, remainingMinutes, coinsToday, totalDoneMinutes } = ctx
   const timeStr = remainingMinutes > 0 ? formatDuration(remainingMinutes) : ''
 
   if (isToday) {
     if (totalCount === 0) return '今天还没有作业安排，可以陪我玩一会儿～'
     if (pendingCount === 0) {
-      return coinsToday > 0
-        ? `太棒了，今天的作业全部完成啦！🎉 共获得 ${coinsToday} 金币～`
-        : '太棒了，今天的作业全部完成啦！🎉'
+      // All-done celebration — fold time + coins into the one line so the
+      // bubble doesn't need a separate stats tip. totalDoneMinutes < 1 / 没金币
+      // 时回落到更简单的版本,避免"共耗时 不到 1 分，获得 0 金币 🎉"那种尬话。
+      if (totalDoneMinutes >= 1 && coinsToday > 0) {
+        return `太棒了，今天的作业全部完成啦！共耗时 ${formatSpentTime(totalDoneMinutes)}，获得 ${coinsToday} 金币 🎉`
+      }
+      if (coinsToday > 0) {
+        return `太棒了，今天的作业全部完成啦！获得 ${coinsToday} 金币 🎉`
+      }
+      return '太棒了，今天的作业全部完成啦！🎉'
     }
     if (pendingCount === 1) {
       return timeStr
@@ -56,21 +63,12 @@ function buildPetMessage(ctx) {
 }
 
 // Rotating pet-bubble tip list. First entry is always the contextual progress
-// message (`buildPetMessage`). When today's work is fully cleared we append a
-// "共耗时 X，获得 X 金币" summary so the user has one glance-able stats line.
-// When there's still pending work we instead append the early-bird projection
-// tips (gated by the current hour tier) plus a happiness reminder.
+// message (`buildPetMessage`). All-done 分支不再 push 第二条 stats tip —— 时长
+// + 金币的信息已经被 buildPetMessage 合进 celebration 那一行。Pending 分支照旧
+// 追加 early-bird projection + 开心度提示。
 function buildPetTips(ctx) {
   const tips = [buildPetMessage(ctx)]
-  if (!ctx.isToday) return tips
-  if (ctx.pendingCount === 0) {
-    // 仅在 totalCount > 0 时显示汇总 —— 当日没安排作业时 totalDoneMinutes=0,
-    // celebration 文案也是"今天还没有作业安排",不该再说"耗时 0 分"。
-    if (ctx.totalCount > 0) {
-      tips.push(`共耗时 ${formatSpentTime(ctx.totalDoneMinutes)}，获得 ${ctx.coinsToday} 金币`)
-    }
-    return tips
-  }
+  if (!ctx.isToday || ctx.pendingCount === 0) return tips
   const b = store.earlyBirdBonus()
   if (b >= 50 && ctx.projected19 > 0) tips.push(`🏆 19:00 前完成所有作业，可获得 ${ctx.projected19} 金币`)
   if (b >= 30 && ctx.projected20 > 0) tips.push(`⏱ 20:00 前完成所有作业，可获得 ${ctx.projected20} 金币`)
