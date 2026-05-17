@@ -141,6 +141,9 @@ function decorateItem(item, now) {
     completedAt: occ.completedAt || 0,
     status: occ.status,
     isOverdue: visualOverdue,
+    // 补做项:occurrenceDate < 今天且在今天才完成。背景黄底,与 is-overdue
+    // 红底视觉分开 —— 当天本日完成的还是白底。
+    isMakeup: !!item.isMakeup,
     elapsedMs,
     elapsedDisplay: elapsedMs > 0 ? formatElapsed(elapsedMs) : ''
   }

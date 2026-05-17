@@ -722,6 +722,106 @@ assert('v2 hydrate: 历史 done task 不在 today 视图', !onTodayView)
 assert('v2 hydrate: notebooks 已被清空(走完 v2→v3 平移)',
   stateAfterV2.notebooks.length === 0)
 
+// ===== Scenario N: tasksForDate 视图分类:漏做(红) vs 补做(黄) =====
+// 触发场景:Arthur 5/16 没做完"目标24课",5/17 才补做。期望:
+//   - 5/16 视图:该 occurrence 应在"未完成"区,isOverdue=true(红底)
+//   - 5/17 视图:该 occurrence 应在"已完成"区,isMakeup=true(黄底)
+//   - 同一 occurrence 不应同时在两天"已完成"里(去重)
+console.log('\n[N] tasksForDate: 漏做归红 / 补做归黄(一次性 + recurring)')
+
+// --- 一次性任务:dueDate=yesterday,completedAt=today ---
+seed({
+  notebooks: [],
+  tasks: [{
+    id: 'tk_makeup_oneshot',
+    subject: '目标24课', organization: '其他', content: '一次性补做',
+    estimatedMinutes: 10,
+    mode: 'one-shot', startDate: yesterday, endDate: yesterday, recurrence: null,
+    order: 0, createdAt: 1,
+    status: 'done',
+    completedAt: Date.now(),  // pinned to today 22:00 by setNowHour(22)
+    accumulatedMs: 60000, actualMinutes: 1,
+    rewardPaid: 5, rewardKind: 'overdue'
+  }]
+})
+
+const yItems = s.tasksForDate(st(), yesterday)
+const yRow = yItems.find((it) => it.task.id === 'tk_makeup_oneshot')
+assert('one-shot 5.16 视图含该任务', !!yRow)
+assert('one-shot 5.16 视图:isOverdue=true(红)', yRow && yRow.isOverdue === true)
+assert('one-shot 5.16 视图:occurrence.status 视作 todo(进未完成区)',
+  yRow && yRow.occurrence.status === 'todo')
+assert('one-shot 5.16 视图:不带 isMakeup', yRow && !yRow.isMakeup)
+
+const tItems = s.tasksForDate(st(), today)
+const tRow = tItems.find((it) => it.task.id === 'tk_makeup_oneshot')
+assert('one-shot 5.17 视图含该任务', !!tRow)
+assert('one-shot 5.17 视图:isMakeup=true(黄)', tRow && tRow.isMakeup === true)
+assert('one-shot 5.17 视图:isOverdue=false', tRow && tRow.isOverdue === false)
+assert('one-shot 5.17 视图:status 保持 done(进已完成区)',
+  tRow && tRow.occurrence.status === 'done')
+assert('one-shot 5.17 视图:occurrenceDate 仍是任务归属日 5.16',
+  tRow && tRow.occurrenceDate === yesterday)
+
+// 同 task 在两个视图各出现 1 次,不重复
+const yCount = yItems.filter((it) => it.task.id === 'tk_makeup_oneshot').length
+const tCount = tItems.filter((it) => it.task.id === 'tk_makeup_oneshot').length
+assert('one-shot 5.16 视图无重复', yCount === 1)
+assert('one-shot 5.17 视图无重复', tCount === 1)
+
+// --- Recurring 任务:5.16 occurrence 在 5.17 才完成 ---
+seed({
+  notebooks: [],
+  tasks: [{
+    id: 'tk_makeup_recurring',
+    subject: '目标24课', organization: '其他', content: 'recurring 补做',
+    estimatedMinutes: 10,
+    mode: 'recurring', startDate: yesterday, endDate: null,
+    recurrence: { type: 'daily' },
+    order: 0, createdAt: 1,
+    occurrences: {
+      [yesterday]: {
+        status: 'done',
+        completedAt: Date.now(),  // 今天才完成
+        accumulatedMs: 60000, actualMinutes: 1,
+        rewardPaid: 5, rewardKind: 'overdue'
+      }
+    }
+  }]
+})
+
+const yItemsR = s.tasksForDate(st(), yesterday)
+const yRowR = yItemsR.find((it) => it.task.id === 'tk_makeup_recurring')
+assert('recurring 5.16 视图含该任务', !!yRowR)
+assert('recurring 5.16 视图:isOverdue=true(红)', yRowR && yRowR.isOverdue === true)
+assert('recurring 5.16 视图:occurrence.status 视作 todo',
+  yRowR && yRowR.occurrence.status === 'todo')
+
+const tItemsR = s.tasksForDate(st(), today)
+const tRowR = tItemsR.find((it) => it.task.id === 'tk_makeup_recurring' && it.occurrenceDate === yesterday)
+assert('recurring 5.17 视图含 5.16 occurrence', !!tRowR)
+assert('recurring 5.17 视图:isMakeup=true(黄)', tRowR && tRowR.isMakeup === true)
+assert('recurring 5.17 视图:isOverdue=false', tRowR && tRowR.isOverdue === false)
+assert('recurring 5.17 视图:status=done(进已完成区)',
+  tRowR && tRowR.occurrence.status === 'done')
+
+// --- 反例:当天完成的任务不该被标 makeup ---
+seed({
+  notebooks: [],
+  tasks: [{
+    id: 'tk_on_time',
+    subject: '语', organization: '其他', content: '当天完成',
+    estimatedMinutes: 5,
+    mode: 'one-shot', startDate: today, endDate: today, recurrence: null,
+    order: 0, createdAt: 1,
+    status: 'done', completedAt: Date.now(),
+    accumulatedMs: 60000, actualMinutes: 1
+  }]
+})
+const tOK = s.tasksForDate(st(), today).find((it) => it.task.id === 'tk_on_time')
+assert('当天完成:isMakeup=false', tOK && tOK.isMakeup === false)
+assert('当天完成:isOverdue=false', tOK && tOK.isOverdue === false)
+
 // ===== Summary =====
 console.log(`\n=== ${passed} passed, ${failed} failed ===`)
 process.exit(failed === 0 ? 0 : 1)

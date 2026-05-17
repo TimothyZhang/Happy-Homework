@@ -19,6 +19,16 @@
   background: #fff1f0;
 }
 
+/* 补做项(makeup):occurrenceDate < 今天且在今天才完成,显示在今日"已完成"
+   区域。黄底跟 is-overdue 红底区分开 —— 红色 = 这天没做完(出现在历史日期
+   的未完成区),黄色 = 是补做的(出现在今日的已完成区)。
+   selector 顺序:放在 .is-overdue 之后、.doing 之前 —— makeup row 永远是 done
+   状态,不会跟 doing 撞,但理论上历史视图里同一 occurrence 不会既 overdue 又
+   makeup(互斥)。 */
+.task-row.is-makeup {
+  background: #fff8e1;
+}
+
 /* Doing wins over overdue: when a row is mid-task it should look "active",
    not "overdue". Selector order matters — keep .doing after .is-overdue. */
 .task-row.doing {

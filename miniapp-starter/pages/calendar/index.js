@@ -37,6 +37,7 @@ function decorateDayItems(items, now) {
         completedAt: occ.completedAt || 0,
         status: occ.status,
         isOverdue: it.isOverdue && occ.status !== 'done',
+        isMakeup: !!it.isMakeup,
         elapsedMs,
         elapsedDisplay: elapsedMs > 0 ? formatElapsed(elapsedMs) : ''
       }

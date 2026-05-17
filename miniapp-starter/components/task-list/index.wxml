@@ -26,7 +26,7 @@
               catchtap="handleRevert">继续</view>
       </view>
 
-      <view class="task-row {{item.status}} {{rowVariant}} {{item.isOverdue ? 'is-overdue' : ''}} {{dragId === item.id ? 'is-dragging' : ''}}"
+      <view class="task-row {{item.status}} {{rowVariant}} {{item.isOverdue ? 'is-overdue' : ''}} {{item.isMakeup ? 'is-makeup' : ''}} {{dragId === item.id ? 'is-dragging' : ''}}"
             style="transform: translate3d({{swipeId === item.id ? swipeDx : (swipeOpenId === item.id ? -swipeOpenMax : 0)}}rpx, {{dragId === item.id ? dragDy + 'px' : (item.shiftY || 0) + 'px'}}, 0); z-index: {{dragId === item.id ? 10 : 'auto'}};"
             bindtap="handleRowTap"
             bindtouchstart="handleRowTouchStart"

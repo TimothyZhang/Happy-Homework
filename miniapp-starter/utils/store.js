@@ -755,12 +755,25 @@ function tasksForDate(state, dateStr, cache) {  // eslint-disable-line no-unused
   const today = todayStr()
   const isFuture = compareDateStr(dateStr, today) > 0
   const isToday = dateStr === today
+  const isPast = compareDateStr(dateStr, today) < 0
 
+  // 同一个 occurrence(task,occurrenceDate)在一次 tasksForDate 里只能塞一次 ——
+  // 一次性 task 在历史视图既走 onSchedule 又走 completedOnDate 时会撞,
+  // 用这个 set 兜底去重。
+  const seen = new Set()
   const items = []
+  const pushItem = (it) => {
+    const k = `${it.task.id}__${it.occurrenceDate}`
+    if (seen.has(k)) return
+    seen.add(k)
+    items.push(it)
+  }
+
   for (const task of state.tasks) {
     let onSchedule = false
     let isOverdue = false
     let completedOnDate = false
+    let isMakeup = false
 
     // occurrenceDate 的语义是"这个 row 归属哪一天"。一次性 task 一律归
     // effectiveDueDate(task),这样 finishTask 拿到的 day 就是 task 自己的 due,
@@ -771,39 +784,69 @@ function tasksForDate(state, dateStr, cache) {  // eslint-disable-line no-unused
     if (task.mode !== 'recurring') {
       oneShotDue = effectiveDueDate(task)
       onSchedule = !!oneShotDue && oneShotDue === dateStr
+      const status = task.status || 'todo'
+      const completedDay = (status === 'done' && task.completedAt)
+        ? dateToStr(new Date(task.completedAt)) : null
 
       // For past/today views, also surface tasks actually completed that day.
-      if (!isFuture) {
-        const status = task.status || 'todo'
-        if (status === 'done' && task.completedAt &&
-            dateToStr(new Date(task.completedAt)) === dateStr) {
-          completedOnDate = true
+      if (!isFuture && completedDay === dateStr) {
+        completedOnDate = true
+        // 任务归属早于 dateStr 但今天才完成 → 补做(黄底)。
+        if (oneShotDue && compareDateStr(oneShotDue, dateStr) < 0) {
+          isMakeup = true
         }
+      }
+
+      // 历史视图:任务归属本日但已 done 且 completedAt 落在别的日子 →
+      // "这一天没做完(被后来补的)",显示在未完成区,红底。不走 onSchedule
+      // 已完成路径。
+      if (isPast && onSchedule && status === 'done' && completedDay !== dateStr) {
+        isOverdue = true
+        onSchedule = false
       }
 
       // Overdue: still-open one-shot whose own due date already passed. Today only.
       if (!onSchedule && isToday) {
-        if (oneShotDue && compareDateStr(oneShotDue, today) < 0 && (task.status || 'todo') !== 'done') {
+        if (oneShotDue && compareDateStr(oneShotDue, today) < 0 && status !== 'done') {
           isOverdue = true
         }
       }
     } else {
       onSchedule = isTaskActiveOn(task, dateStr)
+      // 历史视图:recurring 在本日 active,occurrence 已 done 但 completedAt
+      // 不在本日 → 同上,改为红底未完成。
+      if (isPast && onSchedule) {
+        const occ = (task.occurrences || {})[dateStr]
+        if (occ && occ.status === 'done' && occ.completedAt) {
+          const completedDay = dateToStr(new Date(occ.completedAt))
+          if (completedDay !== dateStr) {
+            isOverdue = true
+            onSchedule = false
+          }
+        }
+      }
     }
 
     if (!onSchedule && !isOverdue && !completedOnDate) continue
-    const occ = getTaskState(task, dateStr)
-    items.push({
+    let occ = getTaskState(task, dateStr)
+    // 红底"漏做"路径:虽然 task.status=done,但对这一天来说是没完成的,
+    // occurrence.status 视作 todo,这样 home/index.js 的按 status 分桶会把它
+    // 放进"未完成"section。
+    if (isOverdue && occ.status === 'done') {
+      occ = { ...occ, status: 'todo' }
+    }
+    pushItem({
       task,
       occurrence: occ,
       occurrenceDate: task.mode === 'recurring' ? dateStr : (oneShotDue || dateStr),
-      isOverdue
+      isOverdue,
+      isMakeup
     })
   }
 
   // Today view: surface past recurring occurrences that are either still
   // not done (red) OR were finished today (so a freshly-cleared backlog
-  // item still appears, this time in the done section).
+  // item still appears, this time in the done section, marked as makeup).
   if (isToday) {
     for (const task of state.tasks) {
       if (task.mode !== 'recurring' || !task.startDate) continue
@@ -818,19 +861,21 @@ function tasksForDate(state, dateStr, cache) {  // eslint-disable-line no-unused
         const raw = occMap[ad]
         const status = raw && raw.status ? raw.status : 'todo'
         if (status !== 'done') {
-          items.push({
+          pushItem({
             task,
             occurrence: { ...defaultOccurrence(), ...(raw || {}) },
             occurrenceDate: ad,
-            isOverdue: true
+            isOverdue: true,
+            isMakeup: false
           })
         } else if (raw && raw.completedAt &&
                    dateToStr(new Date(raw.completedAt)) === today) {
-          items.push({
+          pushItem({
             task,
             occurrence: { ...defaultOccurrence(), ...raw },
             occurrenceDate: ad,
-            isOverdue: false
+            isOverdue: false,
+            isMakeup: true
           })
         }
       }
