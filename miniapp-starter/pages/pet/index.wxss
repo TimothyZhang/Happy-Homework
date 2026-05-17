@@ -559,20 +559,21 @@
 /* 下一小时预览段:贴在主蓝条右侧,由 0 逐步长到 --preview-width(%),
    完成后停一小段再循环,看起来像"经验在慢慢涨"。border-radius 只取右端,
    防止跟主条左端拼接处出现圆角断层。
-   颜色用跟主条相同的浅→深蓝渐变,整体 opacity 0.65 —— 让它清晰可见,
-   又跟主条有"已得到 vs 即将得到"的层次区分。 */
+   颜色:左端 = 主条右端同色 #245bdb 实色(无缝衔接,消除原版的"白色间隙"
+   视觉断层),向右渐变到非常浅的蓝色 #dceaff —— 距离越远越浅,直观体现
+   "即将获得但还没拿到"。无 opacity 整体衰减(否则左端不是真的同色)。 */
 .xp-bar-preview {
   position: absolute;
   top: 0;
   height: 100%;
-  background: linear-gradient(90deg, #6aa6ff 0%, #245bdb 100%);
+  background: linear-gradient(90deg, #245bdb 0%, #dceaff 100%);
   border-radius: 0 999rpx 999rpx 0;
   animation: xp-preview-grow 2.4s ease-in-out infinite;
 }
 @keyframes xp-preview-grow {
   0%   { width: 0;                    opacity: 0; }
-  10%  {                              opacity: 0.65; }
-  70%  { width: var(--preview-width); opacity: 0.65; }
+  10%  {                              opacity: 1; }
+  70%  { width: var(--preview-width); opacity: 1; }
   90%  { width: var(--preview-width); opacity: 0; }
   100% { width: 0;                    opacity: 0; }
 }
