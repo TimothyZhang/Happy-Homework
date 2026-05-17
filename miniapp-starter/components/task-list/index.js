@@ -76,6 +76,21 @@ Component({
     //   - 纵滑 → 让父 scroll-view 滚(mode=scroll,不阻止)
     // 进入 drag/swipe 后,模式互斥到 touchend。
 
+    // swipeOpenId / swipeOpenMax 的唯一收口。null↔id 切换时同步触发
+    // swipeopen / swipeclose 事件,父组件据此锁屏(参见 home 页 scroll-y
+    // 绑定:菜单展开期间禁止 scroll-view 上下滚动,避免菜单滑出视口)。
+    _setSwipeOpen(id, max, extra) {
+      const prevId = this.data.swipeOpenId
+      const nextId = id || null
+      const patch = Object.assign(
+        { swipeOpenId: nextId, swipeOpenMax: nextId ? max : 0 },
+        extra || {}
+      )
+      this.setData(patch)
+      if (!prevId && nextId) this.triggerEvent('swipeopen')
+      else if (prevId && !nextId) this.triggerEvent('swipeclose')
+    },
+
     handleRowTouchStart(e) {
       const t = (e.touches && e.touches[0]) || null
       this.touchStartX = t ? t.pageX : 0
@@ -84,7 +99,7 @@ Component({
       this._gestureRowId = e.currentTarget.dataset.id
       // 触摸到另一个 row 时,关闭已展开的 swipe-action
       if (this.data.swipeOpenId && this.data.swipeOpenId !== this._gestureRowId) {
-        this.setData({ swipeOpenId: null, swipeOpenMax: 0 })
+        this._setSwipeOpen(null)
       }
     },
 
@@ -213,12 +228,7 @@ Component({
         const swipeMax = (item && item.swipeMax) || SWIPE_MAX_RPX.undone
         const dx = this.data.swipeDx
         const opened = dx <= -swipeMax / 2
-        this.setData({
-          swipeId: null,
-          swipeDx: 0,
-          swipeOpenId: opened ? id : null,
-          swipeOpenMax: opened ? swipeMax : 0
-        })
+        this._setSwipeOpen(opened ? id : null, swipeMax, { swipeId: null, swipeDx: 0 })
       }
       this.touchStartX = null
       this.touchStartY = null
@@ -281,7 +291,7 @@ Component({
       const { taskId, occurrenceDate, taskMode } = e.currentTarget.dataset
       if (!taskId) return
       const date = occurrenceDate || ''
-      this.setData({ swipeOpenId: null, swipeOpenMax: 0 })
+      this._setSwipeOpen(null)
       if (taskMode === 'recurring' && date) {
         wx.showActionSheet({
           itemList: ['仅编辑此次', '编辑整个作业'],
@@ -304,7 +314,7 @@ Component({
       const taskId = ds.taskId || ds.id
       const date = ds.occurrenceDate || this.data.activeDate
       store.revertTask(taskId, date)
-      this.setData({ swipeOpenId: null, swipeOpenMax: 0, swipeId: null, swipeDx: 0 })
+      this._setSwipeOpen(null, 0, { swipeId: null, swipeDx: 0 })
       this.triggerEvent('changed')
     }
   }
