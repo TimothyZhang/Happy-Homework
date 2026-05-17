@@ -1,4 +1,4 @@
-<view class="task-list">
+<view class="task-list {{dragId ? 'is-dragging-mode' : ''}}">
   <block wx:for="{{list}}" wx:key="id">
     <view class="task-row-swipable {{swipeId === item.id ? 'is-swiping' : ''}}"
           data-id="{{item.id}}">

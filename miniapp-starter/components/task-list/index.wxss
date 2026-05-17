@@ -148,6 +148,14 @@
   overflow: hidden;
 }
 
+/* drag 模式:所有 swipable 容器解除 overflow:hidden,否则 task-row 被
+   shiftY=±itemH translate 后超出自己的 swipable container 边界,会被
+   overflow 整个 clip 掉(Tim 截图里 4 行全消失就是这个)。drag 结束后
+   class 移除,回到 hidden 保 border-radius 的圆角 clip。 */
+.task-list.is-dragging-mode .task-row-swipable {
+  overflow: visible;
+}
+
 .task-row-swipable .swipe-action {
   position: absolute;
   top: 0;
