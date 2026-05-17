@@ -467,6 +467,9 @@ Page({
     }, 2400)
   },
 
+  // 用于 switch-mask / switch-sheet 的 catchtouchmove,阻止拖动穿透到背景页。
+  noop() {},
+
   // === Switch species === //
   handleOpenSwitchPanel() {
     this.setData({ showSwitchPanel: true })

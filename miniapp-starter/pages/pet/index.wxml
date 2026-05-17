@@ -198,8 +198,8 @@
     </view>
   </view>
 
-  <view wx:if="{{showSwitchPanel}}" class="switch-mask" bindtap="handleCloseSwitchPanel">
-    <view class="switch-sheet" catchtap="">
+  <view wx:if="{{showSwitchPanel}}" class="switch-mask" bindtap="handleCloseSwitchPanel" catchtouchmove="noop">
+    <view class="switch-sheet" catchtap="" catchtouchmove="noop">
       <view class="switch-sheet-title">选一只想换的</view>
       <view class="switch-sheet-sub">花 {{switchCost}} 金币 · 当前 {{coins}}</view>
       <view class="switch-grid">
