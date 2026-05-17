@@ -17,7 +17,8 @@
     {
       "root": "pkg-notebook",
       "pages": [
-        "task-edit/index"
+        "task-edit/index",
+        "coin-history/index"
       ]
     }
   ],

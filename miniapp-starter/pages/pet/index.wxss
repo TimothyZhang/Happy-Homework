@@ -637,6 +637,25 @@
   line-height: 1;
 }
 
+/* 顶部 "金币 X ›" 入口 — 点开金币记录 */
+.coin-link {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
+  padding: 6rpx 14rpx;
+  border-radius: 999rpx;
+  background: #fff4d6;
+}
+.coin-link .coin-balance {
+  color: #b45309;
+  font-weight: 600;
+}
+.coin-link .coin-chev {
+  font-size: 26rpx;
+  line-height: 1;
+  color: #b45309;
+}
+
 /* === switch-pet picker sheet === */
 .switch-mask {
   position: fixed;

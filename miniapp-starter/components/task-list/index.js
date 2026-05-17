@@ -10,8 +10,9 @@ function formatElapsed(ms) {
   return `${min} 分 ${sec} 秒`
 }
 
-// done row 只有一个 "继续" 按钮 → 120rpx;undone 有 "编辑" + "删除" → 240rpx。
-const SWIPE_MAX_RPX = { done: 120, undone: 240 }
+// undone row 只有 "编辑" 按钮(删除入口收进编辑页内) → 120rpx;
+// done row 有 "编辑" + "继续" → 240rpx。
+const SWIPE_MAX_RPX = { done: 240, undone: 120 }
 
 Component({
   options: { addGlobalClass: true },
@@ -259,60 +260,6 @@ Component({
         })
       } else {
         wx.navigateTo({ url: `/pkg-notebook/task-edit/index?id=${taskId}` })
-      }
-    },
-
-    // 左滑后的"删除"按钮。recurring 弹"此次/整个"二选;one-shot 直接 deleteTask。
-    handleDelete(e) {
-      const { taskId, occurrenceDate, taskMode } = e.currentTarget.dataset
-      if (!taskId) return
-      const date = occurrenceDate || ''
-      const self = this
-      this.setData({ swipeOpenId: null, swipeOpenMax: 0 })
-      if (taskMode === 'recurring' && date) {
-        wx.showActionSheet({
-          itemList: ['仅删除此次', '删除整个作业'],
-          itemColor: '#e54545',
-          success(res) {
-            if (res.tapIndex === 0) {
-              wx.showModal({
-                title: '删除此次?',
-                content: '只删除当天这次,后续日期照常出现。',
-                confirmColor: '#e54545',
-                success(r) {
-                  if (!r.confirm) return
-                  store.excludeOccurrence(taskId, date)
-                  wx.showToast({ title: '已删除此次', icon: 'success' })
-                  self.triggerEvent('changed')
-                }
-              })
-            } else if (res.tapIndex === 1) {
-              wx.showModal({
-                title: '删除整个作业?',
-                content: '所有日期都不会再出现,历史完成记录保留。',
-                confirmColor: '#e54545',
-                success(r) {
-                  if (!r.confirm) return
-                  store.deleteTask(taskId)
-                  wx.showToast({ title: '已删除', icon: 'success' })
-                  self.triggerEvent('changed')
-                }
-              })
-            }
-          }
-        })
-      } else {
-        wx.showModal({
-          title: '删除这条作业?',
-          content: '历史完成记录保留,但这条作业不再出现。',
-          confirmColor: '#e54545',
-          success(r) {
-            if (!r.confirm) return
-            store.deleteTask(taskId)
-            wx.showToast({ title: '已删除', icon: 'success' })
-            self.triggerEvent('changed')
-          }
-        })
       }
     },
 

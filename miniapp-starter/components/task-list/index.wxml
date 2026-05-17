@@ -3,22 +3,22 @@
     <view class="task-row-swipable {{swipeId === item.id ? 'is-swiping' : ''}}"
           data-id="{{item.id}}">
 
-      <!-- Swipe-revealed action zone. Undone: 编辑 + 删除;Done: 继续。 -->
-      <view wx:if="{{item.status !== 'done'}}" class="swipe-action swipe-action-double">
+      <!-- Swipe-revealed action zone. Undone: 仅编辑(删除入口在编辑页内);Done: 编辑 + 继续。 -->
+      <view wx:if="{{item.status !== 'done'}}" class="swipe-action">
         <view class="swipe-btn edit-swipe-btn"
               data-id="{{item.id}}"
               data-task-id="{{item.taskId || item.id}}"
               data-occurrence-date="{{item.occurrenceDate}}"
               data-task-mode="{{item.taskMode}}"
               catchtap="handleEdit">编辑</view>
-        <view class="swipe-btn delete-swipe-btn"
+      </view>
+      <view wx:else class="swipe-action swipe-action-double">
+        <view class="swipe-btn edit-swipe-btn"
               data-id="{{item.id}}"
               data-task-id="{{item.taskId || item.id}}"
               data-occurrence-date="{{item.occurrenceDate}}"
               data-task-mode="{{item.taskMode}}"
-              catchtap="handleDelete">删除</view>
-      </view>
-      <view wx:else class="swipe-action">
+              catchtap="handleEdit">编辑</view>
         <view class="swipe-btn revert-swipe-btn"
               data-id="{{item.id}}"
               data-task-id="{{item.taskId || item.id}}"
@@ -39,10 +39,13 @@
         <view wx:if="{{item.status === 'doing'}}" class="doing-strip"></view>
         <view class="dot"></view>
         <view class="row-body">
-          <text class="row-content">{{item.content}}</text>
+          <view class="row-name-line">
+            <text class="row-content">{{item.content}}</text>
+            <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
+          </view>
           <view class="row-chips">
             <text wx:if="{{item.status === 'doing'}}" class="chip doing-chip">进行中</text>
-            <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
+            <text wx:if="{{item.taskMode === 'recurring'}}" class="chip recurring-chip">重复</text>
             <text wx:if="{{item.organization}}" class="chip org-chip">{{item.organization}}</text>
             <text wx:if="{{item.isOverdue && item.occurrenceDate}}" class="chip overdue-chip">{{item.occurrenceDate}}</text>
             <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>

@@ -66,8 +66,14 @@
   min-width: 0;
 }
 
+.row-name-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
 .row-content {
-  display: block;
   font-size: 28rpx;
   line-height: 1.4;
   color: #1f2329;
@@ -92,6 +98,7 @@
 }
 
 .doing-chip { background: #245bdb; color: #ffffff; font-weight: 700; }
+.recurring-chip { background: #fff4d6; color: #b45309; font-weight: 600; }
 .subject-chip { background: #eef4ff; color: #245bdb; font-weight: 600; }
 .org-chip { background: #f0e9ff; color: #6c3fdb; font-weight: 600; }
 .est-chip { background: #f7f8fa; color: #6b7785; }

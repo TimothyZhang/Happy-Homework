@@ -1,0 +1,27 @@
+<view class="page">
+  <view class="balance-card">
+    <text class="balance-label">当前金币</text>
+    <text class="balance-num">{{coins}}</text>
+  </view>
+
+  <view wx:if="{{logs.length === 0}}" class="card empty-card">
+    <text class="empty-emoji">🪙</text>
+    <text class="empty-text">还没有金币变动记录</text>
+    <text class="empty-hint">完成作业、买宠物道具都会在这里留下记录</text>
+  </view>
+
+  <view wx:else class="card list-card">
+    <view wx:for="{{logs}}" wx:key="key" class="log-row">
+      <view class="log-emoji">{{item.emoji}}</view>
+      <view class="log-body">
+        <text class="log-title">{{item.title}}</text>
+        <text wx:if="{{item.sub}}" class="log-sub">{{item.sub}}</text>
+        <text class="log-time">{{item.timeText}}</text>
+      </view>
+      <view class="log-right">
+        <text class="log-delta {{item.deltaClass}}">{{item.deltaText}}</text>
+        <text wx:if="{{item.balanceAfter !== null}}" class="log-balance">余 {{item.balanceAfter}}</text>
+      </view>
+    </view>
+  </view>
+</view>

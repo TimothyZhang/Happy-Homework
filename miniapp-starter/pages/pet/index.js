@@ -432,6 +432,10 @@ Page({
     if ((item.fullness || 0) > 0) this.queueAnim('eating')
   },
 
+  handleOpenCoinHistory() {
+    wx.navigateTo({ url: '/pkg-notebook/coin-history/index' })
+  },
+
   // === Switch species === //
   handleOpenSwitchPanel() {
     this.setData({ showSwitchPanel: true })

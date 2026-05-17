@@ -32,7 +32,10 @@
     <view class="card">
       <view class="section-header">
         <text class="section-title">{{pet.name}} {{levelBadge}}</text>
-        <text class="coin-balance">金币 {{coins}}</text>
+        <view class="coin-link" bindtap="handleOpenCoinHistory">
+          <text class="coin-balance">金币 {{coins}}</text>
+          <text class="coin-chev">›</text>
+        </view>
       </view>
 
       <view class="pet-stage" bindtap="handleTapPet">

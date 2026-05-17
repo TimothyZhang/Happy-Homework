@@ -342,9 +342,29 @@ Page({
   },
 
   handleDelete() {
-    if (!this.data.isEdit || !this.data.taskId) return
+    if (!this.data.isEdit) return
+    // "编辑此次"模式:只删该天的 occurrence,原 recurring 不动。
+    if (this.data.isInstanceDetach) {
+      const taskId = this.data.originalTaskId
+      const date = this.data.instanceDate
+      if (!taskId || !date) return
+      wx.showModal({
+        title: '删除此次?',
+        content: '只删除当天这次,后续日期照常出现。',
+        confirmColor: '#e54545',
+        success: (res) => {
+          if (res.confirm) {
+            store.excludeOccurrence(taskId, date)
+            wx.showToast({ title: '已删除此次', icon: 'success' })
+            setTimeout(() => wx.navigateBack(), 200)
+          }
+        }
+      })
+      return
+    }
+    if (!this.data.taskId) return
     wx.showModal({
-      title: '删除这条作业？',
+      title: '删除这条作业?',
       content: '历史完成记录保留,但以后不再出现。',
       confirmColor: '#e54545',
       success: (res) => {
