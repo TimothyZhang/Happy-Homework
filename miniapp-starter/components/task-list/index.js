@@ -188,15 +188,12 @@ Component({
         const fromZoneIdx = dragZone.indexOf(fromIdx)
         const slotsDelta = Math.round(dragDy / itemH)
         const toZoneIdx = Math.max(0, Math.min(dragZone.length - 1, fromZoneIdx + slotsDelta))
-        // 临时调试 toast — 验证 reorder 入口和参数,Tim 测试后移除。
-        wx.showToast({
-          title: `dy=${Math.round(dragDy)} h=${Math.round(itemH)} ${fromZoneIdx}→${toZoneIdx}`,
-          icon: 'none',
-          duration: 3000
-        })
+        // 临时调试 toast — 验证 reorder 入口、参数、以及 reorder 后实际写入
+        // store 的 task.order。Tim 测试后移除。
         console.log('[drag-end]', {
           dragId, dragDy, itemH, fromIdx, fromZoneIdx, toZoneIdx, slotsDelta,
-          dragZone, listIds: list.map((it) => it.id)
+          dragZone, listIds: list.map((it) => it.id),
+          listOrder: list.map((it) => `${it.content}=${it.rowOrder}`)
         })
         // 无论是否 reorder,都要同步清 shiftY:reorder 分支虽然 triggerEvent
         // ('changed') 让父组件 refreshState→observer 重置 list,但那是异步的,
@@ -211,6 +208,22 @@ Component({
           const [moved] = rows.splice(fromZoneIdx, 1)
           rows.splice(toZoneIdx, 0, moved)
           store.reorderRows(rows)
+          // debug: reorder 完立刻读 store 看实际 order
+          const _st = store.getStateWithComputed()
+          const _orderStr = _st.tasks
+            .filter((t) => rows.some((r) => r.taskId === t.id))
+            .map((t) => `${t.content || t.id}=${t.order}`)
+            .join(' ')
+          wx.showToast({
+            title: `${fromZoneIdx}→${toZoneIdx} | ${_orderStr}`,
+            icon: 'none',
+            duration: 4000
+          })
+          console.log('[reorder]', {
+            sentRows: rows.map((r, i) => ({ taskId: r.taskId, date: r.occurrenceDate, intendedOrder: i })),
+            afterTasks: _st.tasks.map((t) => ({ id: t.id, content: t.content, order: t.order,
+              occurrences: t.occurrences ? Object.keys(t.occurrences).map((d) => ({d, order: t.occurrences[d].order})) : null }))
+          })
           this.setData({ list: reset })
           this.triggerEvent('changed')
         } else {
