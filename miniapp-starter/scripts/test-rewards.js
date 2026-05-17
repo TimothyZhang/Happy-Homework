@@ -726,6 +726,167 @@ assert('v2 hydrate: 历史 done task 不在 today 视图', !onTodayView)
 assert('v2 hydrate: notebooks 已被清空(走完 v2→v3 平移)',
   stateAfterV2.notebooks.length === 0)
 
+// ===== Scenario N: tasksForDate 视图分类:漏做(红) vs 补做(黄) =====
+// 触发场景:Arthur 5/16 没做完"目标24课",5/17 才补做。期望:
+//   - 5/16 视图:该 occurrence 在"已完成"区(status=done),但 isOverdue=true 红底
+//   - 5/17 视图:该 occurrence 在"已完成"区,isMakeup=true(黄底)
+//   - 同一 occurrence 不应同时在两天"已完成"里出现重复
+console.log('\n[N] tasksForDate: 漏做归红 / 补做归黄(一次性 + recurring)')
+
+// --- 一次性任务:dueDate=yesterday,completedAt=today ---
+seed({
+  notebooks: [],
+  tasks: [{
+    id: 'tk_makeup_oneshot',
+    subject: '目标24课', organization: '其他', content: '一次性补做',
+    estimatedMinutes: 10,
+    mode: 'one-shot', startDate: yesterday, endDate: yesterday, recurrence: null,
+    order: 0, createdAt: 1,
+    status: 'done',
+    completedAt: Date.now(),  // pinned to today 22:00 by setNowHour(22)
+    accumulatedMs: 60000, actualMinutes: 1,
+    rewardPaid: 5, rewardKind: 'overdue'
+  }]
+})
+
+const yItems = s.tasksForDate(st(), yesterday)
+const yRow = yItems.find((it) => it.task.id === 'tk_makeup_oneshot')
+assert('one-shot 5.16 视图含该任务', !!yRow)
+assert('one-shot 5.16 视图:isOverdue=true(红)', yRow && yRow.isOverdue === true)
+assert('one-shot 5.16 视图:occurrence.status 保持 done(进已完成区)',
+  yRow && yRow.occurrence.status === 'done')
+assert('one-shot 5.16 视图:不带 isMakeup', yRow && !yRow.isMakeup)
+
+const tItems = s.tasksForDate(st(), today)
+const tRow = tItems.find((it) => it.task.id === 'tk_makeup_oneshot')
+assert('one-shot 5.17 视图含该任务', !!tRow)
+assert('one-shot 5.17 视图:isMakeup=true(黄)', tRow && tRow.isMakeup === true)
+assert('one-shot 5.17 视图:isOverdue=false', tRow && tRow.isOverdue === false)
+assert('one-shot 5.17 视图:status 保持 done(进已完成区)',
+  tRow && tRow.occurrence.status === 'done')
+assert('one-shot 5.17 视图:occurrenceDate 仍是任务归属日 5.16',
+  tRow && tRow.occurrenceDate === yesterday)
+
+// 同 task 在两个视图各出现 1 次,不重复
+const yCount = yItems.filter((it) => it.task.id === 'tk_makeup_oneshot').length
+const tCount = tItems.filter((it) => it.task.id === 'tk_makeup_oneshot').length
+assert('one-shot 5.16 视图无重复', yCount === 1)
+assert('one-shot 5.17 视图无重复', tCount === 1)
+
+// --- Recurring 任务:5.16 occurrence 在 5.17 才完成 ---
+seed({
+  notebooks: [],
+  tasks: [{
+    id: 'tk_makeup_recurring',
+    subject: '目标24课', organization: '其他', content: 'recurring 补做',
+    estimatedMinutes: 10,
+    mode: 'recurring', startDate: yesterday, endDate: null,
+    recurrence: { type: 'daily' },
+    order: 0, createdAt: 1,
+    occurrences: {
+      [yesterday]: {
+        status: 'done',
+        completedAt: Date.now(),  // 今天才完成
+        accumulatedMs: 60000, actualMinutes: 1,
+        rewardPaid: 5, rewardKind: 'overdue'
+      }
+    }
+  }]
+})
+
+const yItemsR = s.tasksForDate(st(), yesterday)
+const yRowR = yItemsR.find((it) => it.task.id === 'tk_makeup_recurring')
+assert('recurring 5.16 视图含该任务', !!yRowR)
+assert('recurring 5.16 视图:isOverdue=true(红)', yRowR && yRowR.isOverdue === true)
+assert('recurring 5.16 视图:occurrence.status 保持 done(进已完成区)',
+  yRowR && yRowR.occurrence.status === 'done')
+
+const tItemsR = s.tasksForDate(st(), today)
+const tRowR = tItemsR.find((it) => it.task.id === 'tk_makeup_recurring' && it.occurrenceDate === yesterday)
+assert('recurring 5.17 视图含 5.16 occurrence', !!tRowR)
+assert('recurring 5.17 视图:isMakeup=true(黄)', tRowR && tRowR.isMakeup === true)
+assert('recurring 5.17 视图:isOverdue=false', tRowR && tRowR.isOverdue === false)
+assert('recurring 5.17 视图:status=done(进已完成区)',
+  tRowR && tRowR.occurrence.status === 'done')
+
+// --- 反例:当天完成的任务不该被标 makeup ---
+seed({
+  notebooks: [],
+  tasks: [{
+    id: 'tk_on_time',
+    subject: '语', organization: '其他', content: '当天完成',
+    estimatedMinutes: 5,
+    mode: 'one-shot', startDate: today, endDate: today, recurrence: null,
+    order: 0, createdAt: 1,
+    status: 'done', completedAt: Date.now(),
+    accumulatedMs: 60000, actualMinutes: 1
+  }]
+})
+const tOK = s.tasksForDate(st(), today).find((it) => it.task.id === 'tk_on_time')
+assert('当天完成:isMakeup=false', tOK && tOK.isMakeup === false)
+assert('当天完成:isOverdue=false', tOK && tOK.isOverdue === false)
+
+// --- 提前完成(目标24课1 / Arthur 场景):
+// 一次性 task,跨两天作业本(startDate=5.16, endDate=5.17),5.16 当天就完成。
+// 期望:仅 5.16 显示(白底,正常已完成),5.17 不再重复显示。
+const yest = yesterday  // 5.16
+const tdy = today       // 5.17
+seed({
+  notebooks: [],
+  tasks: [{
+    id: 'tk_early_finish',
+    subject: '目标24课1', organization: '校外', content: '跨两天作业本提前完成',
+    estimatedMinutes: 10,
+    mode: 'one-shot', startDate: yest, endDate: tdy, recurrence: null,
+    order: 0, createdAt: 1,
+    status: 'done',
+    // 完成于"昨天"22:00 — 用 setNowHour(22) 固定的 today 22:00 减 1 天
+    completedAt: Date.now() - 24 * 3600 * 1000,
+    accumulatedMs: 60000, actualMinutes: 1,
+    rewardPaid: 15, rewardKind: 'future'
+  }]
+})
+
+const yEarly = s.tasksForDate(st(), yest).filter((it) => it.task.id === 'tk_early_finish')
+const tEarly = s.tasksForDate(st(), tdy).filter((it) => it.task.id === 'tk_early_finish')
+assert('提前完成:5.16(完成日)不再重复显示', yEarly.length === 0)
+assert('提前完成:5.17(dueDate)显示 1 次', tEarly.length === 1)
+assert('提前完成:5.17 视图 isMakeup=false(不算补做)',
+  tEarly[0] && tEarly[0].isMakeup === false)
+assert('提前完成:5.17 视图 isOverdue=false', tEarly[0] && tEarly[0].isOverdue === false)
+assert('提前完成:5.17 视图 status=done(进已完成区)',
+  tEarly[0] && tEarly[0].occurrence.status === 'done')
+
+// ===== Scenario L: formatRecurrenceLabel(一次性 / daily / weekly 多种) =====
+console.log('\n[L] formatRecurrenceLabel: 中文周期标签')
+
+assert('一次性 task → 空字符串',
+  s.formatRecurrenceLabel({ mode: 'one-shot' }) === '')
+assert('null task → 空字符串',
+  s.formatRecurrenceLabel(null) === '')
+assert('recurring + daily → 每天',
+  s.formatRecurrenceLabel({ mode: 'recurring', recurrence: { type: 'daily' } }) === '每天')
+assert('recurring + weekly + [1] → 每周一',
+  s.formatRecurrenceLabel({ mode: 'recurring',
+    recurrence: { type: 'weekly', weekdays: [1] } }) === '每周一')
+assert('recurring + weekly + [2,3,4] → 每周二三四',
+  s.formatRecurrenceLabel({ mode: 'recurring',
+    recurrence: { type: 'weekly', weekdays: [2, 3, 4] } }) === '每周二三四')
+assert('recurring + weekly + [4,2,3] (乱序) → 每周二三四',
+  s.formatRecurrenceLabel({ mode: 'recurring',
+    recurrence: { type: 'weekly', weekdays: [4, 2, 3] } }) === '每周二三四')
+assert('recurring + weekly + 7 全选 → 每天',
+  s.formatRecurrenceLabel({ mode: 'recurring',
+    recurrence: { type: 'weekly', weekdays: [1, 2, 3, 4, 5, 6, 7] } }) === '每天')
+assert('recurring + weekly + [7] → 每周日',
+  s.formatRecurrenceLabel({ mode: 'recurring',
+    recurrence: { type: 'weekly', weekdays: [7] } }) === '每周日')
+assert('recurring + weekly + 空 weekdays → 每周?',
+  s.formatRecurrenceLabel({ mode: 'recurring',
+    recurrence: { type: 'weekly', weekdays: [] } }) === '每周?')
+assert('recurring + 无 recurrence 字段 → 每天(默认)',
+  s.formatRecurrenceLabel({ mode: 'recurring' }) === '每天')
+
 // ===== Summary =====
 console.log(`\n=== ${passed} passed, ${failed} failed ===`)
 process.exit(failed === 0 ? 0 : 1)

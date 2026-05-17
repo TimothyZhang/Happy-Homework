@@ -97,8 +97,18 @@ Component({
       if (!item || item.status === 'done') return
       this._gestureMode = 'drag'
       this.dragStartY = this.touchStartY != null ? this.touchStartY : 0
+      // itemHeightPx 缓存:第一次 longpress query 一次,后续复用。如果在这
+      // 里强制重 query(this.itemHeightPx = null),query 是异步的,从重置到
+      // callback 回填中间这几十 ms 里 handleRowTouchMove 会用 fallback 140
+      // 算 shiftY/slotsDelta,跟随后回填的真实值不一致 — Tim 截图里 4 张
+      // row 全部消失就是这种 transform 状态混乱。
       if (!this.itemHeightPx) {
-        const q = this.createSelectorQuery()
+        // .in(this) 必须有 — Component 内 createSelectorQuery 默认 select
+        // page 级别,拿不到 component 内的 .task-row,rects[0] 一直是 null,
+        // itemHeightPx 留 null,handleRowTouchMove 用 fallback 140 算 slotsDelta。
+        // row 实际高度跟 140 差太多就让 toZoneIdx 算成 fromZoneIdx,reorder
+        // 根本不进,松手 row 视觉回原位(因为 setData({list:reset}) 复位)。
+        const q = this.createSelectorQuery().in(this)
         q.select('.task-row').boundingClientRect()
         q.exec((rects) => { if (rects && rects[0]) this.itemHeightPx = rects[0].height + 12 })
       }
@@ -178,6 +188,12 @@ Component({
         const fromZoneIdx = dragZone.indexOf(fromIdx)
         const slotsDelta = Math.round(dragDy / itemH)
         const toZoneIdx = Math.max(0, Math.min(dragZone.length - 1, fromZoneIdx + slotsDelta))
+        // list/dragId/dragDy 必须一次 setData 合并:分开 setData 时 wechat 帧
+        // 调度可能让 shiftY=0 先 commit 而 dragId 仍是 truthy → is-dragging-mode
+        // class 还在 → transition 启动了一两帧"从下往上"动画,期间露出底层
+        // swipe-action。合并后 dragId=null 和 shiftY=0 同帧生效,class 移除让
+        // transition 消失,shiftY 瞬间应用,无动画无残影。
+        const reset = list.map((it) => ({ ...it, shiftY: 0 }))
         if (fromZoneIdx !== -1 && fromZoneIdx !== toZoneIdx) {
           const rows = dragZone.map((listIdx) => {
             const it = list[listIdx]
@@ -186,11 +202,11 @@ Component({
           const [moved] = rows.splice(fromZoneIdx, 1)
           rows.splice(toZoneIdx, 0, moved)
           store.reorderRows(rows)
+          this.setData({ list: reset, dragId: null, dragDy: 0 })
           this.triggerEvent('changed')
         } else {
-          this.setData({ list: list.map((it) => ({ ...it, shiftY: 0 })) })
+          this.setData({ list: reset, dragId: null, dragDy: 0 })
         }
-        this.setData({ dragId: null, dragDy: 0 })
       } else if (this._gestureMode === 'swipe') {
         const id = this._gestureRowId
         const item = this.data.list.find((it) => it.id === id)

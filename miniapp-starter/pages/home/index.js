@@ -133,6 +133,9 @@ function decorateItem(item, now) {
     taskMode: item.task.mode || 'one-shot',
     occurrenceDate,
     subject: item.task.subject || '',
+    // recurring 的具体周期标签:"每天" / "每周一" / "每周二三四" / 等。
+    // 一次性 task 为 ''(wxml 用 taskMode==='recurring' 过滤)。
+    recurrenceLabel: store.formatRecurrenceLabel(item.task),
     organization: item.task.organization || '其他',
     content: item.task.content,
     estimatedMinutes: item.task.estimatedMinutes,
@@ -141,43 +144,28 @@ function decorateItem(item, now) {
     completedAt: occ.completedAt || 0,
     status: occ.status,
     isOverdue: visualOverdue,
+    // 补做项:occurrenceDate < 今天且在今天才完成。背景黄底,与 is-overdue
+    // 红底视觉分开 —— 当天本日完成的还是白底。
+    isMakeup: !!item.isMakeup,
     elapsedMs,
     elapsedDisplay: elapsedMs > 0 ? formatElapsed(elapsedMs) : ''
   }
 }
 
-// After the user-controlled rowOrder sort, push subsequent items of the
-// same subject to the bottom so the list doesn't open with N rows of one
-// subject. First occurrence of each subject keeps its position; duplicates
-// trail at the end in their original sorted order. Empty subjects stay put
-// — they aren't really a "type" to dedup against.
-function pushDuplicateSubjectsToBack(items) {
-  const seen = new Set()
-  const firsts = []
-  const dupes = []
-  for (const it of items) {
-    const key = it.subject || ''
-    if (key && seen.has(key)) {
-      dupes.push(it)
-    } else {
-      if (key) seen.add(key)
-      firsts.push(it)
-    }
-  }
-  return firsts.concat(dupes)
-}
-
 // Sort undone purely by user-controlled rowOrder. Overdue / virtual /
 // today rows all live in the same orderable pool now — the user is free
 // to interleave a missed-Monday recurring row between today's tasks.
+//
+// 不再做"同 subject 推到末尾"的二次重排 — 那个会让用户拖动 reorder 的
+// 结果失效:同 subject 的卡片(比如 Tim 的两张"语文")被强制分开,后者一
+// 律推末尾,看起来"拖了没生效"。用户拖完位置就是最终位置。
 function sortUndone(items) {
-  const sorted = items.sort((a, b) => {
+  return items.sort((a, b) => {
     const oa = a.rowOrder || 0
     const ob = b.rowOrder || 0
     if (oa !== ob) return oa - ob
     return (a.createdAt || 0) - (b.createdAt || 0)
   })
-  return pushDuplicateSubjectsToBack(sorted)
 }
 
 // Done sorted by most recent completion first.

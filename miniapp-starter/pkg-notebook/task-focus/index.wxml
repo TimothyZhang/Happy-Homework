@@ -4,7 +4,7 @@
   <view class="info-block">
     <view class="chips">
       <text wx:if="{{subject}}" class="chip subject-chip">{{subject}}</text>
-      <text wx:if="{{isRecurring}}" class="chip recurring-chip">重复</text>
+      <text wx:if="{{isRecurring}}" class="chip recurring-chip">{{recurrenceLabel}}</text>
       <text class="chip est-chip">预计 {{estimatedMinutes}} 分钟</text>
     </view>
     <text class="content">{{content}}</text>

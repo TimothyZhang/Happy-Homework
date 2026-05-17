@@ -29,6 +29,7 @@ function decorateDayItems(items, now) {
         taskMode: it.task.mode || 'one-shot',
         occurrenceDate,
         subject: it.task.subject || '',
+        recurrenceLabel: store.formatRecurrenceLabel(it.task),
         organization: it.task.organization || '其他',
         content: it.task.content,
         estimatedMinutes: it.task.estimatedMinutes,
@@ -36,7 +37,10 @@ function decorateDayItems(items, now) {
         createdAt: it.task.createdAt || 0,
         completedAt: occ.completedAt || 0,
         status: occ.status,
-        isOverdue: it.isOverdue && occ.status !== 'done',
+        // store.tasksForDate 在历史视图里已经只对"本日漏做被后来补的"标
+        // isOverdue=true,正常 done 不会带,所以直接透传就行。
+        isOverdue: it.isOverdue,
+        isMakeup: !!it.isMakeup,
         elapsedMs,
         elapsedDisplay: elapsedMs > 0 ? formatElapsed(elapsedMs) : ''
       }

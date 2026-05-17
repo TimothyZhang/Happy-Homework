@@ -1,4 +1,4 @@
-<view class="task-list">
+<view class="task-list {{dragId ? 'is-dragging-mode' : ''}}">
   <block wx:for="{{list}}" wx:key="id">
     <view class="task-row-swipable {{swipeId === item.id ? 'is-swiping' : ''}}"
           data-id="{{item.id}}">
@@ -26,7 +26,7 @@
               catchtap="handleRevert">继续</view>
       </view>
 
-      <view class="task-row {{item.status}} {{rowVariant}} {{item.isOverdue ? 'is-overdue' : ''}} {{dragId === item.id ? 'is-dragging' : ''}}"
+      <view class="task-row {{item.status}} {{rowVariant}} {{item.isOverdue ? 'is-overdue' : ''}} {{item.isMakeup ? 'is-makeup' : ''}} {{dragId === item.id ? 'is-dragging' : ''}}"
             style="transform: translate3d({{swipeId === item.id ? swipeDx : (swipeOpenId === item.id ? -swipeOpenMax : 0)}}rpx, {{dragId === item.id ? dragDy + 'px' : (item.shiftY || 0) + 'px'}}, 0); z-index: {{dragId === item.id ? 10 : 'auto'}};"
             bindtap="handleRowTap"
             bindtouchstart="handleRowTouchStart"
@@ -43,9 +43,9 @@
           <view class="row-name-line">
             <text class="row-content">{{item.content}}</text>
             <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
+            <text wx:if="{{item.taskMode === 'recurring'}}" class="chip recurring-chip">{{item.recurrenceLabel}}</text>
           </view>
           <view class="row-chips">
-            <text wx:if="{{item.taskMode === 'recurring'}}" class="chip recurring-chip">重复</text>
             <text wx:if="{{item.organization}}" class="chip org-chip">{{item.organization}}</text>
             <text wx:if="{{item.isOverdue && item.occurrenceDate}}" class="chip overdue-chip">{{item.occurrenceDate}}</text>
             <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
