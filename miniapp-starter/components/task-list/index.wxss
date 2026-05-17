@@ -193,14 +193,11 @@
 .task-row-swipable .task-row {
   position: relative;
   z-index: 1;
-}
-
-/* transition 只在 drag 模式开启:拖动中邻居被 shiftY 推开有平滑动画。
-   松手时 dragId=null 让 .is-dragging-mode 立刻移除,transition 消失,
-   shiftY=0 瞬间应用,不再有"从下往上回原位"的过渡 — 那个过渡会让 row
-   跨过自己的 swipable 边界,被 overflow:hidden 露出底层 swipe-action。 */
-.task-list.is-dragging-mode .task-row-swipable .task-row {
-  transition: transform 0.18s ease;
+  /* 不加 transition — 任何 shiftY/dragDy 变化都瞬间应用。之前各种"松手
+     后从下往上动画 / 露按钮"都是因为 transition 在松手帧仍跑 0.18s,row
+     处于"过渡中跨自己 swipable 边界"的状态,被 overflow:hidden 露出底层
+     swipe-action。drag 中邻居推开也是瞬间到位,虽然没有平滑过渡但视觉上
+     更确定 — 跟 Tim 反馈"动画多余"一致。 */
 }
 
 .task-row-swipable.is-swiping .task-row {
