@@ -188,10 +188,11 @@ Component({
         const fromZoneIdx = dragZone.indexOf(fromIdx)
         const slotsDelta = Math.round(dragDy / itemH)
         const toZoneIdx = Math.max(0, Math.min(dragZone.length - 1, fromZoneIdx + slotsDelta))
-        // 无论是否 reorder,都要同步清 shiftY:reorder 分支虽然 triggerEvent
-        // ('changed') 让父组件 refreshState→observer 重置 list,但那是异步的,
-        // 中间存在"dragId 已清 / shiftY 仍残留"窗口,视觉上邻居 row 还停在
-        // translateY 偏移位置,露出后面的 swipe-action(Tim 截图就是这种)。
+        // list/dragId/dragDy 必须一次 setData 合并:分开 setData 时 wechat 帧
+        // 调度可能让 shiftY=0 先 commit 而 dragId 仍是 truthy → is-dragging-mode
+        // class 还在 → transition 启动了一两帧"从下往上"动画,期间露出底层
+        // swipe-action。合并后 dragId=null 和 shiftY=0 同帧生效,class 移除让
+        // transition 消失,shiftY 瞬间应用,无动画无残影。
         const reset = list.map((it) => ({ ...it, shiftY: 0 }))
         if (fromZoneIdx !== -1 && fromZoneIdx !== toZoneIdx) {
           const rows = dragZone.map((listIdx) => {
@@ -201,12 +202,11 @@ Component({
           const [moved] = rows.splice(fromZoneIdx, 1)
           rows.splice(toZoneIdx, 0, moved)
           store.reorderRows(rows)
-          this.setData({ list: reset })
+          this.setData({ list: reset, dragId: null, dragDy: 0 })
           this.triggerEvent('changed')
         } else {
-          this.setData({ list: reset })
+          this.setData({ list: reset, dragId: null, dragDy: 0 })
         }
-        this.setData({ dragId: null, dragDy: 0 })
       } else if (this._gestureMode === 'swipe') {
         const id = this._gestureRowId
         const item = this.data.list.find((it) => it.id === id)
