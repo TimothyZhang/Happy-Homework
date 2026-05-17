@@ -109,6 +109,7 @@
           <view class="xp-bar {{canLevelUp ? 'xp-bar-ready' : ''}}">
             <view class="xp-bar-fill" style="width: {{xpPercent}}%"></view>
           </view>
+          <text class="xp-rate">每小时 +{{xpPerHour}} XP · 满速 {{xpPerHourMax}}(照顾好宠物可以加快)</text>
           <button class="level-up-btn {{canLevelUp ? '' : 'disabled'}}" bindtap="handleLevelUp">
             {{canLevelUp ? '升级!' : '经验值还不够'}}
           </button>
