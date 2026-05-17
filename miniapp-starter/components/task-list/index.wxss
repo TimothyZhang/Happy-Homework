@@ -161,7 +161,7 @@
 }
 
 .revert-swipe-btn { background: #245bdb; }
-.edit-swipe-btn { background: #245bdb; }
+.edit-swipe-btn { background: #44505e; }
 .delete-swipe-btn { background: #e54545; }
 
 .task-row-swipable .task-row {
