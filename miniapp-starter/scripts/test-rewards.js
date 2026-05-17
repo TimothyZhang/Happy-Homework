@@ -250,6 +250,113 @@ const sixCoins = st().coins
 assert('6th cycle restores perfectDays', st().perfectDays[0] === today)
 assert('coins increased', sixCoins > firstPass)
 
+// ===== Scenario 5b: 25 tasks in one day — toast 显示和 coins 增加必须对齐 =====
+// 回归用户反馈:">20 项全完成时 perfect 提示弹了但金币没加"。代码上 toast
+// 和 coin 用同一个 lastReward.dailyBonus,理应不可能脱钩 —— 这里把这条约束
+// 写成断言锁死,后续若有人改坏 cap/perfect 联动可以立刻被发现。
+console.log('\n[5b] 25-task day → toast bonusCoins == 实际 coin delta(>20 时不脱钩)')
+// seed 默认不清 pendingCoinEvents,applyHydratedState 会把上一轮 scenario
+// 残留的 delta 再加一次。这里显式清空,才能对绝对 coins 做断言。
+seed({ notebooks: [nb1], coins: 0, pendingCoinEvents: [] })
+for (let i = 0; i < 25; i++) {
+  s.addTask({ notebookId: 'nb1', subject: '语', content: 'big' + i, estimatedMinutes: 1 })
+}
+const bigIds = st().tasks.map((t) => t.id)
+// 完成前 20 项 —— 各 +10,第 21~24 项 capped 不加,第 25 项触发 perfect-day。
+for (let i = 0; i < 24; i++) s.finishTask(bigIds[i], today)
+const coinsBeforeLast = st().coins
+s.finishTask(bigIds[24], today)
+const coinsAfterLast  = st().coins
+const lr = st().lastReward
+const toastBonus = (lr.dailyBonus || 0) + (lr.weeklyBonus || 0)
+const actualDelta = coinsAfterLast - coinsBeforeLast
+assert('25th finish: bonusCoins(toast) > 0',           toastBonus > 0,             `bonus=${toastBonus}`)
+assert('25th finish: actualDelta == toast bonus',      actualDelta === toastBonus, `Δ=${actualDelta} toast=${toastBonus}`)
+assert('25th finish: dailyBonus = 20×10 = 200',        lr.dailyBonus === 200,      `dailyBonus=${lr.dailyBonus}`)
+assert('25th finish: taskReward = 0 (capped)',         lr.taskReward === 0,        `taskReward=${lr.taskReward}`)
+assert('25th finish: todayCleared = true',             lr.todayCleared === true)
+assert('25-task day final coins = 20×10 + 200 = 400',  st().coins === 400,         `coins=${st().coins}`)
+
+// ===== Scenario 5c: coinLogs append-only audit + revoke guard against over-clawback =====
+// 张天晴一案的根本修复 —— bonusByDay 有数据但没 ledgerEventId(老路径
+// 残留 / flush 丢失)时,revokePerfectDay 必须只清记录、不发 task_refund,
+// 否则会从根本没收过的钱里扣回,造成 server.coins 偏低。
+console.log('\n[5c] revokePerfectDay 不 over-clawback;coinLogs 完整审计每条交易')
+seed({ notebooks: [nb1], coins: 0, pendingCoinEvents: [], coinLogs: [] })
+s.addTask({ notebookId: 'nb1', subject: '语', content: 'a', estimatedMinutes: 1 })
+const aId = st().tasks[0].id
+s.finishTask(aId, today)
+// 正常路径:bonusByDay[today] 应该有 ledgerEventId
+const normalLog = st().bonusByDay[today]
+assert('正常 finish → bonusByDay 带 ledgerEventId',
+  !!normalLog && typeof normalLog.ledgerEventId === 'string',
+  `bonusByDay=${JSON.stringify(normalLog)}`)
+// coinLogs 应该有这条记录
+const lastLog = st().coinLogs[st().coinLogs.length - 1]
+assert('finish 走完 → coinLogs 末尾是 task_reward', lastLog.kind === 'task_reward', `kind=${lastLog && lastLog.kind}`)
+assert('coinLogs 记录 eventId / before / after',
+  typeof lastLog.eventId === 'string' && typeof lastLog.balanceBefore === 'number' && typeof lastLog.balanceAfter === 'number')
+
+// 模拟老路径残留 / flush 丢失:手动给一个虚假 bonusByDay 条目(没有 ledgerEventId),
+// 然后 revoke,断言 coins 不被多扣。
+seed({ notebooks: [nb1], coins: 50, pendingCoinEvents: [], coinLogs: [] })
+s.addTask({ notebookId: 'nb1', subject: '语', content: 'b', estimatedMinutes: 1 })
+const bId = st().tasks[0].id
+// 手动伪造一个老路径残留的 perfectDays + bonusByDay 条目(没 ledgerEventId)
+const stale = s.addDays(today, -1)
+// 把伪造的天直接打进 state(模拟 cloud-sync 拉下来的老数据)
+const updateState = require('path').join(__dirname, '..', 'utils', 'store.js')
+// 通过 hydrate 注入伪造 state(模拟从云端 pull 到老路径残留)
+s.applyHydratedState({
+  notebooks: [nb1], coins: 50, pendingCoinEvents: [], coinLogs: [],
+  tasks: st().tasks,
+  perfectDays: [stale],
+  bonusByDay: { [stale]: { dailyBonus: 65, weeklyBonus: 0, prevStreakDays: 0 } },
+  // ↑ 注意:没有 ledgerEventId
+  completionsByDay: {}, streakDays: 1, lastReward: null, pet: null
+})
+const coinsBeforeRevoke = st().coins
+// 触发 revoke:直接 finish + revert 当天 task 也能触发,但 stale 不是 today
+// 所以最简单是让 addTask 触发 reconcilePerfectDays(扫 stale 发现不再 allDone)
+// — 添加一个 due=stale 的 one-shot task 让 stale 视图变 pending
+const oldNb = { id: 'nbStale', name: stale, mode: 'one-shot', startDate: stale, endDate: stale, recurrence: null, createdAt: 1, order: 1 }
+// 注意:applyHydratedState 之后 notebooks 已经设了,要 add 一个 stale notebook
+s.applyHydratedState({
+  notebooks: [nb1, oldNb], coins: 50, pendingCoinEvents: [], coinLogs: [],
+  tasks: [], perfectDays: [stale],
+  bonusByDay: { [stale]: { dailyBonus: 65, weeklyBonus: 0, prevStreakDays: 0 } },
+  completionsByDay: {}, streakDays: 1, lastReward: null, pet: null
+})
+const beforeStaleRevoke = st().coins
+// 加一个 stale 的 task,让 reconcile 扫到 stale 不再 allDone → 触发 revoke
+s.addTask({ notebookId: 'nbStale', subject: '语', content: 'stale-task', estimatedMinutes: 1, dueDate: stale })
+const afterStaleRevoke = st().coins
+assert('over-clawback 守卫:无 ledgerEventId 的 bonusByDay revoke 不动 coins',
+  afterStaleRevoke === beforeStaleRevoke,
+  `before=${beforeStaleRevoke} after=${afterStaleRevoke}`)
+assert('守卫触发后 bonusByDay[stale] 已清空(perfectDays 也移除)',
+  !st().bonusByDay[stale] && !st().perfectDays.includes(stale))
+// 应该有一条 audit-only 的 skipped 日志
+const skipLog = st().coinLogs.find((l) => l.kind === 'perfect_day_clawback_skipped')
+assert('coinLogs 留下 perfect_day_clawback_skipped 审计痕迹',
+  !!skipLog && skipLog.delta === 0 && skipLog.meta.day === stale,
+  `skipLog=${JSON.stringify(skipLog)}`)
+
+// 反向验证:带 ledgerEventId 的正常路径,revoke 正确扣金币
+seed({ notebooks: [nb1], coins: 0, pendingCoinEvents: [], coinLogs: [] })
+s.addTask({ notebookId: 'nb1', subject: '语', content: 'c1', estimatedMinutes: 1 })
+const cId = st().tasks[0].id
+s.finishTask(cId, today)
+const coinsAfterFinish = st().coins
+const bonusAmount = (st().bonusByDay[today].dailyBonus || 0) + (st().bonusByDay[today].weeklyBonus || 0)
+// revert task → 触发 revokePerfectDay,带 ledgerEventId 应该正常退款
+s.revertTask(cId, today)
+const coinsAfterRevert = st().coins
+const expectedDrop = bonusAmount + 10 // dailyBonus + 单题 10
+assert('正常路径 revoke:有 ledgerEventId,coins 正确扣回',
+  coinsAfterFinish - coinsAfterRevert === expectedDrop,
+  `finish=${coinsAfterFinish} revert=${coinsAfterRevert} expected drop=${expectedDrop}`)
+
 // ===== Scenario 6: pet purchase / level-up / skin switch all queue events =====
 console.log('\n[6] Pet purchases queue pet_purchase / level_upgrade / pet_skin_switch events')
 seed({ coins: 5000, pet: { species: 'sheep', name: '阿羊', level: 1, growth: 0, happiness: 50, fullness: 50, cleanliness: 50, health: 100, createdAt: Date.now(), lastUpdatedAt: Date.now() } })
