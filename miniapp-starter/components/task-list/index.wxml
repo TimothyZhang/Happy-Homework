@@ -47,7 +47,8 @@
           </view>
           <view class="row-chips">
             <text wx:if="{{item.organization}}" class="chip org-chip">{{item.organization}}</text>
-            <text wx:if="{{item.isOverdue && item.occurrenceDate}}" class="chip overdue-chip">{{item.occurrenceDate}}</text>
+            <text wx:if="{{item.isMakeup && item.occurrenceDate}}" class="chip overdue-chip">延期自 {{item.occurrenceDate}}</text>
+            <text wx:elif="{{item.isOverdue && item.status !== 'done' && item.occurrenceDate}}" class="chip overdue-chip">{{item.occurrenceDate}}</text>
             <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
             <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
           </view>
