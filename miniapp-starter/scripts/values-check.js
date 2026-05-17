@@ -178,41 +178,85 @@ store = freshStore()
 for (let i = 1; i <= 12; i++) store.finishTask(`t${i}`, today)
 check('12/12 → coins = 240', store.getStateWithComputed().coins, 240)
 
-// === Test 5: level cost curve — getLevelCost = level × 20 ===
-// 曲线设计目标:Lv.90-99 段约 2 周/级。详见 store.js getLevelCost 注释。
-console.log('\n[level] coin cost curve:')
+// === Test 5: XP cost curve — getXpForLevel = level × 28 + 72 ===
+// 曲线设计目标:满速 Lv.1→2 = 0.5 天,Lv.99→100 ≈ 14 天。
+// 详见 store.js getXpForLevel 注释。
+console.log('\n[level] xp cost curve:')
 store = freshStore()
 check('LEVEL_MAX = 100', store.LEVEL_MAX, 100)
-check('getLevelCost(1)   = 20',    store.getLevelCost(1),    20)
-check('getLevelCost(2)   = 40',    store.getLevelCost(2),    40)
-check('getLevelCost(10)  = 200',   store.getLevelCost(10),   200)
-check('getLevelCost(50)  = 1000',  store.getLevelCost(50),  1000)
-check('getLevelCost(90)  = 1800',  store.getLevelCost(90),  1800)
-check('getLevelCost(99)  = 1980',  store.getLevelCost(99),  1980)
-check('getLevelCost(100) = 0 (max level)', store.getLevelCost(100), 0)
-check('getLevelCost(101) = 0 (above max)', store.getLevelCost(101), 0)
+check('XP_PER_LEVEL_BASE = 28',   store.XP_PER_LEVEL_BASE,   28)
+check('XP_PER_LEVEL_OFFSET = 72', store.XP_PER_LEVEL_OFFSET, 72)
+check('getXpForLevel(1)   = 100',  store.getXpForLevel(1),   100)
+check('getXpForLevel(2)   = 128',  store.getXpForLevel(2),   128)
+check('getXpForLevel(10)  = 352',  store.getXpForLevel(10),  352)
+check('getXpForLevel(50)  = 1472', store.getXpForLevel(50),  1472)
+check('getXpForLevel(90)  = 2592', store.getXpForLevel(90),  2592)
+check('getXpForLevel(99)  = 2844', store.getXpForLevel(99),  2844)
+check('getXpForLevel(100) = 0 (max level)', store.getXpForLevel(100), 0)
+check('getXpForLevel(101) = 0 (above max)', store.getXpForLevel(101), 0)
 
-// === Test 6: levelUpPet — 花 getLevelCost(level) 金币升级 ===
-console.log('\n[level] levelUpPet (coin-cost):')
+// === Test 5b: attrMultiplier — 四属性平均 / 100,clip [0,1] ===
+console.log('\n[level] attrMultiplier:')
+const fullPet  = { species: 'cat', happiness: 100, fullness: 100, cleanliness: 100, health: 100 }
+const halfPet  = { species: 'cat', happiness: 50,  fullness: 50,  cleanliness: 50,  health: 50  }
+const emptyPet = { species: 'cat', happiness: 0,   fullness: 0,   cleanliness: 0,   health: 0   }
+const skewPet  = { species: 'cat', happiness: 80,  fullness: 40,  cleanliness: 60,  health: 20  } // avg=50
+const noPet    = {}
+check('full 100/100/100/100 → 1.0',   store.attrMultiplier(fullPet),  1)
+check('half 50/50/50/50 → 0.5',       store.attrMultiplier(halfPet),  0.5)
+check('empty 0/0/0/0 → 0',            store.attrMultiplier(emptyPet), 0)
+check('skewed avg=50 → 0.5',          store.attrMultiplier(skewPet),  0.5)
+check('no pet (no species) → 0',      store.attrMultiplier(noPet),    0)
+check('xpForReward(10, fullPet) = 10',  store.xpForReward(10, fullPet),  10)
+check('xpForReward(10, halfPet) = 5',   store.xpForReward(10, halfPet),  5)
+check('xpForReward(10, emptyPet) = 0',  store.xpForReward(10, emptyPet), 0)
+check('xpForReward(15, halfPet) = 7 (floor)', store.xpForReward(15, halfPet), 7)
+check('xpForReward(0, fullPet) = 0',    store.xpForReward(0, fullPet),   0)
+
+// === Test 6: levelUpPet — 扣 getXpForLevel(level) XP 升级,溢出留作下一级 ===
+console.log('\n[level] levelUpPet (xp-cost):')
 seedNTasksToday(0)
-// seedNTasksToday 默认 coins=0,手动塞 30 进 storage 让 Lv.1→2 (cost=20) 能升、
-// 但残 10 不够升 Lv.2→3 (cost=40) — 一次 ok + 一次 insufficient。
+// seedNTasksToday 默认 pet.xp=undefined,这里手动塞 150 XP 让 Lv.1→2 (cost=100) 能升、
+// 剩 50 不够升 Lv.2→3 (cost=128) — 一次 ok + 一次 insufficient + 溢出 50 保留。
 const raw = JSON.parse(storage['homework-pet-v1'])
-raw.coins = 30
+raw.pet.xp = 150
 storage['homework-pet-v1'] = JSON.stringify(raw)
 store = freshStore()
 
 const r1 = store.levelUpPet()
-check('coins=30 → ok at Lv.1', r1.ok, true)
+check('xp=150 → ok at Lv.1', r1.ok, true)
 check('level becomes 2', r1.level, 2)
-check('coins after Lv.1→2 = 10', store.getStateWithComputed().coins, 10)
+check('xp after Lv.1→2 = 50 (溢出保留)', store.getStateWithComputed().pet.xp, 50)
+check('返回值 xp = 50', r1.xp, 50)
 
-// 再 levelUp 一次 → Lv.2→3 需 40,coins=10 → insufficient-coins,need=30
+// 再 levelUp 一次 → Lv.2→3 需 128,xp=50 → insufficient-xp,need=78
 const r2 = store.levelUpPet()
-check('coins=10 → insufficient-coins', r2.ok, false)
-check('insufficient-coins reason', r2.reason, 'insufficient-coins')
-check('need = 30 (cost 40 - coins 10)', r2.need, 30)
+check('xp=50 → insufficient-xp', r2.ok, false)
+check('insufficient-xp reason', r2.reason, 'insufficient-xp')
+check('need = 78 (cost 128 - xp 50)', r2.need, 78)
 check('level unchanged at 2', store.getStateWithComputed().pet.level, 2)
+check('xp unchanged at 50',    store.getStateWithComputed().pet.xp,    50)
+
+// no-pet 时返 no-pet
+seedTasksOnDate(0, today)
+const raw2 = JSON.parse(storage['homework-pet-v1'])
+raw2.pet = {}
+storage['homework-pet-v1'] = JSON.stringify(raw2)
+store = freshStore()
+const r3 = store.levelUpPet()
+check('no pet → no-pet reason', r3.ok === false && r3.reason, 'no-pet')
+
+// max-level 时返 max-level,不扣 xp
+seedTasksOnDate(0, today)
+const raw3 = JSON.parse(storage['homework-pet-v1'])
+raw3.pet = { species: 'cat', emoji: '🐱', name: 'p', level: 100, xp: 9999,
+  bornAt: Date.now(), lastDecayAt: Date.now(),
+  happiness: 100, fullness: 100, cleanliness: 100, health: 100 }
+storage['homework-pet-v1'] = JSON.stringify(raw3)
+store = freshStore()
+const r4 = store.levelUpPet()
+check('max level → max-level reason', r4.ok === false && r4.reason, 'max-level')
+check('max level → xp unchanged', store.getStateWithComputed().pet.xp, 9999)
 
 // === Test 7: decay rates — 16h on each stat ===
 console.log('\n[decay] 16h drop sanity check:')
@@ -536,6 +580,70 @@ console.log('\n[reward] projectedReward forecasts:')
   check('3 today pending, cutoff=20 → 90',  store.projectedReward(emptyState, threeToday, 20), 90)
   check('3 today pending, cutoff=21 → 80',  store.projectedReward(emptyState, threeToday, 21), 80)
 }
+
+// === Test 9j: XP accumulates in finishTask, refunded on revert ===
+// 满属性 (avg=100, mult=1.0):每完成单题加同金币的 XP;perfect-day base + early-bird
+// 也按 mult 加;revert 精确退 xpPaid。
+console.log('\n[xp] finishTask writes pet.xp, revert refunds:')
+// 用一个干净的 seed,把宠物拉满 100 → mult=1.0,XP 和金币 1:1
+function seedFullAttrPet(n, taskDate) {
+  seedTasksOnDate(n, taskDate)
+  const r = JSON.parse(storage['homework-pet-v1'])
+  r.pet.happiness = 100; r.pet.fullness = 100; r.pet.cleanliness = 100; r.pet.health = 100
+  r.pet.xp = 0
+  storage['homework-pet-v1'] = JSON.stringify(r)
+}
+seedFullAttrPet(3, today)
+store = freshStore()
+store.finishTask('t1', today)
+let s9j = store.getStateWithComputed()
+check('1/3 today @ mult=1.0 → pet.xp = 10', s9j.pet.xp, 10)
+check('1/3 today → task.xpPaid = 10', s9j.tasks.find((t) => t.id === 't1').xpPaid, 10)
+store.finishTask('t2', today)
+s9j = store.getStateWithComputed()
+check('2/3 today → pet.xp = 20', s9j.pet.xp, 20)
+store.finishTask('t3', today)
+s9j = store.getStateWithComputed()
+// 3/3 perfect-day: 单题 30 + dailyBonus base 30 + early-bird 0(22:00) = 60
+check('3/3 today perfect → pet.xp = 60 (30 + 30)', s9j.pet.xp, 60)
+check('lastReward.dailyXp = 30', s9j.lastReward.dailyXp, 30)
+check('bonusByDay[today].xpDailyBonus = 30', s9j.bonusByDay[today].xpDailyBonus, 30)
+
+// revert t3 → 退 10 XP(单题)+ 30 XP(perfect bonus)= 40 XP,留 20。
+store.revertTask('t3', today)
+s9j = store.getStateWithComputed()
+check('revert t3 → pet.xp = 20 (refund 10 + 30)', s9j.pet.xp, 20)
+check('revert t3 → bonusByDay[today] cleared', !s9j.bonusByDay[today], true)
+
+// === Test 9k: 半属性 mult=0.5 → XP = floor(coins × 0.5) ===
+console.log('\n[xp] half-attr pet → mult=0.5:')
+seedFullAttrPet(2, today)
+let half = JSON.parse(storage['homework-pet-v1'])
+half.pet.happiness = 50; half.pet.fullness = 50; half.pet.cleanliness = 50; half.pet.health = 50
+half.pet.lastDecayAt = Date.now()  // 防衰减
+storage['homework-pet-v1'] = JSON.stringify(half)
+store = freshStore()
+store.finishTask('t1', today)
+let s9k = store.getStateWithComputed()
+check('half-attr 1/2 today → pet.xp = 5 (10×0.5)', s9k.pet.xp, 5)
+store.finishTask('t2', today)
+s9k = store.getStateWithComputed()
+// 2/2 perfect: 单题 (5+5) + dailyBonus base sum(xpPaid)=10 + early-bird 0 = 20
+check('half-attr 2/2 perfect → pet.xp = 20 (10 + 10)', s9k.pet.xp, 20)
+
+// === Test 9l: 全空属性 mult=0 → 不发 XP,coins 照发 ===
+console.log('\n[xp] empty-attr pet → mult=0, coins still paid:')
+seedFullAttrPet(1, today)
+let zero = JSON.parse(storage['homework-pet-v1'])
+zero.pet.happiness = 0; zero.pet.fullness = 0; zero.pet.cleanliness = 0; zero.pet.health = 0
+zero.pet.lastDecayAt = Date.now()
+storage['homework-pet-v1'] = JSON.stringify(zero)
+store = freshStore()
+store.finishTask('t1', today)
+let s9l = store.getStateWithComputed()
+check('empty-attr 1/1 perfect → coins = 20 (still paid)', s9l.coins, 20)
+check('empty-attr 1/1 perfect → pet.xp = 0', s9l.pet.xp, 0)
+check('empty-attr → task.xpPaid = 0', s9l.tasks.find((t) => t.id === 't1').xpPaid, 0)
 
 // === Test 10: PET_SPECIES includes parrot ===
 console.log('\n[species] roster:')

@@ -1,11 +1,11 @@
 'use strict'
 
-// 奖励 / 金币账本回归测试。29 个断言,覆盖:
+// 奖励 / 金币账本回归测试。103 个断言,覆盖:
 //   - finishTask 单题奖、daily-perfect base、early-bird、weekly streak
 //   - addTask / importSharedNotebook 触发的 perfectDay 回收(reconcilePerfectDays)
-//   - revertTask 同时退单题奖 + 回收当日完美奖
+//   - revertTask 同时退单题奖 + 回收当日完美奖(coin + xp)
 //   - DAILY_COMPLETION_CAP 与回收循环交互
-//   - 宠物 buyItem / levelUpPet 走 applyCoinDelta
+//   - 宠物 buyItem / 换皮 走 applyCoinDelta;levelUpPet 走 XP(不进 coin ledger)
 //   - applyHydratedState 把 pendingCoinEvents 的 delta 加回乐观本地余额
 //
 // 何时跑:任何 store.js / cloud-sync.js / coin-ledger.js / coinLedger 云函数
@@ -365,34 +365,38 @@ assert('正常路径 revoke:有 ledgerEventId,coins 正确扣回',
   coinsAfterFinish - coinsAfterRevert === expectedDrop,
   `finish=${coinsAfterFinish} revert=${coinsAfterRevert} expected drop=${expectedDrop}`)
 
-// ===== Scenario 6: 三类 pet 动作都进 coin ledger =====
-console.log('\n[6] Pet purchases / level-up / skin switch all queue coin events')
-seed({ coins: 5000, pet: { species: 'sheep', name: '阿羊', level: 1, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
+// ===== Scenario 6: pet 动作:buyItem / skin switch 进 coin ledger;levelUp 走 XP 不进 ledger =====
+console.log('\n[6] Pet purchases / skin switch queue coin events; level-up consumes XP only')
+seed({ coins: 5000, pet: { species: 'sheep', name: '阿羊', level: 1, xp: 0, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
 const shopItems = st().shopItems
 const affordable = shopItems.find((it) => it.price <= 50 && !it.happiness)
 s.buyItem(affordable.id)
 let last = pendingLast(1)[0]
 assert('buyItem → pet_purchase event', last.kind === 'pet_purchase' && last.delta === -affordable.price)
 
-// levelUpPet 现在花金币:Lv.1 → Lv.2 = 20 金币,扣金币 + level++ + 发
-// pet_level_up 事件。 金币不够时返 insufficient-coins。
-const coinsBefore = st().coins
+// levelUpPet 现在花 XP,不花金币:扣 getXpForLevel(level) → level++,溢出 XP 留下。
+// xp 不够时返 insufficient-xp,不动 state,也不发 coin event。
+seed({ coins: 5000, pet: { species: 'sheep', name: '阿羊', level: 1, xp: 200, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
+const coinsBefore6 = st().coins
+const xpBefore = st().pet.xp
 const levelBefore = st().pet.level
+const pendingBefore = st().pendingCoinEvents.length
 const lvUp = s.levelUpPet()
-assert('levelUpPet ok at Lv.1', lvUp && lvUp.ok && lvUp.level === levelBefore + 1)
-assert('levelUpPet deducts getLevelCost(1) = 20', st().coins === coinsBefore - 20,
-  `before=${coinsBefore} after=${st().coins}`)
-last = pendingLast(1)[0]
-assert('levelUpPet → pet_level_up event delta=-20', last.kind === 'pet_level_up' && last.delta === -20)
+assert('levelUpPet ok at Lv.1 (xp=200 ≥ 100)', lvUp && lvUp.ok && lvUp.level === levelBefore + 1)
+assert('levelUpPet deducts getXpForLevel(1) = 100; 溢出 100 留下', st().pet.xp === xpBefore - 100,
+  `xpBefore=${xpBefore} after=${st().pet.xp}`)
+assert('levelUpPet 返回 xp = 100 (溢出)', lvUp.xp === 100)
+assert('levelUpPet 不动 coins', st().coins === coinsBefore6)
+assert('levelUpPet 不发 coin event', st().pendingCoinEvents.length === pendingBefore)
 assert('levelUpPet stamps lastLeveledAt', st().pet.lastLeveledAt != null)
 
-// 金币不够时不动 state,返 insufficient-coins。
-// Lv.50→51 cost = 1000,coins=500 → need=500。
-seed({ coins: 500, pet: { species: 'cat', name: 'P', level: 50, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
+// xp 不够时不动 state,返 insufficient-xp。Lv.50→51 cost = 1472,xp=500 → need=972。
+seed({ coins: 0, pet: { species: 'cat', name: 'P', level: 50, xp: 500, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
 const denyResult = s.levelUpPet()
-assert('levelUpPet denies when coins < cost',
-  denyResult && !denyResult.ok && denyResult.reason === 'insufficient-coins' && denyResult.need === 500)
-assert('denied levelUpPet does not touch coins', st().coins === 500)
+assert('levelUpPet denies when xp < cost',
+  denyResult && !denyResult.ok && denyResult.reason === 'insufficient-xp' && denyResult.need === 972,
+  `result=${JSON.stringify(denyResult)}`)
+assert('denied levelUpPet does not touch xp', st().pet.xp === 500)
 assert('denied levelUpPet does not touch level', st().pet.level === 50)
 
 // switchPetSpecies: 不同物种 + 余额够 → 扣 PET_SWITCH_COST(100) 并发 pet_skin_switch 事件。

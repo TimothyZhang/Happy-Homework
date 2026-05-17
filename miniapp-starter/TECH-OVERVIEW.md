@@ -167,17 +167,17 @@ node scripts/perf-correctness.js          # 76 项行为对账
 
 ### 3.7 奖励 / 金币账本回归测试
 
-`scripts/test-rewards.js` —— 29 个断言覆盖完整的金币流:
-- `finishTask` 单题奖 / daily-perfect base / early-bird / weekly streak
+`scripts/test-rewards.js` —— 103 个断言覆盖完整的金币 + XP 流:
+- `finishTask` 单题奖 / daily-perfect base / early-bird / weekly streak(coin + xp)
 - `addTask` 触发的 perfectDay 回收(`reconcilePerfectDays`)与重发
-- `revertTask` 同时退单题奖 + 回收当日完美奖
+- `revertTask` 同时退单题奖 + 回收当日完美奖(coin + xp 双轨)
 - `DAILY_COMPLETION_CAP` 与回收循环的交互
-- 宠物 `buyItem` / `levelUpPet` 走 `applyCoinDelta`
+- 宠物 `buyItem` / 换皮走 `applyCoinDelta`;`levelUpPet` 走 XP,不发任何 coin event
 - `applyHydratedState` 把 `pendingCoinEvents` 的 delta 加回乐观本地余额
 
 任何 `store.js` / `cloud-sync.js` / `coin-ledger.js` / `coinLedger` 云函数的改动之后都要跑:
 ```
-node scripts/test-rewards.js              # 29 个断言全过为通过
+node scripts/test-rewards.js              # 103 个断言全过为通过
 ```
 stub 了 `wx.storage` 和 `wx.cloud`,测的是客户端逻辑 + `pendingCoinEvents` 队列内容;服务端账本一致性还得部署联调。
 

@@ -248,27 +248,49 @@ function petAgeDays(pet) {
 // medicine). See V1-VALUES-DESIGN.md §3 for the rationale.
 const PET_DECAY_PER_HOUR = { fullness: 4, cleanliness: 3, happiness: 3, health: 2.5 }
 
-// 升级:手动按按钮花金币升级。 levelUpPet() 从 state.coins 扣 getLevelCost(level)
-// 后 level += 1。没有自动累加经验。Lv.k → Lv.k+1 的花费 = level × LEVEL_COST_PER_STEP。
+// 升级:XP 满 → 用户手动点按钮升级。levelUpPet() 检查 pet.xp >= getXpForLevel(level),
+// 扣掉 cost,level +=1,溢出的 XP 留作下一级的进度。XP 不进金币 ledger
+// (云端账本只管金币),靠 pet 字段随 SYNC_FIELDS 同步。
 //
-// 曲线设计目标:Lv.90-100 段约 2 周升一级(典型玩家 ~130 金币/天净产出 × 14 天
-// ≈ 1820 金币/级)。LEVEL_COST_PER_STEP = 20 让 Lv.99→100 = 1980 金币 ≈ 15 天。
+// XP 来源:跟金币 1:1,但乘以"四项属性平均值倍率"(全满 1.0× / 全空 0×)。
+// 维持属性 = ROI 最高。详见 attrMultiplier + finishTask 里的 xp 写入。
 //
-//   Lv.1→2  :    20 金币 (≈ 头几小时)
-//   Lv.10→11:   200 金币 (≈ 1.5 天)
-//   Lv.50→51: 1000 金币 (≈ 1 周)
-//   Lv.90→91: 1800 金币 (≈ 2 周) ✓
-//   Lv.99→100: 1980 金币 (≈ 2 周) ✓
-//
-// 累计到 Lv.100 = sum(1..99) × 20 = 99000 金币 ≈ 2 年。前期飞快(开局头一天可
-// 连升 5-9 级),后期慢慢消耗 — 标准养成游戏曲线。
+// 曲线:cost(level) = level × XP_PER_LEVEL_BASE + XP_PER_LEVEL_OFFSET
+//                  = level × 28 + 72
+//   Lv.1→2   = 100   (满速 0.5 天)
+//   Lv.10→11 = 352   (~1.76 天)
+//   Lv.50→51 = 1472  (~7.36 天)
+//   Lv.90→91 = 2592  (~13 天)
+//   Lv.99→100= 2844  (~14.22 天) ✓
+// 累计 sum(1..99) = 145728 XP ≈ 730 天满速 ≈ 2 年。
 const LEVEL_MAX = 100
-const LEVEL_COST_PER_STEP = 20
+const XP_PER_LEVEL_BASE = 28
+const XP_PER_LEVEL_OFFSET = 72
 
-function getLevelCost(level) {
+// 升到 level+1 需要的 XP。已满级返 0(UI 用 0 判定 MAX)。
+function getXpForLevel(level) {
   const lvl = Math.max(1, level | 0)
   if (lvl >= LEVEL_MAX) return 0
-  return lvl * LEVEL_COST_PER_STEP
+  return lvl * XP_PER_LEVEL_BASE + XP_PER_LEVEL_OFFSET
+}
+
+// 四项属性平均值 / 100 = XP 倍率。pet 不存在或没 species 返 0(没宠物不发 XP)。
+// 注意:传进来的 pet 必须是已 commitPetDecay 之后的最新值,否则 mult 会偏高。
+function attrMultiplier(pet) {
+  if (!pet || !pet.species) return 0
+  const avg = ((pet.fullness | 0) + (pet.cleanliness | 0) +
+               (pet.happiness | 0) + (pet.health | 0)) / 4
+  if (avg <= 0) return 0
+  if (avg >= 100) return 1
+  return avg / 100
+}
+
+// base coin → xp:乘 mult,floor。base=0 时早退避免 (0 × 0).
+function xpForReward(baseCoins, pet) {
+  if (!baseCoins) return 0
+  const m = attrMultiplier(pet)
+  if (m <= 0) return 0
+  return Math.floor(baseCoins * m)
 }
 
 // Pure: returns pet with stats reduced by elapsed-time decay (rounded to ints
@@ -561,8 +583,10 @@ function migrateState(raw) {
       if (raw.pet.fullness == null)         raw.pet.fullness         = 80
       if (raw.pet.cleanliness == null)      raw.pet.cleanliness      = 90
       if (raw.pet.health == null)           raw.pet.health           = 95
-      // 老 exp/freeze 模型已废弃 — strip 历史字段,云端 doc 不再带它们。
-      // lastLeveledAt 保留(给 pet 页升级 toast 复用)。
+      // xp: 新引入字段(经验值升级模型)。老用户从 0 开始攒,不影响 level。
+      if (raw.pet.xp == null)               raw.pet.xp               = 0
+      // 老 exp/growth/freeze 模型已废弃 — strip 历史字段。
+      // 注意:xp 是新字段,不在 strip 列表里。
       if ('exp' in raw.pet)                   delete raw.pet.exp
       if ('happinessLastDecayAt' in raw.pet)  delete raw.pet.happinessLastDecayAt
       if ('growth' in raw.pet)                delete raw.pet.growth
@@ -702,7 +726,11 @@ function defaultOccurrence() {
     // varies by overdue/today/future and by the 20-cap status). null means
     // unfinished or paid before this field existed (legacy → treat as 0).
     rewardPaid: null,
-    rewardKind: null
+    rewardKind: null,
+    // 经验值发放快照 — finishTask 写,revertTask 据此精确扣回。
+    // 因为 XP = floor(coins × attrMultiplier(pet)),后续衰减会改 mult,
+    // 直接 floor(rewardPaid × 当前 mult) 不等于当时实发的 XP,所以必须存。
+    xpPaid: null
   }
 }
 
@@ -721,7 +749,8 @@ function getTaskState(task, dateStr) {
       completedAt: task.completedAt || null,
       actualMinutes: task.actualMinutes || null,
       rewardPaid: task.rewardPaid != null ? task.rewardPaid : null,
-      rewardKind: task.rewardKind || null
+      rewardKind: task.rewardKind || null,
+      xpPaid: task.xpPaid != null ? task.xpPaid : null
     }
   }
   const occ = (task.occurrences || {})[dateStr]
@@ -1033,6 +1062,16 @@ function applyCoinDelta(state, kind, delta, meta) {
     state.coinLogs = state.coinLogs.slice(state.coinLogs.length - COIN_LOG_KEEP)
   }
   return eventId
+}
+
+// In-updater XP mutation. Caller must be inside `updateState((state) => {...})`.
+// XP 不走云端账本(没有 server-side ledger for xp,跟 happiness/fullness 一样
+// 是 pet 字段,SYNC_FIELDS 把整个 pet 推上去)。clip 到 [0, +∞)。
+function applyPetXpDelta(state, delta) {
+  if (!delta) return
+  if (!state.pet || !state.pet.species) return
+  const cur = state.pet.xp | 0
+  state.pet.xp = Math.max(0, cur + Math.trunc(delta))
 }
 
 // Read-only snapshot of unflushed events; coin-ledger module pulls this batch.
@@ -1580,6 +1619,12 @@ function revokePerfectDay(state, day) {
   const log = state.bonusByDay && state.bonusByDay[day]
   if (log) {
     const totalBonus = (log.dailyBonus || 0) + (log.weeklyBonus || 0)
+    // XP 退款:bonusByDay 里直接存了当时发的 xpDailyBonus / xpWeeklyBonus,
+    // 跟金币 totalBonus 同步处理;legacy log 没存就当 0。XP 不进云端 ledger,
+    // 所以这里不用 ledgerEventId 守卫:本地 pet.xp 是唯一 source of truth,
+    // 直接扣回 0-clip 安全。
+    const totalXp = (log.xpDailyBonus || 0) + (log.xpWeeklyBonus || 0)
+    if (totalXp > 0) applyPetXpDelta(state, -totalXp)
     // 守卫:只有 bonusByDay[day] 带 ledgerEventId(代表 finishTask 入账
     // 真的走过 applyCoinDelta → coinLogs/pending)才发 task_refund。
     // 老路径残留(ledger 上线前 cloud-sync 直接覆写 coins,bonusByDay
@@ -1649,6 +1694,9 @@ function revertTask(taskId, dateStr) {
     // before rewardPaid existed are treated as having paid 10 (the old flat
     // per-task amount) so revert still claws back something reasonable.
     const refund = cur.rewardPaid != null ? cur.rewardPaid : REWARD_TASK_TODAY
+    // XP refund:精确按当时实发的 xpPaid 退,跟 mult 当前值无关。
+    // legacy occurrences(xpPaid 还没存)按 0 算 — 老数据不退 XP,新数据精确退。
+    const xpRefund = cur.xpPaid != null ? cur.xpPaid : 0
 
     const patch = {
       status: 'paused',
@@ -1656,7 +1704,8 @@ function revertTask(taskId, dateStr) {
       actualMinutes: null,
       currentSegmentStartedAt: null,
       rewardPaid: null,
-      rewardKind: null
+      rewardKind: null,
+      xpPaid: null
     }
     state.tasks = state.tasks.map((t) =>
       t.id === taskId ? applyTaskState(t, day, patch) : t
@@ -1664,6 +1713,9 @@ function revertTask(taskId, dateStr) {
 
     if (refund > 0) {
       applyCoinDelta(state, 'task_refund', -refund, { taskId, day, reason: 'task_revert' })
+    }
+    if (xpRefund > 0) {
+      applyPetXpDelta(state, -xpRefund)
     }
 
     // Free up the slot in the cap counter for the wall-clock day the
@@ -1719,6 +1771,10 @@ function finishTask(taskId, dateStr) {
       state.pet = commitPetDecay(state.pet)
     }
 
+    // 单题 XP:base = taskReward,乘以四属性平均的倍率(全空 0)。
+    // mult 是衰减刷新后的当前值 —— 学生哪一刻完成,就锁那一刻的属性。
+    const taskXp = xpForReward(taskReward, state.pet)
+
     const patch = {
       status: 'done',
       accumulatedMs: totalMs,
@@ -1726,7 +1782,8 @@ function finishTask(taskId, dateStr) {
       actualMinutes: Math.max(1, Math.round(totalMs / 60000)),
       currentSegmentStartedAt: null,
       rewardPaid: taskReward,
-      rewardKind
+      rewardKind,
+      xpPaid: taskXp
     }
     state.tasks = state.tasks.map((t) =>
       t.id === taskId ? applyTaskState(t, day, patch) : t
@@ -1757,6 +1814,10 @@ function finishTask(taskId, dateStr) {
     const todayCleared = todayViewItems.length > 0 &&
       todayViewItems.every((it) => it.occurrence.status === 'done')
 
+    // XP daily-perfect base = sum of xpPaid (with mult-adjusted单题 xp).
+    // 跟金币 dailyBonus = sum(rewardPaid) 同形,但乘了倍率,所以不能直接复用 baseBonus。
+    let dailyXp = 0
+    let weeklyXp = 0
     if (allDone) {
       if (!Array.isArray(state.perfectDays)) state.perfectDays = []
       if (!state.perfectDays.includes(day)) {
@@ -1771,6 +1832,14 @@ function finishTask(taskId, dateStr) {
         )
         dailyBonus = baseBonus + earlyBirdBonus(new Date(now))
         reward += dailyBonus
+
+        // 同步算 XP 版的 dailyBonus:单题部分 = sum(xpPaid),早完成奖直接乘当前 mult。
+        // 单题部分自动 cap-aware(被 cap 的 xpPaid 已经是 0)。
+        const baseXp = todayItems.reduce(
+          (sum, it) => sum + (it.occurrence.xpPaid || 0),
+          0
+        )
+        dailyXp = baseXp + xpForReward(earlyBirdBonus(new Date(now)), state.pet)
 
         // Snapshot streak BEFORE the increment so revertTask can restore it.
         const prevStreakDays = state.streakDays || 0
@@ -1790,6 +1859,7 @@ function finishTask(taskId, dateStr) {
         if (state.streakDays > 0 && state.streakDays % 7 === 0) {
           weeklyBonus = REWARD_WEEKLY_STREAK
           reward += weeklyBonus
+          weeklyXp = xpForReward(REWARD_WEEKLY_STREAK, state.pet)
         }
 
         // Stash exact bonus paid + pre-update streak. revertTask refunds from
@@ -1799,8 +1869,12 @@ function finishTask(taskId, dateStr) {
         // 入账真的发生过(写进 coinLogs / pending queue)。revokePerfectDay
         // 用它判断要不要发 task_refund:没标记的天数 = 老路径残留或 flush
         // 丢失的虚账,只清 bonusByDay 不退款,避免 over-clawback。
+        // xpDailyBonus / xpWeeklyBonus 同时存进来,revoke 时按这个数退 XP。
         if (!state.bonusByDay || typeof state.bonusByDay !== 'object') state.bonusByDay = {}
-        state.bonusByDay[day] = { dailyBonus, weeklyBonus, prevStreakDays }
+        state.bonusByDay[day] = {
+          dailyBonus, weeklyBonus, prevStreakDays,
+          xpDailyBonus: dailyXp, xpWeeklyBonus: weeklyXp
+        }
       }
     }
 
@@ -1815,12 +1889,21 @@ function finishTask(taskId, dateStr) {
         state.bonusByDay[day].ledgerEventId = eventId
       }
     }
+
+    // XP 入账:跟金币 reward 同步,直接加到 pet.xp。没 pet / mult=0 时 totalXp=0,
+    // applyPetXpDelta 自然 no-op。
+    const totalXp = taskXp + dailyXp + weeklyXp
+    if (totalXp > 0) applyPetXpDelta(state, totalXp)
+
     state.lastReward = {
       reward,
       taskReward,
       rewardKind,
       dailyBonus,
       weeklyBonus,
+      taskXp,
+      dailyXp,
+      weeklyXp,
       taskId,
       finishedAt: now,
       todayCleared
@@ -1846,12 +1929,15 @@ function buyItem(itemId) {
   })
 }
 
-// 手动升级:花 getLevelCost(level) 金币 → level += 1。
+// 手动升级:扣 getXpForLevel(level) 经验 → level += 1。溢出的 XP 留到下一级,
+// 防止"卡了一会才点升级"丢经验。一次只升一级 —— 即使 xp 够升两级,也要再点一下,
+// 播两次升级动画(spec 要求"手动点一下播放升级动画")。
+//
 // 返回值约定:
-//   { ok: true, level }          — 升级成功
-//   { ok: false, reason: 'no-pet' }              — 还没设置宠物
-//   { ok: false, reason: 'max-level' }           — 已满级
-//   { ok: false, reason: 'insufficient-coins', need, have } — 金币不够
+//   { ok: true, level, xp }                       — 升级成功;xp = 扣完 cost 后剩余
+//   { ok: false, reason: 'no-pet' }               — 还没设置宠物
+//   { ok: false, reason: 'max-level' }            — 已满级
+//   { ok: false, reason: 'insufficient-xp', need, have } — XP 不够
 function levelUpPet() {
   let result = null
   updateState((state) => {
@@ -1864,18 +1950,18 @@ function levelUpPet() {
       result = { ok: false, reason: 'max-level' }
       return state
     }
-    const cost = getLevelCost(prevLevel)
-    const coins = state.coins || 0
-    if (coins < cost) {
-      result = { ok: false, reason: 'insufficient-coins', need: cost - coins, have: coins }
+    const cost = getXpForLevel(prevLevel)
+    const xp = state.pet.xp | 0
+    if (xp < cost) {
+      result = { ok: false, reason: 'insufficient-xp', need: cost - xp, have: xp }
       return state
     }
     state.pet = commitPetDecay(state.pet)
-    applyCoinDelta(state, 'pet_level_up', -cost, { fromLevel: prevLevel, toLevel: prevLevel + 1 })
+    state.pet.xp = xp - cost
     state.pet.level = prevLevel + 1
     state.pet.lastLeveledAt = Date.now()
     state.lastLevelUp = { level: state.pet.level, at: Date.now() }
-    result = { ok: true, level: state.pet.level }
+    result = { ok: true, level: state.pet.level, xp: state.pet.xp }
     return state
   })
   return result
@@ -1894,6 +1980,7 @@ function setupPet({ species, name }) {
       bornAt: now,
       lastDecayAt: now,
       level: 1,
+      xp: 0,
       happiness: 100,
       fullness: 100,
       cleanliness: 100,
@@ -2370,7 +2457,11 @@ module.exports = {
   PET_SWITCH_COST,
   PET_DECAY_PER_HOUR,
   LEVEL_MAX,
-  getLevelCost,
+  XP_PER_LEVEL_BASE,
+  XP_PER_LEVEL_OFFSET,
+  getXpForLevel,
+  attrMultiplier,
+  xpForReward,
   petAgeDays,
   deriveAnimState,
   setupPet,

@@ -96,15 +96,21 @@
             <text class="level-label">已满级 Lv.{{levelMax}}</text>
             <text class="level-cost">MAX</text>
           </view>
+          <view class="xp-bar xp-bar-max">
+            <view class="xp-bar-fill" style="width: 100%"></view>
+          </view>
           <text class="level-hint">恭喜达到最高等级,继续每天陪它吧～</text>
         </block>
         <block wx:else>
           <view class="level-row">
             <text class="level-label">升到 Lv.{{pet.level + 1}}</text>
-            <text class="level-cost">花 {{levelCost}} 金币</text>
+            <text class="level-cost">{{xp}} / {{xpNeeded}} XP</text>
+          </view>
+          <view class="xp-bar {{canLevelUp ? 'xp-bar-ready' : ''}}">
+            <view class="xp-bar-fill" style="width: {{xpPercent}}%"></view>
           </view>
           <button class="level-up-btn {{canLevelUp ? '' : 'disabled'}}" bindtap="handleLevelUp">
-            {{canLevelUp ? '升级' : '金币不够'}}
+            {{canLevelUp ? '升级!' : '经验值还不够'}}
           </button>
         </block>
       </view>
@@ -165,6 +171,23 @@
       </view>
     </view>
   </block>
+
+  <!-- 升级动画覆盖层 — 由 handleLevelUp 触发,2.4s 后自动消失。
+       全屏暗色背景 + 中央大字 "Lv.X" 弹出 + 星星散开。catchtap 防穿透。 -->
+  <view wx:if="{{showLevelUpAnim}}" class="level-up-overlay" catchtap="">
+    <view class="level-up-burst">
+      <text class="level-up-star star-1">✨</text>
+      <text class="level-up-star star-2">⭐</text>
+      <text class="level-up-star star-3">✨</text>
+      <text class="level-up-star star-4">⭐</text>
+      <text class="level-up-star star-5">✨</text>
+      <text class="level-up-star star-6">⭐</text>
+    </view>
+    <view class="level-up-text">
+      <text class="level-up-line-1">LEVEL UP!</text>
+      <text class="level-up-line-2">Lv.{{levelUpToLevel}}</text>
+    </view>
+  </view>
 
   <view wx:if="{{showSwitchPanel}}" class="switch-mask" bindtap="handleCloseSwitchPanel">
     <view class="switch-sheet" catchtap="">
