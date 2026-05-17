@@ -528,6 +528,110 @@
 }
 .level-up-btn::after { border: none; }
 
+/* === XP progress bar — 替换原来的"花 N 金币"行 === */
+.xp-bar {
+  margin-top: 10rpx;
+  height: 18rpx;
+  border-radius: 999rpx;
+  background: #edf0f3;
+  overflow: hidden;
+  position: relative;
+}
+.xp-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6aa6ff 0%, #245bdb 100%);
+  border-radius: 999rpx;
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+/* 经验值满 → 进度条变金色 + 微微脉动,提示"可以点升级了"。 */
+.xp-bar-ready .xp-bar-fill {
+  background: linear-gradient(90deg, #ffcf6a 0%, #ff9c1f 100%);
+  animation: xp-ready-pulse 1.6s ease-in-out infinite;
+}
+.xp-bar-max .xp-bar-fill {
+  background: linear-gradient(90deg, #ffd166 0%, #f5a623 100%);
+}
+@keyframes xp-ready-pulse {
+  0%, 100% { filter: brightness(1);    box-shadow: 0 0 0 rgba(255, 156, 31, 0); }
+  50%      { filter: brightness(1.15); box-shadow: 0 0 12rpx rgba(255, 156, 31, 0.5); }
+}
+
+/* === 升级动画 overlay === */
+.level-up-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at center, rgba(20, 30, 60, 0.55) 0%, rgba(20, 30, 60, 0.85) 100%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: level-up-fade-in 0.18s ease-out;
+}
+@keyframes level-up-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.level-up-text {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12rpx;
+}
+.level-up-line-1 {
+  font-size: 56rpx;
+  font-weight: 900;
+  color: #ffd166;
+  letter-spacing: 6rpx;
+  text-shadow: 0 4rpx 18rpx rgba(255, 209, 102, 0.6),
+               0 0 32rpx rgba(255, 209, 102, 0.45);
+  animation: level-up-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.level-up-line-2 {
+  font-size: 140rpx;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 6rpx 24rpx rgba(255, 255, 255, 0.4),
+               0 0 60rpx rgba(255, 209, 102, 0.55);
+  animation: level-up-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.15s both;
+}
+@keyframes level-up-pop {
+  0%   { transform: scale(0.2) rotate(-8deg); opacity: 0; }
+  60%  { transform: scale(1.15) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0);       opacity: 1; }
+}
+.level-up-burst {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.level-up-star {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 56rpx;
+  line-height: 1;
+  opacity: 0;
+  animation: star-fly 1.6s ease-out 0.3s forwards;
+}
+/* 6 颗星呈放射状散开。每颗 angle / distance 不一样,通过 --tx --ty 自定义。 */
+.star-1 { --tx: -340rpx; --ty: -260rpx; animation-delay: 0.30s; }
+.star-2 { --tx:  340rpx; --ty: -260rpx; animation-delay: 0.36s; }
+.star-3 { --tx: -380rpx; --ty:   40rpx; animation-delay: 0.42s; }
+.star-4 { --tx:  380rpx; --ty:   40rpx; animation-delay: 0.48s; }
+.star-5 { --tx: -300rpx; --ty:  280rpx; animation-delay: 0.54s; }
+.star-6 { --tx:  300rpx; --ty:  280rpx; animation-delay: 0.60s; }
+@keyframes star-fly {
+  0%   { transform: translate(-50%, -50%) scale(0.4) rotate(0);    opacity: 0; }
+  20%  { transform: translate(-50%, -50%) scale(1.4) rotate(40deg); opacity: 1; }
+  100% {
+    transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(1) rotate(180deg);
+    opacity: 0;
+  }
+}
+
 .stat-block { margin-top: 18rpx; }
 .stat-row {
   display: flex;

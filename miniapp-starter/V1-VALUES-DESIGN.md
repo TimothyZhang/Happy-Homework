@@ -100,8 +100,9 @@
 | 7 | 🏃 | 健身房一次 | 健康+55 | 35 | 中档 | health |
 | 8 | 🎁 | 礼物盒     | 开心+50 | 36 | 中档 | happiness |
 
-> 注：旧版本里每个道具有 `growth` 字段,用来推升级条。升级改为"消耗金币"后,`growth` 已删。
+> 注：旧版本里每个道具有 `growth` 字段,用来推升级条。升级改为"消耗经验值"后,`growth` 已删,道具只补四项属性。
 > 注 2：`shopItems` 是配置而非用户状态,`migrateState` 在每次启动时都会从 `defaultState` 刷新一次,改完道具后老用户也能拿到新表,不需要清缓存。
+> 注 3：商店道具间接对升级也有影响 —— 属性越高,完成作业获得的 XP 倍率越大(§5)。所以"持续照料宠物"既是为了不让动画掉到 sick/sad,也是为了升级跑得快。
 
 ### 一日典型消费（参考）
 - 饱腹早晚补一次：胡萝卜 16 + 便当 28 ≈ **44**（或两次胡萝卜 32）
@@ -113,66 +114,98 @@
 
 > 维护提示：如果觉得开心补给开销太重,优先把玩具球价格降到 16-18(便宜档下限),不要降效果——道具效果跟其他三项保持对称才能让 buyItem 应用代码保持简单。
 
-## 5. 升级曲线（消耗金币换等级）
+## 5. 升级曲线（经验值,跟属性挂钩）
 
-`getLevelCost(level) = level × 20` —— 线性,从 Lv.1→2 = 20 金币起步,到 Lv.99→100 = 1980 金币。`LEVEL_MAX = 100`。曲线设计目标:**Lv.90-100 段约 2 周/级**(典型玩家日均净 130 金币 × 14 天 ≈ 1820 金币/级)。前期飞快(开局头一天能连升 5-9 级),后期匀速 2 周/级,养成游戏标准曲线。
+升级走 XP,不再花金币。XP 来源跟金币 1:1,但乘以「四项属性平均值倍率」 —— 不照顾宠物就升不上去。手动点按钮升级,播全屏动画。
 
-| 关键级 | 单步 cost | 累计 cost | 升一级耗时（净 130 金币/天） |
-| --- | --- | --- | --- |
-| Lv.1→2   |   20 |   20  | 几小时 |
-| Lv.5→6   |  100 |  300  | < 1 天 |
-| Lv.10→11 |  200 | 1100  | 1.5 天 |
-| Lv.20→21 |  400 | 4200  | 3 天 |
-| Lv.50→51 | 1000 | 25500 | 1 周 |
-| Lv.90→91 | 1800 | 81900 | 14 天 ✓ |
-| Lv.99→100| 1980 | 99000 | 15 天 ✓ |
+### 5.1 XP 来源（满属性下 = 跟金币 1:1）
 
-总到 Lv.100 ≈ 99000 金币 ≈ 2 年。
+`attrMultiplier(pet) = (fullness + cleanliness + happiness + health) / 400`,clip 至 [0, 1]。
+`xpForReward(coins, pet) = floor(coins × attrMultiplier(pet))`。
 
-**Why 是消耗式而不是 XP**：
-1. UI 简单——一个按钮 + 一个 cost 数字就完事,不需要新的 XP 字段同步
-2. 让金币真正"值钱"——用户必须在"喂宠物 vs 攒升级"之间做权衡
-3. 升级动作有仪式感——用户主动按按钮"升",比沉默地经验涨满更带感
+每次发金币的同时发 XP,XP 写到 `state.pet.xp`(随 `pet` 整体走 SYNC_FIELDS 同步,不进 coin ledger):
 
-UI 上,pet 页只显示 `升到 Lv.X+1` + `花 N 金币`;余额够就高亮"升级"按钮,不够灰显"金币不够"。点击 confirm modal 后扣金币 + 等级 +1 + 发一条 `pet_level_up` ledger event(`-N` 金币)。
+| 触发 | base coins | base XP（mult=1.0 时） |
+| --- | --- | --- |
+| 单题-当日 / 提前 / 补做 | 10 / 15 / 5 | 10 / 15 / 5 |
+| 单题 capped(≥20 项后) | 0 | 0 |
+| Daily-perfect base | sum(rewardPaid) | sum(xpPaid) |
+| Early-bird(<19/20/21) | 50 / 30 / 20 / 0 | × mult,floor |
+| Weekly streak(连 7 天) | 100 | × mult,floor |
 
-`levelUpPet()` 返回值约定:
-- `{ ok: true, level }` — 升级成功
+**为什么 base XP 不在外面单乘一次,而是 `sum(xpPaid)`**：单题 XP 在 finishTask 当下已经 `floor(coins × mult)` 写进 `occurrence.xpPaid`,等到最后一题触发 daily-perfect 时直接累加这些 xpPaid 即可。这样 cap-aware(被 cap 的单题 xpPaid=0,自动不贡献)、跨时段一致(中途属性变化不会回溯改写已发的 xp)。Early-bird 和 weekly streak 是 finishTask 当下用当前 mult 一次性算。
+
+满速假设(mult=1.0、70% 完美日、22:00 无 early-bird)→ 日均约 **200 XP**(跟金币 §2 同步)。
+
+### 5.2 升级公式
+
+`getXpForLevel(level) = level × XP_PER_LEVEL_BASE + XP_PER_LEVEL_OFFSET = level × 28 + 72`,`LEVEL_MAX = 100`。线性等差,首项 100、公差 28。
+
+| 关键级 | 单步 cost | 累计 cost | 升一级耗时(满速 200 XP/天) | mult=0.65 时 |
+| --- | ---: | ---: | ---: | ---: |
+| Lv.1→2    |  100 |    100 | 0.5 天 | 0.8 天 |
+| Lv.5→6    |  212 |    880 | 1.06 天 | 1.6 天 |
+| Lv.10→11  |  352 |   2520 | 1.76 天 | 2.7 天 |
+| Lv.20→21  |  632 |   7920 | 3.16 天 | 4.9 天 |
+| Lv.50→51  | 1472 |  36300 | 7.36 天 | 11.3 天 |
+| Lv.90→91  | 2592 | 113040 | 12.96 天 | 19.9 天 |
+| Lv.99→100 | 2844 | 145728 | **14.22 天** ✓ | 21.9 天 |
+
+累计到 Lv.100 = 145728 XP ≈ **730 天满速 ≈ 2 年**。半喂场景(mult≈0.65)≈ 3 年,跟旧金币方案对齐。完全不喂(avg<30,mult≈0.25)≈ 8 年,"摆烂只刷作业"被自然劝退。
+
+### 5.3 levelUpPet() 行为
+
+XP 满即可点 —— 没有金币 cost,没有 modal 弹窗。点击后扣 `getXpForLevel(level)` XP,`level += 1`,溢出的 XP 留作下一级进度。一次只升一级(spec:每次都要播一次升级动画),即使 xp 够升两级也要再点一次。
+
+返回值约定:
+- `{ ok: true, level, xp }` — 升级成功,xp = 扣完 cost 后剩余
 - `{ ok: false, reason: 'no-pet' }` — 还没设置宠物
 - `{ ok: false, reason: 'max-level' }` — 已满级
-- `{ ok: false, reason: 'insufficient-coins', need, have }` — 余额不够,UI 弹"还差 N 金币"
+- `{ ok: false, reason: 'insufficient-xp', need, have }` — XP 不够,UI 弹"还差 N XP"
 
-**视觉解锁**（极简）：等级显示从 `Lv.X` 开始,到 L3 加 ⭐,L5 加 👑。SVG 不变。
+### 5.4 revertTask 退 XP
+
+`occurrence.xpPaid` 在 finishTask 写,revertTask 据此精确扣回 `pet.xp`(`-xpPaid`)。perfect-day 的 `xpDailyBonus` / `xpWeeklyBonus` 存进 `bonusByDay[day]`,`revokePerfectDay` 扣回。clip 到 ≥ 0(用户可能升过一级把 xp 用掉了)。XP 不走云端账本,本地 pet.xp 是唯一 source of truth,不需要 `ledgerEventId` 守卫。
+
+### 5.5 视觉解锁
+
+等级显示从 `Lv.X` 开始,到 L3 加 ⭐,L5 加 👑。SVG 不变。升级 UI:XP 进度条(蓝色渐变,满了变金色+脉动);点击升级 → 触发 2.4s 全屏动画(暗背景 + 六颗星散开 + "LEVEL UP! Lv.X" 弹出),宠物同时 queue `celebrating` one-shot。
 
 ## 6. 闭环验算（日均）
 
 ```
-日均收入  ≈ 200     (§2 假设:12 项任务 / 70% 完美日)
-日均消耗 (商店) ≈ 100-110  (§4 修订后,含 happiness 道具)
-剩余    ≈ 90-100   →  攒升级用
+满属性 (mult=1.0):
+  金币:  日均收入 ≈ 200,扣商店 ≈ 100 = 净 100 攒钱(主要给 PET_SWITCH_COST / 换皮 / 道具应急)
+  XP  :  日均产出 ≈ 200(跟金币同步,但与金币消费无关)→ 全部用来升级
+
+属性平均 65 (mult=0.65,典型半喂):
+  金币:  同上 — 跟属性无关
+  XP  :  日均 ≈ 130 → Lv.99→100 ≈ 22 天/级,跟旧金币方案的节奏几乎一致
 ```
 
-按攒升级 90/天 节奏:
-- Lv.1→Lv.10: 累计 cost 1100 ÷ 90 ≈ **12 天**(约 2 周到 Lv.10,初期甜头充足)
-- Lv.10→Lv.50: 累计 cost 24400 ÷ 90 ≈ **270 天**(约 9 个月到 Lv.50)
-- Lv.50→Lv.90: 累计 cost 56400 ÷ 90 ≈ **626 天**(约 1.7 年从 Lv.50 到 Lv.90)
-- Lv.90→Lv.100: 累计 cost 17100 ÷ 90 ≈ **190 天**(约 6 个月,平均 14 天/级 = 2 周 ✓)
-- 总:**到 Lv.100 累计约 1100 天 ≈ 3 年**
+按满速 XP 200/天 节奏:
+- Lv.1→Lv.10:   2520 XP ÷ 200 ≈ **13 天**(约 2 周到 Lv.10,初期甜头充足)
+- Lv.10→Lv.50:  33780 XP ÷ 200 ≈ **169 天**(约 5.6 个月到 Lv.50)
+- Lv.50→Lv.90:  76740 XP ÷ 200 ≈ **384 天**(约 1 年从 Lv.50 到 Lv.90)
+- Lv.90→Lv.100: 32688 XP ÷ 200 ≈ **163 天**(约 5.4 个月,平均 14 天/级 = 2 周 ✓)
+- 总:**到 Lv.100 满速 ≈ 730 天 ≈ 2 年**(平均 mult=1.0,理想玩家)
+- 实际(mult≈0.65)≈ 3 年,跟旧金币方案对齐
 
 **节奏点评**:
-- 前 1 个月升 10-15 级,孩子能高频感受到进度
-- 中期(Lv.10-50)9 个月,每级 1-2 周,稳态期
+- 前 2 周升 10 级,孩子能高频感受到进度
+- 中期(Lv.10-50)5-9 个月,每级 1-2 周,稳态期
 - 后期(Lv.50+)真正的"长期目标",Lv.99→100 是真正的 2 周
-- 跟最初 exp 系统的"勤奋玩家 Lv.100 ~ 2.5 年"接近,但前期更甜
+- **关键变化**:玩家完全不喂宠物 → mult 趋近 0 → XP 几乎不涨 → 升级几乎不动。形成"维持属性"的强约束,不靠惩罚靠 ROI 自然引导。
 
 如果实际跑下来发现"升级太快/太慢",调节优先顺序：
-1. 先调 `LEVEL_COST_PER_STEP` 常量(`store.js` 顶部,默认 20)
-2. 不要去动单题 +5/+10/+15 的核心规则(用户硬性约束)
-3. 如果想让中后期更慢,改 `getLevelCost` 公式成 `level² × X` 这种非线性曲线
+1. 先调 `XP_PER_LEVEL_BASE` / `XP_PER_LEVEL_OFFSET` 常量(`store.js` 顶部,默认 28 / 72)
+2. 调 `attrMultiplier` 公式(线性→平方根可让中等属性更友好)
+3. 不要去动单题 +5/+10/+15 的核心规则(用户硬性约束)
+4. 如果想让中后期更慢,改 `getXpForLevel` 公式成 `level² × X` 这种非线性曲线
 
 ## 7. 校验脚本
 
-`scripts/values-check.js`(164 个断言)做这些验证:
+`scripts/values-check.js`(194 个断言)做这些验证:
 
 **奖励规则**
 - 完成今日单任务 → coins +10;补做昨日任务 → +5;提前完成明日任务 → +15
@@ -186,15 +219,20 @@ UI 上,pet 页只显示 `升到 Lv.X+1` + `花 N 金币`;余额够就高亮"升�
 - `earlyBirdBonus` 在 05:00/14:00/18:59/19:00/19:59/20:00/20:30/21:00/23:30 各时刻返回 50/50/50/30/30/20/20/0/0
 - 同样 8 项今日任务,在 18:30 完成 = 210;19:00 = 190;20:30 = 180;22:00 = 160
 
-**升级 cost**
-- `getLevelCost(1) = 20, (2) = 40, (10) = 200, (50) = 1000, (90) = 1800, (99) = 1980, (100) = 0 (max), (101) = 0`
-- `levelUpPet`:coins 不够时返 `{ ok: false, reason: 'insufficient-coins', need }` 且不动 state;够时 -cost / level +1 / 发 `pet_level_up` ledger event
+**升级 cost(XP)**
+- `getXpForLevel(1) = 100, (2) = 128, (10) = 352, (50) = 1472, (90) = 2592, (99) = 2844, (100) = 0 (max), (101) = 0`
+- 常量:`XP_PER_LEVEL_BASE = 28`, `XP_PER_LEVEL_OFFSET = 72`
+- `attrMultiplier`:四属性平均 / 100, clip [0,1]。fullPet=1.0, halfPet=0.5, emptyPet=0, no-species pet=0
+- `xpForReward(coins, pet) = floor(coins × mult)`
+- `levelUpPet`:xp 不够时返 `{ ok: false, reason: 'insufficient-xp', need, have }` 且不动 state;够时 -cost / level +1 / 溢出 xp 留下 / **不发任何 coin event**(XP 不进云端账本)
+- `finishTask` 把 `xpPaid` 写到 occurrence、`xpDailyBonus` / `xpWeeklyBonus` 写到 `bonusByDay[day]`,供 revert / revoke 精确退款
+- 满属性下 finishTask 累加 pet.xp(满速等同金币);半属性 floor 一半;全空属性 → coins 照发 XP 不动
 
 **宠物衰减 + 商店**
 - 衰减:fullness 16h 后从 100 → 36(近似);health 16h 后从 100 → 60
 - 8 件道具,每件至少补一项 stat(happiness / fullness / cleanliness / health),四属性各有 ≥1 件主补道具
 - 价格区间:全部在 15-40 之间(无高档)
 
-`scripts/test-rewards.js`(101 个断言)补充覆盖 finishTask 完整路径、perfectDays 回收、pendingCoinEvents 队列、hydrate 重新乐观加 delta、detachOccurrence、v2→v3 migrate。改 store / cloud-sync / coin-ledger 后两个脚本都要跑过才算 OK。
+`scripts/test-rewards.js`(103 个断言)补充覆盖 finishTask 完整路径、perfectDays 回收、pendingCoinEvents 队列、hydrate 重新乐观加 delta、detachOccurrence、v2→v3 migrate、**levelUpPet XP 路径(insufficient-xp / 溢出保留 / 不发 coin event)**。改 store / cloud-sync / coin-ledger 后两个脚本都要跑过才算 OK。
 
 > 维护提示:脚本在文件顶部把 `Date.now` 钉到 22:00(无早完成档),后面的奖励断言才不会随真实运行时刻飘。早完成档断言通过 `setNowHour(h)` 临时切换,跑完后切回 22:00。

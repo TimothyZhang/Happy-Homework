@@ -119,13 +119,18 @@ Page({
     showBubble: false,
     bubbleText: '',
     ageDays: 0,
-    // 升级:手动按按钮花金币。levelCost = 升到下一级要的金币,canLevelUp =
-    // 余额 >= levelCost 且未满级。
-    levelCost: 0,
+    // 升级:经验值满 → 用户手动点按钮触发升级动画。
+    // xp = 当前已积累的 XP;xpNeeded = 升到下一级需要的 XP;xpPercent = 进度条百分比。
+    xp: 0,
+    xpNeeded: 0,
+    xpPercent: 0,
     canLevelUp: false,
     isMaxLevel: false,
     levelMax: store.LEVEL_MAX,
-    levelBadge: ''
+    levelBadge: '',
+    // 升级动画覆盖层:点击升级按钮 → 触发 LEVEL_UP_ANIM_MS 的全屏动画。
+    showLevelUpAnim: false,
+    levelUpToLevel: 0
   },
 
   onShow() {
@@ -149,10 +154,19 @@ Page({
       clearTimeout(this._bubbleTimer)
       this._bubbleTimer = null
     }
+    if (this._levelAnimTimer) {
+      clearTimeout(this._levelAnimTimer)
+      this._levelAnimTimer = null
+      this.setData({ showLevelUpAnim: false })
+    }
     this._stopAnimEngine()
   },
 
   onUnload() {
+    if (this._levelAnimTimer) {
+      clearTimeout(this._levelAnimTimer)
+      this._levelAnimTimer = null
+    }
     this._stopAnimEngine()
   },
 
@@ -161,8 +175,11 @@ Page({
     const pet = state.pet || {}
     const isSetup = !!pet.species
     const isMaxLevel = isSetup && (pet.level || 1) >= store.LEVEL_MAX
-    const levelCost = isSetup && !isMaxLevel ? store.getLevelCost(pet.level || 1) : 0
-    const canLevelUp = !isMaxLevel && (state.coins || 0) >= levelCost
+    const xpNeeded = isSetup && !isMaxLevel ? store.getXpForLevel(pet.level || 1) : 0
+    const xp = pet.xp | 0
+    const xpPercent = isMaxLevel ? 100
+      : xpNeeded > 0 ? Math.max(0, Math.min(100, Math.floor(xp * 100 / xpNeeded))) : 0
+    const canLevelUp = !isMaxLevel && xp >= xpNeeded
     this.setData({
       pet,
       coins: state.coins,
@@ -170,7 +187,9 @@ Page({
       mode: isSetup ? 'view' : 'setup',
       animState: isSetup ? deriveAnimState(pet) : 'idle',
       ageDays: isSetup ? store.petAgeDays(pet) : 0,
-      levelCost,
+      xp,
+      xpNeeded,
+      xpPercent,
       canLevelUp,
       isMaxLevel,
       levelBadge: levelBadge(pet.level || 1),
@@ -397,33 +416,38 @@ Page({
     wx.navigateTo({ url: '/pkg-notebook/coin-history/index' })
   },
 
+  // 升级:XP 满才能点。点击直接升 — 没有 modal,直接播全屏升级动画 + 庆祝姿势。
+  // 不弹 wx.showModal 是因为升级仪式感在动画上,弹窗反而打断节奏。
   handleLevelUp() {
     if (this.data.isMaxLevel) return
-    const cost = this.data.levelCost
-    const coins = this.data.coins || 0
-    if (coins < cost) {
-      wx.showToast({ title: `还差 ${cost - coins} 金币`, icon: 'none' })
+    if (!this.data.canLevelUp) {
+      wx.showToast({
+        title: `还差 ${Math.max(0, this.data.xpNeeded - this.data.xp)} XP`,
+        icon: 'none'
+      })
       return
     }
-    const next = (this.data.pet.level || 1) + 1
-    wx.showModal({
-      title: `升到 Lv.${next}?`,
-      content: `花 ${cost} 金币 (当前 ${coins})`,
-      confirmText: '升级',
-      success: (res) => {
-        if (!res.confirm) return
-        const result = store.levelUpPet()
-        if (result && result.ok) {
-          wx.showToast({ title: `升到 Lv.${result.level}！`, icon: 'success' })
-          this.queueAnim('celebrating')
-          this.refreshState()
-        } else if (result && result.reason === 'insufficient-coins') {
-          wx.showToast({ title: `还差 ${result.need} 金币`, icon: 'none' })
-        } else if (result && result.reason === 'max-level') {
-          wx.showToast({ title: '已经满级啦', icon: 'none' })
-        }
+    const result = store.levelUpPet()
+    if (!result || !result.ok) {
+      if (result && result.reason === 'insufficient-xp') {
+        wx.showToast({ title: `还差 ${result.need} XP`, icon: 'none' })
+      } else if (result && result.reason === 'max-level') {
+        wx.showToast({ title: '已经满级啦', icon: 'none' })
       }
+      return
+    }
+    // 先 refresh 拿到新 level / 剩余 XP,再点亮动画。
+    this.refreshState()
+    this.setData({
+      showLevelUpAnim: true,
+      levelUpToLevel: result.level
     })
+    this.queueAnim('celebrating')
+    if (this._levelAnimTimer) clearTimeout(this._levelAnimTimer)
+    this._levelAnimTimer = setTimeout(() => {
+      this.setData({ showLevelUpAnim: false })
+      this._levelAnimTimer = null
+    }, 2400)
   },
 
   // === Switch species === //

@@ -44,7 +44,7 @@
 ### 4. 奖励与宠物反馈
 - 完成作业获得金币(单题 5/10/15 + daily-perfect 翻倍 + early-bird + weekly streak)
 - 购买宠物道具 → 四属性(开心/饱腹/清洁/健康)变化
-- 手动按按钮花金币升级(`getLevelCost = level × 20`,Lv.99→100 ≈ 2 周)
+- 经验值升级(`getXpForLevel = level × 28 + 72`,XP 满手动点按钮升级 → 全屏动画);XP = `floor(coins × attrMultiplier(pet))`,属性越好 XP 跑得越快;满速 Lv.99→100 ≈ 14 天
 
 ### 5. OCR 导入链路 — **真实闭环已通**
 - `pages/ocr-import`:拍照 / 相册导入 / 演示数据,真实 `wx.cloud.uploadFile` + `wx.cloud.callFunction`
