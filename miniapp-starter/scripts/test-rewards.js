@@ -58,6 +58,10 @@ function seed(stateOverride) {
     perfectDays: [],
     bonusByDay: {},
     completionsByDay: {},
+    // 不显式清 pending,上一个 seed 的 pendingCoinEvents 会通过 _stateCache 串到
+    // 这次的 hydrate,触发"乐观加回 delta"路径,让 coins 偏离 stateOverride
+    // 的预期。所有不显式测 pending 的场景应从空队列开始。
+    pendingCoinEvents: [],
     tasks: [],
     notebooks: [],
     pet: null,
@@ -361,190 +365,99 @@ assert('正常路径 revoke:有 ledgerEventId,coins 正确扣回',
   coinsAfterFinish - coinsAfterRevert === expectedDrop,
   `finish=${coinsAfterFinish} revert=${coinsAfterRevert} expected drop=${expectedDrop}`)
 
-// ===== Scenario 6: pet purchase / level-up / skin switch all queue events =====
-console.log('\n[6] Pet purchases queue pet_purchase / level_upgrade / pet_skin_switch events')
-seed({ coins: 5000, pet: { species: 'sheep', name: '阿羊', level: 1, growth: 0, happiness: 50, fullness: 50, cleanliness: 50, health: 100, createdAt: Date.now(), lastUpdatedAt: Date.now() } })
+// ===== Scenario 6: 三类 pet 动作都进 coin ledger =====
+console.log('\n[6] Pet purchases / level-up / skin switch all queue coin events')
+seed({ coins: 5000, pet: { species: 'sheep', name: '阿羊', level: 1, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
 const shopItems = st().shopItems
-if (Array.isArray(shopItems) && shopItems.length > 0) {
-  const affordable = shopItems.find((it) => it.price <= 50)
-  if (affordable) {
-    s.buyItem(affordable.id)
-    const last = pendingLast(1)[0]
-    assert('buyItem → pet_purchase event', last.kind === 'pet_purchase' && last.delta === -affordable.price)
-  }
-}
-// 升级改成"四项数值同时 > 80 累 exp 自动升",levelUpPet 不再发 coin event。
-// 这里只确认调用不抛、不产生 coin event。 真升级路径在 Scenario 6d 单测。
-const coinEventsBefore = (st().pendingCoinEvents || []).length
-s.levelUpPet()
-const coinEventsAfter = (st().pendingCoinEvents || []).length
-assert('levelUpPet emits no coin event under new exp model',
-  coinEventsAfter === coinEventsBefore,
-  `before=${coinEventsBefore} after=${coinEventsAfter}`)
+const affordable = shopItems.find((it) => it.price <= 50 && !it.happiness)
+s.buyItem(affordable.id)
+let last = pendingLast(1)[0]
+assert('buyItem → pet_purchase event', last.kind === 'pet_purchase' && last.delta === -affordable.price)
+
+// levelUpPet 现在花金币:Lv.1 → Lv.2 = 20 金币,扣金币 + level++ + 发
+// pet_level_up 事件。 金币不够时返 insufficient-coins。
+const coinsBefore = st().coins
+const levelBefore = st().pet.level
+const lvUp = s.levelUpPet()
+assert('levelUpPet ok at Lv.1', lvUp && lvUp.ok && lvUp.level === levelBefore + 1)
+assert('levelUpPet deducts getLevelCost(1) = 20', st().coins === coinsBefore - 20,
+  `before=${coinsBefore} after=${st().coins}`)
+last = pendingLast(1)[0]
+assert('levelUpPet → pet_level_up event delta=-20', last.kind === 'pet_level_up' && last.delta === -20)
+assert('levelUpPet stamps lastLeveledAt', st().pet.lastLeveledAt != null)
+
+// 金币不够时不动 state,返 insufficient-coins。
+// Lv.50→51 cost = 1000,coins=500 → need=500。
+seed({ coins: 500, pet: { species: 'cat', name: 'P', level: 50, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
+const denyResult = s.levelUpPet()
+assert('levelUpPet denies when coins < cost',
+  denyResult && !denyResult.ok && denyResult.reason === 'insufficient-coins' && denyResult.need === 500)
+assert('denied levelUpPet does not touch coins', st().coins === 500)
+assert('denied levelUpPet does not touch level', st().pet.level === 50)
 
 // switchPetSpecies: 不同物种 + 余额够 → 扣 PET_SWITCH_COST(100) 并发 pet_skin_switch 事件。
-const before = st().coins
-const r = s.switchPetSpecies(st().pet.species === 'sheep' ? 'cat' : 'sheep')
-assert('switchPetSpecies returns ok', r && r.ok)
-assert('switchPetSpecies deducts 100 locally', st().coins === before - 100)
+seed({ coins: 500, pet: { species: 'cat', name: 'S', level: 1, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() } })
+const beforeSwitch = st().coins
+const switchR = s.switchPetSpecies('sheep')
+assert('switchPetSpecies returns ok', switchR && switchR.ok)
+assert('switchPetSpecies deducts 100 locally', st().coins === beforeSwitch - 100)
 const lastSwitch = pendingLast(1)[0]
 assert('switchPetSpecies → pet_skin_switch event delta=-100',
   lastSwitch.kind === 'pet_skin_switch' && lastSwitch.delta === -100)
 
-// ===== Scenario 6b: happiness only flows through finishTask =====
-// 道具不再加 happiness、levelUp 不加 happiness、单项 finish +5、当日全完成
-// 直接拉到 100、revert 把 happiness 退回。
-console.log('\n[6b] Happiness flows through finishTask only (not shop / not levelUp)')
+// ===== Scenario 6b: 完成作业不加 happiness; 道具加 happiness =====
+console.log('\n[6b] Happiness comes from shop items, NOT from finishTask')
 const nb6 = { id: 'nbH', name: today, mode: 'one-shot', startDate: today, endDate: today, recurrence: null, createdAt: 1, order: 0 }
 seed({
   notebooks: [nb6], coins: 5000,
   pet: { species: 'cat', emoji: '🐱', name: 'Q', level: 1, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() }
 })
-// 道具:happiness 不再涨。
-const itemsH = st().shopItems
-const anyItem = itemsH.find((it) => it.price <= 50)
-const beforeBuyHappy = st().pet.happiness
-s.buyItem(anyItem.id)
-assert('shop item does not bump happiness', st().pet.happiness === beforeBuyHappy)
-// LevelUp:happiness 不再涨。
-const beforeLvlHappy = st().pet.happiness
-s.levelUpPet()
-assert('levelUpPet does not bump happiness', st().pet.happiness === beforeLvlHappy)
 
-// Finish 单项: +5 happiness, lastReward.taskHappiness = 5
+// 完成单项 → happiness 不变
 s.addTask({ notebookId: 'nbH', subject: '语', content: 'h1', estimatedMinutes: 5 })
 s.addTask({ notebookId: 'nbH', subject: '数', content: 'h2', estimatedMinutes: 5 })
 const happyTasks = st().tasks
-const happyBefore1 = st().pet.happiness
+const happyBefore = st().pet.happiness
 s.finishTask(happyTasks[0].id, today)
-const afterOne = st().pet.happiness
-assert('finish 1 task bumps happiness by 5', afterOne - happyBefore1 === 5,
-  `before=${happyBefore1} after=${afterOne}`)
-assert('lastReward.taskHappiness = 5 on single finish', st().lastReward.taskHappiness === 5)
-assert('lastReward.allDoneHappiness = 0 when not all done', st().lastReward.allDoneHappiness === 0)
-// Finish 第二项 → 全完成 → happiness 拉到 100
-// 第一项 finish 后 happiness=55,第二项 finish 时 单项 +5 (55→60),然后
-// 全完成 topup 把 60 拉到 100 (+40)。allDoneHappiness = 40。
+assert('finishTask 单项不再 +happiness', st().pet.happiness === happyBefore,
+  `before=${happyBefore} after=${st().pet.happiness}`)
+
+// 完成所有作业 → 也不再把 happiness 拉到 100
 s.finishTask(happyTasks[1].id, today)
-assert('finish all tasks pulls happiness to 100', st().pet.happiness === 100,
+assert('all-done 不再把 happiness 拉到 100', st().pet.happiness === happyBefore,
   `actual=${st().pet.happiness}`)
-assert('lastReward.taskHappiness = 5 on perfect finish', st().lastReward.taskHappiness === 5)
-assert('lastReward.allDoneHappiness = topup to 100', st().lastReward.allDoneHappiness === 40,
-  `actual=${st().lastReward.allDoneHappiness}`)
+assert('lastReward 不再带 happiness 字段',
+  st().lastReward.taskHappiness === undefined && st().lastReward.allDoneHappiness === undefined)
 
-// Revert 拉满那项: happiness 应该退回拉满前的总贡献(5+40=45)→ 100-45=55
-s.revertTask(happyTasks[1].id, today)
-assert('revert all-done finish refunds happiness', st().pet.happiness === 55,
+// 道具加 happiness:🎾 玩具球 happiness:30
+const toy = shopItems.find((it) => it.happiness === 30)
+seed({
+  coins: 5000,
+  pet: { species: 'cat', name: 'Q2', level: 1, happiness: 40, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() }
+})
+s.buyItem(toy.id)
+assert('buyItem 玩具球(happiness:30) → happiness +30', st().pet.happiness === 70,
   `actual=${st().pet.happiness}`)
 
-// ===== Scenario 6c: happiness freezes through end-of-today after perfect day =====
-// 全完成 → happinessLastDecayAt 推到当日 23:59:59;再加新 task / revert 都
-// 让 happinessLastDecayAt 回到 now,decay 立即恢复。
-console.log('\n[6c] Perfect-day freeze pins happinessLastDecayAt at end-of-today')
-const nb6c = { id: 'nbF', name: today, mode: 'one-shot', startDate: today, endDate: today, recurrence: null, createdAt: 1, order: 0 }
+// happiness 上限 100
 seed({
-  notebooks: [nb6c], coins: 0,
-  pet: { species: 'cat', emoji: '🐱', name: 'F', level: 1, happiness: 50, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() }
+  coins: 5000,
+  pet: { species: 'cat', name: 'Q3', level: 1, happiness: 90, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() }
 })
-s.addTask({ notebookId: 'nbF', subject: '语', content: 'f1', estimatedMinutes: 5 })
-const ftk = st().tasks[0]
-const beforeFreezeClock = st().pet.happinessLastDecayAt
-assert('before perfect day: happinessLastDecayAt is null or ≤ now',
-  beforeFreezeClock == null || beforeFreezeClock <= Date.now() + 1)
-const finishAtMs = Date.now()
-s.finishTask(ftk.id, today)
-const freezeUntil = finishAtMs + 12 * 3600 * 1000
-assert('after all-done: happinessLastDecayAt pushed 12h from finish',
-  st().pet.happinessLastDecayAt === freezeUntil,
-  `actual=${st().pet.happinessLastDecayAt} expected=${freezeUntil}`)
-// petWithDecay 应不再衰减 happiness(即使 lastDecayAt 在过去也不动)
-const decayedAfter = s.getStateWithComputed().pet
-assert('happiness stays at 100 under decay read while frozen',
-  decayedAfter.happiness === 100,
-  `actual=${decayedAfter.happiness}`)
-// 加新 task → reconcile → revoke today perfect → 解冻
-s.addTask({ notebookId: 'nbF', subject: '数', content: 'f2', estimatedMinutes: 5 })
-const afterAddClock = st().pet.happinessLastDecayAt
-assert('addTask revokes perfect → happinessLastDecayAt drops to ≤ now',
-  afterAddClock != null && afterAddClock <= Date.now() + 1,
-  `actual=${afterAddClock}`)
+s.buyItem(toy.id)
+assert('buyItem happiness 道具 clamp 至 100', st().pet.happiness === 100)
 
-// ===== Scenario 6d: exp accrues only when 4 stats > 60; auto-levels =====
-console.log('\n[6d] Exp accrues when all four stats > 60; commit auto-levels')
-const HOUR = 3600000
-// 启动:四项都 100, lastDecayAt = 5 小时前。 fullness 5h 跌到 80 (仍 >60),
-// 整 5h 窗口都在阈值之上 → 5h × 10 = 50 exp。
-const seed6dNow = Date.now()
+// revertTask 不动 happiness
 seed({
-  coins: 0,
-  pet: {
-    species: 'cat', emoji: '🐱', name: 'E', level: 1, exp: 0,
-    happiness: 100, fullness: 100, cleanliness: 100, health: 100,
-    bornAt: seed6dNow - 5 * HOUR, lastDecayAt: seed6dNow - 5 * HOUR
-  }
+  notebooks: [nb6], coins: 5000,
+  pet: { species: 'cat', name: 'Q4', level: 1, happiness: 60, fullness: 50, cleanliness: 50, health: 100, bornAt: Date.now(), lastDecayAt: Date.now() }
 })
-s.levelUpPet()
-let pet = st().pet
-assert('5h window starting at 100 → 50 exp', pet.exp === 50, `actual=${pet.exp}`)
-
-// 再过 6 小时:fullness 现 80 (commit 后落地值),衰 4/h,80→60 用 5h。
-// statHoursOverThreshold(80, 4, 6h, 60) = min(6, 5) = 5h → 5h × 10 = 50 exp
-// 累计 50 + 50 = 100 exp。BASE=200 Lv1→2 需 200,不升,残 100 at Lv1。
-const seed6dNext = seed6dNow + 6 * HOUR
-Date.now = () => seed6dNext
-s.levelUpPet()
-pet = st().pet
-assert('fullness 80→60 over 6h → +50 exp (capped at 5h)', pet.exp === 100, `actual=${pet.exp}`)
-assert('still Lv1 (100 < 200 Lv1→2 target)', pet.level === 1, `actual=${pet.level}`)
-Date.now = () => seed6dNow
-
-// 经验跨档自动升级:塞 220 exp,Lv1→Lv2 用掉 200 → 残 20 at Lv2
-seed({
-  coins: 0,
-  pet: {
-    species: 'cat', emoji: '🐱', name: 'A', level: 1, exp: 220,
-    happiness: 100, fullness: 100, cleanliness: 100, health: 100,
-    bornAt: Date.now(), lastDecayAt: Date.now()
-  }
-})
-s.levelUpPet()
-pet = st().pet
-assert('220 exp → Lv 2', pet.level === 2)
-assert('220 exp Lv1→Lv2 residual = 20', pet.exp === 20)
-assert('lastLeveledAt stamped on auto-levelup', pet.lastLeveledAt != null)
-
-// 连升:2000 exp → Lv1(200) → Lv2(400) → Lv3(400) → Lv4(600) → 留 400 不够升 Lv5(600)
-// 200+400+400+600 = 1600 用掉, 残 400 at Lv5
-seed({
-  coins: 0,
-  pet: {
-    species: 'cat', emoji: '🐱', name: 'B', level: 1, exp: 2000,
-    happiness: 100, fullness: 100, cleanliness: 100, health: 100,
-    bornAt: Date.now(), lastDecayAt: Date.now()
-  }
-})
-s.levelUpPet()
-pet = st().pet
-assert('2000 exp → Lv 5', pet.level === 5, `actual=${pet.level}`)
-assert('2000 exp residual at Lv5 = 400', pet.exp === 400, `actual=${pet.exp}`)
-
-// 满级 cap: 灌 300000 exp 远超满级累计需求(931 × 200 = 186200) → 一次性升到 Lv.100, exp 清零。
-seed({
-  coins: 0,
-  pet: {
-    species: 'cat', emoji: '🐱', name: 'M', level: 1, exp: 300000,
-    happiness: 100, fullness: 100, cleanliness: 100, health: 100,
-    bornAt: Date.now(), lastDecayAt: Date.now()
-  }
-})
-s.levelUpPet()
-pet = st().pet
-assert('huge exp caps at LEVEL_MAX=100', pet.level === 100, `actual=${pet.level}`)
-assert('exp wiped to 0 at max level', pet.exp === 0, `actual=${pet.exp}`)
-// 满级后即使再 commit,exp 也不增长
-const beforeMaxCommit = pet.exp
-s.levelUpPet()
-assert('no further exp accrual after max level', st().pet.exp === beforeMaxCommit)
+s.addTask({ notebookId: 'nbH', subject: '语', content: 'r1', estimatedMinutes: 5 })
+const rTask = st().tasks[0]
+s.finishTask(rTask.id, today)
+const beforeRevertHappy = st().pet.happiness
+s.revertTask(rTask.id, today)
+assert('revertTask 不动 happiness', st().pet.happiness === beforeRevertHappy)
 
 // ===== Scenario 7: pendingCoinEvents survive hydrate; coins re-applied =====
 console.log('\n[7] Hydrate with stale server coins re-applies pending delta')

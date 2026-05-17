@@ -224,6 +224,8 @@ Component({
       const t = this._actionTarget(e)
       store.startTask(t.taskId, t.date)
       this.triggerEvent('changed')
+      // 开始后立即进入全屏 focus 页(大时钟 + 暂停/完成大按钮)。
+      this._openFocus(t.taskId, t.date)
     },
     handlePause(e) {
       const t = this._actionTarget(e)
@@ -234,11 +236,28 @@ Component({
       const t = this._actionTarget(e)
       store.resumeTask(t.taskId, t.date)
       this.triggerEvent('changed')
+      // 继续(从 paused 进 doing)也跳 focus 页 — 跟 handleStart 一致。
+      this._openFocus(t.taskId, t.date)
     },
     handleFinish(e) {
       const t = this._actionTarget(e)
       store.finishTask(t.taskId, t.date)
       this.triggerEvent('changed', { finished: true })
+    },
+
+    // 整行 tap:进行中的作业 → 进 focus 页;其他状态忽略(start/resume/pause/
+    // finish/edit/swipe 各自的按钮 / 手势已覆盖,行 tap 不做事)。touchmove
+    // 触发 swipe/drag 后,小程序不会再触发 bindtap,所以不会跟手势冲突。
+    handleRowTap(e) {
+      const ds = e.currentTarget.dataset
+      if (ds.status !== 'doing') return
+      this._openFocus(ds.taskId || ds.id, ds.occurrenceDate || this.data.activeDate)
+    },
+
+    _openFocus(taskId, date) {
+      if (!taskId) return
+      const query = date ? `id=${taskId}&date=${date}` : `id=${taskId}`
+      wx.navigateTo({ url: `/pkg-notebook/task-focus/index?${query}` })
     },
 
     // 左滑后的"编辑"按钮。recurring 弹"此次/整个"二选;one-shot 直接跳整个编辑。

@@ -119,20 +119,13 @@ Page({
     showBubble: false,
     bubbleText: '',
     ageDays: 0,
-    // 升级改成"四项数值同时 > 80 时累加经验,经验攒够自动升级"。
-    // levelExpTarget = 下一级所需经验; levelProgress = exp / target 的百分比。
-    // isMaxLevel = pet.level 已经到 LEVEL_MAX,展示"满级"而非进度条。
-    levelExpTarget: 0,
-    levelExp: 0,
-    levelProgress: 0,
+    // 升级:手动按按钮花金币。levelCost = 升到下一级要的金币,canLevelUp =
+    // 余额 >= levelCost 且未满级。
+    levelCost: 0,
+    canLevelUp: false,
     isMaxLevel: false,
     levelMax: store.LEVEL_MAX,
-    levelBadge: '',
-    // 开心度冻结剩余小时数(全完成后 12h 内不下降)。0 = 不冻结,UI 不显示。
-    happinessFreezeHours: 0,
-    // 四项数值此刻是否全部 > STAT_HEALTHY_THRESHOLD — UI 用它在经验条尖端
-    // 加一个 pulse 光点,告诉用户"正在攒经验"。
-    isAccruingExp: false
+    levelBadge: ''
   },
 
   onShow() {
@@ -167,38 +160,9 @@ Page({
     const state = store.getStateWithComputed()
     const pet = state.pet || {}
     const isSetup = !!pet.species
-    const levelExpTarget = isSetup ? store.getLevelExpTarget(pet.level || 1) : 0
-    const levelExp = isSetup ? (pet.exp || 0) : 0
     const isMaxLevel = isSetup && (pet.level || 1) >= store.LEVEL_MAX
-    // 满级 → 进度条铺满,提示文案换。 否则按 exp / target 算。
-    const levelProgress = isMaxLevel
-      ? 100
-      : (levelExpTarget > 0
-          ? Math.min(100, Math.floor((levelExp / levelExpTarget) * 100))
-          : 0)
-    // happinessLastDecayAt > now 时表示开心度被冻结(全完成后的 12h 内)。
-    // 显示"还剩 N 小时不下降",ceil 保守取整 — 还有 50 分钟也显示 1 小时。
-    const nowMs = Date.now()
-    const happinessFreezeHours = isSetup && pet.happinessLastDecayAt > nowMs
-      ? Math.ceil((pet.happinessLastDecayAt - nowMs) / 3600000)
-      : 0
-    // 四项数值同时 > THRESHOLD 且未满级 → 正在累加经验,UI 让进度条尖端闪烁。
-    const TH = store.STAT_HEALTHY_THRESHOLD
-    const isAccruingExp = isSetup && !isMaxLevel
-      && (pet.happiness   || 0) > TH
-      && (pet.fullness    || 0) > TH
-      && (pet.cleanliness || 0) > TH
-      && (pet.health      || 0) > TH
-    // 检测升级 — pet.lastLeveledAt 由 commitPetDecay 在自动升级时盖戳。
-    // 跟之前 seen 的时间戳对比,新的就 toast。
-    if (isSetup && pet.lastLeveledAt && pet.lastLeveledAt !== this._lastSeenLeveledAt) {
-      this._lastSeenLeveledAt = pet.lastLeveledAt
-      // 不在第一次 onShow 时弹(避免每次启动都弹),只对 onShow 之间发生的升级弹。
-      if (this._petInitialized) {
-        wx.showToast({ title: `升到 Lv.${pet.level}！`, icon: 'success' })
-      }
-    }
-    this._petInitialized = true
+    const levelCost = isSetup && !isMaxLevel ? store.getLevelCost(pet.level || 1) : 0
+    const canLevelUp = !isMaxLevel && (state.coins || 0) >= levelCost
     this.setData({
       pet,
       coins: state.coins,
@@ -206,12 +170,9 @@ Page({
       mode: isSetup ? 'view' : 'setup',
       animState: isSetup ? deriveAnimState(pet) : 'idle',
       ageDays: isSetup ? store.petAgeDays(pet) : 0,
-      levelExpTarget,
-      levelExp,
-      levelProgress,
+      levelCost,
+      canLevelUp,
       isMaxLevel,
-      happinessFreezeHours,
-      isAccruingExp,
       levelBadge: levelBadge(pet.level || 1),
       showBubble: false,
       bubbleText: ''
@@ -434,6 +395,35 @@ Page({
 
   handleOpenCoinHistory() {
     wx.navigateTo({ url: '/pkg-notebook/coin-history/index' })
+  },
+
+  handleLevelUp() {
+    if (this.data.isMaxLevel) return
+    const cost = this.data.levelCost
+    const coins = this.data.coins || 0
+    if (coins < cost) {
+      wx.showToast({ title: `还差 ${cost - coins} 金币`, icon: 'none' })
+      return
+    }
+    const next = (this.data.pet.level || 1) + 1
+    wx.showModal({
+      title: `升到 Lv.${next}?`,
+      content: `花 ${cost} 金币 (当前 ${coins})`,
+      confirmText: '升级',
+      success: (res) => {
+        if (!res.confirm) return
+        const result = store.levelUpPet()
+        if (result && result.ok) {
+          wx.showToast({ title: `升到 Lv.${result.level}！`, icon: 'success' })
+          this.queueAnim('celebrating')
+          this.refreshState()
+        } else if (result && result.reason === 'insufficient-coins') {
+          wx.showToast({ title: `还差 ${result.need} 金币`, icon: 'none' })
+        } else if (result && result.reason === 'max-level') {
+          wx.showToast({ title: '已经满级啦', icon: 'none' })
+        }
+      }
+    })
   },
 
   // === Switch species === //

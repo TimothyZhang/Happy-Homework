@@ -84,7 +84,6 @@
   <reward-toast kind="task"
                 visible="{{taskRewardVisible}}"
                 coins="{{taskRewardCoins}}"
-                happiness="{{taskRewardHappiness}}"
                 subtitle="{{taskRewardCaption}}"
                 pet-emoji="{{pet.emoji}}"
                 bind:skip="handleSkipTaskReward" />
@@ -92,7 +91,6 @@
   <reward-toast kind="allDone"
                 visible="{{allDoneVisible}}"
                 coins="{{allDoneCoins}}"
-                happiness="{{allDoneHappiness}}"
                 subtitle="{{allDoneSubtitle}}"
                 pet-emoji="{{pet.emoji}}"
                 bind:skip="handleSkipAllDone" />

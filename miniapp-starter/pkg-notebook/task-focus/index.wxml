@@ -1,0 +1,29 @@
+<view class="focus-page">
+  <view class="back-btn" bindtap="handleClose">←</view>
+
+  <view class="info-block">
+    <view class="chips">
+      <text wx:if="{{subject}}" class="chip subject-chip">{{subject}}</text>
+      <text wx:if="{{isRecurring}}" class="chip recurring-chip">重复</text>
+      <text class="chip est-chip">预计 {{estimatedMinutes}} 分钟</text>
+    </view>
+    <text class="content">{{content}}</text>
+    <text wx:if="{{occurrenceDate}}" class="date">{{occurrenceDate}}</text>
+  </view>
+
+  <view class="clock-block">
+    <text class="clock-label">已用时间</text>
+    <text class="clock-num">{{elapsedDisplay}}</text>
+  </view>
+
+  <view class="actions">
+    <button class="action-btn pause-action" bindtap="handlePause">
+      <text class="action-icon">❚❚</text>
+      <text class="action-label">暂停</text>
+    </button>
+    <button class="action-btn finish-action" bindtap="handleFinish">
+      <text class="action-icon">✓</text>
+      <text class="action-label">完成</text>
+    </button>
+  </view>
+</view>
