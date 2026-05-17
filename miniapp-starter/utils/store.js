@@ -798,11 +798,10 @@ function tasksForDate(state, dateStr, cache) {  // eslint-disable-line no-unused
       }
 
       // 历史视图:任务归属本日但已 done 且 completedAt 落在别的日子 →
-      // "这一天没做完(被后来补的)",显示在未完成区,红底。不走 onSchedule
-      // 已完成路径。
+      // "这一天没做完(被后来补的)",仍然进已完成区(status 保持 done),
+      // 但 isOverdue=true 让 task-row 上 .is-overdue 红底提示"这天本来没完成"。
       if (isPast && onSchedule && status === 'done' && completedDay !== dateStr) {
         isOverdue = true
-        onSchedule = false
       }
 
       // Overdue: still-open one-shot whose own due date already passed. Today only.
@@ -814,27 +813,20 @@ function tasksForDate(state, dateStr, cache) {  // eslint-disable-line no-unused
     } else {
       onSchedule = isTaskActiveOn(task, dateStr)
       // 历史视图:recurring 在本日 active,occurrence 已 done 但 completedAt
-      // 不在本日 → 同上,改为红底未完成。
+      // 不在本日 → 同上,红底但仍在已完成区。
       if (isPast && onSchedule) {
         const occ = (task.occurrences || {})[dateStr]
         if (occ && occ.status === 'done' && occ.completedAt) {
           const completedDay = dateToStr(new Date(occ.completedAt))
           if (completedDay !== dateStr) {
             isOverdue = true
-            onSchedule = false
           }
         }
       }
     }
 
     if (!onSchedule && !isOverdue && !completedOnDate) continue
-    let occ = getTaskState(task, dateStr)
-    // 红底"漏做"路径:虽然 task.status=done,但对这一天来说是没完成的,
-    // occurrence.status 视作 todo,这样 home/index.js 的按 status 分桶会把它
-    // 放进"未完成"section。
-    if (isOverdue && occ.status === 'done') {
-      occ = { ...occ, status: 'todo' }
-    }
+    const occ = getTaskState(task, dateStr)
     pushItem({
       task,
       occurrence: occ,

@@ -724,9 +724,9 @@ assert('v2 hydrate: notebooks 已被清空(走完 v2→v3 平移)',
 
 // ===== Scenario N: tasksForDate 视图分类:漏做(红) vs 补做(黄) =====
 // 触发场景:Arthur 5/16 没做完"目标24课",5/17 才补做。期望:
-//   - 5/16 视图:该 occurrence 应在"未完成"区,isOverdue=true(红底)
-//   - 5/17 视图:该 occurrence 应在"已完成"区,isMakeup=true(黄底)
-//   - 同一 occurrence 不应同时在两天"已完成"里(去重)
+//   - 5/16 视图:该 occurrence 在"已完成"区(status=done),但 isOverdue=true 红底
+//   - 5/17 视图:该 occurrence 在"已完成"区,isMakeup=true(黄底)
+//   - 同一 occurrence 不应同时在两天"已完成"里出现重复
 console.log('\n[N] tasksForDate: 漏做归红 / 补做归黄(一次性 + recurring)')
 
 // --- 一次性任务:dueDate=yesterday,completedAt=today ---
@@ -749,8 +749,8 @@ const yItems = s.tasksForDate(st(), yesterday)
 const yRow = yItems.find((it) => it.task.id === 'tk_makeup_oneshot')
 assert('one-shot 5.16 视图含该任务', !!yRow)
 assert('one-shot 5.16 视图:isOverdue=true(红)', yRow && yRow.isOverdue === true)
-assert('one-shot 5.16 视图:occurrence.status 视作 todo(进未完成区)',
-  yRow && yRow.occurrence.status === 'todo')
+assert('one-shot 5.16 视图:occurrence.status 保持 done(进已完成区)',
+  yRow && yRow.occurrence.status === 'done')
 assert('one-shot 5.16 视图:不带 isMakeup', yRow && !yRow.isMakeup)
 
 const tItems = s.tasksForDate(st(), today)
@@ -794,8 +794,8 @@ const yItemsR = s.tasksForDate(st(), yesterday)
 const yRowR = yItemsR.find((it) => it.task.id === 'tk_makeup_recurring')
 assert('recurring 5.16 视图含该任务', !!yRowR)
 assert('recurring 5.16 视图:isOverdue=true(红)', yRowR && yRowR.isOverdue === true)
-assert('recurring 5.16 视图:occurrence.status 视作 todo',
-  yRowR && yRowR.occurrence.status === 'todo')
+assert('recurring 5.16 视图:occurrence.status 保持 done(进已完成区)',
+  yRowR && yRowR.occurrence.status === 'done')
 
 const tItemsR = s.tasksForDate(st(), today)
 const tRowR = tItemsR.find((it) => it.task.id === 'tk_makeup_recurring' && it.occurrenceDate === yesterday)
