@@ -97,11 +97,13 @@ Component({
       if (!item || item.status === 'done') return
       this._gestureMode = 'drag'
       this.dragStartY = this.touchStartY != null ? this.touchStartY : 0
-      if (!this.itemHeightPx) {
-        const q = this.createSelectorQuery()
-        q.select('.task-row').boundingClientRect()
-        q.exec((rects) => { if (rects && rects[0]) this.itemHeightPx = rects[0].height + 12 })
-      }
+      // 每次 longpress 都重新 query — row 高度会随 chip 数量 / overdue 状态
+      // 变化,缓存旧值会让 slotsDelta 算错位、邻居 shiftY 推得不到位,留下
+      // 视觉缝隙。
+      this.itemHeightPx = null
+      const q = this.createSelectorQuery()
+      q.select('.task-row').boundingClientRect()
+      q.exec((rects) => { if (rects && rects[0]) this.itemHeightPx = rects[0].height + 12 })
       this.setData({ dragId: id, dragDy: 0 })
       if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
       this.triggerEvent('dragstart')
@@ -178,6 +180,11 @@ Component({
         const fromZoneIdx = dragZone.indexOf(fromIdx)
         const slotsDelta = Math.round(dragDy / itemH)
         const toZoneIdx = Math.max(0, Math.min(dragZone.length - 1, fromZoneIdx + slotsDelta))
+        // 无论是否 reorder,都要同步清 shiftY:reorder 分支虽然 triggerEvent
+        // ('changed') 让父组件 refreshState→observer 重置 list,但那是异步的,
+        // 中间存在"dragId 已清 / shiftY 仍残留"窗口,视觉上邻居 row 还停在
+        // translateY 偏移位置,露出后面的 swipe-action(Tim 截图就是这种)。
+        const reset = list.map((it) => ({ ...it, shiftY: 0 }))
         if (fromZoneIdx !== -1 && fromZoneIdx !== toZoneIdx) {
           const rows = dragZone.map((listIdx) => {
             const it = list[listIdx]
@@ -186,9 +193,10 @@ Component({
           const [moved] = rows.splice(fromZoneIdx, 1)
           rows.splice(toZoneIdx, 0, moved)
           store.reorderRows(rows)
+          this.setData({ list: reset })
           this.triggerEvent('changed')
         } else {
-          this.setData({ list: list.map((it) => ({ ...it, shiftY: 0 })) })
+          this.setData({ list: reset })
         }
         this.setData({ dragId: null, dragDy: 0 })
       } else if (this._gestureMode === 'swipe') {
