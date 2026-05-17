@@ -817,9 +817,11 @@ function tasksForDate(state, dateStr, cache) {  // eslint-disable-line no-unused
       //   2) done + completedDay > oneShotDue (漏做后来补)
       //                              → 归属日 + 完成日双显,归属日红、完成日黄
       //   3) done + completedDay <= oneShotDue (准时 / 提前完成)
-      //                              → 仅完成日单显(白底)
+      //                              → 仅 dueDate(oneShotDue)单显(白底)
       //
-      // (跨两天作业本 5.16 就提前完成的 case 走 3,5.17 截止日不再重复显示)
+      // 跨两天作业本 5.16 提前完成的 case 走 3:5.17 (dueDate) 显示,5.16 不再
+      // 重复。Tim 的语义是"一次性 task 永远展示在它的 dueDate 那天",哪天做
+      // 的不影响"挂在哪天"。
       if (status === 'done' && completedDay) {
         const cmp = oneShotDue ? compareDateStr(completedDay, oneShotDue) : 0
         if (cmp > 0) {
@@ -833,9 +835,9 @@ function tasksForDate(state, dateStr, cache) {  // eslint-disable-line no-unused
             isMakeup = true
           }
         } else {
-          // 准时 / 提前:仅完成日
-          if (!isFuture && dateStr === completedDay) {
-            completedOnDate = true
+          // 准时 / 提前:仅在 dueDate 那天显示(包括 future dueDate)
+          if (oneShotDue && dateStr === oneShotDue) {
+            onSchedule = true
           }
         }
       } else {

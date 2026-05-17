@@ -845,11 +845,13 @@ seed({
 
 const yEarly = s.tasksForDate(st(), yest).filter((it) => it.task.id === 'tk_early_finish')
 const tEarly = s.tasksForDate(st(), tdy).filter((it) => it.task.id === 'tk_early_finish')
-assert('提前完成:5.16(完成日)显示 1 次', yEarly.length === 1)
-assert('提前完成:5.16 视图 isMakeup=false(不算补做)',
-  yEarly[0] && yEarly[0].isMakeup === false)
-assert('提前完成:5.16 视图 isOverdue=false', yEarly[0] && yEarly[0].isOverdue === false)
-assert('提前完成:5.17(归属日/截止日)不再重复显示', tEarly.length === 0)
+assert('提前完成:5.16(完成日)不再重复显示', yEarly.length === 0)
+assert('提前完成:5.17(dueDate)显示 1 次', tEarly.length === 1)
+assert('提前完成:5.17 视图 isMakeup=false(不算补做)',
+  tEarly[0] && tEarly[0].isMakeup === false)
+assert('提前完成:5.17 视图 isOverdue=false', tEarly[0] && tEarly[0].isOverdue === false)
+assert('提前完成:5.17 视图 status=done(进已完成区)',
+  tEarly[0] && tEarly[0].occurrence.status === 'done')
 
 // ===== Scenario L: formatRecurrenceLabel(一次性 / daily / weekly 多种) =====
 console.log('\n[L] formatRecurrenceLabel: 中文周期标签')
