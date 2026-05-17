@@ -248,6 +248,6 @@ XP 线 (与属性强挂钩):
 - 8 件道具,每件至少补一项 stat(happiness / fullness / cleanliness / health),四属性各有 ≥1 件主补道具
 - 价格区间:全部在 15-40 之间(无高档)
 
-`scripts/test-rewards.js`(103 个断言)补充覆盖 finishTask 完整路径、perfectDays 回收、pendingCoinEvents 队列、hydrate 重新乐观加 delta、detachOccurrence、v2→v3 migrate、**levelUpPet XP 路径(insufficient-xp / 溢出保留 / 不发 coin event)**。改 store / cloud-sync / coin-ledger 后两个脚本都要跑过才算 OK。
+`scripts/test-rewards.js`(144 个断言)覆盖 finishTask 完整路径、perfectDays 回收、coinLogs 流水、`applyShareRewardClaim` / `applyAdminCoinClaim` 本地入账、hydrate 直接覆盖本地、detachOccurrence、v2→v3 migrate、**levelUpPet XP 路径(insufficient-xp / 溢出保留 / 不发 coin event)**。改 store / cloud-sync 后跑一遍 144/144 才算 OK。
 
 > 维护提示:脚本在文件顶部把 `Date.now` 钉到 22:00(无早完成档),后面的奖励断言才不会随真实运行时刻飘。早完成档断言通过 `setNowHour(h)` 临时切换,跑完后切回 22:00。

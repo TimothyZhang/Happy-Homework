@@ -87,9 +87,8 @@
 - `components/month-calendar`：首页内嵌日历 + 日历 tab 共用的月历组件
 - `components/reward-toast`：完成单项 / 当日全完成的金币奖励动画
 - `custom-tab-bar`：自定义底部导航（字号 30rpx，每 tab 页 onShow 同步 selected）
-- `utils/store.js`：业务状态 + 进程内缓存 + schema 迁移 + 写后触发云推送
+- `utils/store.js`：业务状态 + 进程内缓存 + schema 迁移 + 写后触发云推送。客户端 = truth,coins / coinLogs 都本地决定,saveState 整包 push
 - `utils/cloud-sync.js`：跨端云同步（`user_state` 集合，单设备 claim）
-- `utils/coin-ledger.js`：把 `pendingCoinEvents` 队列 debounced 上送 `coinLedger.commit`
 - `utils/share-reward.js`：包装 `shareReward` 云函数（whoami / credit / claim），并把 openid 缓存到 storage
 - `utils/admin-inbox.js`：拉/清自己的 `admin_coin_inbox`（任意用户可调，不走 admin 白名单）
 - `utils/navigation.js`：页面跳转封装
@@ -97,9 +96,9 @@
 
 ### 云函数
 - `cloudfunctions/homeworkOCR`：OCR，多 provider 兜底（OpenAI Vision / 腾讯云 / 微信 OpenAPI / Tesseract.js），已部署到 `cloud1-d8gkzu6ls85efd509`
-- `cloudfunctions/coinLedger`：服务端金币账本（`commit` 接收 `pendingCoinEvents` 入账 + dedup；`balance` 查余额）
-- `cloudfunctions/shareReward`：分享奖励（whoami / credit / claim 三个 action，使用独立 `share_rewards_inbox` 集合，避免和单设备同步模型冲突）
-- `cloudfunctions/adminPanel`：管理员后台（listUsers / getUser / adjustCoins / listAdjustments + 任意用户可调的 claimAdminCoins）
+- `cloudfunctions/coinLedger`：历史遗留(客户端 = truth 后已弃用)。`commit` 接口还在,新 client 不调,留着兼容老 client retry
+- `cloudfunctions/shareReward`：分享奖励 inbox(whoami / credit / claim;claim 不再 inc `state.coins`,只返 items 让 client 自己入账)
+- `cloudfunctions/adminPanel`：管理员后台(listUsers / getUser / adjustCoins / listAdjustments + 任意用户可调的 `claimAdminCoins`;claim 不再 inc `state.coins` / 不再 clamp,直接返 items 让 client 自己 `applyCoinDelta`)
 
 > 📌 任何云函数代码改动后必须先 `cd <fn-dir> && npm install --omit=dev` 把 `node_modules` 装出来再 `tcb fn code update`，否则 SCF 在线 build 经常 UpdateFailed 但 CLI 仍报"成功"。验证：`tcb fn detail <name> --json | grep -E '"Status"|"CodeSize"'`，Status 必须是 Active。
 

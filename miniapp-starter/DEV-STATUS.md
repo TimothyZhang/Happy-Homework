@@ -62,7 +62,7 @@
 - 同步链路:
   - `app.onLaunch` 异步 hydrate;每个 tab `onShow` 调 `hydrateIfStale()`(30s 防抖,launch in-flight 时 await 同一 promise 避免 race)
   - 每次 `saveState` 200ms 防抖 push 到云
-  - 同步白名单 `SYNC_FIELDS` = `notebooks / tasks / streakDays / perfectDays / bonusByDay / completionsByDay / pet / lastReward / profile`(OCR 任务 / UI 临时态 / 固定配置 / `coins` + `pendingCoinEvents` 都不上云 —— 余额由服务端账本独占)
+  - 同步白名单 `SYNC_FIELDS` = `notebooks / tasks / coins / coinLogs / streakDays / perfectDays / bonusByDay / completionsByDay / pet / lastReward / profile`(OCR 任务 / UI 临时态 / 固定配置不上云。客户端 = truth,coins / coinLogs 整包随 state push)
 - 单设备占用:云端 doc 持有 `sessionId`,与本机不一致时弹 modal「用此设备 / 只读浏览」;只读模式 `updateState` 直接 return + 4s 节流 toast
 - 「我的」页面有「数据同步」卡片:状态 pill + 「立即同步 / 用此设备」按钮
 - 集合权限「仅创建者可读写」,`_openid` 自动过滤,无需云函数
@@ -80,16 +80,17 @@
 - `pkg-notebook/notebook-edit/` + `pkg-notebook/notebook-task-edit/` 拆为子包,`preloadRule` 配置在用户进 home/tasks/calendar/notebook-detail 时预热
 - 日历 tab 月历格子构建在 `wx.nextTick` 延后,首屏 chrome 先出
 
-### 9. 服务端金币账本 + 管理员后台 — **已上线**
-- `state.coins` 不再在 `SYNC_FIELDS` 里随业务 state 一起 push,余额改由服务端独占维护:
-  - 客户端每次 coin 变更 → 乐观本地 `+= delta` + 事件入队 `pendingCoinEvents`
-  - `utils/coin-ledger` 500ms 防抖把队列批量送 `coinLedger.commit`
-  - 服务端校验 kind / delta 范围(`task_reward 1-500` / `task_refund -500--1` / `pet_purchase -200--1` / `level_upgrade -100000--1` / `pet_skin_switch -1000--1`),原子 `inc` 用户余额,写 `coin_ledger` 审计
-  - server 返 `newBalance` + `appliedEventIds`,client drain 队列 + 把 coins 校准成服务端值
-- 客户端 hydrate 时把未上报的 `pendingCoinEvents.delta` 加回服务端拉到的 `coins`,UI 不闪
-- `pages/admin-detail` + `cloudfunctions/adminPanel`:管理员(`ADMIN_OPENIDS_HARDCODED` + `ADMIN_OPENIDS` env)能查用户列表 / 调金币(写 `admin_coin_inbox` + `coin_adjustments` 审计)/ 看 `coinLogs`
-- 任意用户登录都会触发 `claimAdminCoins`,把自己的 inbox 调整服务端 clamp ≥0 后入账并发 toast
-- `shareReward.claim`(分享被保存 +3)同样改为服务端原子 inc 后返 `newBalance`
+### 9. 金币 + 流水(客户端 = truth) + 管理员后台 — **已上线**
+
+> 历史:之前试过"服务端账本独占"(`coinLedger` 云函数 + 客户端 `pendingCoinEvents` 异步上报),被一连串 mixed-authority bug 咬过(server commit 队头 poison / hydrate 抹掉 perfectDays / share/admin newBalance 漂移),改回客户端 = truth。
+
+- `state.coins` + `state.coinLogs` 都在 `SYNC_FIELDS`,跟 tasks 一起整包 push 上云。云端只是 mirror,不再有"服务端账本"概念
+- 客户端 `applyCoinDelta(state, kind, delta, meta)` 直接改 `state.coins` + append 一条 `coinLogs`(带 `eventId / kind / delta / balanceBefore / balanceAfter / ts / meta`)。task_refund 允许把余额拍负(欠债状态后续 task_reward 先补债)
+- 服务端发起的金币(管理员调金币 / 分享被保存)走 inbox 模式:
+  - `adminPanel.adjustCoins` 写 `admin_coin_inbox` + `coin_adjustments` 审计
+  - `shareReward.credit` 写 `share_rewards_inbox`(好友导入触发 +3)
+  - client 在 home `onShow` 时调 `claimAdminCoins` / `claimPendingRewards`,server 返 items + 删 inbox + 写一条 `coin_ledger` 审计(eventId = inbox 行 id 哈希,client retry 会被识别为 alreadyApplied 不重复入账),client 自己走 `applyShareRewardClaim` / `applyAdminCoinClaim` → `applyCoinDelta` 入账
+- `pages/admin-detail` + `cloudfunctions/adminPanel`:管理员(`ADMIN_OPENIDS_HARDCODED` + `ADMIN_OPENIDS` env)能查用户列表 / 调金币(写 inbox + 审计)/ 看 `coinLogs`
 
 ### 10. 作业本分享 — **真实闭环**
 - `pages/notebook-detail` 「📤 分享作业本」按钮调 `onShareAppMessage`:把作业本元数据 + 任务列表 URI-encode 进 share path（`/pages/notebook-share/index?d=...`）

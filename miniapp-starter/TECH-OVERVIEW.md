@@ -32,15 +32,14 @@ miniapp-starter/
 ├── utils/
 │   ├── store.js               # 业务状态 + 进程内缓存 + schema 迁移 + saveState 触发云推送
 │   ├── cloud-sync.js          # 跨端同步（user_state 集合，单设备 session 占用）
-│   ├── coin-ledger.js         # 把 pendingCoinEvents 队列 debounced flush 到 coinLedger 云函数
 │   ├── share-reward.js        # 包装 shareReward 云函数（whoami / credit / claim）+ openid 缓存
 │   ├── admin-inbox.js         # 拉/清自己的 admin_coin_inbox（任意用户可调，不走 admin 白名单）
 │   └── navigation.js          # 页面跳转封装
 ├── cloudfunctions/
 │   ├── homeworkOCR/           # 多 provider 兜底 OCR 云函数（OpenAI / 腾讯云 / 微信 OpenAPI / Tesseract.js）
-│   ├── coinLedger/            # 服务端账本：commit 接收 pendingCoinEvents、按 kind / delta 校验入账
-│   ├── shareReward/           # 分享奖励云函数（独立 share_rewards_inbox 集合）
-│   └── adminPanel/            # 管理员后台：调金币 / 列用户 / 审计 + claimAdminCoins 任意用户领
+│   ├── coinLedger/            # 历史遗留：server 账本 commit 接口。客户端 = truth 改架后不再被调用，留在云端兼容老 client retry
+│   ├── shareReward/           # 分享奖励 inbox 云函数（credit 写 inbox，claim 返 items 给 client 自己入账）
+│   └── adminPanel/            # 管理员后台：调金币（写 inbox）/ 列用户 / 审计 + claimAdminCoins 返 items 给 client 自己入账
 ├── scripts/                   # Node 端：perf-bench / perf-correctness / values-check（V1 数值校验），不打包进小程序
 └── docs（README / PRD / TECH-OVERVIEW / CLOUD-SETUP / DEV-STATUS / PRODUCT-DOCS-INDEX / CLOUD-DATA-NOTES / V1-VALUES-DESIGN / V1-PET-ANIMATION-SPEC）
 ```
@@ -112,19 +111,18 @@ OCR 上传 + 草稿确认链路（详见 `V1-PRD-homework-register-ocr.md`）。
 {
   schemaVersion, updatedAt,                                  // 版本 + 同步时间戳
   notebooks, tasks,                                          // 核心业务
-  coins,                                                     // 服务端账本权威值的本地缓存（不参与 push，靠 hydrate / flush 校准）
-  pendingCoinEvents,                                         // 未上报的 coin 事件队列（仅本地）
+  coins,                                                     // 客户端 = truth 的余额。每次 applyCoinDelta 直接改 + 整包 push 上云
+  coinLogs,                                                  // 完整流水审计（最近 200 条），所有 applyCoinDelta / 老 admin 兼容路径都 append
   streakDays, perfectDays, bonusByDay, completionsByDay,     // 奖励 + 20-cap 计数
   pet, lastReward, lastLevelUp, lastShareReward,             // 宠物 + UI hint
   lastAdminCoinClaim,                                        // admin 调金币 toast hint
-  coinLogs,                                                  // admin 调金币明细（最近 200 条，仅 admin claim 写）
   profile,                                                   // { nickname, avatar } —— 分享发送方身份
   shopItems,                                                 // 静态配置（不同步）
   editTaskId, editNotebookId,                                // UI 临时态（不同步）
   ocrCurrentJob, ocrJobs                                     // OCR 临时态（不同步）
 }
 ```
-`migrateState` 每次 `loadState` 兜底做 v1→v2 迁移。
+`migrateState` 每次 `loadState` 兜底做 schema 迁移；老版本残留的 `pendingCoinEvents` 字段会被 strip。
 
 ### 3.2 内存缓存
 `store.js` 用模块级 `_stateCache` 缓存反序列化后的 state：
@@ -143,11 +141,11 @@ OCR 上传 + 草稿确认链路（详见 `V1-PRD-homework-register-ocr.md`）。
 - 只读模式下 `updateState` 直接 return，4s 节流 toast
 
 ### 3.5 同步白名单（`SYNC_FIELDS`）
-同步 `notebooks / tasks / streakDays / perfectDays / bonusByDay / completionsByDay / pet / lastReward / profile`。OCR 任务、UI 临时态、静态配置（shopItems）、coin 余额 / 事件队列 都本地保留。
+同步 `notebooks / tasks / coins / coinLogs / streakDays / perfectDays / bonusByDay / completionsByDay / pet / lastReward / profile`。OCR 任务、UI 临时态、静态配置（shopItems）都本地保留。
 
 要点：
-- **`coins` 不在白名单里**：余额由服务端账本（`coinLedger` / `shareReward.claim` / `adminPanel.claimAdminCoins`）独占维护，客户端 push 整包 state 时不带 coins，避免 localStorage 篡改秒变 999999；客户端 `state.coins` 仅是即时 UI 缓存，hydrate 或 flush 后被服务端 `newBalance` 覆盖
-- **`pendingCoinEvents` 也不在白名单里**：本机未上报的 coin 事件队列，跨设备切换时未上报的事件会丢（很少），可接受
+- **`coins` + `coinLogs` 都在白名单里**:客户端 = truth。`applyCoinDelta` 直接改本地 + append 一条 coinLogs,saveState 整包 push 上云。云端只是 mirror,hydrate 时仅在"另一台设备 / 本机 storage 被清"等极端场景下才会比本地新,那时才覆盖回本地
+- **不再有 `pendingCoinEvents` 字段**:老架构是 client 把事件入队 / coinLedger 云函数 async commit / 服务端持有 newBalance。改架后客户端单源,事件直接落 coinLogs + 整包 push,没有"待上报队列"
 - `completionsByDay` 同步是为了让 20-cap 计数跨设备生效（在 A 设备完成 18 项 → B 设备打开 → 当天只剩 2 个名额）
 - `profile` 在白名单里是为了让分享发送方的昵称（和头像 fileID）跟着用户跨设备走
 
@@ -165,21 +163,22 @@ node scripts/perf-bench.js 1000 5 365     # 1000 本 × 5 任务 × 365 天 hist
 node scripts/perf-correctness.js          # 76 项行为对账
 ```
 
-### 3.7 奖励 / 金币账本回归测试
+### 3.7 奖励 / 金币流水回归测试
 
-`scripts/test-rewards.js` —— 103 个断言覆盖完整的金币 + XP 流:
-- `finishTask` 单题奖 / daily-perfect base / early-bird / weekly streak(coin + xp)
+`scripts/test-rewards.js` —— 144 个断言覆盖客户端 = truth 架构下的金币 + XP 流:
+- `finishTask` 单题奖 / daily-perfect base / early-bird / weekly streak
 - `addTask` 触发的 perfectDay 回收(`reconcilePerfectDays`)与重发
-- `revertTask` 同时退单题奖 + 回收当日完美奖(coin + xp 双轨)
+- `revertTask` 同时退单题奖 + 回收当日完美奖
 - `DAILY_COMPLETION_CAP` 与回收循环的交互
 - 宠物 `buyItem` / 换皮走 `applyCoinDelta`;`levelUpPet` 走 XP,不发任何 coin event
-- `applyHydratedState` 把 `pendingCoinEvents` 的 delta 加回乐观本地余额
+- `applyShareRewardClaim` / `applyAdminCoinClaim` 走本地 `applyCoinDelta` 入账(kind=`share_reward` / `admin_adjust`)
+- `applyHydratedState` 直接把云端 snapshot 覆盖本地(没有 pending re-apply)
 
-任何 `store.js` / `cloud-sync.js` / `coin-ledger.js` / `coinLedger` 云函数的改动之后都要跑:
+任何 `store.js` / `cloud-sync.js` 改动之后都要跑:
 ```
-node scripts/test-rewards.js              # 103 个断言全过为通过
+node scripts/test-rewards.js              # 144 个断言全过为通过
 ```
-stub 了 `wx.storage` 和 `wx.cloud`,测的是客户端逻辑 + `pendingCoinEvents` 队列内容;服务端账本一致性还得部署联调。
+stub 了 `wx.storage` 和 `wx.cloud`,跑的是 store.js 客户端逻辑。云函数(shareReward / adminPanel)只是 inbox 投递器,不影响本地测试。
 
 ---
 
@@ -219,20 +218,22 @@ stub 了 `wx.storage` 和 `wx.cloud`,测的是客户端逻辑 + `pendingCoinEven
 
 | 集合 | 写入方 | 用途 |
 | --- | --- | --- |
-| `user_state` | cloud-sync push（业务字段）+ 各 coin 云函数 `inc(state.coins)` | 每个 `_openid` 一条文档，整个用户 state 打包存在 `state` 字段。详见 `CLOUD-SETUP.md`「跨设备数据同步」 |
-| `coin_ledger` | `coinLedger.commit` / `shareReward.claim` / `adminPanel.claimAdminCoins` | 事件级账本：每条记录 `{eventId, kind, delta, balanceAfter, meta, createdAt}`，dedup 靠 eventId |
+| `user_state` | 仅 cloud-sync push（含 `state.coins` / `state.coinLogs`）| 每个 `_openid` 一条文档，整个用户 state 打包存在 `state` 字段。客户端 = truth 后云函数不再写 `state.coins` |
+| `coin_ledger` | `shareReward.claim` / `adminPanel.claimAdminCoins`（仅服务端发放的事件）| 服务端发起的金币事件审计:`{eventId, kind, delta, meta, createdAt}`,dedup 靠 eventId(inbox 行 id 哈希)|
 | `coin_adjustments` | `adminPanel.adjustCoins` | 管理员调金币的不可变审计 `{targetOpenid, adminOpenid, delta, reason, claimed, claimedAt, appliedDelta}` |
-| `admin_coin_inbox` | `adjustCoins` 写入 → `claimAdminCoins` 读出后删 | 待目标用户领取的调整记录，避开 cloud-sync 单设备写模型冲突 |
-| `admin_action_rate` | `adminPanel.checkAdminRateLimit` | admin × action 限流计数（30 次/分钟） |
-| `share_rewards_inbox` | `shareReward.credit` 写入 → `shareReward.claim` 读出后删 | 分享方未领取的奖励记录，dedup key `${importerOpenid}__${notebookId}` |
+| `admin_coin_inbox` | `adjustCoins` 写入 → `claimAdminCoins` 读出后删 | 待目标用户领取的调整记录,client claim 后自己 `applyCoinDelta` 入账 |
+| `admin_action_rate` | `adminPanel.checkAdminRateLimit` | admin × action 限流计数（30 次/分钟）|
+| `share_rewards_inbox` | `shareReward.credit` 写入 → `shareReward.claim` 读出后删 | 分享方未领取的奖励记录,dedup key `${importerOpenid}__${notebookId}`|
 
-`user_state` 权限「仅创建者可读写」，`_openid` 自动注入，业务字段读写无需云函数代理；其它集合由云函数用 admin SDK 跨 openid 操作，客户端不直接访问。
+`user_state` 权限「仅创建者可读写」,`_openid` 自动注入,业务字段读写无需云函数代理;其它集合由云函数用 admin SDK 跨 openid 操作,客户端不直接访问。
 
-WeChat 云数据库的 `update({data: {state: subset}})` 走 MongoDB 的 `$set` 自动展平成 `state.X` dot-path，所以 cloud-sync 的整包 push 和 coin 云函数的 `inc(state.coins)` 互不覆盖，多个写入方共用 `state` 子字段安全。
+历史遗留:`coinLedger` 云函数(`commit` 接口)还在,但客户端 = truth 之后新 client 不再调用。留着是为了老版本 client 还在跑时能 retry-and-drain 卡住的 pending 队列。
+
+WeChat 云数据库的 `update({data: {state: subset}})` 走 MongoDB 的 `$set` 自动展平成 `state.X` dot-path,所以 cloud-sync 的整包 push 把 `state.coins` 直接覆写过去,不会和 `state.tasks` 等其它子字段冲突。
 
 ### 设计草案（未实现）
 
-`CLOUD-DATA-NOTES.md` 里有更规范化的多表方案：`users / families / children / homeworkTasks / coinLogs / pets / shopOrders / ocrJobs / ocrDraftItems`。`coin_ledger` 已经把"金币流水"独立沉淀了；其它如 `homeworkTasks` / `children` 等仍在 `user_state.state` 里，要做跨家庭分析才会拆。
+`CLOUD-DATA-NOTES.md` 里有更规范化的多表方案：`users / families / children / homeworkTasks / coinLogs / pets / shopOrders / ocrJobs / ocrDraftItems`。当前客户端 = truth 架构下 `coinLogs` 跟 tasks 一样在 `user_state.state` 里整包同步,要做跨家庭分析才会拆出独立表(连带要把 truth 改回服务端 / 引入事件驱动)。
 
 ---
 

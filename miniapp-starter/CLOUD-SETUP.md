@@ -195,10 +195,10 @@ OCR 链路本身已通,识别质量经过手写体优先调整后明显改善。
 
 ### 数据范围
 
-同步:`notebooks / tasks / streakDays / perfectDays / bonusByDay / completionsByDay / pet / lastReward / profile`
-仅本地:`coins / pendingCoinEvents / editTaskId / editNotebookId / ocrCurrentJob / ocrJobs / shopItems / schemaVersion`
+同步:`notebooks / tasks / coins / coinLogs / streakDays / perfectDays / bonusByDay / completionsByDay / pet / lastReward / profile`
+仅本地:`editTaskId / editNotebookId / ocrCurrentJob / ocrJobs / shopItems / schemaVersion`
 
-(白名单写在 `utils/store.js` 的 `SYNC_FIELDS` 常量。`coins` 由服务端账本 `coinLedger` / `shareReward.claim` / `adminPanel.claimAdminCoins` 维护,客户端 push 不带它;`pendingCoinEvents` 是本地未上报的事件队列,跨设备切换时未上报事件会丢——很少,可接受。)
+(白名单写在 `utils/store.js` 的 `SYNC_FIELDS` 常量。客户端 = truth,coins / coinLogs 都是本地决定 + 整包 push 上云;服务端 `shareReward.claim` / `adminPanel.claimAdminCoins` 只走 inbox 模式把 items 推回给 client,client 自己 `applyCoinDelta` 入账。)
 
 ### 已知限制
 
