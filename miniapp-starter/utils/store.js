@@ -2295,6 +2295,10 @@ function applyAdminCoinClaim({ items, totalApplied, addedTotal, deductedTotal, n
   updateState((state) => {
     const logs = Array.isArray(state.coinLogs) ? state.coinLogs : []
     const appliedItems = []
+    // 从当前余额起算 running balance,每条 admin item 各记一对 before/after,
+    // coin-history 里就能跟其它流水一样显示"余 X"(之前漏了这俩字段,UI 直接
+    // wx:if 隐藏了余额一栏)。多 item 时按返回顺序累加,最终值应与 newBalance 一致。
+    let running = typeof state.coins === 'number' ? state.coins : 0
     for (const it of items) {
       // Server 已经做过 clamp;applied 字段就是真实入账值。老版兼容:如果
       // 只有 delta 没有 applied,把 delta 当 applied 用。
@@ -2302,9 +2306,13 @@ function applyAdminCoinClaim({ items, totalApplied, addedTotal, deductedTotal, n
       const requested = typeof it.requested === 'number' ? it.requested : applied
       if (!applied && !requested) continue
       const reason = (it.reason || '').toString()
+      const before = running
+      running += applied
       logs.push({
         at: Number(it.createdAt) || Date.now(),
         delta: applied,
+        balanceBefore: before,
+        balanceAfter: running,
         reason: `admin-adjust:${reason}`,
         adminOpenid: it.adminOpenid || '',
         auditId: it.auditId || ''
