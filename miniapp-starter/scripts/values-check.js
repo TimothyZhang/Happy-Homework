@@ -889,5 +889,111 @@ check('imported task w/o history → estimatedMinutes = 0',
 
 // Test 16 (duplicateNotebook) 在 v3 已无意义,删除。
 
+// === Test 17: 首页 all-done 汇总 tip 文案 (utils/home-tips.js) ===
+// 验证当日全部完成时,pet-bubble 第二条 tip 显示"共耗时 X，获得 X 金币"。
+// 直接复用 store.coinsEarnedOn / store.tasksForDate,通过 buildPetTips 跑全链路。
+console.log('\n[home-tips] all-done summary tip:')
+
+function freshHomeTips() {
+  const path = require('path').resolve(__dirname, '../utils/home-tips.js')
+  delete require.cache[require.resolve(path)]
+  return require(path)
+}
+
+// 把 done 任务的 actualMinutes 直接写进 storage,绕过 finishTask
+// 的 Math.max(1, round(ms/60000)) —— 用例要求精确分钟数。
+function seedDoneTodayWithMinutes(minutesList) {
+  seedTasksOnDate(minutesList.length, todayStr())
+  const raw = JSON.parse(storage['homework-pet-v1'])
+  raw.tasks = raw.tasks.map((t, i) => ({
+    ...t,
+    status: 'done',
+    accumulatedMs: minutesList[i] * 60000,
+    actualMinutes: minutesList[i],
+    completedAt: Date.now(),
+    rewardPaid: 10  // 当日 task: +10 each
+  }))
+  raw.completionsByDay = { [todayStr()]: minutesList.length }
+  raw.perfectDays = [todayStr()]
+  raw.coins = minutesList.length * 10 + minutesList.length * 10  // per-task + base-bonus (no early-bird at 22:00)
+  raw.bonusByDay = { [todayStr()]: { dailyBonus: minutesList.length * 10, weeklyBonus: 0 } }
+  storage['homework-pet-v1'] = JSON.stringify(raw)
+}
+
+function homeTipFor(minutesList) {
+  seedDoneTodayWithMinutes(minutesList)
+  const s = freshStore()
+  const ht = freshHomeTips()
+  const state = s.getStateWithComputed()
+  const today = s.todayStr()
+  const raw = s.tasksForDate(state, today)
+  let totalDoneMinutes = 0
+  for (const it of raw) {
+    if (it.occurrence && it.occurrence.status === 'done') {
+      totalDoneMinutes += Number(it.occurrence.actualMinutes || 0)
+    }
+  }
+  const ctx = {
+    isToday: true,
+    totalCount: raw.length,
+    pendingCount: 0,
+    remainingMinutes: 0,
+    coinsToday: s.coinsEarnedOn(state, today),
+    totalDoneMinutes,
+    projected19: 0, projected20: 0, projected21: 0
+  }
+  return ht.buildPetTips(ctx)
+}
+
+// 3 项 15+25+40=80 → 1 小时 20 分,coins = 3*10 + 3*10 = 60
+const tips3 = homeTipFor([15, 25, 40])
+check('3 项 15/25/40 → 第二条 tip = "共耗时 1 小时 20 分，获得 60 金币"',
+  tips3[1], '共耗时 1 小时 20 分，获得 60 金币')
+
+// 2 项 10+20=30 → 30 分,coins = 2*10 + 2*10 = 40
+const tips2 = homeTipFor([10, 20])
+check('2 项 10/20 → 第二条 tip = "共耗时 30 分，获得 40 金币"',
+  tips2[1], '共耗时 30 分，获得 40 金币')
+
+// 整点小时:60 分 → "1 小时"(不带"0 分")
+const tips60 = homeTipFor([60])
+check('1 项 60 分钟 → "共耗时 1 小时，获得 X 金币"(无 0 分尾巴)',
+  tips60[1], '共耗时 1 小时，获得 20 金币')
+
+// === Test 17b: 部分完成日不显示这条 tip ===
+console.log('\n[home-tips] partial day: no summary tip:')
+seedTasksOnDate(3, todayStr())
+{
+  const raw = JSON.parse(storage['homework-pet-v1'])
+  raw.tasks = raw.tasks.map((t, i) => i === 0
+    ? { ...t, status: 'done', accumulatedMs: 15 * 60000, actualMinutes: 15,
+        completedAt: Date.now(), rewardPaid: 10 }
+    : t)
+  storage['homework-pet-v1'] = JSON.stringify(raw)
+}
+{
+  const s = freshStore()
+  const ht = freshHomeTips()
+  const ctx = {
+    isToday: true, totalCount: 3, pendingCount: 2,
+    remainingMinutes: 10, coinsToday: 10, totalDoneMinutes: 15,
+    projected19: 0, projected20: 0, projected21: 0
+  }
+  const tips = ht.buildPetTips(ctx)
+  const hasSummary = tips.some((t) => /共耗时/.test(t))
+  check('partial day → no "共耗时" tip in rotation', hasSummary, false)
+}
+
+// === Test 17c: formatSpentTime edge cases ===
+console.log('\n[home-tips] formatSpentTime edges:')
+const ht = freshHomeTips()
+check('formatSpentTime(0)  = 不到 1 分', ht.formatSpentTime(0),  '不到 1 分')
+check('formatSpentTime(1)  = 1 分',     ht.formatSpentTime(1),  '1 分')
+check('formatSpentTime(59) = 59 分',    ht.formatSpentTime(59), '59 分')
+check('formatSpentTime(60) = 1 小时',   ht.formatSpentTime(60), '1 小时')
+check('formatSpentTime(80) = 1 小时 20 分', ht.formatSpentTime(80), '1 小时 20 分')
+check('formatSpentTime(120) = 2 小时',  ht.formatSpentTime(120), '2 小时')
+check('formatSpentTime(125) = 2 小时 5 分', ht.formatSpentTime(125), '2 小时 5 分')
+
 console.log(`\n  ${pass} passed, ${fail} failed.\n`)
 process.exit(fail === 0 ? 0 : 1)

@@ -3,6 +3,9 @@ const cloudSync = require('../../utils/cloud-sync')
 const shareReward = require('../../utils/share-reward')
 const adminInbox = require('../../utils/admin-inbox')
 const perf = require('../../utils/perf')
+const homeTips = require('../../utils/home-tips')
+
+const formatDuration = homeTips.formatDuration
 
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
@@ -12,15 +15,6 @@ function formatElapsed(ms) {
   if (min === 0) return `${sec} 秒`
   if (sec === 0) return `${min} 分钟`
   return `${min} 分 ${sec} 秒`
-}
-
-function formatDuration(minutes) {
-  if (!minutes || minutes < 0) return '—'
-  if (minutes < 60) return `${minutes} 分钟`
-  const h = Math.floor(minutes / 60)
-  const m = minutes % 60
-  if (m === 0) return `${h} 小时`
-  return `${h}h${m}m`
 }
 
 // "5/10" — short M/D suffix shown on segment buttons.
@@ -55,52 +49,9 @@ function buildBonusChip(isToday, pendingCount) {
   return { active: false, icon: '', label: '当前无加成' }
 }
 
-function buildPetMessage({ isToday, totalCount, pendingCount, remainingMinutes, coinsToday }) {
-  const timeStr = remainingMinutes > 0 ? formatDuration(remainingMinutes) : ''
-
-  if (isToday) {
-    if (totalCount === 0) return '今天还没有作业安排，可以陪我玩一会儿～'
-    if (pendingCount === 0) {
-      return coinsToday > 0
-        ? `太棒了，今天的作业全部完成啦！🎉 共获得 ${coinsToday} 金币～`
-        : '太棒了，今天的作业全部完成啦！🎉'
-    }
-    if (pendingCount === 1) {
-      return timeStr
-        ? `就剩最后 1 项啦，预计 ${timeStr}，冲呀～`
-        : '就剩最后 1 项啦，冲呀～'
-    }
-    if (timeStr) {
-      return `今天还有 ${pendingCount} 项作业，预计还需 ${timeStr}，加油哦～`
-    }
-    return `今天还有 ${pendingCount} 项作业，加油哦～`
-  }
-
-  if (totalCount === 0) return '这一天没有安排作业'
-  if (pendingCount === 0) return `这天的 ${totalCount} 项作业都完成啦`
-  return `这天还有 ${pendingCount} 项作业没完成`
-}
-
-// Build the rotating list of speech-bubble lines shown next to the pet. The
-// first item is always the contextual progress message; the rest are the
-// early-finish bonus tips relevant to the current time (only show a tier the
-// user could still hit), plus the happiness rules so kids know completing
-// homework is what keeps the pet happy.
-function buildPetTips(ctx) {
-  const tips = [buildPetMessage(ctx)]
-  if (!ctx.isToday || ctx.pendingCount === 0) return tips
-  // Each tip shows total coins the user would earn (per-task + daily-perfect
-  // + early-bird) if they finish all pending today-view items by that cutoff.
-  // Gate by the current early-bird tier so we don't show a deadline that
-  // already passed. ctx.projected19/20/21 come from store.projectedReward.
-  const b = store.earlyBirdBonus()
-  if (b >= 50 && ctx.projected19 > 0) tips.push(`🏆 19:00 前完成所有作业，可获得 ${ctx.projected19} 金币`)
-  if (b >= 30 && ctx.projected20 > 0) tips.push(`⏱ 20:00 前完成所有作业，可获得 ${ctx.projected20} 金币`)
-  if (b >= 20 && ctx.projected21 > 0) tips.push(`⏰ 21:00 前完成所有作业，可获得 ${ctx.projected21} 金币`)
-  // 开心度走商店道具 — 完成作业不再 +happiness。
-  tips.push('💖 想加开心度？去宠物商店买玩具球 / 礼物盒')
-  return tips
-}
+// buildPetMessage / buildPetTips moved to utils/home-tips.js so the pure
+// formatters can be exercised by values-check.js without mocking Page().
+const buildPetTips = homeTips.buildPetTips
 
 // Subtitle shown under the per-task +N pill. Only decorate the cases the
 // user can actually act on: 'future' explains the +5 over today's amount,
@@ -299,12 +250,23 @@ Page({
     const projected20 = isToday ? store.projectedReward(state, raw, 20) : 0
     const projected21 = isToday ? store.projectedReward(state, raw, 21) : 0
     const coinsToday = isToday ? store.coinsEarnedOn(state, selectedDate) : 0
+    // Sum actualMinutes across done items in today's view (drives the
+    // all-done summary tip). 用 raw 而非 decorated 是为了直接读 occurrence
+    // 里持久化的 actualMinutes —— 由 finishTask 一次性写定,不会被显示层四舍五入。
+    let totalDoneMinutes = 0
+    if (isToday) {
+      for (const it of raw) {
+        const occ = it.occurrence || {}
+        if (occ.status === 'done') totalDoneMinutes += Number(occ.actualMinutes || 0)
+      }
+    }
     const petTipCtx = {
       isToday,
       totalCount: total,
       pendingCount: undoneItems.length,
       remainingMinutes,
       coinsToday,
+      totalDoneMinutes,
       projected19,
       projected20,
       projected21
