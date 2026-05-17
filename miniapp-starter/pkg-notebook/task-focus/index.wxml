@@ -1,5 +1,5 @@
 <view class="focus-page">
-  <view class="close-btn" bindtap="handleClose">✕</view>
+  <view class="back-btn" bindtap="handleClose">←</view>
 
   <view class="info-block">
     <view class="chips">

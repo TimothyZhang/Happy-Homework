@@ -10,14 +10,15 @@
   box-sizing: border-box;
 }
 
-.close-btn {
-  align-self: flex-end;
+/* 左上角返回 — 避开右上角小程序胶囊(关闭/收起)位置 */
+.back-btn {
+  align-self: flex-start;
   width: 80rpx;
   height: 80rpx;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.7);
   color: #5f6b7a;
-  font-size: 40rpx;
+  font-size: 44rpx;
   line-height: 80rpx;
   text-align: center;
   box-shadow: 0 4rpx 12rpx rgba(31, 35, 41, 0.06);
