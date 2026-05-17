@@ -103,7 +103,12 @@ Component({
       // 算 shiftY/slotsDelta,跟随后回填的真实值不一致 — Tim 截图里 4 张
       // row 全部消失就是这种 transform 状态混乱。
       if (!this.itemHeightPx) {
-        const q = this.createSelectorQuery()
+        // .in(this) 必须有 — Component 内 createSelectorQuery 默认 select
+        // page 级别,拿不到 component 内的 .task-row,rects[0] 一直是 null,
+        // itemHeightPx 留 null,handleRowTouchMove 用 fallback 140 算 slotsDelta。
+        // row 实际高度跟 140 差太多就让 toZoneIdx 算成 fromZoneIdx,reorder
+        // 根本不进,松手 row 视觉回原位(因为 setData({list:reset}) 复位)。
+        const q = this.createSelectorQuery().in(this)
         q.select('.task-row').boundingClientRect()
         q.exec((rects) => { if (rects && rects[0]) this.itemHeightPx = rects[0].height + 12 })
       }

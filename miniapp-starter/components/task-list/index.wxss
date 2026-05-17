@@ -156,6 +156,12 @@
   overflow: visible;
 }
 
+/* drag 中 swipe-action(右侧"编辑"按钮)应该藏起来:之前靠 overflow:hidden
+   不显示,现在 visible 后会露出,视觉很乱。 */
+.task-list.is-dragging-mode .swipe-action {
+  visibility: hidden;
+}
+
 .task-row-swipable .swipe-action {
   position: absolute;
   top: 0;
