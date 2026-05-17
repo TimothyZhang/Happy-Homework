@@ -2,19 +2,42 @@ const store = require('../../utils/store')
 const shareReward = require('../../utils/share-reward')
 
 const SUBJECT_ORDER = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
+const WEEKDAY_NAMES = ['一', '二', '三', '四', '五', '六', '日']
 
-// Mirrors arrangeBySubject in pages/notebook-detail — share preview is
-// read-only, grouped by subject only (planning view stays on detail page).
-function arrangeBySubject(rawTasks) {
-  const subjectRank = (s) => {
-    const i = SUBJECT_ORDER.indexOf(s)
-    return i < 0 ? SUBJECT_ORDER.length : i
+function subjectRank(s) {
+  const i = SUBJECT_ORDER.indexOf(s)
+  return i < 0 ? SUBJECT_ORDER.length : i
+}
+
+function describeRecurrence(r) {
+  if (!r) return '每日'
+  if (r.type === 'daily') return '每日'
+  if (r.type === 'weekly') {
+    const wds = (r.weekdays || []).slice().sort()
+    if (!wds.length) return '每周（未选日）'
+    return '每周' + wds.map((w) => WEEKDAY_NAMES[w - 1]).join('、')
   }
+  return ''
+}
+
+function describeTaskSchedule(t) {
+  if (t.mo === 'recurring') {
+    const tail = t.ed ? `→ ${t.ed}` : '→ 长期'
+    return `重复 · ${describeRecurrence(t.r)} · ${t.sd || ''} ${tail}`
+  }
+  return `一次性 · ${t.ed || t.sd || ''}`
+}
+
+// 按学科分组、保持组内原序。每组首行打 firstOfSubject=true 给 UI 画分组头。
+function arrangeBySubject(rawTasks) {
   const list = rawTasks.map((t, idx) => ({
     _idx: idx,
+    selected: true,
     subject: t.s || '其他',
+    organization: t.o || '其他',
     content: t.c || '',
-    estimatedMinutes: Number(t.m) || 0
+    estimatedMinutes: Number(t.m) || 0,
+    scheduleLabel: describeTaskSchedule(t)
   }))
   list.sort((a, b) => {
     const ra = subjectRank(a.subject)
@@ -31,30 +54,15 @@ function arrangeBySubject(rawTasks) {
   return list
 }
 
-function summarize(n) {
-  if (!n) return ''
-  if (n.mode === 'one-shot') {
-    const due = n.endDate || n.startDate
-    return `一次性 · 截止 ${due}`
-  }
-  const rec = n.recurrence || { type: 'daily' }
-  let recLabel = '每日'
-  if (rec.type === 'weekly') {
-    const names = ['一', '二', '三', '四', '五', '六', '日']
-    recLabel = '每周' + (rec.weekdays || []).slice().sort().map((w) => names[w - 1]).join('、')
-  }
-  const range = `${n.startDate} → ${n.endDate || '长期'}`
-  return `重复 · ${recLabel} · ${range}`
-}
-
 Page({
   data: {
     payload: null,
     arrangedTasks: [],
-    notebookSummary: '',
+    headerTitle: '',
     sharerLabel: '',
     sharerNickname: '',
     sharerAvatar: '',
+    selectedCount: 0,
     error: '',
     importing: false
   },
@@ -62,33 +70,34 @@ Page({
   onLoad(options) {
     const raw = options && options.d
     if (!raw) {
-      this.setData({ error: '分享链接里没有作业本数据' })
+      this.setData({ error: '分享链接里没有作业数据' })
       return
     }
     try {
       const rawPayload = JSON.parse(decodeURIComponent(raw))
-      // sanitize 把 schema 收敛到已知字段、字符串截断、数组截 200。攻击者
-      // 构造 100k 条任务的 ?d= 想撑爆 setData / 本地存储,在这一关就被截掉。
+      // sanitize 把 schema 收敛到 v2 schema(v1 老链接也会被 sanitize 转换)。
       const payload = store.sanitizeSharePayload(rawPayload)
-      if (!payload) throw new Error('payload invalid')
-      // URL 里只带 sharer (openid),不带昵称 —— PII 不入路径。
-      // 接收端拿 openid 异步去云端反查 profile,拿到再补 nickname/avatar。
+      if (!payload || !Array.isArray(payload.t) || payload.t.length === 0) {
+        throw new Error('payload invalid')
+      }
+      const arranged = arrangeBySubject(payload.t)
+      const headerTitle = payload.d ? `${payload.d} 的作业` : '好友分享的作业'
       this.setData({
         payload,
-        arrangedTasks: arrangeBySubject(payload.t),
-        notebookSummary: summarize(payload.n),
-        sharerLabel: '好友分享给你的作业本'
+        arrangedTasks: arranged,
+        selectedCount: arranged.length,
+        headerTitle,
+        sharerLabel: '好友分享给你的作业'
       })
-      wx.setNavigationBarTitle({ title: payload.n.name || '导入作业本' })
+      wx.setNavigationBarTitle({ title: '导入作业' })
       if (payload.sharer) {
-        // 失败 / 没填 profile → 保持默认通用文案,不弹错。
         shareReward.fetchSharerProfile(payload.sharer).then((profile) => {
           if (!profile) return
           const nickname = (profile.nickname || '').trim()
           this.setData({
             sharerNickname: nickname,
             sharerAvatar: profile.avatar || '',
-            sharerLabel: nickname ? `${nickname} 分享给你的作业本` : '好友分享给你的作业本'
+            sharerLabel: nickname ? `${nickname} 分享给你的作业` : '好友分享给你的作业'
           })
         }).catch(() => {})
       }
@@ -97,74 +106,53 @@ Page({
     }
   },
 
+  handleToggleTask(event) {
+    const idx = Number(event.currentTarget.dataset.idx)
+    if (!Number.isInteger(idx)) return
+    const arranged = this.data.arrangedTasks.slice()
+    if (!arranged[idx]) return
+    arranged[idx] = { ...arranged[idx], selected: !arranged[idx].selected }
+    const selectedCount = arranged.filter((t) => t.selected).length
+    this.setData({ arrangedTasks: arranged, selectedCount })
+  },
+
+  handleToggleAll() {
+    const arranged = this.data.arrangedTasks
+    const allOn = arranged.every((t) => t.selected)
+    const next = arranged.map((t) => ({ ...t, selected: !allOn }))
+    this.setData({ arrangedTasks: next, selectedCount: allOn ? 0 : next.length })
+  },
+
   handleImport() {
     if (this.data.importing) return
     if (!this.data.payload) return
     const payload = this.data.payload
-    const name = (payload.n && payload.n.name) || ''
-    const dupe = store.findNotebookByName(name)
-    if (dupe) {
-      this.showDuplicateActionSheet(dupe.id)
+    // arranged 是排过序的索引,要把 selected 索引映射回 payload.t 的原索引
+    const selectedOriginalIndexes = this.data.arrangedTasks
+      .filter((t) => t.selected)
+      .map((t) => t._idx)
+    if (selectedOriginalIndexes.length === 0) {
+      wx.showToast({ title: '至少勾选 1 项', icon: 'none' })
       return
     }
-    this.runImport({ mode: 'new' })
-  },
-
-  // Three-way conflict resolver when the import name collides with an
-  // existing notebook. Choices:
-  //   合并 — append shared tasks to the existing notebook (no dedupe; all
-  //          incoming tasks land as todo).
-  //   重命名 — auto-suffix " 复制" until unique, then create as new.
-  //   覆盖 — destructive: replaces metadata + tasks under the same id.
-  //          Coin/streak history is keyed elsewhere and stays intact.
-  showDuplicateActionSheet(targetId) {
-    wx.showActionSheet({
-      itemList: ['合并到现有作业本', '重命名后保存', '覆盖现有作业本'],
-      success: (res) => {
-        if (res.tapIndex === 0) {
-          this.runImport({ mode: 'merge', targetNotebookId: targetId })
-        } else if (res.tapIndex === 1) {
-          this.runImport({ mode: 'rename' })
-        } else if (res.tapIndex === 2) {
-          // Second confirm — overwrite is destructive.
-          wx.showModal({
-            title: '覆盖作业本？',
-            content: '现有作业本里的所有作业会被替换，进度记录保留。',
-            confirmText: '覆盖',
-            confirmColor: '#e54545',
-            success: (r) => {
-              if (r.confirm) {
-                this.runImport({ mode: 'overwrite', targetNotebookId: targetId })
-              }
-            }
-          })
-        }
-      }
-    })
-  },
-
-  runImport(options) {
-    if (this.data.importing) return
     this.setData({ importing: true })
-    const payload = this.data.payload
-    const newId = store.importSharedNotebook(payload, options)
-    if (!newId) {
+    const newIds = store.importSharedTasks(payload, { selectedIndexes: selectedOriginalIndexes })
+    if (!newIds || newIds.length === 0) {
       this.setData({ importing: false, error: '保存失败，请稍后再试' })
       return
     }
-    wx.showToast({ title: '已保存', icon: 'success' })
-    // Best-effort credit the original sharer with +3 coins. Cloud function
-    // dedups (importer × notebookId) so re-imports won't double-credit.
-    // Failure is silent — main flow already succeeded.
-    if (payload.sharer && payload.nbId) {
+    wx.showToast({ title: `已导入 ${newIds.length} 项`, icon: 'success' })
+    // 服务端 shareReward 给分享者 +3 coin(以 shareId 做 dedup,重复导入不会重复发)。
+    if (payload.sharer && payload.shareId) {
       shareReward.reportShareSave({
         sharerOpenid: payload.sharer,
-        notebookId: payload.nbId,
-        notebookName: (payload.n && payload.n.name) || ''
+        notebookId: payload.shareId,   // 云函数字段名暂用旧名,Phase 12 一起改
+        notebookName: this.data.headerTitle
       }).catch(() => {})
     }
     setTimeout(() => {
-      wx.redirectTo({ url: `/pages/notebook-detail/index?id=${newId}` })
+      // 没有 notebook-detail 可跳,直接回任务列表
+      wx.switchTab({ url: '/pages/tasks/index' })
     }, 600)
   },
 
@@ -176,21 +164,15 @@ Page({
     }
   },
 
-  // Forward the same shared payload onward — re-encode rather than relying
-  // on `currentRoute + options`, so we don't rebuild the URL by hand.
-  // payload 里不再含发送者昵称(serializeNotebookForShare 已不写、转发也
-  // 不补)—— share URL 是 PII 泄露面,昵称不入路径。WeChat 转发的卡片
-  // 本身会显示"X 转发给你",身份信息有别的地方承载,不需要塞 URL。
-  // payload.sharer (openid) 保留 —— 奖励归属还是要回到原作者。
+  // 转发卡片继续往下传播 — payload 里包含 shareId,reportShareSave 仍归属原作者。
   onShareAppMessage() {
     const payload = this.data.payload
-    if (!payload || !payload.n) {
-      return { title: '作业本', path: '/pages/tasks/index' }
-    }
-    // 显式剔除 from,即使老 payload 上携带也别带出去。
+    if (!payload) return { title: '作业分享', path: '/pages/tasks/index' }
     const forwarded = { ...payload }
     delete forwarded.from
-    const title = `好友分享给你的作业：${payload.n.name}`
+    const title = this.data.sharerNickname
+      ? `${this.data.sharerNickname} 分享给你的作业`
+      : '好友分享给你的作业'
     const encoded = encodeURIComponent(JSON.stringify(forwarded))
     return { title, path: `/pages/notebook-share/index?d=${encoded}` }
   }

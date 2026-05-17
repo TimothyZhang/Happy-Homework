@@ -46,7 +46,8 @@
   color: #245bdb;
 }
 
-/* === notebook card === */
+/* === task card (前身 notebook-card) === */
+.task-card,
 .notebook-card {
   margin-top: 16rpx;
   padding: 24rpx;
@@ -55,11 +56,64 @@
   box-shadow: 0 8rpx 24rpx rgba(31, 35, 41, 0.06);
 }
 
-/* Fully-done one-shot notebooks: desaturate so finished items recede.
-   Recurring notebooks intentionally never get this class — they recur. */
+/* 一次性任务全做完 → 灰度下沉。recurring 永不进这个状态。 */
+.task-card.all-done,
 .notebook-card.all-done {
   filter: grayscale(0.7);
   opacity: 0.55;
+}
+
+/* === toolbar (group / filter 分段开关) === */
+.toolbar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  margin-top: 18rpx;
+  padding: 0 16rpx;
+}
+
+.seg-group {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  font-size: 24rpx;
+  color: #6b7785;
+}
+
+.seg-btn {
+  padding: 6rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  background: #f3f6fa;
+  color: #5f6b7a;
+}
+
+.seg-btn.active {
+  background: #245bdb;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.group-block {
+  margin-top: 28rpx;
+}
+
+.group-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12rpx;
+  padding: 0 8rpx 8rpx;
+}
+
+.group-label {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1f2329;
+}
+
+.group-count {
+  font-size: 22rpx;
+  color: #6b7785;
 }
 
 /* The 「今日」 chip below already conveys "active today"; no extra border. */

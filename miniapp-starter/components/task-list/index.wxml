@@ -1,68 +1,61 @@
 <view class="task-list">
   <block wx:for="{{list}}" wx:key="id">
-    <!-- Undone rows: drag-reorder + action buttons -->
-    <view wx:if="{{item.status !== 'done'}}"
-          class="task-row {{item.status}} {{rowVariant}} {{item.isOverdue ? 'is-overdue' : ''}} {{dragId === item.id ? 'is-dragging' : ''}}"
-          style="{{dragId === item.id ? 'transform: translateY(' + dragDy + 'px); z-index: 10;' : (item.shiftY ? 'transform: translateY(' + item.shiftY + 'px);' : '')}}"
-          bindtouchstart="handleTouchStart"
-          bindlongpress="handleLongPress"
-          bindtouchmove="handleTouchMove"
-          bindtouchend="handleTouchEnd"
-          bindtouchcancel="handleTouchEnd"
-          data-id="{{item.id}}"
-          data-task-id="{{item.taskId || item.id}}"
-          data-occurrence-date="{{item.occurrenceDate}}">
-      <view wx:if="{{item.status === 'doing'}}" class="doing-strip"></view>
-      <view class="dot"></view>
-      <view class="row-body">
-        <text class="row-content">{{item.content}}</text>
-        <view class="row-chips">
-          <text wx:if="{{item.status === 'doing'}}" class="chip doing-chip">进行中</text>
-          <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
-          <text class="chip nb-chip" data-notebook-id="{{item.notebookId}}" catchtap="handleOpenNotebook">{{item.notebookName}}</text>
-          <text wx:if="{{item.isOverdue && item.occurrenceDate}}" class="chip overdue-chip">{{item.occurrenceDate}}</text>
-          <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
-          <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
-        </view>
-      </view>
-      <view class="row-actions">
-        <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" data-task-id="{{item.taskId || item.id}}" data-occurrence-date="{{item.occurrenceDate}}" catchtap="handleStart">▶</view>
-        <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" data-task-id="{{item.taskId || item.id}}" data-occurrence-date="{{item.occurrenceDate}}" catchtap="handlePause">❚❚</view>
-        <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" data-task-id="{{item.taskId || item.id}}" data-occurrence-date="{{item.occurrenceDate}}" catchtap="handleResume">↻</view>
-        <view wx:if="{{item.status === 'doing'}}" class="icon-btn finish-btn" data-id="{{item.id}}" data-task-id="{{item.taskId || item.id}}" data-occurrence-date="{{item.occurrenceDate}}" catchtap="handleFinish">✓</view>
-      </view>
-    </view>
-
-    <!-- Done rows: swipe-left to reveal 「继续」 (revert to paused) -->
-    <view wx:else
-          class="task-row-swipable {{swipeId === item.id ? 'is-swiping' : ''}}"
+    <view class="task-row-swipable {{swipeId === item.id ? 'is-swiping' : ''}}"
           data-id="{{item.id}}">
-      <view class="swipe-action">
-        <view class="swipe-btn"
+
+      <!-- Swipe-revealed action zone. Undone: 编辑 + 删除;Done: 继续。 -->
+      <view wx:if="{{item.status !== 'done'}}" class="swipe-action swipe-action-double">
+        <view class="swipe-btn edit-swipe-btn"
+              data-id="{{item.id}}"
+              data-task-id="{{item.taskId || item.id}}"
+              data-occurrence-date="{{item.occurrenceDate}}"
+              data-task-mode="{{item.taskMode}}"
+              catchtap="handleEdit">编辑</view>
+        <view class="swipe-btn delete-swipe-btn"
+              data-id="{{item.id}}"
+              data-task-id="{{item.taskId || item.id}}"
+              data-occurrence-date="{{item.occurrenceDate}}"
+              data-task-mode="{{item.taskMode}}"
+              catchtap="handleDelete">删除</view>
+      </view>
+      <view wx:else class="swipe-action">
+        <view class="swipe-btn revert-swipe-btn"
               data-id="{{item.id}}"
               data-task-id="{{item.taskId || item.id}}"
               data-occurrence-date="{{item.occurrenceDate}}"
               catchtap="handleRevert">继续</view>
       </view>
-      <view class="task-row done"
-            style="transform: translateX({{swipeId === item.id ? swipeDx + 'px' : (swipeOpenId === item.id ? '-120rpx' : '0rpx')}});"
-            bindtouchstart="handleSwipeStart"
-            bindtouchmove="handleSwipeMove"
-            bindtouchend="handleSwipeEnd"
-            bindtouchcancel="handleSwipeEnd"
-            data-id="{{item.id}}">
+
+      <view class="task-row {{item.status}} {{rowVariant}} {{item.isOverdue ? 'is-overdue' : ''}} {{dragId === item.id ? 'is-dragging' : ''}}"
+            style="transform: translate3d({{swipeId === item.id ? swipeDx : (swipeOpenId === item.id ? -swipeOpenMax : 0)}}rpx, {{dragId === item.id ? dragDy + 'px' : (item.shiftY || 0) + 'px'}}, 0); z-index: {{dragId === item.id ? 10 : 'auto'}};"
+            bindtouchstart="handleRowTouchStart"
+            bindlongpress="handleRowLongPress"
+            bindtouchmove="handleRowTouchMove"
+            bindtouchend="handleRowTouchEnd"
+            bindtouchcancel="handleRowTouchEnd"
+            data-id="{{item.id}}"
+            data-task-id="{{item.taskId || item.id}}"
+            data-occurrence-date="{{item.occurrenceDate}}">
+        <view wx:if="{{item.status === 'doing'}}" class="doing-strip"></view>
         <view class="dot"></view>
         <view class="row-body">
           <text class="row-content">{{item.content}}</text>
           <view class="row-chips">
+            <text wx:if="{{item.status === 'doing'}}" class="chip doing-chip">进行中</text>
             <text wx:if="{{item.subject}}" class="chip subject-chip">{{item.subject}}</text>
-            <text class="chip nb-chip" data-notebook-id="{{item.notebookId}}" catchtap="handleOpenNotebook">{{item.notebookName}}</text>
+            <text wx:if="{{item.organization}}" class="chip org-chip">{{item.organization}}</text>
             <text wx:if="{{item.isOverdue && item.occurrenceDate}}" class="chip overdue-chip">{{item.occurrenceDate}}</text>
             <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
-            <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">花费 {{item.elapsedDisplay}}</text>
+            <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
           </view>
         </view>
-        <view class="row-actions">
+        <view wx:if="{{item.status !== 'done'}}" class="row-actions">
+          <view wx:if="{{item.status === 'todo'}}" class="icon-btn start-btn" data-id="{{item.id}}" data-task-id="{{item.taskId || item.id}}" data-occurrence-date="{{item.occurrenceDate}}" catchtap="handleStart">▶</view>
+          <view wx:if="{{item.status === 'doing'}}" class="icon-btn pause-btn" data-id="{{item.id}}" data-task-id="{{item.taskId || item.id}}" data-occurrence-date="{{item.occurrenceDate}}" catchtap="handlePause">❚❚</view>
+          <view wx:if="{{item.status === 'paused'}}" class="icon-btn resume-btn" data-id="{{item.id}}" data-task-id="{{item.taskId || item.id}}" data-occurrence-date="{{item.occurrenceDate}}" catchtap="handleResume">↻</view>
+          <view wx:if="{{item.status === 'doing'}}" class="icon-btn finish-btn" data-id="{{item.id}}" data-task-id="{{item.taskId || item.id}}" data-occurrence-date="{{item.occurrenceDate}}" catchtap="handleFinish">✓</view>
+        </view>
+        <view wx:else class="row-actions">
           <view class="icon-btn done-mark">✓</view>
         </view>
       </view>

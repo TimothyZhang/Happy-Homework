@@ -1,0 +1,108 @@
+<view class="page">
+  <!-- 仅新增模式显示 tab(编辑/编辑此次模式不显示,因为已锚定具体 task) -->
+  <view wx:if="{{!isEdit && !isInstanceDetach}}" class="tab-bar">
+    <view class="tab-btn active">新增作业</view>
+    <view class="tab-btn" bindtap="handleSwitchToOcr">拍照识别</view>
+  </view>
+
+  <view class="card">
+    <view class="field">
+      <text class="field-label">作业内容</text>
+      <textarea class="input textarea"
+                placeholder="例：完成口算练习 2 页"
+                value="{{formContent}}"
+                bindinput="handleContentInput"
+                auto-height />
+    </view>
+
+    <view class="field">
+      <text class="field-label">学科</text>
+      <picker mode="selector"
+              range="{{subjectOptions}}"
+              value="{{formSubjectIndex}}"
+              bindchange="handleSubjectChange">
+        <view class="input picker-value">{{formSubject}}</view>
+      </picker>
+      <text wx:if="{{showInferHint}}" class="infer-hint">根据历史推断「{{inferredSubject}}」（可在上方手动改）</text>
+    </view>
+
+    <view class="field">
+      <text class="field-label">组织</text>
+      <picker mode="selector"
+              range="{{organizationOptions}}"
+              value="{{formOrganizationIndex}}"
+              bindchange="handleOrganizationChange">
+        <view class="input picker-value">{{formOrganization}}</view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <text class="field-label">预计耗时（分钟，可选）</text>
+      <input class="input"
+             type="number"
+             placeholder="例：20"
+             value="{{formMinutes}}"
+             bindinput="handleMinutesInput" />
+      <view wx:if="{{formEstHint}}" class="est-hint" bindtap="handleAcceptEstimate">{{formEstHint}}</view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="field">
+      <text class="field-label">类型</text>
+      <view class="mode-group {{isInstanceDetach ? 'locked' : ''}}">
+        <view wx:for="{{modeOptions}}" wx:key="key"
+              class="mode-btn {{formMode === item.key ? 'active' : ''}} {{isInstanceDetach && formMode !== item.key ? 'disabled' : ''}}"
+              data-key="{{item.key}}"
+              bindtap="handleModeChange">{{item.label}}</view>
+      </view>
+      <text wx:if="{{isInstanceDetach}}" class="lock-hint">编辑此次:实例只能是一次性,无法切换为重复</text>
+    </view>
+
+    <view class="field">
+      <text class="field-label">{{formMode === 'recurring' ? '开始日期' : '日期'}}</text>
+      <picker mode="date" value="{{formStartDate}}" bindchange="handleStartDateChange">
+        <view class="input picker-value">{{formStartDate || '请选择'}}</view>
+      </picker>
+    </view>
+
+    <view wx:if="{{formMode === 'recurring'}}" class="field">
+      <text class="field-label">结束日期（可选，留空 = 长期）</text>
+      <view class="due-row">
+        <picker mode="date"
+                value="{{formEndDate || formStartDate}}"
+                start="{{formStartDate}}"
+                bindchange="handleEndDateChange">
+          <view class="input picker-value">{{formEndDate || '长期'}}</view>
+        </picker>
+        <view wx:if="{{formEndDate}}" class="due-clear" bindtap="handleClearEndDate">清除</view>
+      </view>
+    </view>
+
+    <view wx:if="{{formMode === 'recurring'}}" class="field">
+      <text class="field-label">重复频率</text>
+      <picker mode="selector"
+              range="{{recurrenceTypeOptions}}"
+              range-key="label"
+              value="{{formRecurrenceTypeIndex}}"
+              bindchange="handleRecurrenceTypeChange">
+        <view class="input picker-value">{{recurrenceTypeOptions[formRecurrenceTypeIndex].label}}</view>
+      </picker>
+    </view>
+
+    <view wx:if="{{formMode === 'recurring' && formRecurrenceType === 'weekly'}}" class="field">
+      <text class="field-label">每周哪几天</text>
+      <view class="weekday-group">
+        <view wx:for="{{weekdayOptions}}" wx:key="day"
+              class="weekday-btn {{formWeekdays.indexOf(item.day) >= 0 ? 'active' : ''}}"
+              data-day="{{item.day}}"
+              bindtap="handleToggleWeekday">{{item.label}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="actions">
+    <button class="primary-btn" bindtap="handleSave">{{isEdit ? '保存修改' : '添加作业'}}</button>
+    <button wx:if="{{isEdit}}" class="ghost-btn delete-btn" bindtap="handleDelete">删除</button>
+  </view>
+</view>

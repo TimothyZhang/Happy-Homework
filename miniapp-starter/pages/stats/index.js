@@ -1,5 +1,15 @@
 const store = require('../../utils/store')
 
+function lifetimeDoneOnTask(t) {
+  if (t.mode === 'recurring') {
+    const occs = t.occurrences || {}
+    let n = 0
+    for (const k in occs) if (occs[k].status === 'done') n++
+    return n
+  }
+  return (t.status || 'todo') === 'done' ? 1 : 0
+}
+
 Page({
   data: {
     stats: {
@@ -9,6 +19,8 @@ Page({
       coins: 0,
       lifetimeDone: 0
     },
+    bySubject: [],         // [{ key, done }]
+    byOrganization: [],    // [{ key, done }]
     doneList: []
   },
 
@@ -19,25 +31,26 @@ Page({
     const todayDone = todayItems.filter((it) => it.occurrence.status === 'done')
     const todayTotalMinutes = todayItems.reduce((s, it) => s + Number(it.task.estimatedMinutes || 0), 0)
 
-    // Build the notebook index + count lifetime done in one pass so the
-    // hero stat cards can paint immediately. The full doneList (up to 30 rows
-    // below the fold) requires iterating every recurring occurrence — push it
-    // to the next tick so first paint isn't blocked on the O(tasks×dates) scan.
-    const notebookById = {}
-    for (const nb of state.notebooks) notebookById[nb.id] = nb
     let lifetimeDone = 0
+    const subjectCounts = {}
+    const orgCounts = {}
     for (const t of state.tasks) {
-      const nb = notebookById[t.notebookId]
-      if (!nb) continue
-      if (nb.mode === 'one-shot') {
-        if ((t.status || 'todo') === 'done') lifetimeDone++
-      } else {
-        const occurrences = t.occurrences || {}
-        for (const dateStr in occurrences) {
-          if (occurrences[dateStr].status === 'done') lifetimeDone++
-        }
+      const n = lifetimeDoneOnTask(t)
+      lifetimeDone += n
+      if (n > 0) {
+        const s = t.subject || '其他'
+        const o = t.organization || '其他'
+        subjectCounts[s] = (subjectCounts[s] || 0) + n
+        orgCounts[o] = (orgCounts[o] || 0) + n
       }
     }
+    const bySubject = Object.entries(subjectCounts)
+      .map(([key, done]) => ({ key, done }))
+      .sort((a, b) => b.done - a.done)
+    const orgOrder = ['校内', '校外', '其他']
+    const byOrganization = orgOrder
+      .map((key) => ({ key, done: orgCounts[key] || 0 }))
+      .filter((r) => r.done > 0)
 
     this.setData({
       stats: {
@@ -46,24 +59,24 @@ Page({
         totalMinutes: todayTotalMinutes,
         coins: state.coins,
         lifetimeDone
-      }
+      },
+      bySubject,
+      byOrganization
     })
 
-    wx.nextTick(() => this._buildDoneList(state, notebookById))
+    wx.nextTick(() => this._buildDoneList(state))
   },
 
-  _buildDoneList(state, notebookById) {
+  _buildDoneList(state) {
     const doneList = []
     for (const t of state.tasks) {
-      const nb = notebookById[t.notebookId]
-      if (!nb) continue
-      if (nb.mode === 'one-shot') {
+      if (t.mode !== 'recurring') {
         if ((t.status || 'todo') === 'done') {
           doneList.push({
             id: t.id,
             content: t.content,
-            notebookName: nb.name,
-            subject: nb.subject,
+            subject: t.subject || '',
+            organization: t.organization || '其他',
             doneOn: t.completedAt ? new Date(t.completedAt).toISOString().slice(0, 10) : ''
           })
         }
@@ -74,8 +87,8 @@ Page({
             doneList.push({
               id: `${t.id}_${dateStr}`,
               content: t.content,
-              notebookName: nb.name,
               subject: t.subject || '',
+              organization: t.organization || '其他',
               doneOn: dateStr
             })
           }

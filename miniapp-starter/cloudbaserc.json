@@ -1,0 +1,14 @@
+{
+  "envId": "cloud1-d8gkzu6ls85efd509",
+  "functionRoot": "./cloudfunctions",
+  "functions": [
+    {
+      "name": "backupUserState",
+      "runtime": "Nodejs18.15",
+      "handler": "index.main",
+      "timeout": 60,
+      "memorySize": 256,
+      "installDependency": true
+    }
+  ]
+}

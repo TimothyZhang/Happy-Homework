@@ -136,9 +136,15 @@ async function creditShare({ callerOpenid, sharerOpenid, notebookId, notebookNam
 
   const safeNotebookName = sanitizeShortString(notebookName, NOTEBOOK_NAME_MAX_LEN)
 
-  // 校验 notebookId 真的归属于 sharer。没有这一步,任意用户都可以调
-  // credit(sharerOpenid: <任意>, notebookId: <任意字符串>) 给目标 openid
-  // 灌金币 —— per-(caller,notebook) dedup 只要换字符串就绕过。
+  // v3 拍平作业本后, notebooks 数组永远为空, 老的 "notebookId in sharerDoc.notebooks"
+  // 归属校验失效。新模型:
+  //   - 字段名 notebookId 在 v3 实际承载的是客户端生成的 shareId (nanoid)
+  //   - server 没法从 user_state 反查 shareId 归属 —— 客户端没把 shareId 落盘
+  //   - 弱归属证明: sharer.state.tasks 至少非空(证明 sharerOpenid 是真实用户),
+  //     避免随机 openid 灌奖励
+  //   - dedup 仍走 (callerOpenid, notebookId) 复合 key, 同一接收人对同一分享只入一次
+  // TODO 上线前考虑加一个 server-side shareId 签发接口(分享前 client 调云函数申请 token,
+  // server 落库 (sharerOpenid, shareId, taskHash),credit 时验 token)。
   const db = cloud.database()
   const userRes = await db.collection(USER_COLLECTION)
     .where({ _openid: sharerOpenid })
@@ -149,11 +155,17 @@ async function creditShare({ callerOpenid, sharerOpenid, notebookId, notebookNam
   if (!sharerDoc) {
     return { ok: false, reason: 'sharer_not_found' }
   }
+  const tasks = Array.isArray(sharerDoc.state && sharerDoc.state.tasks)
+    ? sharerDoc.state.tasks
+    : []
   const notebooks = Array.isArray(sharerDoc.state && sharerDoc.state.notebooks)
     ? sharerDoc.state.notebooks
     : []
-  if (!notebooks.some((nb) => nb && nb.id === notebookId)) {
-    return { ok: false, reason: 'notebook_not_owned' }
+  // v2 老 client 推上来的 notebookId 仍按老规则校验(精确归属);
+  // v3 新 client 的 notebookId 字段实际是 shareId,退化为"sharer 是真实活跃用户"。
+  const isV2NotebookOwned = notebooks.some((nb) => nb && nb.id === notebookId)
+  if (!isV2NotebookOwned && tasks.length === 0) {
+    return { ok: false, reason: 'sharer_not_active' }
   }
 
   await ensureCollection()

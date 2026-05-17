@@ -137,18 +137,22 @@ assert('no double-credit: bonus log has only one entry per day', Object.keys(st(
 setNowHour(22, 0)
 
 // ===== Scenario 3: future-day task should NOT revoke today =====
-console.log('\n[3] Add task on tomorrow notebook → today\'s perfect day intact')
-const nbT = { id: 'nbT', name: 'tomorrow', mode: 'one-shot', startDate: tomorrow, endDate: tomorrow, recurrence: null, createdAt: 2, order: 1 }
+console.log('\n[3] Add task scheduled for tomorrow → today\'s perfect day intact')
 seed({
-  notebooks: [nb1, nbT],
+  notebooks: [],
   coins: 200,
   perfectDays: [today],
   bonusByDay: { [today]: { dailyBonus: 60, weeklyBonus: 0, prevStreakDays: 0 } },
   streakDays: 1,
-  tasks: [{ id: 'tk_done', notebookId: 'nb1', subject: '语', content: 'old', estimatedMinutes: 5, order: 0, createdAt: 1, status: 'done', accumulatedMs: 60000, completedAt: 2, actualMinutes: 1, currentSegmentStartedAt: null, rewardPaid: 10, rewardKind: 'today' }]
+  tasks: [{
+    id: 'tk_done', subject: '语', organization: '其他', content: 'old', estimatedMinutes: 5,
+    mode: 'one-shot', startDate: today, endDate: today, recurrence: null,
+    order: 0, createdAt: 1, status: 'done', accumulatedMs: 60000, completedAt: 2,
+    actualMinutes: 1, currentSegmentStartedAt: null, rewardPaid: 10, rewardKind: 'today'
+  }]
 })
 const baselineCoins = st().coins
-s.addTask({ notebookId: 'nbT', subject: '数', content: 'future', estimatedMinutes: 5 })
+s.addTask({ subject: '数', content: 'future', estimatedMinutes: 5, mode: 'one-shot', startDate: tomorrow, endDate: tomorrow })
 assert('today\'s perfect day untouched', st().perfectDays[0] === today)
 assert('coins not clawed back', st().coins === baselineCoins)
 assert('streakDays stays 1', st().streakDays === 1)
@@ -558,6 +562,211 @@ s.applyHydratedState({
 assert('hydrate keeps local optimistic coins (server + pending re-applied)', st().coins === localCoinsAfter,
   `coins=${st().coins} expected=${localCoinsAfter}`)
 assert('pendingCoinEvents preserved through hydrate', st().pendingCoinEvents.length > 0)
+
+// ===== Scenario 8: detachOccurrence — recurring 实例 detach 成独立 one-shot =====
+console.log('\n[8] detachOccurrence: recurring 实例拆成独立 task,原任务 excludedDates 加这天')
+seed({
+  notebooks: [],
+  coins: 0,
+  tasks: [{
+    id: 'tk_rec', subject: '数学', organization: '校内', content: '每日口算',
+    estimatedMinutes: 10, mode: 'recurring', startDate: today, endDate: null,
+    recurrence: { type: 'daily', weekdays: [] },
+    excludedDates: [],
+    order: 0, createdAt: 1, occurrences: {}
+  }]
+})
+// case 1: 在干净状态(occurrence 没数据)detach 今天
+let newId = s.detachOccurrence('tk_rec', today)
+assert('detach 返回新 task id', !!newId)
+let allTasks = st().tasks
+let originalRec = allTasks.find((t) => t.id === 'tk_rec')
+let detachedTask = allTasks.find((t) => t.id === newId)
+assert('原 recurring task 的 excludedDates 包含 today', originalRec.excludedDates.indexOf(today) >= 0)
+assert('新 task 是 one-shot', detachedTask.mode === 'one-shot')
+assert('新 task startDate = today', detachedTask.startDate === today)
+assert('新 task endDate = today', detachedTask.endDate === today)
+assert('新 task 继承 content', detachedTask.content === '每日口算')
+assert('新 task 继承 subject', detachedTask.subject === '数学')
+assert('新 task 继承 organization', detachedTask.organization === '校内')
+assert('新 task detachedFrom 标记', detachedTask.detachedFrom === 'tk_rec')
+assert('新 task 默认 status=todo', (detachedTask.status || 'todo') === 'todo')
+
+// case 2: tasksForDate(today) 看不到原 recurring,只看到新 detached
+const todayItems = s.tasksForDate(st(), today)
+const todayTaskIds = todayItems.map((it) => it.task.id)
+assert('tasksForDate today 不含原 tk_rec', todayTaskIds.indexOf('tk_rec') < 0)
+assert('tasksForDate today 含新 detached task', todayTaskIds.indexOf(newId) >= 0)
+
+// case 3: 已经 doing 的 occurrence detach — 进度/accumulatedMs 转移
+seed({
+  notebooks: [],
+  coins: 0,
+  tasks: [{
+    id: 'tk_rec2', subject: '语文', organization: '校外', content: '听写',
+    estimatedMinutes: 15, mode: 'recurring', startDate: yesterday, endDate: null,
+    recurrence: { type: 'daily', weekdays: [] },
+    excludedDates: [],
+    order: 0, createdAt: 1,
+    occurrences: {
+      [today]: {
+        status: 'doing',
+        startedAt: 1234567890,
+        currentSegmentStartedAt: 1234567899,
+        accumulatedMs: 60000,
+        completedAt: null,
+        actualMinutes: null
+      }
+    }
+  }]
+})
+const doingDetachId = s.detachOccurrence('tk_rec2', today)
+const doingDetached = st().tasks.find((t) => t.id === doingDetachId)
+assert('doing detach: 新 task 继续 doing', doingDetached.status === 'doing')
+assert('doing detach: accumulatedMs 完整搬', doingDetached.accumulatedMs === 60000)
+assert('doing detach: currentSegmentStartedAt 保留', doingDetached.currentSegmentStartedAt === 1234567899)
+const origRec2 = st().tasks.find((t) => t.id === 'tk_rec2')
+assert('原 task occurrences[today] 已清', !origRec2.occurrences[today])
+
+// case 4: 已 done 的 occurrence detach — reward 不重复发
+seed({
+  notebooks: [],
+  coins: 100,
+  perfectDays: [],
+  bonusByDay: {},
+  tasks: [{
+    id: 'tk_rec3', subject: '英语', organization: '校内', content: '背单词',
+    estimatedMinutes: 10, mode: 'recurring', startDate: yesterday, endDate: null,
+    recurrence: { type: 'daily', weekdays: [] },
+    excludedDates: [],
+    order: 0, createdAt: 1,
+    occurrences: {
+      [today]: {
+        status: 'done',
+        startedAt: 1, currentSegmentStartedAt: null,
+        accumulatedMs: 120000, completedAt: Date.now(), actualMinutes: 2,
+        rewardPaid: 10, rewardKind: 'today', happinessPaid: 5
+      }
+    }
+  }]
+})
+const coinsBeforeDetach = st().coins
+const doneDetachId = s.detachOccurrence('tk_rec3', today)
+const doneDetached = st().tasks.find((t) => t.id === doneDetachId)
+assert('done detach: 新 task 仍是 done', doneDetached.status === 'done')
+assert('done detach: rewardPaid 保留', doneDetached.rewardPaid === 10)
+assert('done detach: coins 不变(reward 不重发)', st().coins === coinsBeforeDetach)
+
+// case 5: excludeOccurrence 只标记不新建
+seed({
+  notebooks: [],
+  coins: 0,
+  tasks: [{
+    id: 'tk_rec4', subject: '语', organization: '其他', content: '抄写',
+    estimatedMinutes: 5, mode: 'recurring', startDate: today, endDate: null,
+    recurrence: { type: 'daily', weekdays: [] },
+    excludedDates: [],
+    order: 0, createdAt: 1,
+    occurrences: { [today]: { status: 'todo' } }
+  }]
+})
+const taskCountBefore = st().tasks.length
+const okExclude = s.excludeOccurrence('tk_rec4', today)
+assert('excludeOccurrence 返回 true', okExclude === true)
+assert('excludeOccurrence 不新建 task', st().tasks.length === taskCountBefore)
+const excludedRec = st().tasks.find((t) => t.id === 'tk_rec4')
+assert('excludeOccurrence 加 excludedDates', excludedRec.excludedDates.indexOf(today) >= 0)
+assert('excludeOccurrence 清掉 occurrences[date]', !excludedRec.occurrences[today])
+// tasksForDate 看不到这个 task 在 today
+const itemsAfterExclude = s.tasksForDate(st(), today)
+assert('exclude 后 today 看不到这个 task',
+  itemsAfterExclude.every((it) => it.task.id !== 'tk_rec4'))
+
+// case 6: detach 非 recurring task → 返回 null
+seed({
+  notebooks: [],
+  tasks: [{
+    id: 'tk_one', subject: '语', organization: '其他', content: 'oneshot',
+    mode: 'one-shot', startDate: today, endDate: today, recurrence: null,
+    excludedDates: [], order: 0, createdAt: 1, status: 'todo'
+  }]
+})
+const nullDetach = s.detachOccurrence('tk_one', today)
+assert('detach 一次性 task 返回 null', nullDetach === null)
+
+// case 7: detach 已 done 的 perfect-day 占位实例 → perfectDays 仍包含今天
+// (新 task 继承 done 状态, tasksForDate(today) 仍 all-done, 不需要 reconcile)
+// startDate 锚 today 不留 backlog 干扰;这是一个"今天才开始的 daily recurring"。
+seed({
+  notebooks: [],
+  coins: 100,
+  perfectDays: [today],
+  bonusByDay: { [today]: { dailyBonus: 10, weeklyBonus: 0, prevStreakDays: 0 } },
+  streakDays: 1,
+  tasks: [{
+    id: 'tk_perfect_rec',
+    subject: '数学', organization: '校内', content: '每日 perfect 占位',
+    mode: 'recurring', startDate: today, endDate: null,
+    recurrence: { type: 'daily', weekdays: [] },
+    excludedDates: [],
+    order: 0, createdAt: 1,
+    occurrences: {
+      [today]: {
+        status: 'done',
+        startedAt: 1, currentSegmentStartedAt: null,
+        accumulatedMs: 60000, completedAt: Date.now(), actualMinutes: 1,
+        rewardPaid: 10, rewardKind: 'today', happinessPaid: 5
+      }
+    }
+  }]
+})
+const coinsBeforePerfectDetach = st().coins
+const perfectDetachId = s.detachOccurrence('tk_perfect_rec', today)
+assert('detach perfect-day 占位:返回新 task id', !!perfectDetachId)
+assert('detach perfect-day 占位:perfectDays 仍包含 today',
+  st().perfectDays.indexOf(today) >= 0)
+assert('detach perfect-day 占位:streakDays 不变', st().streakDays === 1)
+assert('detach perfect-day 占位:bonusByDay 不变', !!st().bonusByDay[today])
+assert('detach perfect-day 占位:coins 不变', st().coins === coinsBeforePerfectDetach)
+// tasksForDate(today) 现在应该看到的是新的 detached one-shot, 而不是原 recurring
+const itemsAfterPerfectDetach = s.tasksForDate(st(), today)
+const todayTaskIds2 = itemsAfterPerfectDetach.map((it) => it.task.id)
+assert('detach perfect-day 占位:today 只看到新 task,看不到原 recurring',
+  todayTaskIds2.indexOf(perfectDetachId) >= 0 &&
+  todayTaskIds2.indexOf('tk_perfect_rec') < 0)
+assert('detach perfect-day 占位:今天的 task 仍是 done (perfect 状态完整)',
+  itemsAfterPerfectDetach.every((it) => it.occurrence.status === 'done'))
+
+// ===== Scenario 9: v2→v3 migration flag (lazy backup trigger) =====
+console.log('\n[9] consumeV2V3MigrationFlag 在 v2→v3 migrate 时设 true, 重复消费返回 false')
+// 模拟"刚升级"场景: storage 里写了 v2 schema 数据 → 触发 v3 client migrate。
+// wx mock 直接存 object(loadState 期待 raw 是对象,不是 JSON 字符串)。
+wx._store = {}
+wx._store['homework-pet-v1'] = {
+  schemaVersion: 2, coins: 0, streakDays: 0, perfectDays: [], bonusByDay: {},
+  completionsByDay: {}, pendingShareCoins: 0, editTaskId: null, editNotebookId: null,
+  ocrCurrentJob: null, ocrJobs: [], pet: {}, shopItems: [],
+  notebooks: [{
+    id: 'nb_v2', name: 'v2 本', mode: 'one-shot',
+    startDate: today, endDate: today, recurrence: null, createdAt: 1, order: 0
+  }],
+  tasks: [{
+    id: 'tk_v2', notebookId: 'nb_v2', subject: '语', content: 'v2 task',
+    estimatedMinutes: 5, order: 0, createdAt: 1, status: 'todo'
+  }],
+  profile: { nickname: '' }
+}
+// 重新 require 触发 fresh loadState → migrate v2→v3
+delete require.cache[require.resolve(require('path').join(__dirname, '..', 'utils', 'store.js'))]
+const sFresh = require(require('path').join(__dirname, '..', 'utils', 'store.js'))
+sFresh.getStateWithComputed()  // 触发 loadState
+
+assert('v2→v3 migrate 后 consumeV2V3MigrationFlag 返回 true',
+  sFresh.consumeV2V3MigrationFlag() === true)
+assert('重复消费 flag 返回 false', sFresh.consumeV2V3MigrationFlag() === false)
+// 第二次 loadState 不会重跑 migrate(已经是 v3),flag 不再触发
+sFresh.getStateWithComputed()
+assert('v3 状态再次读取不再设 flag', sFresh.consumeV2V3MigrationFlag() === false)
 
 // ===== Summary =====
 console.log(`\n=== ${passed} passed, ${failed} failed ===`)

@@ -617,28 +617,7 @@ check('reason = same-species', sw3.reason, 'same-species')
 const sw4 = store.switchPetSpecies('dragon')
 check('unknown species rejected', sw4.ok, false)
 
-// === Test 12: findNotebookByName + duplicate-name validation ===
-console.log('\n[name-dup] findNotebookByName:')
-seedNTasksToday(0)
-store = freshStore()
-const dupNb = store.addNotebook({
-  name: '语文', mode: 'one-shot', startDate: today, endDate: today
-})
-const found = store.findNotebookByName('语文')
-check('finds existing by exact name', !!found, true)
-check('returns null for unknown name', store.findNotebookByName('不存在'), null)
-check('case-sensitive (different chars → no match)',
-  store.findNotebookByName('语 文'), null)
-check('trims whitespace before compare', !!store.findNotebookByName('  语文  '), true)
-const foundId = found && found.id
-check('excludeId skips itself (so editing same nb is allowed)',
-  store.findNotebookByName('语文', foundId), null)
-// Add a second notebook to confirm the function doesn't accidentally match
-// a different name.
-store.addNotebook({ name: '数学', mode: 'one-shot', startDate: today, endDate: today })
-check('still finds 语文 alongside 数学', !!store.findNotebookByName('语文'), true)
-check('does not match 数学 when asked for 语文',
-  store.findNotebookByName('语文').name, '语文')
+// Test 12 (findNotebookByName / 重命名校验) 在 v3 拍平作业本后已无意义,删除。
 
 // === Test 13: estimateTaskMinutes — 0/1/3 history + weighting ===
 console.log('\n[estimate] estimateTaskMinutes:')
@@ -772,86 +751,12 @@ store = freshStore()
 const infTrim = store.inferSubjectByName('  听写  ')
 check('trims lookup name', infTrim && infTrim.subject, '语')
 
-// === Test 14: duplicate-name handling on share-save ===
-console.log('\n[share-import] rename / merge / overwrite:')
-seedNTasksToday(0)
-store = freshStore()
-const existing = store.addNotebook({
-  name: '英语 Unit 5', mode: 'one-shot', startDate: today, endDate: today
-})
-// addNotebook returns full state; pick the new id from notebooks list
-const existingId = store.findNotebookByName('英语 Unit 5').id
-// Seed one existing task on it via addTask
-store.addTask({ notebookId: existingId, subject: '英语', content: '原有作业 A', estimatedMinutes: 10 })
+// Test 14 (notebook merge / rename / overwrite) 在 v3 已无意义,删除。
+// 分享接收页现在按 task 勾选导入,语义简单(append-only),无 rename/merge/overwrite 分支。
 
-const sharePayload = {
-  v: 1, from: '同学', sharer: '', nbId: 'remote-1',
-  n: { name: '英语 Unit 5', mode: 'one-shot', startDate: today, endDate: today, recurrence: null },
-  t: [
-    { s: '英语', c: '分享作业 A' },
-    { s: '英语', c: '分享作业 B' }
-  ]
-}
-
-// rename: a NEW notebook gets created with " 复制" suffix; original untouched
-const renameId = store.importSharedNotebook(sharePayload, { mode: 'rename' })
-check('rename creates new notebook (different id)', renameId !== existingId, true)
-const afterRename = store.getStateWithComputed()
-const renamedNb = afterRename.notebooks.find((n) => n.id === renameId)
-check('renamed nb name = "英语 Unit 5 复制"', renamedNb.name, '英语 Unit 5 复制')
-const origAfterRename = afterRename.notebooks.find((n) => n.id === existingId)
-check('original notebook unchanged after rename', origAfterRename.name, '英语 Unit 5')
-check('original task list unchanged after rename',
-  afterRename.tasks.filter((t) => t.notebookId === existingId).length, 1)
-check('renamed nb received 2 imported tasks',
-  afterRename.tasks.filter((t) => t.notebookId === renameId).length, 2)
-
-// rename again — should add another " 复制" because "英语 Unit 5 复制" now exists
-const rename2Id = store.importSharedNotebook(sharePayload, { mode: 'rename' })
-const renamed2 = store.getStateWithComputed().notebooks.find((n) => n.id === rename2Id)
-check('second rename → "英语 Unit 5 复制 复制"', renamed2.name, '英语 Unit 5 复制 复制')
-
-// merge: append into existing
-seedNTasksToday(0)
-store = freshStore()
-store.addNotebook({ name: '英语 Unit 5', mode: 'one-shot', startDate: today, endDate: today })
-const mergeTargetId = store.findNotebookByName('英语 Unit 5').id
-store.addTask({ notebookId: mergeTargetId, subject: '英语', content: '原有作业 A', estimatedMinutes: 10 })
-const mergeId = store.importSharedNotebook(sharePayload, {
-  mode: 'merge', targetNotebookId: mergeTargetId
-})
-check('merge returns target notebook id', mergeId, mergeTargetId)
-const afterMerge = store.getStateWithComputed()
-check('merge appended both shared tasks (1+2 = 3)',
-  afterMerge.tasks.filter((t) => t.notebookId === mergeTargetId).length, 3)
-const mergedTasks = afterMerge.tasks.filter((t) => t.notebookId === mergeTargetId)
-check('all merged tasks land as todo',
-  mergedTasks.every((t) => (t.status || 'todo') === 'todo'), true)
-
-// overwrite: replace tasks but KEEP notebook id
-seedNTasksToday(0)
-store = freshStore()
-store.addNotebook({ name: '英语 Unit 5', mode: 'one-shot', startDate: today, endDate: today })
-const overwriteTargetId = store.findNotebookByName('英语 Unit 5').id
-store.addTask({ notebookId: overwriteTargetId, subject: '英语', content: '原有作业 A', estimatedMinutes: 10 })
-store.addTask({ notebookId: overwriteTargetId, subject: '英语', content: '原有作业 B', estimatedMinutes: 15 })
-const overId = store.importSharedNotebook(sharePayload, {
-  mode: 'overwrite', targetNotebookId: overwriteTargetId
-})
-check('overwrite preserves notebook id', overId, overwriteTargetId)
-const afterOverwrite = store.getStateWithComputed()
-check('overwrite drops old tasks + replaces with shared',
-  afterOverwrite.tasks.filter((t) => t.notebookId === overwriteTargetId).length, 2)
-const overwrittenContents = afterOverwrite.tasks
-  .filter((t) => t.notebookId === overwriteTargetId)
-  .map((t) => t.content).sort()
-check('overwrite tasks come from share', overwrittenContents,
-  ['分享作业 A', '分享作业 B'])
-
-// === Test 15: import auto-estimates from history ===
+// === Test 15: import auto-estimates from history (v2 payload, v3 importSharedTasks) ===
 console.log('\n[share-import] auto-estimate on import:')
-// Seed a user with finished-task history for "口算练习", then import a share
-// containing a "口算练习" — the imported task should pick up an estimate.
+// Seed 历史 "口算练习" 完成记录,导入 v2 share 携带 "口算练习" → 接收方按历史估时。
 const seededHistory = [
   { name: '口算练习', subject: '数', minutes: 20, daysAgo: 1 },
   { name: '口算练习', subject: '数', minutes: 20, daysAgo: 2 },
@@ -859,15 +764,15 @@ const seededHistory = [
 ]
 seedFinishedTasks(seededHistory)
 store = freshStore()
-const importedId = store.importSharedNotebook({
-  v: 1, from: '', sharer: '', nbId: 'remote-2',
-  n: { name: '新作业本', mode: 'one-shot', startDate: today, endDate: today, recurrence: null },
+const importedIds = store.importSharedTasks({
+  v: 2, from: '', sharer: '', shareId: 'remote-2', d: today,
   t: [
-    { s: '数', c: '口算练习' },          // has history → should be estimated
-    { s: '数', c: '从未做过的题' }      // no history → estimatedMinutes stays 0
+    { s: '数', o: '其他', c: '口算练习', mo: 'one-shot', sd: today, ed: today, r: null },
+    { s: '数', o: '其他', c: '从未做过的题', mo: 'one-shot', sd: today, ed: today, r: null }
   ]
-}, { mode: 'new' })
-const imported = store.getStateWithComputed().tasks.filter((t) => t.notebookId === importedId)
+})
+check('importSharedTasks returns 2 new ids', importedIds && importedIds.length, 2)
+const imported = store.getStateWithComputed().tasks.filter((t) => importedIds.indexOf(t.id) >= 0)
 const matched = imported.find((t) => t.content === '口算练习')
 const unmatched = imported.find((t) => t.content === '从未做过的题')
 check('imported task with history → estimatedMinutes > 0',
@@ -877,69 +782,7 @@ check('imported task with history → estimatedMinutes is multiple of 5',
 check('imported task w/o history → estimatedMinutes = 0',
   unmatched && unmatched.estimatedMinutes, 0)
 
-// === Test 16: duplicateNotebook — local clone preserves fields, resets status ===
-console.log('\n[duplicate] duplicateNotebook:')
-seedNTasksToday(0)
-store = freshStore()
-store.addNotebook({ name: '语文', mode: 'one-shot', startDate: today, endDate: today })
-const dupSrcId = store.findNotebookByName('语文').id
-store.addTask({ notebookId: dupSrcId, subject: '语文', content: '抄写课文', estimatedMinutes: 15 })
-store.addTask({ notebookId: dupSrcId, subject: '语文', content: '默写词语', estimatedMinutes: 10 })
-// Mark one task as done so we can verify status is reset on copy.
-const dupSrcTasks = store.getStateWithComputed().tasks.filter((t) => t.notebookId === dupSrcId)
-store.finishTask(dupSrcTasks[0].id, today)
-
-const dupNewId = store.duplicateNotebook(dupSrcId, '语文 复制')
-check('duplicateNotebook returns new id', !!dupNewId && dupNewId !== dupSrcId, true)
-const afterDup = store.getStateWithComputed()
-const dupNew = afterDup.notebooks.find((n) => n.id === dupNewId)
-check('new notebook has the given name', dupNew && dupNew.name, '语文 复制')
-check('new notebook copies mode', dupNew.mode, 'one-shot')
-check('new notebook copies startDate', dupNew.startDate, today)
-const dupNewTasks = afterDup.tasks
-  .filter((t) => t.notebookId === dupNewId)
-  .sort((a, b) => (a.order || 0) - (b.order || 0))
-check('new notebook has 2 tasks', dupNewTasks.length, 2)
-check('new task[0] content preserved', dupNewTasks[0].content, '抄写课文')
-check('new task[0] estimatedMinutes preserved', dupNewTasks[0].estimatedMinutes, 15)
-check('new task[0] subject preserved', dupNewTasks[0].subject, '语文')
-check('new task[0] status reset to todo', dupNewTasks[0].status, 'todo')
-check('new task[0] completedAt cleared', dupNewTasks[0].completedAt, null)
-check('new task[0] has fresh id (not shared with source)',
-  dupNewTasks[0].id !== dupSrcTasks[0].id, true)
-const dupSrcAfter = afterDup.tasks.filter((t) => t.notebookId === dupSrcId)
-check('source notebook untouched (still 2 tasks)', dupSrcAfter.length, 2)
-const dupSrcDone = dupSrcAfter.find((t) => t.id === dupSrcTasks[0].id)
-check('source done task still done', dupSrcDone.status, 'done')
-
-// Reject duplicate name
-const dupRejectId = store.duplicateNotebook(dupSrcId, '语文 复制')
-check('duplicateNotebook rejects existing name → null', dupRejectId, null)
-
-// Reject empty / unknown source
-check('duplicateNotebook rejects empty name', store.duplicateNotebook(dupSrcId, '   '), null)
-check('duplicateNotebook rejects unknown source id',
-  store.duplicateNotebook('nb_does_not_exist', '随便'), null)
-
-// Recurring notebook: occurrences must be empty (fresh) on the copy
-seedNTasksToday(0)
-store = freshStore()
-store.addNotebook({
-  name: '每日练习', mode: 'recurring', startDate: today, endDate: null,
-  recurrence: { type: 'daily', weekdays: [] }
-})
-const recSrcId = store.findNotebookByName('每日练习').id
-store.addTask({ notebookId: recSrcId, subject: '数学', content: '口算', estimatedMinutes: 20 })
-const recSrcTasks = store.getStateWithComputed().tasks.filter((t) => t.notebookId === recSrcId)
-store.finishTask(recSrcTasks[0].id, today)
-const recNewId = store.duplicateNotebook(recSrcId, '每日练习 复制')
-const recAfter = store.getStateWithComputed()
-const recNew = recAfter.notebooks.find((n) => n.id === recNewId)
-check('recurring copy keeps mode=recurring', recNew.mode, 'recurring')
-check('recurring copy keeps recurrence type', recNew.recurrence && recNew.recurrence.type, 'daily')
-const recNewTasks = recAfter.tasks.filter((t) => t.notebookId === recNewId)
-check('recurring copy task occurrences reset to empty',
-  Object.keys(recNewTasks[0].occurrences || {}).length, 0)
+// Test 16 (duplicateNotebook) 在 v3 已无意义,删除。
 
 console.log(`\n  ${pass} passed, ${fail} failed.\n`)
 process.exit(fail === 0 ? 0 : 1)

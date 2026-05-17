@@ -2,7 +2,18 @@ const cloudSync = require('./cloud-sync')
 const coinLedger = require('./coin-ledger')
 
 const STORAGE_KEY = 'homework-pet-v1'
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
+
+// v3: 作业本(notebook)概念彻底拍平 —— mode / startDate / endDate / recurrence
+// 全部下沉到 task 自身,task 增加 organization 字段(校内/校外/其他)。
+// state.notebooks[] 在 v3 之后永远是 []。SYNC_FIELDS 仍保留 'notebooks' 一段
+// 时间,让老 client 拿到云端空数组而不是 undefined,迁移更平滑。
+const ORGANIZATIONS = ['校内', '校外', '其他']
+// 默认 "校内" — 大多数作业是学校布置的,跟 task-edit 表单默认值保持一致。
+// 影响:migrate v2→v3 给历史 task 补 organization、OCR 导入兜底、share import 兜底、
+//      sanitize share payload 兜底。已经写过 organization 字段的 task 不会被覆盖
+//      (v3 backfill 只在字段缺失或非法时才填默认值)。
+const DEFAULT_ORGANIZATION = '校内'
 
 // Subset of state fields synced to cloud. Everything else is local-only:
 // transient UI state (editTaskId, editNotebookId), OCR jobs (ephemeral and
@@ -428,6 +439,7 @@ const defaultState = {
     { id: 6, emoji: '💊', name: '维生素',     effect: '健康+25',  price: 20, happiness: 0, fullness: 0,  cleanliness: 0,  health: 25 },
     { id: 7, emoji: '🏃', name: '健身房一次', effect: '健康+55',  price: 35, happiness: 0, fullness: 0,  cleanliness: 0,  health: 55 }
   ],
+  // v3 起永远为空数组 —— 老字段保留只为 SYNC_FIELDS 兼容/老 client hydrate 不崩。
   notebooks: [],
   tasks: [],
   profile: { nickname: '', avatar: '' }
@@ -435,26 +447,145 @@ const defaultState = {
 
 // === Storage / migration === //
 
+// v2→v3 一次性标记 — 当本次 loadState/migrate 实际触发了 v2→v3 平移时置 true,
+// cloud-sync hydrate 完成后会读取并调用 backupUserState (backup_self) 给云端
+// 留下一份升级前快照,然后 consumeV2V3MigrationFlag() 清掉。
+let _v2v3MigrationApplied = false
+
+function consumeV2V3MigrationFlag() {
+  const was = _v2v3MigrationApplied
+  _v2v3MigrationApplied = false
+  return was
+}
+
 function clone(data) { return JSON.parse(JSON.stringify(data)) }
 
 function migrateState(raw) {
   if (!raw || typeof raw !== 'object') return clone(defaultState)
-  if (raw.schemaVersion === SCHEMA_VERSION && Array.isArray(raw.notebooks) && Array.isArray(raw.tasks)) {
-    // already v2 — backfill missing fields just in case
-    raw.notebooks = raw.notebooks.map((nb, i) => ({
-      recurrence: null,
-      endDate: null,
-      order: i,
-      ...nb
-    }))
-    // notebook.subject is no longer used; carry it down to tasks that lack one.
+
+  // v1 → v2: 把老 tasks 都塞进一个"今天"的 one-shot notebook。这一步只有
+  // 早期(无 schemaVersion / schemaVersion=1)用户会触发,跑完后落到 v2 schema,
+  // 再统一交给下面的 v2→v3 平移。
+  if (!raw.schemaVersion || raw.schemaVersion < 2) {
+    const today = todayStr()
+    const oldTasks = Array.isArray(raw.tasks) ? raw.tasks : []
+    const notebooks = []
+    const tasks = []
+    if (oldTasks.length) {
+      const nbId = 'nb_mig_today'
+      notebooks.push({
+        id: nbId, name: today, mode: 'one-shot',
+        startDate: today, endDate: today, recurrence: null,
+        createdAt: Date.now(), order: 0
+      })
+      for (const old of oldTasks) {
+        tasks.push({
+          id: `tk_mig_${old.id || tasks.length + 1}`,
+          notebookId: nbId,
+          subject: old.subject || '其他',
+          content: old.content || '',
+          estimatedMinutes: Number(old.estimatedMinutes || 0),
+          order: tasks.length,
+          createdAt: old.createdAt || Date.now(),
+          status: old.status || 'todo',
+          startedAt: old.actualStartedAt || null,
+          currentSegmentStartedAt: old.currentSegmentStartedAt || null,
+          accumulatedMs: old.accumulatedMs || old.elapsedMs || 0,
+          completedAt: old.actualEndedAt || null,
+          actualMinutes: null
+        })
+      }
+    }
+    raw = { ...raw, schemaVersion: 2, notebooks, tasks }
+  }
+
+  // v2 → v3: 拍平 notebook,把 mode / startDate / endDate / recurrence 平移到
+  // task 上,加默认 organization='其他'。orphan task(notebookId 找不到本)
+  // 按 one-shot/今日 兜底。perfectDays / coinLogs / bonusByDay / completionsByDay
+  // / pet exp 全部不动 —— 它们本来就是 task 粒度或全局粒度。
+  if (raw.schemaVersion === 2 && Array.isArray(raw.notebooks) && Array.isArray(raw.tasks)) {
+    const today = todayStr()
+    const nbById = {}
+    for (const nb of raw.notebooks) nbById[nb.id] = nb
     const nbSubjectById = {}
     for (const nb of raw.notebooks) nbSubjectById[nb.id] = nb.subject || ''
-    raw.tasks = raw.tasks.map((t, i) => ({
-      order: i,
-      subject: t.subject || nbSubjectById[t.notebookId] || '其他',
-      ...t
-    }))
+    raw.tasks = raw.tasks.map((t, i) => {
+      const nb = nbById[t.notebookId]
+      const mode = nb ? (nb.mode === 'recurring' ? 'recurring' : 'one-shot') : 'one-shot'
+      const startDate = nb ? (nb.startDate || today) : today
+      const endDate = nb
+        ? (nb.endDate === undefined
+            ? (mode === 'recurring' ? null : startDate)
+            : nb.endDate)
+        : today
+      const recurrence = mode === 'recurring'
+        ? (nb && nb.recurrence ? nb.recurrence : { type: 'daily', weekdays: [] })
+        : null
+      return {
+        order: i,
+        subject: t.subject || nbSubjectById[t.notebookId] || '其他',
+        organization: DEFAULT_ORGANIZATION,
+        ...t,
+        mode,
+        startDate,
+        endDate,
+        recurrence
+        // notebookId 保留在 task 上不删 —— 老 client(v2)hydrate 时还能用,
+        // 新 client 完全忽略。下次 schemaVersion bump 时再删。
+      }
+    })
+    raw.notebooks = []  // 拍平,字段保留(SYNC_FIELDS 还在引用)
+    raw.schemaVersion = 3
+    _v2v3MigrationApplied = true  // 触发 lazy backup,cloud-sync 会读取这个 flag
+  }
+
+  if (raw.schemaVersion === SCHEMA_VERSION && Array.isArray(raw.tasks)) {
+    // already v3 — backfill 缺失字段
+    if (!Array.isArray(raw.notebooks)) raw.notebooks = []
+
+    // hydrate 兜底:server 可能还在推 v2 schema(老 client 推上去的),
+    // task 不带 mode/startDate,但 notebooks 数组里还有调度信息。这里反查
+    // 把 mode/startDate/endDate/recurrence 从对应 notebook 平移到 task 上。
+    // 真正完成迁移后 raw.notebooks 会被清空,这段就走空 — 完全 idempotent。
+    const nbById = {}
+    for (const nb of raw.notebooks) nbById[nb.id] = nb
+    const today = todayStr()
+
+    raw.tasks = raw.tasks.map((t, i) => {
+      const out = { ...t }
+      if (typeof out.order !== 'number') out.order = i
+      // 反查 notebook 平移 — 仅在 task 缺 mode 时触发(避免覆盖 v3 写好的字段)。
+      if (!out.mode && out.notebookId) {
+        const nb = nbById[out.notebookId]
+        if (nb) {
+          out.mode = nb.mode === 'recurring' ? 'recurring' : 'one-shot'
+          if (!out.startDate) out.startDate = nb.startDate || today
+          if (out.endDate === undefined) {
+            out.endDate = nb.endDate === undefined
+              ? (out.mode === 'recurring' ? null : (nb.startDate || today))
+              : nb.endDate
+          }
+          if (out.mode === 'recurring' && !out.recurrence) {
+            out.recurrence = nb.recurrence || { type: 'daily', weekdays: [] }
+          }
+          if (!out.subject) out.subject = nb.subject || '其他'
+        }
+      }
+      if (!out.subject) out.subject = '其他'
+      if (!ORGANIZATIONS.includes(out.organization)) out.organization = DEFAULT_ORGANIZATION
+      out.mode = out.mode === 'recurring' ? 'recurring' : 'one-shot'
+      if (!out.startDate) out.startDate = today
+      if (out.endDate === undefined) out.endDate = out.mode === 'one-shot' ? out.startDate : null
+      out.recurrence = out.mode === 'recurring'
+        ? (out.recurrence || { type: 'daily', weekdays: [] })
+        : null
+      // excludedDates: 这天的 recurring occurrence 被 detach 出独立 task,
+      // 原 recurring 不再在该日期触发。仅 recurring task 用得到。
+      if (!Array.isArray(out.excludedDates)) out.excludedDates = []
+      return out
+    })
+    // 反查跑完就把 notebooks 清空,避免下次 hydrate 又被 server 推的老数据污染。
+    if (raw.notebooks.length > 0) raw.notebooks = []
     raw.editNotebookId = raw.editNotebookId || null
     raw.profile = raw.profile && typeof raw.profile === 'object'
       ? { nickname: raw.profile.nickname || '', avatar: raw.profile.avatar || '' }
@@ -514,52 +645,8 @@ function migrateState(raw) {
     return raw
   }
 
-  // v1 → v2: bucket all old tasks into one notebook for today (named by date).
-  // Subject moves onto each task.
-  const today = todayStr()
-  const oldTasks = Array.isArray(raw.tasks) ? raw.tasks : []
-  const notebooks = []
-  const tasks = []
-  if (oldTasks.length) {
-    const nbId = 'nb_mig_today'
-    notebooks.push({
-      id: nbId,
-      name: today,
-      mode: 'one-shot',
-      startDate: today,
-      endDate: today,
-      recurrence: null,
-      createdAt: Date.now(),
-      order: 0
-    })
-    for (const old of oldTasks) {
-      tasks.push({
-        id: `tk_mig_${old.id || tasks.length + 1}`,
-        notebookId: nbId,
-        subject: old.subject || '其他',
-        content: old.content || '',
-        estimatedMinutes: Number(old.estimatedMinutes || 0),
-        order: tasks.length,
-        createdAt: old.createdAt || Date.now(),
-        status: old.status || 'todo',
-        startedAt: old.actualStartedAt || null,
-        currentSegmentStartedAt: old.currentSegmentStartedAt || null,
-        accumulatedMs: old.accumulatedMs || old.elapsedMs || 0,
-        completedAt: old.actualEndedAt || null,
-        actualMinutes: null
-      })
-    }
-  }
-
-  return {
-    ...clone(defaultState),
-    ...raw,
-    schemaVersion: SCHEMA_VERSION,
-    notebooks,
-    tasks,
-    editTaskId: null,
-    editNotebookId: null
-  }
+  // schemaVersion 奇怪 / tasks 不是数组 — 兜底重置。极少能命中(只有损坏数据)。
+  return clone(defaultState)
 }
 
 // In-memory cache. The first read pays the storage + migrate cost; every
@@ -649,17 +736,20 @@ function getLocalCoins() {
   return typeof s.coins === 'number' ? s.coins : 0
 }
 
-// === Notebook scheduling === //
+// === Task scheduling === //
 
-function isNotebookActiveOn(nb, dateStr) {
-  if (!nb) return false
-  if (nb.startDate && compareDateStr(dateStr, nb.startDate) < 0) return false
-  if (nb.mode === 'one-shot') {
-    return dateStr === (nb.endDate || nb.startDate)
+// v3: 调度字段下沉到 task 后,直接读 task.mode / startDate / endDate / recurrence。
+// excludedDates 里的日期(被 detach 出独立 task 的实例)从 recurring 里跳过。
+function isTaskActiveOn(task, dateStr) {
+  if (!task) return false
+  if (task.startDate && compareDateStr(dateStr, task.startDate) < 0) return false
+  if (task.mode === 'one-shot') {
+    return dateStr === (task.endDate || task.startDate)
   }
   // recurring
-  if (nb.endDate && compareDateStr(dateStr, nb.endDate) > 0) return false
-  const rec = nb.recurrence || { type: 'daily' }
+  if (task.endDate && compareDateStr(dateStr, task.endDate) > 0) return false
+  if (Array.isArray(task.excludedDates) && task.excludedDates.indexOf(dateStr) >= 0) return false
+  const rec = task.recurrence || { type: 'daily' }
   if (rec.type === 'daily') return true
   if (rec.type === 'weekly') {
     const wds = Array.isArray(rec.weekdays) ? rec.weekdays : []
@@ -689,14 +779,13 @@ function defaultOccurrence() {
   }
 }
 
-function isRecurringTask(task, notebookById) {
-  const nb = notebookById ? notebookById[task.notebookId] : null
-  return !!(nb && nb.mode === 'recurring')
+function isRecurringTask(task) {
+  return !!(task && task.mode === 'recurring')
 }
 
-function getTaskState(task, notebook, dateStr) {
-  if (!notebook) return defaultOccurrence()
-  if (notebook.mode === 'one-shot') {
+function getTaskState(task, dateStr) {
+  if (!task) return defaultOccurrence()
+  if (task.mode !== 'recurring') {
     return {
       status: task.status || 'todo',
       startedAt: task.startedAt || null,
@@ -713,8 +802,8 @@ function getTaskState(task, notebook, dateStr) {
   return occ ? { ...defaultOccurrence(), ...occ } : defaultOccurrence()
 }
 
-function applyTaskState(task, notebook, dateStr, patch) {
-  if (notebook.mode === 'one-shot') {
+function applyTaskState(task, dateStr, patch) {
+  if (task.mode !== 'recurring') {
     return { ...task, ...patch }
   }
   const occurrences = { ...(task.occurrences || {}) }
@@ -733,37 +822,28 @@ function applyTaskState(task, notebook, dateStr, patch) {
 //     missed date, surfaced together so the user can clear the backlog)
 // Each returned item carries `occurrenceDate` — the date its action should
 // target (so finishing a "missed Monday" row writes occurrence[Monday]).
-function buildNotebookById(notebooks) {
-  const map = {}
-  for (const nb of notebooks) map[nb.id] = nb
-  return map
-}
-
-// `cache` (optional) lets callers reuse precomputed lookups across many
-// tasksForDate calls — e.g. calendar's monthly grid. Pass {} the first time
-// and reuse the populated object across subsequent calls.
-function tasksForDate(state, dateStr, cache) {
+//
+// v3: 不再依赖 notebook;调度字段从 task 自身读。`cache` 参数保留兼容老 caller,
+// 实际不再使用 —— 没有可重用的索引。
+function tasksForDate(state, dateStr, cache) {  // eslint-disable-line no-unused-vars
   const today = todayStr()
   const isFuture = compareDateStr(dateStr, today) > 0
   const isToday = dateStr === today
-  const notebookById = (cache && cache.notebookById) || buildNotebookById(state.notebooks)
-  if (cache && !cache.notebookById) cache.notebookById = notebookById
 
   const items = []
   for (const task of state.tasks) {
-    const nb = notebookById[task.notebookId]
-    if (!nb) continue
     let onSchedule = false
     let isOverdue = false
     let completedOnDate = false
 
-    // occurrenceDate 的语义是"这个 row 归属哪一天"。一次性 task 一律归 effectiveDueDate,
-    // 这样 finishTask 拿到的 day 就是 task 自己的 due,perTaskReward / perfectDays
-    // 都按 task 级日期走。recurring task 则归当前 dateStr(每天独立 occurrence)。
+    // occurrenceDate 的语义是"这个 row 归属哪一天"。一次性 task 一律归
+    // effectiveDueDate(task),这样 finishTask 拿到的 day 就是 task 自己的 due,
+    // perTaskReward / perfectDays 都按 task 级日期走。recurring task 则归
+    // 当前 dateStr(每天独立 occurrence)。
     let oneShotDue = null
 
-    if (nb.mode === 'one-shot') {
-      oneShotDue = effectiveDueDate(task, nb)
+    if (task.mode !== 'recurring') {
+      oneShotDue = effectiveDueDate(task)
       onSchedule = !!oneShotDue && oneShotDue === dateStr
 
       // For past/today views, also surface tasks actually completed that day.
@@ -782,19 +862,15 @@ function tasksForDate(state, dateStr, cache) {
         }
       }
     } else {
-      // recurring: 沿用 notebook 调度判断(occurrence 按日期分层)。
-      onSchedule = isNotebookActiveOn(nb, dateStr)
+      onSchedule = isTaskActiveOn(task, dateStr)
     }
 
     if (!onSchedule && !isOverdue && !completedOnDate) continue
-    const occ = getTaskState(task, nb, dateStr)
+    const occ = getTaskState(task, dateStr)
     items.push({
       task,
-      notebook: nb,
       occurrence: occ,
-      // 一次性 task 用 effectiveDueDate 作为 occurrenceDate,跨视图保持一致
-      // (overdue task 显示在 today 但 occurrenceDate 仍是它的 dueDate)。
-      occurrenceDate: nb.mode === 'one-shot' ? (oneShotDue || dateStr) : dateStr,
+      occurrenceDate: task.mode === 'recurring' ? dateStr : (oneShotDue || dateStr),
       isOverdue
     })
   }
@@ -803,49 +879,33 @@ function tasksForDate(state, dateStr, cache) {
   // not done (red) OR were finished today (so a freshly-cleared backlog
   // item still appears, this time in the done section).
   if (isToday) {
-    // Group recurring tasks by notebook so the active-date walk runs once
-    // per notebook instead of once per task.
-    const recurringTasksByNb = {}
     for (const task of state.tasks) {
-      const nb = notebookById[task.notebookId]
-      if (!nb || nb.mode !== 'recurring' || !nb.startDate) continue
-      const list = recurringTasksByNb[nb.id] || (recurringTasksByNb[nb.id] = [])
-      list.push(task)
-    }
-    for (const nbId of Object.keys(recurringTasksByNb)) {
-      const nb = notebookById[nbId]
-      const tasks = recurringTasksByNb[nbId]
-      // Precompute the active dates from startDate up to (but not including)
-      // today — depends only on the notebook.
+      if (task.mode !== 'recurring' || !task.startDate) continue
       const activeDates = []
-      let d = nb.startDate
+      let d = task.startDate
       while (compareDateStr(d, today) < 0) {
-        if (isNotebookActiveOn(nb, d)) activeDates.push(d)
+        if (isTaskActiveOn(task, d)) activeDates.push(d)
         d = addDays(d, 1)
       }
-      for (const task of tasks) {
-        const occMap = task.occurrences || {}
-        for (const ad of activeDates) {
-          const raw = occMap[ad]
-          const status = raw && raw.status ? raw.status : 'todo'
-          if (status !== 'done') {
-            items.push({
-              task,
-              notebook: nb,
-              occurrence: { ...defaultOccurrence(), ...(raw || {}) },
-              occurrenceDate: ad,
-              isOverdue: true
-            })
-          } else if (raw && raw.completedAt &&
-                     dateToStr(new Date(raw.completedAt)) === today) {
-            items.push({
-              task,
-              notebook: nb,
-              occurrence: { ...defaultOccurrence(), ...raw },
-              occurrenceDate: ad,
-              isOverdue: false
-            })
-          }
+      const occMap = task.occurrences || {}
+      for (const ad of activeDates) {
+        const raw = occMap[ad]
+        const status = raw && raw.status ? raw.status : 'todo'
+        if (status !== 'done') {
+          items.push({
+            task,
+            occurrence: { ...defaultOccurrence(), ...(raw || {}) },
+            occurrenceDate: ad,
+            isOverdue: true
+          })
+        } else if (raw && raw.completedAt &&
+                   dateToStr(new Date(raw.completedAt)) === today) {
+          items.push({
+            task,
+            occurrence: { ...defaultOccurrence(), ...raw },
+            occurrenceDate: ad,
+            isOverdue: false
+          })
         }
       }
     }
@@ -874,115 +934,88 @@ function dateCountsForMonth(state, year, monthIdx0) {
   const counts = {}
   const ensure = (d) => counts[d] || (counts[d] = { total: 0, done: 0, hasOverdue: false })
 
-  // Group tasks by notebook so per-notebook computation (active-date walks)
-  // happens once instead of per task.
-  const tasksByNb = {}
   for (const t of state.tasks) {
-    const list = tasksByNb[t.notebookId] || (tasksByNb[t.notebookId] = [])
-    list.push(t)
-  }
+    if (t.mode !== 'recurring') {
+      // 一次性 task: 按自己的 effectiveDueDate 决定显示日。
+      const due = effectiveDueDate(t)
+      if (!due) continue
+      const dueInMonth = compareDateStr(due, monthFirst) >= 0 &&
+                        compareDateStr(due, monthLast) <= 0
+      const dueIsPast = compareDateStr(due, today) < 0
+      const status = t.status || 'todo'
+      const isDone = status === 'done'
 
-  for (const nb of state.notebooks) {
-    const tasks = tasksByNb[nb.id]
-    if (!tasks || !tasks.length) continue
+      if (dueInMonth) {
+        const c = ensure(due)
+        c.total++
+        if (isDone) c.done++
+      }
 
-    if (nb.mode === 'one-shot') {
-      // 一次性 task 现在按 task 级 dueDate 决定显示日。每个 task 自己有 due。
-      // notebook.endDate 仅作为缺失时的兜底,已被 effectiveDueDate 吸收。
-      for (const t of tasks) {
-        const due = effectiveDueDate(t, nb)
-        if (!due) continue
-        const dueInMonth = compareDateStr(due, monthFirst) >= 0 &&
-                          compareDateStr(due, monthLast) <= 0
-        const dueIsPast = compareDateStr(due, today) < 0
-        const status = t.status || 'todo'
-        const isDone = status === 'done'
-
-        // Cell on its scheduled (due) date — the task is on-schedule there.
-        if (dueInMonth) {
-          const c = ensure(due)
+      if (isDone && t.completedAt) {
+        const cdate = dateToStr(new Date(t.completedAt))
+        if (cdate !== due &&
+            compareDateStr(cdate, today) <= 0 &&
+            compareDateStr(cdate, monthFirst) >= 0 &&
+            compareDateStr(cdate, monthLast) <= 0) {
+          const c = ensure(cdate)
           c.total++
-          if (isDone) c.done++
-        }
-
-        // Off-schedule completion: if completed on a non-future date
-        // different from `due`, that cell also shows the task as done.
-        if (isDone && t.completedAt) {
-          const cdate = dateToStr(new Date(t.completedAt))
-          if (cdate !== due &&
-              compareDateStr(cdate, today) <= 0 &&
-              compareDateStr(cdate, monthFirst) >= 0 &&
-              compareDateStr(cdate, monthLast) <= 0) {
-            const c = ensure(cdate)
-            c.total++
-            c.done++
-          }
-        }
-
-        // Overdue surfaces on TODAY'S cell (not on the due cell).
-        if (todayInMonth && dueIsPast && !isDone) {
-          const c = ensure(today)
-          c.total++
-          c.hasOverdue = true
+          c.done++
         }
       }
-    } else {
-      // recurring
-      if (!nb.startDate) continue
 
-      // Active dates within the visible month — contribute to that cell.
-      // Cap walk by nb.endDate if it falls before monthLast.
-      const walkStart = compareDateStr(nb.startDate, monthFirst) >= 0 ? nb.startDate : monthFirst
-      const walkEnd = nb.endDate && compareDateStr(nb.endDate, monthLast) < 0 ? nb.endDate : monthLast
+      if (todayInMonth && dueIsPast && !isDone) {
+        const c = ensure(today)
+        c.total++
+        c.hasOverdue = true
+      }
+    } else {
+      // recurring: 用 task 自身 startDate / endDate / recurrence。
+      if (!t.startDate) continue
+
+      const walkStart = compareDateStr(t.startDate, monthFirst) >= 0 ? t.startDate : monthFirst
+      const walkEnd = t.endDate && compareDateStr(t.endDate, monthLast) < 0 ? t.endDate : monthLast
       const monthActive = []
       if (compareDateStr(walkStart, walkEnd) <= 0) {
         let d = walkStart
         while (compareDateStr(d, walkEnd) <= 0) {
-          if (isNotebookActiveOn(nb, d)) monthActive.push(d)
+          if (isTaskActiveOn(t, d)) monthActive.push(d)
           d = addDays(d, 1)
         }
       }
 
-      // Backlog: when today is in this month, today's cell also gets every
-      // pre-today active occurrence that's still undone (red) or was
-      // finished on today (cleared backlog row).
       let backlogActive = null
       if (todayInMonth) {
         backlogActive = []
-        let d = nb.startDate
+        let d = t.startDate
         while (compareDateStr(d, today) < 0) {
-          if (isNotebookActiveOn(nb, d)) backlogActive.push(d)
+          if (isTaskActiveOn(t, d)) backlogActive.push(d)
           d = addDays(d, 1)
         }
       }
 
-      for (const t of tasks) {
-        const occMap = t.occurrences || {}
+      const occMap = t.occurrences || {}
 
-        // Per-active-date contribution to its own cell.
-        for (let i = 0; i < monthActive.length; i++) {
-          const ad = monthActive[i]
+      for (let i = 0; i < monthActive.length; i++) {
+        const ad = monthActive[i]
+        const occ = occMap[ad]
+        const c = ensure(ad)
+        c.total++
+        if (occ && occ.status === 'done') c.done++
+      }
+
+      if (backlogActive) {
+        const todayCell = ensure(today)
+        for (let i = 0; i < backlogActive.length; i++) {
+          const ad = backlogActive[i]
           const occ = occMap[ad]
-          const c = ensure(ad)
-          c.total++
-          if (occ && occ.status === 'done') c.done++
-        }
-
-        // Backlog into today's cell.
-        if (backlogActive) {
-          const todayCell = ensure(today)
-          for (let i = 0; i < backlogActive.length; i++) {
-            const ad = backlogActive[i]
-            const occ = occMap[ad]
-            const status = (occ && occ.status) ? occ.status : 'todo'
-            if (status !== 'done') {
-              todayCell.total++
-              todayCell.hasOverdue = true
-            } else if (occ && occ.completedAt &&
-                       dateToStr(new Date(occ.completedAt)) === today) {
-              todayCell.total++
-              todayCell.done++
-            }
+          const status = (occ && occ.status) ? occ.status : 'todo'
+          if (status !== 'done') {
+            todayCell.total++
+            todayCell.hasOverdue = true
+          } else if (occ && occ.completedAt &&
+                     dateToStr(new Date(occ.completedAt)) === today) {
+            todayCell.total++
+            todayCell.done++
           }
         }
       }
@@ -1104,136 +1137,9 @@ function genId(prefix) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`
 }
 
-function addNotebook(nb) {
-  return updateState((state) => {
-    const today = todayStr()
-    const order = state.notebooks.length
-    const item = {
-      id: genId('nb'),
-      name: nb.name || today,
-      mode: nb.mode === 'recurring' ? 'recurring' : 'one-shot',
-      startDate: nb.startDate || today,
-      endDate: nb.endDate === undefined
-        ? (nb.mode === 'recurring' ? null : today)
-        : nb.endDate,
-      recurrence: nb.mode === 'recurring'
-        ? (nb.recurrence || { type: 'daily', weekdays: [] })
-        : null,
-      createdAt: Date.now(),
-      order
-    }
-    state.notebooks.push(item)
-    state._lastNotebookId = item.id
-    return state
-  })
-}
-
-function updateNotebook(id, patch) {
-  return updateState((state) => {
-    state.notebooks = state.notebooks.map((nb) => {
-      if (nb.id !== id) return nb
-      const merged = { ...nb, ...patch }
-      if (merged.mode === 'recurring') {
-        merged.recurrence = patch.recurrence || nb.recurrence || { type: 'daily', weekdays: [] }
-      } else {
-        merged.recurrence = null
-      }
-      return merged
-    })
-    return state
-  })
-}
-
-function deleteNotebook(id) {
-  return updateState((state) => {
-    state.notebooks = state.notebooks.filter((nb) => nb.id !== id)
-    state.tasks = state.tasks.filter((t) => t.notebookId !== id)
-    return state
-  })
-}
-
-// Duplicate a notebook locally: clone metadata + every task (preserving
-// subject/content/estimatedMinutes/order). Task progress is reset to fresh
-// todo — the copy is treated as a brand-new notebook. Returns the new
-// notebook id, or null if source is missing.
-// `newName` is required and must not collide with an existing notebook name.
-function duplicateNotebook(sourceNotebookId, newName) {
-  let resultId = null
-  updateState((state) => {
-    const src = state.notebooks.find((nb) => nb.id === sourceNotebookId)
-    if (!src) return state
-    const finalName = (newName || '').trim()
-    if (!finalName) return state
-    if (state.notebooks.some((nb) => (nb.name || '').trim() === finalName)) return state
-    const nb = {
-      id: genId('nb'),
-      name: finalName,
-      mode: src.mode === 'recurring' ? 'recurring' : 'one-shot',
-      startDate: src.startDate,
-      endDate: src.endDate,
-      recurrence: src.mode === 'recurring'
-        ? (src.recurrence || { type: 'daily', weekdays: [] })
-        : null,
-      createdAt: Date.now(),
-      order: state.notebooks.length
-    }
-    state.notebooks.push(nb)
-    const srcTasks = state.tasks
-      .filter((t) => t.notebookId === sourceNotebookId)
-      .sort((a, b) => (a.order || 0) - (b.order || 0))
-    const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
-    let cursor = maxOrder + 1
-    for (const t of srcTasks) {
-      const base = {
-        id: genId('tk'),
-        notebookId: nb.id,
-        subject: t.subject || '其他',
-        content: t.content || '',
-        estimatedMinutes: Number(t.estimatedMinutes || 0),
-        dueDate: t.dueDate || null,
-        order: cursor++,
-        createdAt: Date.now()
-      }
-      if (nb.mode === 'recurring') {
-        base.occurrences = {}
-      } else {
-        Object.assign(base, defaultOccurrence())
-      }
-      state.tasks.push(base)
-    }
-    reconcilePerfectDays(state)
-    resultId = nb.id
-    return state
-  })
-  return resultId
-}
-
-function setEditNotebookId(id) {
-  return updateState((state) => { state.editNotebookId = id; return state })
-}
-
-function clearEditNotebookId() {
-  return updateState((state) => { state.editNotebookId = null; return state })
-}
-
-function getNotebookById(id) {
-  const state = loadState()
-  return state.notebooks.find((nb) => nb.id === id) || null
-}
-
-// Find an existing notebook with the same trimmed name (case-sensitive).
-// Pass `excludeId` to skip a specific notebook (so editing a notebook to keep
-// its current name doesn't false-positive on itself). Returns null if none.
-function findNotebookByName(name, excludeId) {
-  const target = (name || '').trim()
-  if (!target) return null
-  const state = loadState()
-  for (const nb of state.notebooks) {
-    if (excludeId && nb.id === excludeId) continue
-    if ((nb.name || '').trim() === target) return nb
-  }
-  return null
-}
+// v3: notebook 概念已删除。addNotebook / updateNotebook / deleteNotebook /
+// duplicateNotebook / setEditNotebookId / clearEditNotebookId / getNotebookById /
+// findNotebookByName 全部移除 —— 调用方应直接管理 task。
 
 // Finished-task history lookup. Walks both one-shot tasks (top-level
 // status/actualMinutes) and recurring per-occurrence completions. Returns
@@ -1332,79 +1238,82 @@ function estimateTaskMinutes(taskName, subject) {
 
 // === Task CRUD === //
 
-function tasksOfNotebook(state, notebookId) {
-  return state.tasks
-    .filter((t) => t.notebookId === notebookId)
-    .sort((a, b) => (a.order || 0) - (b.order || 0))
+// v3: 标准化 organization,落不到三选一就回退默认。
+function normalizeOrganization(v) {
+  return ORGANIZATIONS.includes(v) ? v : DEFAULT_ORGANIZATION
 }
 
-// 规划模式按日期分组时,task 落到哪天的 folder。
-// - 周期性作业本无截止概念,直接返回 null。
-// - 一次性作业本:用 task.dueDate;没设过就退化到 notebook.endDate (最后一天);
-//   超出 notebook 范围(用户后来把 endDate 往前缩了)就钳到边界。
-function effectiveDueDate(task, notebook) {
-  if (!notebook || notebook.mode !== 'one-shot') return null
-  const fallback = notebook.endDate || notebook.startDate
+// v3: 标准化 mode + 配套字段(startDate/endDate/recurrence)。
+function normalizeScheduling(payload) {
+  const today = todayStr()
+  const mode = payload.mode === 'recurring' ? 'recurring' : 'one-shot'
+  const startDate = payload.startDate || today
+  const endDate = payload.endDate === undefined
+    ? (mode === 'recurring' ? null : startDate)
+    : payload.endDate
+  const recurrence = mode === 'recurring'
+    ? (payload.recurrence && payload.recurrence.type
+        ? { type: payload.recurrence.type === 'weekly' ? 'weekly' : 'daily',
+            weekdays: Array.isArray(payload.recurrence.weekdays)
+              ? payload.recurrence.weekdays.filter((w) => Number.isInteger(w) && w >= 1 && w <= 7)
+              : [] }
+        : { type: 'daily', weekdays: [] })
+    : null
+  return { mode, startDate, endDate, recurrence }
+}
+
+// 一次性 task 落到哪天:优先 task.dueDate,缺失时退化到 task.endDate / startDate;
+// 超出 task 范围(用户后来把 endDate 往前缩了)就钳到边界。
+// recurring task 没有"截止日"概念 — 返回 null。
+function effectiveDueDate(task) {
+  if (!task || task.mode === 'recurring') return null
+  const fallback = task.endDate || task.startDate
   let due = task.dueDate || fallback
-  if (notebook.startDate && due < notebook.startDate) due = notebook.startDate
-  if (notebook.endDate && due > notebook.endDate) due = notebook.endDate
+  if (!due) return null
+  if (task.startDate && due < task.startDate) due = task.startDate
+  if (task.endDate && due > task.endDate) due = task.endDate
   return due
 }
 
+// v3 addTask: payload 直接带全字段(mode / startDate / endDate / recurrence /
+// organization / subject / content / estimatedMinutes / dueDate)。
+// 旧 caller(OCR 导入等)不传 mode/dates → 兜底 one-shot/today,行为兼容。
 function addTask(payload) {
-  return updateState((state) => {
-    let notebookId = payload.notebookId
-    // Legacy callers (OCR import) may pass {subject, content, ...} without
-    // notebookId — auto-bucket into the one-shot notebook for today.
-    if (!notebookId) {
-      const today = todayStr()
-      const existing = state.notebooks.find(
-        (nb) => nb.mode === 'one-shot' && (nb.endDate || nb.startDate) === today
-      )
-      if (existing) {
-        notebookId = existing.id
-      } else {
-        const nb = {
-          id: genId('nb'),
-          name: today,
-          mode: 'one-shot',
-          startDate: today,
-          endDate: today,
-          recurrence: null,
-          createdAt: Date.now(),
-          order: state.notebooks.length
-        }
-        state.notebooks.push(nb)
-        notebookId = nb.id
-      }
-    }
-    const nb = state.notebooks.find((n) => n.id === notebookId)
-    // Append to the END of the global order space so new tasks land at the
-    // bottom of the home undone list.
+  let newTaskId = null
+  updateState((state) => {
+    const { mode, startDate, endDate, recurrence } = normalizeScheduling(payload || {})
     const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
     const base = {
       id: genId('tk'),
-      notebookId,
       subject: payload.subject || '其他',
+      organization: normalizeOrganization(payload.organization),
       content: payload.content || '',
       estimatedMinutes: Number(payload.estimatedMinutes || 0),
-      // dueDate is opt-in (规划模式 / 编辑页手动设置). null = 跟随 notebook.endDate.
-      // Only meaningful for one-shot notebooks; recurring notebooks ignore it.
+      // dueDate 仅对 one-shot 有意义:落到该日期(默认 = endDate)。
       dueDate: payload.dueDate || null,
+      mode,
+      startDate,
+      endDate,
+      recurrence,
       order: maxOrder + 1,
       createdAt: Date.now()
     }
-    if (nb && nb.mode === 'recurring') {
+    if (mode === 'recurring') {
       base.occurrences = {}
     } else {
       Object.assign(base, defaultOccurrence())
     }
     state.tasks.push(base)
+    newTaskId = base.id
     reconcilePerfectDays(state)
     return state
   })
+  return newTaskId
 }
 
+// v3 updateTask:可改 content / subject / organization / estimatedMinutes /
+// dueDate,以及调度字段 mode / startDate / endDate / recurrence。
+// 跨 mode 切换会清掉对应的状态字段(one-shot↔recurring 不保留进度)。
 function updateTask(taskId, updates) {
   return updateState((state) => {
     state.tasks = state.tasks.map((t) => {
@@ -1412,16 +1321,42 @@ function updateTask(taskId, updates) {
       const next = { ...t }
       if ('content' in updates) next.content = updates.content
       if ('subject' in updates) next.subject = updates.subject
+      if ('organization' in updates) next.organization = normalizeOrganization(updates.organization)
       if ('estimatedMinutes' in updates) next.estimatedMinutes = Number(updates.estimatedMinutes || 0)
-      // Pass null/'' to clear; only one-shot notebooks honor it (see arrangeByDate).
       if ('dueDate' in updates) next.dueDate = updates.dueDate || null
-      if ('notebookId' in updates && updates.notebookId !== t.notebookId) {
-        next.notebookId = updates.notebookId
-        // append to end of new notebook
-        next.order = state.tasks.filter((x) => x.notebookId === updates.notebookId).length
+      if ('startDate' in updates) next.startDate = updates.startDate || t.startDate
+      if ('endDate' in updates) next.endDate = updates.endDate === undefined ? t.endDate : updates.endDate
+      if ('recurrence' in updates) next.recurrence = updates.recurrence
+      if ('mode' in updates && updates.mode !== t.mode) {
+        const sched = normalizeScheduling({ ...next, mode: updates.mode })
+        next.mode = sched.mode
+        next.startDate = sched.startDate
+        next.endDate = sched.endDate
+        next.recurrence = sched.recurrence
+        // 跨 mode 重置进度。one-shot ↔ recurring 不保留 status / occurrences。
+        if (next.mode === 'recurring') {
+          delete next.status
+          delete next.startedAt
+          delete next.currentSegmentStartedAt
+          delete next.accumulatedMs
+          delete next.completedAt
+          delete next.actualMinutes
+          delete next.rewardPaid
+          delete next.rewardKind
+          delete next.happinessPaid
+          next.occurrences = {}
+        } else {
+          delete next.occurrences
+          Object.assign(next, defaultOccurrence())
+        }
+      } else if ('mode' in updates && updates.mode === 'recurring') {
+        // 同 mode 但更新 recurrence/dates
+        const sched = normalizeScheduling({ ...next, mode: 'recurring' })
+        next.recurrence = sched.recurrence
       }
       return next
     })
+    reconcilePerfectDays(state)
     return state
   })
 }
@@ -1433,28 +1368,98 @@ function deleteTask(taskId) {
   })
 }
 
-function reorderTasksInNotebook(notebookId, orderedIds) {
-  return updateState((state) => {
-    const others = state.tasks.filter((t) => t.notebookId !== notebookId)
-    const inNb = state.tasks.filter((t) => t.notebookId === notebookId)
-    const idMap = new Map(inNb.map((t) => [t.id, t]))
-    const next = []
-    orderedIds.forEach((id, i) => {
-      const t = idMap.get(id)
-      if (t) {
-        next.push({ ...t, order: i })
-        idMap.delete(id)
-      }
+// v3 detach: 把 recurring task 的某个 date 实例拆成独立 one-shot task。
+// - 新 task 继承 content / subject / organization / estimatedMinutes
+// - occurrence[date] 的 status / accumulatedMs / completedAt / rewardPaid 等
+//   完整搬到新 task 顶层(已 done 的实例 detach 后还是 done,不重发奖励)
+// - 原 task.excludedDates 加入 date(isTaskActiveOn 跳过该日期)
+// - 原 task.occurrences[date] 删除(防止统计/UI 残影)
+// 返回新 task id;入参 task 不是 recurring 或者已被 excluded 则返回 null。
+function detachOccurrence(taskId, date) {
+  if (!taskId || !date) return null
+  let newId = null
+  updateState((state) => {
+    const src = state.tasks.find((t) => t.id === taskId)
+    if (!src || src.mode !== 'recurring') return state
+    const excluded = Array.isArray(src.excludedDates) ? src.excludedDates : []
+    if (excluded.indexOf(date) >= 0) return state
+    const occ = (src.occurrences || {})[date] || defaultOccurrence()
+    const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
+    const detached = {
+      id: genId('tk'),
+      subject: src.subject || '其他',
+      organization: ORGANIZATIONS.includes(src.organization) ? src.organization : DEFAULT_ORGANIZATION,
+      content: src.content || '',
+      estimatedMinutes: Number(src.estimatedMinutes) || 0,
+      dueDate: null,
+      mode: 'one-shot',
+      startDate: date,
+      endDate: date,
+      recurrence: null,
+      excludedDates: [],
+      order: maxOrder + 1,
+      createdAt: Date.now(),
+      // occurrence 顶层化
+      status: occ.status || 'todo',
+      startedAt: occ.startedAt || null,
+      currentSegmentStartedAt: occ.currentSegmentStartedAt || null,
+      accumulatedMs: occ.accumulatedMs || 0,
+      completedAt: occ.completedAt || null,
+      actualMinutes: occ.actualMinutes || null,
+      rewardPaid: occ.rewardPaid != null ? occ.rewardPaid : null,
+      rewardKind: occ.rewardKind || null,
+      happinessPaid: occ.happinessPaid != null ? occ.happinessPaid : null,
+      // 标记从哪里 detach 出来的,方便审计 / 后续"重新合并回 recurring"功能。
+      detachedFrom: src.id,
+      detachedDate: date
+    }
+    state.tasks.push(detached)
+    // 原 recurring task 加 excludedDates,清掉 occurrences[date]。
+    state.tasks = state.tasks.map((t) => {
+      if (t.id !== taskId) return t
+      const nextExcluded = excluded.indexOf(date) >= 0 ? excluded.slice() : excluded.concat([date])
+      const nextOccurrences = { ...(t.occurrences || {}) }
+      delete nextOccurrences[date]
+      return { ...t, excludedDates: nextExcluded, occurrences: nextOccurrences }
     })
-    for (const t of idMap.values()) next.push({ ...t, order: next.length })
-    state.tasks = [...others, ...next]
+    newId = detached.id
     return state
   })
+  return newId
 }
+
+// v3 exclude: 把 recurring task 的某个 date 实例标记为"删除此次",
+// 不新建任何 task。原 occurrence 数据丢弃(包括已 done 的 reward 不撤销 ——
+// 走单独的 revertTask 路径)。
+function excludeOccurrence(taskId, date) {
+  if (!taskId || !date) return false
+  let ok = false
+  updateState((state) => {
+    const src = state.tasks.find((t) => t.id === taskId)
+    if (!src || src.mode !== 'recurring') return state
+    const excluded = Array.isArray(src.excludedDates) ? src.excludedDates : []
+    state.tasks = state.tasks.map((t) => {
+      if (t.id !== taskId) return t
+      const nextExcluded = excluded.indexOf(date) >= 0 ? excluded.slice() : excluded.concat([date])
+      const nextOccurrences = { ...(t.occurrences || {}) }
+      delete nextOccurrences[date]
+      return { ...t, excludedDates: nextExcluded, occurrences: nextOccurrences }
+    })
+    ok = true
+    // 删除 occurrence 后, 这天如果原本是 perfect day, 现在 task 数变少了
+    // 也可能仍然 perfect(全 done) — reconcile 一遍保证账本一致。
+    reconcilePerfectDays(state)
+    return state
+  })
+  return ok
+}
+
+// v3: reorderTasksInNotebook 已删除(notebook 概念消失)。pages 直接用 reorderTasks
+// 改全局 order。
 
 // Rewrite the global `order` field for the listed tasks (in given sequence),
 // leaving all other tasks' orders untouched. Used by the home page when the
-// user drags across notebooks.
+// user drags across rows.
 function reorderTasks(orderedIds) {
   return updateState((state) => {
     const idToOrder = new Map()
@@ -1474,9 +1479,6 @@ function reorderTasks(orderedIds) {
 // can be ordered independently.
 function reorderRows(rows) {
   return updateState((state) => {
-    const notebookById = {}
-    for (const nb of state.notebooks) notebookById[nb.id] = nb
-    // Group target order assignments by task
     const assignments = new Map()  // taskId → array of {date, order}
     rows.forEach((r, i) => {
       if (!r || !r.taskId) return
@@ -1487,9 +1489,7 @@ function reorderRows(rows) {
     state.tasks = state.tasks.map((t) => {
       const list = assignments.get(t.id)
       if (!list) return t
-      const nb = notebookById[t.notebookId]
-      if (!nb) return t
-      if (nb.mode === 'one-shot') {
+      if (t.mode !== 'recurring') {
         // Use the LAST assignment (one-shot has only one logical row)
         return { ...t, order: list[list.length - 1].order }
       }
@@ -1507,8 +1507,8 @@ function reorderRows(rows) {
 
 // Read the effective row order for a (task, date) pair — recurring per-
 // occurrence override beats the task-level default.
-function getRowOrder(task, notebook, dateStr) {
-  if (!notebook || notebook.mode === 'one-shot') return task.order || 0
+function getRowOrder(task, dateStr) {
+  if (!task || task.mode !== 'recurring') return (task && task.order) || 0
   const occ = (task.occurrences || {})[dateStr]
   if (occ && typeof occ.order === 'number') return occ.order
   return task.order || 0
@@ -1539,12 +1539,8 @@ function pauseInPlace(occ, now) {
 // be running at a time, regardless of date or mode. The except (taskId,
 // dateStr) pair preserves the row the user just (re)started.
 function pauseAllOtherDoing(state, exceptTaskId, exceptDateStr, now) {
-  const notebookById = {}
-  for (const nb of state.notebooks) notebookById[nb.id] = nb
   state.tasks = state.tasks.map((t) => {
-    const nb = notebookById[t.notebookId]
-    if (!nb) return t
-    if (nb.mode === 'one-shot') {
+    if (t.mode !== 'recurring') {
       if (t.id === exceptTaskId) return t
       if ((t.status || 'todo') !== 'doing') return t
       return { ...t, ...pauseInPlace(t, now) }
@@ -1575,9 +1571,7 @@ function startTask(taskId, dateStr) {
     pauseAllOtherDoing(state, taskId, day, now)
     const task = state.tasks.find((t) => t.id === taskId)
     if (!task) return state
-    const nb = state.notebooks.find((n) => n.id === task.notebookId)
-    if (!nb) return state
-    const cur = getTaskState(task, nb, day)
+    const cur = getTaskState(task, day)
     const patch = {
       status: 'doing',
       startedAt: cur.startedAt || now,
@@ -1585,7 +1579,7 @@ function startTask(taskId, dateStr) {
       accumulatedMs: cur.accumulatedMs || 0
     }
     state.tasks = state.tasks.map((t) =>
-      t.id === taskId ? applyTaskState(t, nb, day, patch) : t
+      t.id === taskId ? applyTaskState(t, day, patch) : t
     )
     return state
   })
@@ -1597,11 +1591,9 @@ function pauseTask(taskId, dateStr) {
     const now = Date.now()
     const task = state.tasks.find((t) => t.id === taskId)
     if (!task) return state
-    const nb = state.notebooks.find((n) => n.id === task.notebookId)
-    if (!nb) return state
-    const cur = getTaskState(task, nb, day)
+    const cur = getTaskState(task, day)
     state.tasks = state.tasks.map((t) =>
-      t.id === taskId ? applyTaskState(t, nb, day, pauseInPlace(cur, now)) : t
+      t.id === taskId ? applyTaskState(t, day, pauseInPlace(cur, now)) : t
     )
     return state
   })
@@ -1614,13 +1606,11 @@ function resumeTask(taskId, dateStr) {
     pauseAllOtherDoing(state, taskId, day, now)
     const task = state.tasks.find((t) => t.id === taskId)
     if (!task) return state
-    const nb = state.notebooks.find((n) => n.id === task.notebookId)
-    if (!nb) return state
-    const cur = getTaskState(task, nb, day)
+    const cur = getTaskState(task, day)
     if (cur.status !== 'paused') return state
     const patch = { status: 'doing', currentSegmentStartedAt: now }
     state.tasks = state.tasks.map((t) =>
-      t.id === taskId ? applyTaskState(t, nb, day, patch) : t
+      t.id === taskId ? applyTaskState(t, day, patch) : t
     )
     return state
   })
@@ -1736,9 +1726,7 @@ function revertTask(taskId, dateStr) {
   return updateState((state) => {
     const task = state.tasks.find((t) => t.id === taskId)
     if (!task) return state
-    const nb = state.notebooks.find((n) => n.id === task.notebookId)
-    if (!nb) return state
-    const cur = getTaskState(task, nb, day)
+    const cur = getTaskState(task, day)
     if (cur.status !== 'done') return state
 
     // Refund exactly what finishTask paid out (varies by overdue/today/future
@@ -1762,7 +1750,7 @@ function revertTask(taskId, dateStr) {
       happinessPaid: null
     }
     state.tasks = state.tasks.map((t) =>
-      t.id === taskId ? applyTaskState(t, nb, day, patch) : t
+      t.id === taskId ? applyTaskState(t, day, patch) : t
     )
 
     if (refund > 0) {
@@ -1801,9 +1789,7 @@ function finishTask(taskId, dateStr) {
 
     const task = state.tasks.find((t) => t.id === taskId)
     if (!task) return state
-    const nb = state.notebooks.find((n) => n.id === task.notebookId)
-    if (!nb) return state
-    const cur = getTaskState(task, nb, day)
+    const cur = getTaskState(task, day)
     // Re-finish of an already-done task (rare — UI only shows ✓ on doing) does
     // not get its happiness bump or the second perfect-day top-up.
     const wasNotDone = cur.status !== 'done'
@@ -1853,7 +1839,7 @@ function finishTask(taskId, dateStr) {
       happinessPaid: 0
     }
     state.tasks = state.tasks.map((t) =>
-      t.id === taskId ? applyTaskState(t, nb, day, patch) : t
+      t.id === taskId ? applyTaskState(t, day, patch) : t
     )
 
     if (!cappedOut) {
@@ -1951,7 +1937,7 @@ function finishTask(taskId, dateStr) {
     if (happinessDelta > 0) {
       const stamp = { ...patch, happinessPaid: happinessDelta }
       state.tasks = state.tasks.map((t) =>
-        t.id === taskId ? applyTaskState(t, nb, day, stamp) : t
+        t.id === taskId ? applyTaskState(t, day, stamp) : t
       )
     }
 
@@ -2093,9 +2079,6 @@ function setCurrentOcrJob(job) {
       rawText: job.rawText || '',
       source: job.source || '',
       providerWarning: job.providerWarning || '',
-      // 当 OCR 从某个作业本详情页发起时,带上 notebookId,
-      // 让 ocr-result 把 drafts 落到指定作业本,而不是默认的当日 one-shot。
-      notebookId: job.notebookId || '',
       drafts: (job.drafts || []).map((d, i) => ({
         id: d.id || `${Date.now()}-${i}`,
         subject: d.subject || '',
@@ -2153,33 +2136,58 @@ function updateProfileAvatar(avatar) {
 // 沉淀在 WeChat 服务端日志里;昵称是给孩子取的,放进 URL = PII 外流。
 // 接收方落地页统一显示「好友分享给你的作业本」即可;WeChat 聊天 UI 自带
 // 显示消息发件人,已经回答了"谁发的"。
-function serializeNotebookForShare(notebookId, sharerOpenid) {
+// v3 分享:按日期 + 可选学科/组织过滤,序列化当日可见 task 列表。
+// shareId 由调用方传入(客户端 nanoid),作为云函数 dedup key + 接收页 once-only 标记。
+// `taskIds` 可选 —— 不传时序列化"当日全部",传时只取选中的 task。
+function serializeTasksForShare(dateStr, options) {
   const state = loadState()
-  const nb = state.notebooks.find((n) => n.id === notebookId)
-  if (!nb) return null
-  // estimatedMinutes 现在带在 payload 里 —— 接收页要展示"预计 X 分钟"
-  // chip 让落地页和分享方的 notebook-detail 视觉一致。buildTaskFromShare
-  // 仍然 `m || estimateTaskMinutes(...)`,即接收方导入后如果分享方没设过
-  // 估时,会按接收方自己的历史 fallback;设过的就继承。
-  const tasks = state.tasks
-    .filter((t) => t.notebookId === notebookId)
-    .sort((a, b) => (a.order || 0) - (b.order || 0))
-    .map((t) => ({
+  const opts = options || {}
+  const day = dateStr || todayStr()
+  const sharerOpenid = opts.sharerOpenid || ''
+  const shareId = opts.shareId || genId('sh')
+
+  const items = tasksForDate(state, day)
+  // taskIds 过滤:UI 让用户勾选要分享哪些。
+  let filtered = items
+  if (Array.isArray(opts.taskIds) && opts.taskIds.length > 0) {
+    const idSet = new Set(opts.taskIds)
+    filtered = items.filter((it) => idSet.has(it.task.id))
+  }
+  // 学科/组织过滤(快速分享按钮)。
+  if (Array.isArray(opts.subjects) && opts.subjects.length > 0) {
+    const set = new Set(opts.subjects)
+    filtered = filtered.filter((it) => set.has(it.task.subject || '其他'))
+  }
+  if (Array.isArray(opts.organizations) && opts.organizations.length > 0) {
+    const set = new Set(opts.organizations)
+    filtered = filtered.filter((it) => set.has(it.task.organization || DEFAULT_ORGANIZATION))
+  }
+
+  // 同一 task 在同一日期最多 1 行 — tasksForDate 已经去重(recurring task 在 today
+  // 会按 backlog 输出多行,但每行 occurrenceDate 不同 → 这里序列化时去重到 task.id)。
+  const seenTaskIds = new Set()
+  const tasks = []
+  for (const it of filtered) {
+    if (seenTaskIds.has(it.task.id)) continue
+    seenTaskIds.add(it.task.id)
+    const t = it.task
+    tasks.push({
       s: t.subject || '其他',
+      o: t.organization || DEFAULT_ORGANIZATION,
       c: t.content || '',
-      m: Number(t.estimatedMinutes) || 0
-    }))
+      m: Number(t.estimatedMinutes) || 0,
+      mo: t.mode === 'recurring' ? 'recurring' : 'one-shot',
+      sd: t.startDate || day,
+      ed: t.endDate === undefined ? null : t.endDate,
+      r: t.mode === 'recurring' ? (t.recurrence || { type: 'daily', weekdays: [] }) : null
+    })
+  }
+
   return {
-    v: 1,
-    sharer: sharerOpenid || '',
-    nbId: nb.id,
-    n: {
-      name: nb.name,
-      mode: nb.mode,
-      startDate: nb.startDate,
-      endDate: nb.endDate,
-      recurrence: nb.recurrence
-    },
+    v: 2,
+    sharer: sharerOpenid,
+    shareId,
+    d: day,
     t: tasks
   }
 }
@@ -2273,39 +2281,39 @@ function applyAdminCoinClaim({ items, totalApplied, addedTotal, deductedTotal, n
   return summary
 }
 
-// Build the metadata block for a freshly-imported notebook from a share
-// payload. Does NOT touch state — pure derivation.
-function buildNotebookFromShare(n, today, order, name) {
-  return {
-    id: genId('nb'),
-    name: name || n.name || today,
-    mode: n.mode === 'recurring' ? 'recurring' : 'one-shot',
-    startDate: n.startDate || today,
-    endDate: n.endDate === undefined
-      ? (n.mode === 'recurring' ? null : today)
-      : n.endDate,
-    recurrence: n.mode === 'recurring'
-      ? (n.recurrence || { type: 'daily', weekdays: [] })
-      : null,
-    createdAt: Date.now(),
-    order
-  }
-}
+// v3: 从分享条目构建一个全字段 task。estimatedMinutes 缺失时按接收方历史估算。
+// 调度字段(mode / startDate / endDate / recurrence)从 share 条目继承,recurring
+// 任务的 startDate 钳到 ≤ 今天,避免分享方设了未来日期导致接收方看不到。
+function buildTaskFromShare(item, today) {
+  const mode = item.mo === 'recurring' ? 'recurring' : 'one-shot'
+  let startDate = item.sd || today
+  if (mode === 'recurring' && compareDateStr(startDate, today) > 0) startDate = today
+  const endDate = item.ed === null
+    ? null
+    : (item.ed || (mode === 'one-shot' ? today : null))
+  const recurrence = mode === 'recurring'
+    ? (item.r && item.r.type
+        ? { type: item.r.type === 'weekly' ? 'weekly' : 'daily',
+            weekdays: Array.isArray(item.r.weekdays)
+              ? item.r.weekdays.filter((w) => Number.isInteger(w) && w >= 1 && w <= 7)
+              : [] }
+        : { type: 'daily', weekdays: [] })
+    : null
 
-// Build a task row from a share payload entry under a target notebook.
-// Auto-estimates `estimatedMinutes` from the user's finished-task history
-// when the share didn't carry one (it never does — we strip it on share).
-// Status is reset to fresh: every imported task starts as todo.
-function buildTaskFromShare(item, nb) {
   const base = {
     id: genId('tk'),
-    notebookId: nb.id,
     subject: item.s || '其他',
+    organization: ORGANIZATIONS.includes(item.o) ? item.o : DEFAULT_ORGANIZATION,
     content: item.c || '',
     estimatedMinutes: Number(item.m || estimateTaskMinutes(item.c, item.s) || 0),
+    dueDate: null,
+    mode,
+    startDate,
+    endDate,
+    recurrence,
     createdAt: Date.now()
   }
-  if (nb.mode === 'recurring') {
+  if (mode === 'recurring') {
     base.occurrences = {}
   } else {
     Object.assign(base, defaultOccurrence())
@@ -2313,39 +2321,15 @@ function buildTaskFromShare(item, nb) {
   return base
 }
 
-// Generate a unique-name candidate by appending " 复制" until no other
-// notebook has the same trimmed name. Existing match's id can be excluded
-// (caller may want to rename when the share IS the same notebook reimported).
-function pickRenameCandidate(state, baseName) {
-  const trimmed = (baseName || '').trim() || todayStr()
-  let candidate = `${trimmed} 复制`
-  while (state.notebooks.some((nb) => (nb.name || '').trim() === candidate)) {
-    candidate = `${candidate} 复制`
-  }
-  return candidate
-}
-
-// Import a shared notebook payload. `options.mode` controls duplicate-name
-// handling:
-//   'new'       — caller already verified no name conflict; create as-is
-//   'rename'    — append " 复制" (repeated if needed) to dodge the conflict
-//   'merge'     — append the share's tasks to options.targetNotebookId.
-//                 No dedupe; every imported task starts as todo.
-//   'overwrite' — replace options.targetNotebookId's metadata + tasks.
-//                 KEEPS the original notebook id, so existing progress
-//                 (coins / streak history) stays intact —
-//                 only this notebook's task rows are swapped out.
-// Returns the resulting notebook id (caller usually navigates to it), or
-// null if the device is read-only or the payload is invalid.
 // 分享 payload 的边界。攻击者可以构造任意大 / 任意脏的链接,所以收到的
-// 一切都要截断 + 类型校验。常规作业本任务不会超过几十条,200 已经很宽。
+// 一切都要截断 + 类型校验。常规一天的作业不会超过几十条,200 已经很宽。
 const SHARE_MAX_TASKS = 200
 const SHARE_MAX_CONTENT = 500
 const SHARE_MAX_SUBJECT = 16
-const SHARE_MAX_NOTEBOOK_NAME = 80
+const SHARE_MAX_ORGANIZATION = 16
 const SHARE_MAX_FROM = 24
 const SHARE_MAX_ID = 100
-const SHARE_MAX_DATE_STR = 16   // 'YYYY-MM-DD' 是 10 位,留点余量
+const SHARE_MAX_DATE_STR = 16
 const SHARE_MAX_TASK_MINUTES = 600
 
 function safeShareString(s, maxLen) {
@@ -2353,140 +2337,125 @@ function safeShareString(s, maxLen) {
   return s.slice(0, maxLen)
 }
 
-// 把任意来源的 share payload 规范化成已知 schema。
+// 把任意来源的 share payload 规范化成 v2 schema。
+// - v1 payload(老分享链接,带 .n 对象) → 在线转换为 v2 task 列表
+// - v2 payload → 直接 sanitize
 // - 未知字段直接丢
-// - 字符串过长截断
-// - 数组过长截断
-// - 类型不对 fallback 到默认值
-// 没有合法 `n` 就返回 null,调用方判 null 即可。
+// - 字符串过长截断、数组过长截断、类型不对兜默认
+// 没有合法 task 列表就返回 null。
 function sanitizeSharePayload(payload) {
-  if (!payload || typeof payload !== 'object' || !payload.n || typeof payload.n !== 'object') {
-    return null
-  }
-  const n = payload.n
-  const mode = n.mode === 'recurring' ? 'recurring' : 'one-shot'
-  const recurrence = mode === 'recurring' && n.recurrence && typeof n.recurrence === 'object'
-    ? {
-        type: n.recurrence.type === 'weekly' ? 'weekly' : 'daily',
-        weekdays: Array.isArray(n.recurrence.weekdays)
-          ? n.recurrence.weekdays
-              .slice(0, 7)
-              .filter((w) => Number.isInteger(w) && w >= 1 && w <= 7)
-          : []
-      }
-    : null
-  const safeN = {
-    name: safeShareString(n.name, SHARE_MAX_NOTEBOOK_NAME),
-    mode,
-    startDate: safeShareString(n.startDate, SHARE_MAX_DATE_STR),
-    // endDate: 三态 —— 长期重复本是 null,one-shot 是日期字符串,缺省让
-    // importSharedNotebook 内部按 today 兜底,所以这里 undefined 也保留。
-    endDate: n.endDate === null
+  if (!payload || typeof payload !== 'object') return null
+
+  // v1 兼容:把整本(.n + .t)转成 v2 task 列表。.n 的 mode/dates/recurrence
+  // 平移到每条 task 上,旧 task 没 organization → 默认 '其他'。
+  if (payload.n && typeof payload.n === 'object') {
+    const n = payload.n
+    const mode = n.mode === 'recurring' ? 'recurring' : 'one-shot'
+    const sd = safeShareString(n.startDate, SHARE_MAX_DATE_STR)
+    const ed = n.endDate === null
       ? null
       : n.endDate === undefined
         ? undefined
-        : safeShareString(n.endDate, SHARE_MAX_DATE_STR),
-    recurrence
+        : safeShareString(n.endDate, SHARE_MAX_DATE_STR)
+    const r = mode === 'recurring' && n.recurrence && typeof n.recurrence === 'object'
+      ? {
+          type: n.recurrence.type === 'weekly' ? 'weekly' : 'daily',
+          weekdays: Array.isArray(n.recurrence.weekdays)
+            ? n.recurrence.weekdays.slice(0, 7).filter((w) => Number.isInteger(w) && w >= 1 && w <= 7)
+            : []
+        }
+      : null
+    const rawTasks = Array.isArray(payload.t) ? payload.t.slice(0, SHARE_MAX_TASKS) : []
+    const tasks = rawTasks.map((it) => {
+      if (!it || typeof it !== 'object') return null
+      const mNum = Number(it.m)
+      return {
+        s: safeShareString(it.s, SHARE_MAX_SUBJECT),
+        o: DEFAULT_ORGANIZATION,
+        c: safeShareString(it.c, SHARE_MAX_CONTENT),
+        m: Number.isFinite(mNum) && mNum > 0 && mNum <= SHARE_MAX_TASK_MINUTES ? Math.trunc(mNum) : 0,
+        mo: mode,
+        sd,
+        ed,
+        r
+      }
+    }).filter(Boolean)
+    return {
+      v: 2,
+      from: safeShareString(payload.from, SHARE_MAX_FROM),
+      sharer: safeShareString(payload.sharer, SHARE_MAX_ID),
+      shareId: safeShareString(payload.nbId, SHARE_MAX_ID),  // v1 nbId 当 shareId 用
+      d: sd || todayStr(),
+      t: tasks
+    }
   }
-  const rawTasks = Array.isArray(payload.t) ? payload.t.slice(0, SHARE_MAX_TASKS) : []
-  const safeTasks = rawTasks.map((it) => {
-    if (!it || typeof it !== 'object') return { s: '', c: '' }
+
+  // v2 path
+  if (!Array.isArray(payload.t)) return null
+  const rawTasks = payload.t.slice(0, SHARE_MAX_TASKS)
+  const tasks = rawTasks.map((it) => {
+    if (!it || typeof it !== 'object') return null
     const mNum = Number(it.m)
+    const mode = it.mo === 'recurring' ? 'recurring' : 'one-shot'
+    const r = mode === 'recurring' && it.r && typeof it.r === 'object'
+      ? {
+          type: it.r.type === 'weekly' ? 'weekly' : 'daily',
+          weekdays: Array.isArray(it.r.weekdays)
+            ? it.r.weekdays.slice(0, 7).filter((w) => Number.isInteger(w) && w >= 1 && w <= 7)
+            : []
+        }
+      : null
+    const o = safeShareString(it.o, SHARE_MAX_ORGANIZATION)
     return {
       s: safeShareString(it.s, SHARE_MAX_SUBJECT),
+      o: ORGANIZATIONS.includes(o) ? o : DEFAULT_ORGANIZATION,
       c: safeShareString(it.c, SHARE_MAX_CONTENT),
-      m: Number.isFinite(mNum) && mNum > 0 && mNum <= SHARE_MAX_TASK_MINUTES
-        ? Math.trunc(mNum)
-        : 0
+      m: Number.isFinite(mNum) && mNum > 0 && mNum <= SHARE_MAX_TASK_MINUTES ? Math.trunc(mNum) : 0,
+      mo: mode,
+      sd: safeShareString(it.sd, SHARE_MAX_DATE_STR),
+      ed: it.ed === null ? null : (it.ed === undefined ? undefined : safeShareString(it.ed, SHARE_MAX_DATE_STR)),
+      r
     }
-  })
+  }).filter(Boolean)
   return {
-    v: 1,
+    v: 2,
     from: safeShareString(payload.from, SHARE_MAX_FROM),
     sharer: safeShareString(payload.sharer, SHARE_MAX_ID),
-    nbId: safeShareString(payload.nbId, SHARE_MAX_ID),
-    n: safeN,
-    t: safeTasks
+    shareId: safeShareString(payload.shareId, SHARE_MAX_ID),
+    d: safeShareString(payload.d, SHARE_MAX_DATE_STR) || todayStr(),
+    t: tasks
   }
 }
 
-function importSharedNotebook(payload, options) {
-  // 即使调用方已经 sanitize 过,这里再做一次 —— 防止其它入口(批量导入
-  // 脚本之类)漏 sanitize。
+// v3 importSharedTasks: 把分享 payload 中的 task 列表追加到 state.tasks。
+// options:
+//   - selectedIndexes: number[]   只导入这些下标(UI 让用户勾选)。不传 = 全部。
+// 返回新增的 task id 数组。
+function importSharedTasks(payload, options) {
+  // 即使调用方已经 sanitize 过,这里再做一次 —— 防止其它入口漏 sanitize。
   const safe = sanitizeSharePayload(payload)
-  if (!safe) return null
+  if (!safe) return []
   const opts = options || {}
-  const mode = opts.mode || 'new'
-  const targetId = opts.targetNotebookId
-  const n = safe.n
-  const tasks = safe.t
+  const sourceTasks = Array.isArray(opts.selectedIndexes) && opts.selectedIndexes.length
+    ? opts.selectedIndexes.map((i) => safe.t[i]).filter(Boolean)
+    : safe.t
+  if (sourceTasks.length === 0) return []
+
   const today = todayStr()
-  let resultId = null
+  const newIds = []
   updateState((state) => {
-    if (mode === 'merge') {
-      const target = state.notebooks.find((nb) => nb.id === targetId)
-      if (!target) return state
-      const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
-      let cursor = maxOrder + 1
-      for (const it of tasks) {
-        const row = buildTaskFromShare(it, target)
-        row.order = cursor++
-        state.tasks.push(row)
-      }
-      resultId = target.id
-      reconcilePerfectDays(state)
-      return state
-    }
-    if (mode === 'overwrite') {
-      const idx = state.notebooks.findIndex((nb) => nb.id === targetId)
-      if (idx < 0) return state
-      // Drop just the old tasks; keep the notebook id so any external
-      // references (recent rewards logged against this nb, etc.) remain
-      // valid and the user's progress history isn't reset.
-      state.tasks = state.tasks.filter((t) => t.notebookId !== targetId)
-      const old = state.notebooks[idx]
-      const replaced = {
-        ...old,
-        name: n.name || old.name,
-        mode: n.mode === 'recurring' ? 'recurring' : 'one-shot',
-        startDate: n.startDate || old.startDate || today,
-        endDate: n.endDate === undefined
-          ? (n.mode === 'recurring' ? null : (n.startDate || today))
-          : n.endDate,
-        recurrence: n.mode === 'recurring'
-          ? (n.recurrence || { type: 'daily', weekdays: [] })
-          : null
-      }
-      state.notebooks[idx] = replaced
-      const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
-      let cursor = maxOrder + 1
-      for (const it of tasks) {
-        const row = buildTaskFromShare(it, replaced)
-        row.order = cursor++
-        state.tasks.push(row)
-      }
-      resultId = replaced.id
-      reconcilePerfectDays(state)
-      return state
-    }
-    // 'new' or 'rename'
-    const finalName = mode === 'rename'
-      ? pickRenameCandidate(state, n.name)
-      : (n.name || today)
-    const nb = buildNotebookFromShare(n, today, state.notebooks.length, finalName)
-    state.notebooks.push(nb)
-    resultId = nb.id
     const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
     let cursor = maxOrder + 1
-    for (const it of tasks) {
-      const row = buildTaskFromShare(it, nb)
+    for (const it of sourceTasks) {
+      const row = buildTaskFromShare(it, today)
       row.order = cursor++
       state.tasks.push(row)
+      newIds.push(row.id)
     }
     reconcilePerfectDays(state)
     return state
   })
-  return resultId
+  return newIds
 }
 
 module.exports = {
@@ -2499,20 +2468,12 @@ module.exports = {
   weekdayOf,
   dateToStr,
   strToDate,
-  // notebook
-  addNotebook,
-  updateNotebook,
-  deleteNotebook,
-  duplicateNotebook,
-  setEditNotebookId,
-  clearEditNotebookId,
-  getNotebookById,
-  findNotebookByName,
   // task
   addTask,
   updateTask,
   deleteTask,
-  reorderTasksInNotebook,
+  detachOccurrence,
+  excludeOccurrence,
   reorderTasks,
   reorderRows,
   getRowOrder,
@@ -2529,11 +2490,14 @@ module.exports = {
   revertTask,
   // queries
   tasksForDate,
-  tasksOfNotebook,
   effectiveDueDate,
   dateCountsForMonth,
-  isNotebookActiveOn,
+  isTaskActiveOn,
+  isRecurringTask,
   getTaskState,
+  // organization
+  ORGANIZATIONS,
+  DEFAULT_ORGANIZATION,
   // pet
   PET_SPECIES,
   PET_SWITCH_COST,
@@ -2559,9 +2523,9 @@ module.exports = {
   updateProfileNickname,
   updateProfileAvatar,
   // sharing
-  serializeNotebookForShare,
+  serializeTasksForShare,
   sanitizeSharePayload,
-  importSharedNotebook,
+  importSharedTasks,
   applyShareRewardClaim,
   applyAdminCoinClaim,
   // cloud-sync interface (for cloud-sync module's use; pages should use
@@ -2570,6 +2534,7 @@ module.exports = {
   getStateForSync,
   getUpdatedAt,
   getLocalCoins,
+  consumeV2V3MigrationFlag,
   // coin-ledger interface (for utils/coin-ledger module)
   getPendingCoinEvents,
   applyServerCoinResult,

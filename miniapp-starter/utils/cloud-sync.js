@@ -214,14 +214,42 @@ async function hydrate() {
     _conflictAcknowledged = true
     return { changed: false }
   })()
+  let hydrateResult
   try {
-    return await _hydrateInflight
+    hydrateResult = await _hydrateInflight
   } finally {
     _hydrateInflight = null
     // Stamp on completion (not start) so the debounce doesn't blackhole
     // pages that opened during a slow hydrate.
     _lastHydrateAt = Date.now()
   }
+  // Lazy backup: 如果 hydrate 触发了 v2→v3 migrate (老用户首次跑新版本),
+  // 调一次 backupUserState (backup_self) 给云端留一份升级前快照。云函数侧
+  // 通过 doc.backedUpAt 字段 dedup,所以重复调也只备份一次。失败不阻塞用户。
+  try {
+    if (_store && typeof _store.consumeV2V3MigrationFlag === 'function' &&
+        _store.consumeV2V3MigrationFlag() &&
+        typeof wx !== 'undefined' && wx.cloud && typeof wx.cloud.callFunction === 'function') {
+      wx.cloud.callFunction({
+        name: 'backupUserState',
+        data: { action: 'backup_self' }
+      }).then((res) => {
+        const r = (res && res.result) || {}
+        if (r.ok) {
+          if (!r.alreadyBackedUp) {
+            console.log('[backup] v2 snapshot saved before upgrade', r)
+          }
+        } else {
+          console.warn('[backup] backup_self failed', r)
+        }
+      }).catch((e) => {
+        console.warn('[backup] backup_self call errored', e && e.errMsg)
+      })
+    }
+  } catch (e) {
+    // 静默 — backup 永远不能让用户卡住。
+  }
+  return hydrateResult
 }
 
 async function hydrateIfStale() {

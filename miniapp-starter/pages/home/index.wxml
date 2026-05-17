@@ -9,6 +9,9 @@
         <view class="seg-btn small-seg {{activeSegment === 'tomorrow' ? 'active' : ''}}"
               data-seg="tomorrow"
               bindtap="handleSegmentTap">{{tomorrowLabel}}</view>
+        <view class="seg-btn small-seg {{activeSegment === 'day-after' ? 'active' : ''}}"
+              data-seg="day-after"
+              bindtap="handleSegmentTap">{{dayAfterLabel}}</view>
         <view class="seg-btn small-seg {{activeSegment === 'calendar' ? 'active' : ''}}"
               data-seg="calendar"
               bindtap="handleSegmentTap">{{calendarLabel}}</view>
@@ -50,13 +53,13 @@
 
     <view wx:if="{{undoneItems.length > 0 || doneItems.length === 0}}" class="card section-card">
       <view class="section-header">
-        <text class="section-title">未完成</text>
-        <text wx:if="{{undoneItems.length > 0}}" class="section-count">{{undoneItems.length}}</text>
+        <text class="section-title">未完成 ({{undoneItems.length}})</text>
+        <view class="add-task-btn" bindtap="handleAddTask">+</view>
       </view>
 
       <view wx:if="{{undoneItems.length === 0}}" class="empty-tip">
         <text class="empty-emoji">📝</text>
-        <text class="empty-text">{{isToday ? '今日没有待办，去「作业本」页新建' : '这一天没有作业'}}</text>
+        <text class="empty-text">{{isToday ? '今日没有待办，点右上角 + 新建' : '这一天没有作业'}}</text>
       </view>
 
       <task-list wx:if="{{undoneItems.length > 0}}"
@@ -69,8 +72,7 @@
 
     <view wx:if="{{doneItems.length > 0}}" class="card section-card done-section">
       <view class="section-header">
-        <text class="section-title">已完成</text>
-        <text class="section-count done-count">{{doneItems.length}}</text>
+        <text class="section-title">已完成 ({{doneItems.length}})</text>
       </view>
       <task-list items="{{doneItems}}"
                  active-date="{{selectedDate}}"

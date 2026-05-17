@@ -20,16 +20,16 @@ function decorateDayItems(items, now) {
         elapsedMs += Math.max(0, now - occ.currentSegmentStartedAt)
       }
       const occurrenceDate = it.occurrenceDate || ''
-      const rowOrder = store.getRowOrder(it.task, it.notebook, occurrenceDate)
+      const rowOrder = store.getRowOrder(it.task, occurrenceDate)
       return {
         // composite id so multiple occurrences of the same task don't collide
         // in wx:key
         id: occurrenceDate ? `${it.task.id}__${occurrenceDate}` : it.task.id,
         taskId: it.task.id,
+        taskMode: it.task.mode || 'one-shot',
         occurrenceDate,
-        notebookId: it.notebook.id,
-        notebookName: it.notebook.name,
         subject: it.task.subject || '',
+        organization: it.task.organization || '其他',
         content: it.task.content,
         estimatedMinutes: it.task.estimatedMinutes,
         rowOrder,

@@ -10,10 +10,13 @@ function formatElapsed(ms) {
   return `${min} 分 ${sec} 秒`
 }
 
+// done row 只有一个 "继续" 按钮 → 120rpx;undone 有 "编辑" + "删除" → 240rpx。
+const SWIPE_MAX_RPX = { done: 120, undone: 240 }
+
 Component({
   options: { addGlobalClass: true },
   properties: {
-    // Pre-decorated items (id, notebookId, notebookName, subject, content,
+    // Pre-decorated items (id, taskId, taskMode, subject, organization, content,
     // estimatedMinutes, status, order, completedAt, isOverdue,
     // elapsedMs, elapsedDisplay)
     items: { type: Array, value: [] },
@@ -29,14 +32,18 @@ Component({
     list: [],
     dragId: null,
     dragDy: 0,
-    // Swipe-to-reveal "继续" on done rows
-    swipeId: null,       // id of row currently being swiped (during touchmove)
-    swipeDx: 0,          // x-translate during active swipe
-    swipeOpenId: null    // id of row whose action is currently revealed
+    swipeId: null,       // 当前正在 swipe 的 row id(touchmove 中)
+    swipeDx: 0,          // swipe 期间 row 的 x 位移(rpx)
+    swipeOpenId: null,   // 当前展开 swipe-action 的 row id
+    swipeOpenMax: 0      // 当前展开的 max 偏移(rpx) — done 120 / undone 240
   },
   observers: {
     'items': function (items) {
-      const list = (items || []).map((it) => ({ ...it, shiftY: 0 }))
+      const list = (items || []).map((it) => ({
+        ...it,
+        shiftY: 0,
+        swipeMax: it.status === 'done' ? SWIPE_MAX_RPX.done : SWIPE_MAX_RPX.undone
+      }))
       this.setData({ list })
       this.startTickerIfNeeded()
     }
@@ -61,20 +68,34 @@ Component({
       if (this.tickerId) { clearInterval(this.tickerId); this.tickerId = null }
     },
 
-    // === Drag === //
+    // === Unified gesture dispatcher === //
+    // 一条 row 同时支持:
+    //   - 长按 → 拖拽排序(longpress 触发 mode=drag)
+    //   - 横滑 → 显示 swipe-action(touchmove 横向偏移 > 阈值时 mode=swipe)
+    //   - 纵滑 → 让父 scroll-view 滚(mode=scroll,不阻止)
+    // 进入 drag/swipe 后,模式互斥到 touchend。
 
-    handleTouchStart(e) {
-      if (!this.data.enableDrag) return
-      if (e.touches && e.touches[0]) this.touchStartY = e.touches[0].pageY
+    handleRowTouchStart(e) {
+      const t = (e.touches && e.touches[0]) || null
+      this.touchStartX = t ? t.pageX : 0
+      this.touchStartY = t ? t.pageY : 0
+      this._gestureMode = 'pending'
+      this._gestureRowId = e.currentTarget.dataset.id
+      // 触摸到另一个 row 时,关闭已展开的 swipe-action
+      if (this.data.swipeOpenId && this.data.swipeOpenId !== this._gestureRowId) {
+        this.setData({ swipeOpenId: null, swipeOpenMax: 0 })
+      }
     },
-    handleLongPress(e) {
+
+    handleRowLongPress(e) {
+      // longpress 触发拖拽 — 仅 pending 状态可升级(用户没移动)
+      if (this._gestureMode !== 'pending') return
       if (!this.data.enableDrag) return
       const id = e.currentTarget.dataset.id
       const item = this.data.list.find((it) => it.id === id)
       if (!item || item.status === 'done') return
-      this.dragStartY = this.touchStartY != null
-        ? this.touchStartY
-        : (e.detail && typeof e.detail.y === 'number' ? e.detail.y : 0)
+      this._gestureMode = 'drag'
+      this.dragStartY = this.touchStartY != null ? this.touchStartY : 0
       if (!this.itemHeightPx) {
         const q = this.createSelectorQuery()
         q.select('.task-row').boundingClientRect()
@@ -82,90 +103,114 @@ Component({
       }
       this.setData({ dragId: id, dragDy: 0 })
       if (wx.vibrateShort) wx.vibrateShort({ type: 'light' })
-      // Tell host page to freeze its scroll surface. The page wraps content
-      // in a <scroll-view> and toggles its scroll-y based on this event —
-      // that's what keeps the screen from drifting once the user has already
-      // begun a touch gesture (page-meta disable-scroll alone wasn't enough
-      // mid-gesture).
       this.triggerEvent('dragstart')
     },
-    handleTouchMove(e) {
-      if (!this.data.dragId || this.dragStartY == null) return
-      const now = Date.now()
-      if (this._lastMoveAt && now - this._lastMoveAt < 16) return
-      this._lastMoveAt = now
+
+    handleRowTouchMove(e) {
       const t = e.touches && e.touches[0]
       if (!t) return
-      const dy = t.pageY - this.dragStartY
-      if (Math.abs(dy - this.data.dragDy) < 2) return
-      const itemH = this.itemHeightPx || 140
-      const list = this.data.list
-      const draggedIdx = list.findIndex((it) => it.id === this.data.dragId)
-      // All undone rows are in the drag zone now (virtual past-missed
-      // recurring rows included). Done rows stay put at the bottom.
-      const dragZone = []
-      list.forEach((it, i) => {
-        if (it.status === 'done') return
-        dragZone.push(i)
-      })
-      if (dragZone.length === 0) return
-      const minIdx = dragZone[0]
-      const maxIdx = dragZone[dragZone.length - 1]
-      const slotsDelta = Math.round(dy / itemH)
-      const hoverIdx = Math.max(minIdx, Math.min(maxIdx, draggedIdx + slotsDelta))
-      const updated = list.map((it, i) => {
-        if (it.id === this.data.dragId) return it
-        if (it.status === 'done') return it
-        let shiftY = 0
-        if (draggedIdx < hoverIdx && i > draggedIdx && i <= hoverIdx) shiftY = -itemH
-        else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) shiftY = itemH
-        return { ...it, shiftY }
-      })
-      this.setData({ list: updated, dragDy: dy })
-    },
-    handleTouchEnd() {
-      if (!this.data.dragId) {
-        this.dragStartY = null
-        this.touchStartY = null
-        return
-      }
-      // Always announce dragend on the way out so the host page un-locks
-      // scroll, even if the row didn't actually move slots.
-      this.triggerEvent('dragend')
-      const dragId = this.data.dragId
-      const dragDy = this.data.dragDy
-      const itemH = this.itemHeightPx || 140
-      const list = this.data.list
-      const dragZone = []
-      list.forEach((it, i) => {
-        if (it.status === 'done') return
-        dragZone.push(i)
-      })
-      const fromIdx = list.findIndex((it) => it.id === dragId)
-      const fromZoneIdx = dragZone.indexOf(fromIdx)
-      const slotsDelta = Math.round(dragDy / itemH)
-      const toZoneIdx = Math.max(0, Math.min(dragZone.length - 1, fromZoneIdx + slotsDelta))
+      const dx = t.pageX - (this.touchStartX || 0)
+      const dy = t.pageY - (this.touchStartY || 0)
 
-      if (fromZoneIdx !== -1 && fromZoneIdx !== toZoneIdx) {
-        const rows = dragZone.map((listIdx) => {
-          const it = list[listIdx]
-          return { taskId: it.taskId || it.id, occurrenceDate: it.occurrenceDate || '' }
-        })
-        const [moved] = rows.splice(fromZoneIdx, 1)
-        rows.splice(toZoneIdx, 0, moved)
-        store.reorderRows(rows)
-        this.triggerEvent('changed')
-      } else {
-        this.setData({ list: list.map((it) => ({ ...it, shiftY: 0 })) })
+      if (this._gestureMode === 'pending') {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
+        if (Math.abs(dx) > Math.abs(dy)) {
+          this._gestureMode = 'swipe'
+        } else {
+          this._gestureMode = 'scroll'
+          return
+        }
       }
-      this.dragStartY = null
+
+      if (this._gestureMode === 'drag') {
+        const now = Date.now()
+        if (this._lastMoveAt && now - this._lastMoveAt < 16) return
+        this._lastMoveAt = now
+        if (Math.abs(dy - this.data.dragDy) < 2) return
+        const itemH = this.itemHeightPx || 140
+        const list = this.data.list
+        const draggedIdx = list.findIndex((it) => it.id === this.data.dragId)
+        const dragZone = []
+        list.forEach((it, i) => {
+          if (it.status === 'done') return
+          dragZone.push(i)
+        })
+        if (dragZone.length === 0) return
+        const minIdx = dragZone[0]
+        const maxIdx = dragZone[dragZone.length - 1]
+        const slotsDelta = Math.round(dy / itemH)
+        const hoverIdx = Math.max(minIdx, Math.min(maxIdx, draggedIdx + slotsDelta))
+        const updated = list.map((it, i) => {
+          if (it.id === this.data.dragId) return it
+          if (it.status === 'done') return it
+          let shiftY = 0
+          if (draggedIdx < hoverIdx && i > draggedIdx && i <= hoverIdx) shiftY = -itemH
+          else if (draggedIdx > hoverIdx && i >= hoverIdx && i < draggedIdx) shiftY = itemH
+          return { ...it, shiftY }
+        })
+        this.setData({ list: updated, dragDy: dy })
+      } else if (this._gestureMode === 'swipe') {
+        const id = this._gestureRowId
+        const item = this.data.list.find((it) => it.id === id)
+        if (!item) return
+        const swipeMax = item.swipeMax || SWIPE_MAX_RPX.undone
+        const isOpen = this.data.swipeOpenId === id
+        const base = isOpen ? -swipeMax : 0
+        const tx = Math.max(-swipeMax, Math.min(0, base + dx))
+        this.setData({ swipeId: id, swipeDx: tx })
+      }
+    },
+
+    handleRowTouchEnd() {
+      if (this._gestureMode === 'drag') {
+        this.triggerEvent('dragend')
+        const dragId = this.data.dragId
+        const dragDy = this.data.dragDy
+        const itemH = this.itemHeightPx || 140
+        const list = this.data.list
+        const dragZone = []
+        list.forEach((it, i) => {
+          if (it.status === 'done') return
+          dragZone.push(i)
+        })
+        const fromIdx = list.findIndex((it) => it.id === dragId)
+        const fromZoneIdx = dragZone.indexOf(fromIdx)
+        const slotsDelta = Math.round(dragDy / itemH)
+        const toZoneIdx = Math.max(0, Math.min(dragZone.length - 1, fromZoneIdx + slotsDelta))
+        if (fromZoneIdx !== -1 && fromZoneIdx !== toZoneIdx) {
+          const rows = dragZone.map((listIdx) => {
+            const it = list[listIdx]
+            return { taskId: it.taskId || it.id, occurrenceDate: it.occurrenceDate || '' }
+          })
+          const [moved] = rows.splice(fromZoneIdx, 1)
+          rows.splice(toZoneIdx, 0, moved)
+          store.reorderRows(rows)
+          this.triggerEvent('changed')
+        } else {
+          this.setData({ list: list.map((it) => ({ ...it, shiftY: 0 })) })
+        }
+        this.setData({ dragId: null, dragDy: 0 })
+      } else if (this._gestureMode === 'swipe') {
+        const id = this._gestureRowId
+        const item = this.data.list.find((it) => it.id === id)
+        const swipeMax = (item && item.swipeMax) || SWIPE_MAX_RPX.undone
+        const dx = this.data.swipeDx
+        const opened = dx <= -swipeMax / 2
+        this.setData({
+          swipeId: null,
+          swipeDx: 0,
+          swipeOpenId: opened ? id : null,
+          swipeOpenMax: opened ? swipeMax : 0
+        })
+      }
+      this.touchStartX = null
       this.touchStartY = null
-      this.setData({ dragId: null, dragDy: 0 })
+      this.dragStartY = null
+      this._gestureMode = null
+      this._gestureRowId = null
     },
 
     // === Actions === //
-    // Each row carries its own data-task-id and data-occurrence-date so that
-    // a "missed Monday" virtual row updates occurrence[Monday], not today.
 
     _actionTarget(e) {
       const ds = e.currentTarget.dataset
@@ -194,74 +239,90 @@ Component({
       store.finishTask(t.taskId, t.date)
       this.triggerEvent('changed', { finished: true })
     },
-    handleOpenNotebook(e) {
-      const { notebookId } = e.currentTarget.dataset
-      if (!notebookId) return
-      wx.navigateTo({ url: `/pages/notebook-detail/index?id=${notebookId}` })
+
+    // 左滑后的"编辑"按钮。recurring 弹"此次/整个"二选;one-shot 直接跳整个编辑。
+    handleEdit(e) {
+      const { taskId, occurrenceDate, taskMode } = e.currentTarget.dataset
+      if (!taskId) return
+      const date = occurrenceDate || ''
+      this.setData({ swipeOpenId: null, swipeOpenMax: 0 })
+      if (taskMode === 'recurring' && date) {
+        wx.showActionSheet({
+          itemList: ['仅编辑此次', '编辑整个作业'],
+          success(res) {
+            if (res.tapIndex === 0) {
+              wx.navigateTo({ url: `/pkg-notebook/task-edit/index?id=${taskId}&instance=${date}` })
+            } else if (res.tapIndex === 1) {
+              wx.navigateTo({ url: `/pkg-notebook/task-edit/index?id=${taskId}` })
+            }
+          }
+        })
+      } else {
+        wx.navigateTo({ url: `/pkg-notebook/task-edit/index?id=${taskId}` })
+      }
     },
 
-    // === Swipe-to-reveal on done rows === //
+    // 左滑后的"删除"按钮。recurring 弹"此次/整个"二选;one-shot 直接 deleteTask。
+    handleDelete(e) {
+      const { taskId, occurrenceDate, taskMode } = e.currentTarget.dataset
+      if (!taskId) return
+      const date = occurrenceDate || ''
+      const self = this
+      this.setData({ swipeOpenId: null, swipeOpenMax: 0 })
+      if (taskMode === 'recurring' && date) {
+        wx.showActionSheet({
+          itemList: ['仅删除此次', '删除整个作业'],
+          itemColor: '#e54545',
+          success(res) {
+            if (res.tapIndex === 0) {
+              wx.showModal({
+                title: '删除此次?',
+                content: '只删除当天这次,后续日期照常出现。',
+                confirmColor: '#e54545',
+                success(r) {
+                  if (!r.confirm) return
+                  store.excludeOccurrence(taskId, date)
+                  wx.showToast({ title: '已删除此次', icon: 'success' })
+                  self.triggerEvent('changed')
+                }
+              })
+            } else if (res.tapIndex === 1) {
+              wx.showModal({
+                title: '删除整个作业?',
+                content: '所有日期都不会再出现,历史完成记录保留。',
+                confirmColor: '#e54545',
+                success(r) {
+                  if (!r.confirm) return
+                  store.deleteTask(taskId)
+                  wx.showToast({ title: '已删除', icon: 'success' })
+                  self.triggerEvent('changed')
+                }
+              })
+            }
+          }
+        })
+      } else {
+        wx.showModal({
+          title: '删除这条作业?',
+          content: '历史完成记录保留,但这条作业不再出现。',
+          confirmColor: '#e54545',
+          success(r) {
+            if (!r.confirm) return
+            store.deleteTask(taskId)
+            wx.showToast({ title: '已删除', icon: 'success' })
+            self.triggerEvent('changed')
+          }
+        })
+      }
+    },
 
-    handleSwipeStart(e) {
-      const id = e.currentTarget.dataset.id
-      if (e.touches && e.touches[0]) {
-        this.swipeStartX = e.touches[0].pageX
-        this.swipeStartY = e.touches[0].pageY
-      }
-      this.swipeDirection = null
-      this.swipeRowStartId = id
-      // If another row is open and user touches a different one, close the
-      // open one. The actual swipe-on-this-row begins on touchmove.
-      if (this.data.swipeOpenId && this.data.swipeOpenId !== id) {
-        this.setData({ swipeOpenId: null })
-      }
-    },
-    handleSwipeMove(e) {
-      const t = e.touches && e.touches[0]
-      if (!t || this.swipeStartX == null) return
-      const dx = t.pageX - this.swipeStartX
-      const dy = t.pageY - this.swipeStartY
-      // Decide gesture direction on first significant movement.
-      if (this.swipeDirection == null) {
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
-        this.swipeDirection = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
-      }
-      if (this.swipeDirection !== 'h') return
-      const id = e.currentTarget.dataset.id
-      const isOpen = this.data.swipeOpenId === id
-      // Swipe range: -120 (revealed) ... 0 (closed).
-      const base = isOpen ? -120 : 0
-      const tx = Math.max(-120, Math.min(0, base + dx))
-      this.setData({ swipeId: id, swipeDx: tx })
-    },
-    handleSwipeEnd() {
-      if (this.swipeDirection !== 'h') {
-        this.swipeStartX = null
-        this.swipeStartY = null
-        this.swipeDirection = null
-        this.swipeRowStartId = null
-        return
-      }
-      const id = this.swipeRowStartId
-      const dx = this.data.swipeDx
-      // Threshold: open if past halfway.
-      const opened = dx <= -60
-      this.setData({
-        swipeId: null,
-        swipeDx: 0,
-        swipeOpenId: opened ? id : null
-      })
-      this.swipeStartX = null
-      this.swipeStartY = null
-      this.swipeDirection = null
-      this.swipeRowStartId = null
-    },
+    // done 行 swipe 后的"继续"按钮 — 把任务从 done 退回 paused。
     handleRevert(e) {
       const ds = e.currentTarget.dataset
       const taskId = ds.taskId || ds.id
       const date = ds.occurrenceDate || this.data.activeDate
       store.revertTask(taskId, date)
-      this.setData({ swipeOpenId: null, swipeId: null, swipeDx: 0 })
+      this.setData({ swipeOpenId: null, swipeOpenMax: 0, swipeId: null, swipeDx: 0 })
       this.triggerEvent('changed')
     }
   }
