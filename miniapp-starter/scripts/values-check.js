@@ -178,55 +178,38 @@ store = freshStore()
 for (let i = 1; i <= 12; i++) store.finishTask(`t${i}`, today)
 check('12/12 → coins = 240', store.getStateWithComputed().coins, 240)
 
-// === Test 5: level exp curve — 勤奋玩家天数曲线 1,2,2,3,3,3,4,... ===
-console.log('\n[level] exp curve:')
+// === Test 5: level cost curve — getLevelCost = level × 100 ===
+console.log('\n[level] coin cost curve:')
 store = freshStore()
 check('LEVEL_MAX = 100', store.LEVEL_MAX, 100)
-check('LEVEL_EXP_TARGET_BASE = 200', store.LEVEL_EXP_TARGET_BASE, 200)
-check('EXP_PER_HOUR_HEALTHY = 10', store.EXP_PER_HOUR_HEALTHY, 10)
-check('STAT_HEALTHY_THRESHOLD = 60', store.STAT_HEALTHY_THRESHOLD, 60)
-// 天数曲线 D(k):1, 2,2, 3,3,3, 4,4,4,4, 5×5, 6×6, ...
-check('getLevelDays(1)  = 1',  store.getLevelDays(1), 1)
-check('getLevelDays(2)  = 2',  store.getLevelDays(2), 2)
-check('getLevelDays(3)  = 2',  store.getLevelDays(3), 2)
-check('getLevelDays(4)  = 3',  store.getLevelDays(4), 3)
-check('getLevelDays(6)  = 3',  store.getLevelDays(6), 3)
-check('getLevelDays(7)  = 4',  store.getLevelDays(7), 4)
-check('getLevelDays(10) = 4',  store.getLevelDays(10), 4)
-check('getLevelDays(11) = 5',  store.getLevelDays(11), 5)
-check('getLevelDays(15) = 5',  store.getLevelDays(15), 5)
-check('getLevelDays(16) = 6',  store.getLevelDays(16), 6)
-check('getLevelDays(99) = 14', store.getLevelDays(99), 14)
-// 对应 EXP target = days × BASE
-check('getLevelExpTarget(1)   = 200',  store.getLevelExpTarget(1), 200)
-check('getLevelExpTarget(2)   = 400',  store.getLevelExpTarget(2), 400)
-check('getLevelExpTarget(3)   = 400',  store.getLevelExpTarget(3), 400)
-check('getLevelExpTarget(4)   = 600',  store.getLevelExpTarget(4), 600)
-check('getLevelExpTarget(99)  = 2800', store.getLevelExpTarget(99), 2800)
-check('getLevelExpTarget(100) = 0 (max level)', store.getLevelExpTarget(100), 0)
-check('getLevelExpTarget(101) = 0 (above max)', store.getLevelExpTarget(101), 0)
+check('getLevelCost(1)   = 100',   store.getLevelCost(1),  100)
+check('getLevelCost(2)   = 200',   store.getLevelCost(2),  200)
+check('getLevelCost(10)  = 1000',  store.getLevelCost(10), 1000)
+check('getLevelCost(99)  = 9900',  store.getLevelCost(99), 9900)
+check('getLevelCost(100) = 0 (max level)', store.getLevelCost(100), 0)
+check('getLevelCost(101) = 0 (above max)', store.getLevelCost(101), 0)
 
-// === Test 6: levelUpPet stub — exp-only, no coin cost ===
-console.log('\n[level] levelUpPet (auto-upgrade stub):')
-seedNTasksToday(0)  // re-seed so we have a pet at level 1
+// === Test 6: levelUpPet — 花 getLevelCost(level) 金币升级 ===
+console.log('\n[level] levelUpPet (coin-cost):')
+seedNTasksToday(0)
+// seedNTasksToday 默认 coins=0,手动塞 150 进 storage 让 Lv.1→2 (cost=100) 能升、
+// 但残 50 不够升 Lv.2→3 (cost=200) — 一次 ok + 一次 insufficient。
+const raw = JSON.parse(storage['homework-pet-v1'])
+raw.coins = 150
+storage['homework-pet-v1'] = JSON.stringify(raw)
 store = freshStore()
+
 const r1 = store.levelUpPet()
-check('exp=0 → not-enough-exp', r1.ok, false)
-check('not-enough-exp returns "need" remaining', r1.reason, 'not-enough-exp')
+check('coins=150 → ok at Lv.1', r1.ok, true)
+check('level becomes 2', r1.level, 2)
+check('coins after Lv.1→2 = 50', store.getStateWithComputed().coins, 50)
 
-// Manually grant 220 exp + push lastDecayAt forward so commitPetDecay 不再
-// 累加 (避免 stale-window 重复加) → 自动升级到 Lv.2。 Lv1→2 需 200 exp。
-const cur = JSON.parse(storage['homework-pet-v1'])
-cur.pet.exp = 220
-cur.pet.lastDecayAt = Date.now()
-storage['homework-pet-v1'] = JSON.stringify(cur)
-store = freshStore()
+// 再 levelUp 一次 → Lv.2→3 需 200,coins=50 → insufficient-coins,need=150
 const r2 = store.levelUpPet()
-check('exp=220 ≥ 200 → ok', r2.ok, true)
-check('level becomes 2', r2.level, 2)
-const afterLvl = store.getStateWithComputed()
-check('pet.level = 2', afterLvl.pet.level, 2)
-check('pet.exp residual = 20', afterLvl.pet.exp, 20)
+check('coins=50 → insufficient-coins', r2.ok, false)
+check('insufficient-coins reason', r2.reason, 'insufficient-coins')
+check('need = 150 (cost 200 - coins 50)', r2.need, 150)
+check('level unchanged at 2', store.getStateWithComputed().pet.level, 2)
 
 // === Test 7: decay rates — 16h on each stat ===
 console.log('\n[decay] 16h drop sanity check:')
@@ -259,36 +242,30 @@ console.log('\n[shop] item sanity:')
 storage = {}
 store = freshStore()
 const items = store.defaultState.shopItems
-// 道具改造后 shop 只承担 饱腹/清洁/健康 三个 stat。开心度只通过完成作业获得,
-// 因此 happiness-only 道具(玩具熊 / 蝴蝶结)已移除,商店从 8 项缩到 6 项。
-check('6 shop items', items.length, 6)
+// 道具现在覆盖 4 个 stat(开心 / 饱腹 / 清洁 / 健康),开心度走玩具球 + 礼物盒。
+check('8 shop items', items.length, 8)
 for (const it of items) {
-  const sum = (it.fullness | 0) + (it.cleanliness | 0) + (it.health | 0)
+  const sum = (it.happiness | 0) + (it.fullness | 0) + (it.cleanliness | 0) + (it.health | 0)
   if (sum <= 0) {
     fail++
     console.log(`  ✗ item ${it.id} (${it.name}) has no stat boost`)
-  }
-  if ((it.happiness | 0) !== 0) {
-    fail++
-    console.log(`  ✗ item ${it.id} (${it.name}) leaks happiness ${it.happiness}`)
   }
 }
 const carrot = items.find((i) => i.id === 1)
 check('carrot price = 16',        carrot.price, 16)
 check('carrot fullness = 30',     carrot.fullness, 30)
-check('shop totals match design', items.map((i) => i.price), [16, 28, 18, 32, 20, 35])
+check('shop totals match design', items.map((i) => i.price), [16, 28, 18, 32, 20, 20, 35, 36])
 
-// 三个可购买 stat 各需要 ≥2 道具(便宜 + 中档)。开心度不在 shop 范畴,所以
-// 单独断言 0 个 happiness-primary 道具。
-const STAT_KEYS = ['fullness', 'cleanliness', 'health']
-const primaryCounts = { fullness: 0, cleanliness: 0, health: 0 }
+// 四项 stat 各需要 ≥1 道具(开心走玩具球/礼物盒)。
+const STAT_KEYS = ['happiness', 'fullness', 'cleanliness', 'health']
+const primaryCounts = { happiness: 0, fullness: 0, cleanliness: 0, health: 0 }
 for (const it of items) {
   let primary = STAT_KEYS[0]
   for (const k of STAT_KEYS) if ((it[k] | 0) > (it[primary] | 0)) primary = k
   if ((it[primary] | 0) > 0) primaryCounts[primary]++
 }
 for (const k of STAT_KEYS) {
-  check(`stat "${k}" has ≥2 items`, primaryCounts[k] >= 2, true)
+  check(`stat "${k}" has ≥1 item`, primaryCounts[k] >= 1, true)
 }
 // Price tiers: cheap 15-25, mid 25-40, high 50-80.
 for (const it of items) {

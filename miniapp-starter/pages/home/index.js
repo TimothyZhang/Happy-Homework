@@ -97,9 +97,8 @@ function buildPetTips(ctx) {
   if (b >= 50 && ctx.projected19 > 0) tips.push(`🏆 19:00 前完成所有作业，可获得 ${ctx.projected19} 金币`)
   if (b >= 30 && ctx.projected20 > 0) tips.push(`⏱ 20:00 前完成所有作业，可获得 ${ctx.projected20} 金币`)
   if (b >= 20 && ctx.projected21 > 0) tips.push(`⏰ 21:00 前完成所有作业，可获得 ${ctx.projected21} 金币`)
-  // 开心度规则 — 道具不再加,只能通过做作业。
-  tips.push('💖 每完成一项作业，开心度 +5')
-  tips.push('💖 当日全部完成，开心度直接加满，12 小时不下降')
+  // 开心度走商店道具 — 完成作业不再 +happiness。
+  tips.push('💖 想加开心度？去宠物商店买玩具球 / 礼物盒')
   return tips
 }
 
@@ -236,14 +235,9 @@ Page({
     // Optional caption for the per-task toast: '提前完成 +5' / '补做 (历史作业)'
     // / '今日已达 20 项上限'. Empty for plain today-task finishes.
     taskRewardCaption: '',
-    // Per-task happiness delta (0–5). 0 hides the pink pill.
-    taskRewardHappiness: 0,
     allDoneVisible: false,
     allDoneCoins: 0,
-    allDoneSubtitle: '',
-    // Perfect-day happiness top-up delta (the jump from current to 100).
-    // 0 when happiness was already at 100.
-    allDoneHappiness: 0
+    allDoneSubtitle: ''
   },
 
   onShow() {
@@ -447,10 +441,8 @@ Page({
       : Math.max(1, (lr.reward || 0) - dailyBonus - weeklyBonus)
     const taskCaption = captionForKind(lr.rewardKind)
     const bonusCoins = dailyBonus + weeklyBonus
-    const taskHappiness = lr.taskHappiness || 0
-    const allDoneHappiness = lr.allDoneHappiness || 0
 
-    this.showTaskReward(taskCoins, taskCaption, taskHappiness)
+    this.showTaskReward(taskCoins, taskCaption)
 
     // Flag the pet page to play one celebration animation on its next onShow.
     // Consumed in pages/pet/index.js. Cross-page because home & pet are
@@ -473,18 +465,17 @@ Page({
         : '今日全部完成!'
       const delay = TASK_ANIM_MS + TASK_TO_ALLDONE_GAP_MS
       this._allDoneTimer = setTimeout(() => {
-        this.showAllDone(bonusCoins, subtitle, allDoneHappiness)
+        this.showAllDone(bonusCoins, subtitle)
       }, delay)
     }
   },
 
-  showTaskReward(coins, caption, happiness) {
+  showTaskReward(coins, caption) {
     if (this._taskTimer) { clearTimeout(this._taskTimer); this._taskTimer = null }
     this.setData({
       taskRewardVisible: true,
       taskRewardCoins: coins,
-      taskRewardCaption: caption || '',
-      taskRewardHappiness: happiness || 0
+      taskRewardCaption: caption || ''
     })
     this._taskTimer = setTimeout(() => {
       this._taskTimer = null
@@ -492,13 +483,12 @@ Page({
     }, TASK_ANIM_MS)
   },
 
-  showAllDone(bonusCoins, subtitle, happiness) {
+  showAllDone(bonusCoins, subtitle) {
     if (this._allDoneHideTimer) { clearTimeout(this._allDoneHideTimer); this._allDoneHideTimer = null }
     this.setData({
       allDoneVisible: true,
       allDoneCoins: bonusCoins,
-      allDoneSubtitle: subtitle || '',
-      allDoneHappiness: happiness || 0
+      allDoneSubtitle: subtitle || ''
     })
     this._allDoneHideTimer = setTimeout(() => {
       this._allDoneHideTimer = null

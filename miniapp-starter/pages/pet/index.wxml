@@ -96,23 +96,16 @@
             <text class="level-label">已满级 Lv.{{levelMax}}</text>
             <text class="level-cost">MAX</text>
           </view>
-          <view class="level-progress level-progress--max">
-            <view class="level-progress-fill" style="width: 100%"></view>
-          </view>
           <text class="level-hint">恭喜达到最高等级,继续每天陪它吧～</text>
         </block>
         <block wx:else>
           <view class="level-row">
             <text class="level-label">升到 Lv.{{pet.level + 1}}</text>
-            <text class="level-cost">{{levelExp}}/{{levelExpTarget}} 经验</text>
+            <text class="level-cost">花 {{levelCost}} 金币</text>
           </view>
-          <view class="level-progress">
-            <view class="level-progress-fill" style="width: {{levelProgress}}%">
-              <view wx:if="{{isAccruingExp}}" class="level-progress-sweep"></view>
-            </view>
-          </view>
-          <text wx:if="{{isAccruingExp}}" class="level-hint level-hint--active">✨ 经验增加中</text>
-          <text wx:else class="level-hint">四项数值同时 > 60 才会攒经验,攒满自动升级</text>
+          <button class="level-up-btn {{canLevelUp ? '' : 'disabled'}}" bindtap="handleLevelUp">
+            {{canLevelUp ? '升级' : '金币不够'}}
+          </button>
         </block>
       </view>
 
@@ -122,7 +115,6 @@
           <text class="stat-num">{{pet.happiness}}</text>
         </view>
         <progress percent="{{pet.happiness}}" stroke-width="10" activeColor="#ffb648" backgroundColor="#edf0f3" />
-        <text wx:if="{{happinessFreezeHours > 0}}" class="stat-hint">🧊 {{happinessFreezeHours}} 小时内不下降</text>
       </view>
       <view class="stat-block">
         <view class="stat-row">

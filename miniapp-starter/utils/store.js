@@ -94,14 +94,9 @@ const REWARD_TASK_TODAY = 10
 const REWARD_TASK_FUTURE = 15
 const REWARD_WEEKLY_STREAK = 100  // every 7 consecutive perfect days
 
-// 开心度只通过完成作业获得 (道具不再加 happiness):
-// - 每完成一项作业: +PER_TASK_HAPPINESS (受 100 上限钳制)
-// - 当日全部完成的那一刻: happiness 直接拉到 100 (不论之前值),并冻结
-//   HAPPINESS_FREEZE_AFTER_PERFECT_HOURS 小时,期间不衰减。
-// happinessDelta 字段写入 lastReward 与 task occurrence 的 happinessPaid,
-// 这样 UI 可以单独显示"+N 开心度"。
-const PER_TASK_HAPPINESS = 5
-const HAPPINESS_FREEZE_AFTER_PERFECT_HOURS = 12
+// 开心度来源:仅商店道具(item.happiness)。完成作业不再 +happiness。
+// 历史字段 happinessPaid / happinessLastDecayAt 仍可能出现在旧数据里,
+// 读取时容错忽略,新写入路径不再设置。
 
 // Anti-farm cap: only the first N task completions on any given calendar day
 // pay coins (both the per-task reward AND the daily-perfect base-per-task
@@ -253,127 +248,51 @@ function petAgeDays(pet) {
 // medicine). See V1-VALUES-DESIGN.md §3 for the rationale.
 const PET_DECAY_PER_HOUR = { fullness: 4, cleanliness: 3, happiness: 3, health: 2.5 }
 
-// 经验值 (exp): 升级不再花金币,只看四项数值。经验只在「四项数值同时 >
-// STAT_HEALTHY_THRESHOLD (=60)」的时段内累加;petWithDecay 在每次读 / 写时
-// 算出从上次 commit 到 now 的有效「健康时长」,乘以 EXP_PER_HOUR_HEALTHY
-// 计入 pet.exp。commitPetDecay 内自动检查 exp 是否够下一级,够就连升
-// (level += 1, exp -= 目标),玩家不用按按钮。
+// 升级:手动按按钮花金币升级。 levelUpPet() 从 state.coins 扣 getLevelCost(level)
+// 后 level += 1。没有自动累加经验。Lv.k → Lv.k+1 的花费随 level 线性增长。
 //
-// 阈值从 80 调到 60 之后,fullness 仍是瓶颈(rate 4/h,100→60 用 10h),
-// 因此普通玩家(每天 1 次全补)能拿 ~100 EXP/天,勤奋玩家(2 次)~200,
-// 满分(3+ 次)~240。 BASE 同步翻到 200,保持「勤奋玩家天数曲线 1,2,2,3..」
-// 不变 — 升满 Lv.100 仍约 931 天。
-//
-// 每级所需天数曲线(以勤奋玩家约 200 EXP/天 校准):
-//   Lv.1→2  : 1 天
-//   Lv.2→4  : 2 天/级 (出现 2 次)
-//   Lv.4→7  : 3 天/级 (出现 3 次)
+// 曲线设计目标:勤奋玩家约 200 金币/天产出,Lv.1→2 一天能升,中后期慢慢加难度。
+//   Lv.1→2 : 100 金币
+//   Lv.2→3 : 200 金币
+//   Lv.3→4 : 300 金币
 //   ...
-// D(k) = ceil((sqrt(8k+1)-1)/2),即 n 出现 n 次。
-const STAT_HEALTHY_THRESHOLD = 60
-const EXP_PER_HOUR_HEALTHY = 10
-// 每天 base — 勤奋玩家(~20h 四项 > 60)单日典型 EXP 产出。每级所需 EXP = D(level) × BASE。
-const LEVEL_EXP_TARGET_BASE = 200
+//   Lv.99→100 : 9900 金币
+// 总成本约 sum(1..99) × 100 = 495000 金币,够长期目标。
 const LEVEL_MAX = 100
+const LEVEL_COST_PER_STEP = 100
 
-// 第 k 级(Lv.k → Lv.k+1)在勤奋玩家曲线下需要的天数,
-// 序列 1,2,2,3,3,3,4,4,4,4,5,5,5,5,5,...,n 出现 n 次。
-function getLevelDays(level) {
-  return Math.ceil((Math.sqrt(8 * level + 1) - 1) / 2)
-}
-
-function getLevelExpTarget(level) {
+function getLevelCost(level) {
   const lvl = Math.max(1, level | 0)
-  if (lvl >= LEVEL_MAX) return 0  // 已满级
-  return getLevelDays(lvl) * LEVEL_EXP_TARGET_BASE
-}
-
-// 计算从 windowStart 到 windowStart + windowHours 之间,某 stat 持续 > threshold
-// 的小时数 — 假设 stat 在窗口内按 rate/h 线性下降。frozen=true 时整窗口都满足。
-// 起点已经 ≤ threshold → 整窗口不产经验,返回 0。
-function statHoursOverThreshold(v0, rate, windowHours, threshold, frozen) {
-  if (windowHours <= 0) return 0
-  if (frozen) return windowHours
-  const start = v0 == null ? 100 : v0
-  if (start <= threshold) return 0
-  if (rate <= 0) return windowHours
-  return Math.min(windowHours, (start - threshold) / rate)
+  if (lvl >= LEVEL_MAX) return 0
+  return lvl * LEVEL_COST_PER_STEP
 }
 
 // Pure: returns pet with stats reduced by elapsed-time decay (rounded to ints
-// so the UI doesn't show "76.342"), plus exp accrued for whatever portion of
-// the window had ALL four stats > 80. Doesn't write — commitPetDecay stamps.
-// Happiness has its own clock (happinessLastDecayAt) so the "当日全部完成 →
-// 开心度不再降低" freeze can park the happiness decay window past now while
-// the other stats keep ticking.
+// so the UI doesn't show "76.342"). Doesn't write — commitPetDecay stamps.
 function petWithDecay(pet) {
   if (!pet || !pet.species) return pet
   const now = Date.now()
   const last = pet.lastDecayAt || pet.bornAt || now
   const hours = Math.max(0, (now - last) / 3600000)
-  const happinessLast = pet.happinessLastDecayAt != null ? pet.happinessLastDecayAt : last
-  const happinessHours = Math.max(0, (now - happinessLast) / 3600000)
-  const happinessFrozen = pet.happinessLastDecayAt != null && pet.happinessLastDecayAt > now
-  // exp accrual: each stat tells how long IT stays > STAT_HEALTHY_THRESHOLD
-  // inside [last, now]; the min is the joint window the user gets credit for.
-  const expWindowHours = Math.min(
-    statHoursOverThreshold(pet.happiness,   PET_DECAY_PER_HOUR.happiness,   hours, STAT_HEALTHY_THRESHOLD, happinessFrozen),
-    statHoursOverThreshold(pet.fullness,    PET_DECAY_PER_HOUR.fullness,    hours, STAT_HEALTHY_THRESHOLD, false),
-    statHoursOverThreshold(pet.cleanliness, PET_DECAY_PER_HOUR.cleanliness, hours, STAT_HEALTHY_THRESHOLD, false),
-    statHoursOverThreshold(pet.health,      PET_DECAY_PER_HOUR.health,      hours, STAT_HEALTHY_THRESHOLD, false)
-  )
-  // 已满级 → 不再累加经验,省得每次 commit 都生 next.exp 字段差异。
-  const atMaxLevel = (pet.level || 1) >= LEVEL_MAX
-  const expGained = (!atMaxLevel && expWindowHours > 0)
-    ? Math.floor(expWindowHours * EXP_PER_HOUR_HEALTHY)
-    : 0
-  if (hours <= 0 && happinessHours <= 0 && expGained === 0) return pet
-  const drop = (cur, rate, h) =>
-    Math.max(0, Math.round((cur == null ? 100 : cur) - h * rate))
+  if (hours <= 0) return pet
+  const drop = (cur, rate) =>
+    Math.max(0, Math.round((cur == null ? 100 : cur) - hours * rate))
   return {
     ...pet,
-    happiness:   drop(pet.happiness,   PET_DECAY_PER_HOUR.happiness,   happinessHours),
-    fullness:    drop(pet.fullness,    PET_DECAY_PER_HOUR.fullness,    hours),
-    cleanliness: drop(pet.cleanliness, PET_DECAY_PER_HOUR.cleanliness, hours),
-    health:      drop(pet.health,      PET_DECAY_PER_HOUR.health,      hours),
-    exp:         (pet.exp || 0) + expGained
+    happiness:   drop(pet.happiness,   PET_DECAY_PER_HOUR.happiness),
+    fullness:    drop(pet.fullness,    PET_DECAY_PER_HOUR.fullness),
+    cleanliness: drop(pet.cleanliness, PET_DECAY_PER_HOUR.cleanliness),
+    health:      drop(pet.health,      PET_DECAY_PER_HOUR.health)
   }
 }
 
 // "Catch-up" helper: call inside an updateState updater BEFORE applying any
 // user-triggered change so the persisted stat numbers reflect "now" before
 // being bumped. Stamps lastDecayAt so the next decay window starts here.
-// happinessLastDecayAt is preserved if it points into the future (= freeze
-// still active); otherwise normalize to now so subsequent decay resumes.
-// Also rolls level if accrued exp put the pet past the next-tier target —
-// this is the auto-levelup path (no UI button). Sets pet.lastLeveledAt so
-// the pet page can fire a celebration toast on next refresh.
 function commitPetDecay(pet) {
   if (!pet || !pet.species) return pet
-  const now = Date.now()
   const decayed = petWithDecay(pet)
-  const happinessClock = pet.happinessLastDecayAt != null && pet.happinessLastDecayAt > now
-    ? pet.happinessLastDecayAt
-    : now
-  const next = { ...decayed, lastDecayAt: now, happinessLastDecayAt: happinessClock }
-  const prevLevel = next.level || 1
-  let exp = next.exp || 0
-  let level = prevLevel
-  let target = getLevelExpTarget(level)
-  // target=0 表示已经满级 — 不进 while。 没满级时连升直到余额 < 下一级所需。
-  while (target > 0 && exp >= target) {
-    exp -= target
-    level += 1
-    target = getLevelExpTarget(level)
-  }
-  // 升到 LEVEL_MAX 后,残值不保留 — 反正再也不用。
-  if (level >= LEVEL_MAX) exp = 0
-  next.exp = exp
-  if (level !== prevLevel) {
-    next.level = level
-    next.lastLeveledAt = now
-  }
-  return next
+  return { ...decayed, lastDecayAt: Date.now() }
 }
 
 // Animation state derived from current pet stats. Priority: critical health
@@ -431,17 +350,17 @@ const defaultState = {
   ocrJobs: [],
   // Empty pet object → triggers first-time setup flow on the pet tab.
   pet: {},
-  // Each item lifts one primary stat back to a comfy zone. 开心度 is no longer
-  // a purchasable stat — it's earned exclusively by completing homework
-  // (finishTask single-task bump + perfect-day top-up).
-  // See V1-VALUES-DESIGN.md §4 for daily-spend math.
+  // Each item lifts one primary stat back to a comfy zone. 开心度道具走
+  // happiness 字段 — buyItem 会一并应用,跟其他三项一致。
   shopItems: [
-    { id: 1, emoji: '🥕', name: '营养胡萝卜', effect: '饱腹+30',  price: 16, happiness: 0, fullness: 30, cleanliness: 0,  health: 0  },
-    { id: 2, emoji: '🍱', name: '丰盛便当',   effect: '饱腹+50',  price: 28, happiness: 0, fullness: 50, cleanliness: 0,  health: 0  },
-    { id: 3, emoji: '🧼', name: '香皂',       effect: '清洁+30',  price: 18, happiness: 0, fullness: 0,  cleanliness: 30, health: 0  },
-    { id: 4, emoji: '🛁', name: '泡泡浴',     effect: '清洁+60',  price: 32, happiness: 0, fullness: 0,  cleanliness: 60, health: 0  },
-    { id: 6, emoji: '💊', name: '维生素',     effect: '健康+25',  price: 20, happiness: 0, fullness: 0,  cleanliness: 0,  health: 25 },
-    { id: 7, emoji: '🏃', name: '健身房一次', effect: '健康+55',  price: 35, happiness: 0, fullness: 0,  cleanliness: 0,  health: 55 }
+    { id: 1, emoji: '🥕', name: '营养胡萝卜', effect: '饱腹+30',  price: 16, happiness: 0,  fullness: 30, cleanliness: 0,  health: 0  },
+    { id: 2, emoji: '🍱', name: '丰盛便当',   effect: '饱腹+50',  price: 28, happiness: 0,  fullness: 50, cleanliness: 0,  health: 0  },
+    { id: 3, emoji: '🧼', name: '香皂',       effect: '清洁+30',  price: 18, happiness: 0,  fullness: 0,  cleanliness: 30, health: 0  },
+    { id: 4, emoji: '🛁', name: '泡泡浴',     effect: '清洁+60',  price: 32, happiness: 0,  fullness: 0,  cleanliness: 60, health: 0  },
+    { id: 5, emoji: '🎾', name: '玩具球',     effect: '开心+30',  price: 20, happiness: 30, fullness: 0,  cleanliness: 0,  health: 0  },
+    { id: 6, emoji: '💊', name: '维生素',     effect: '健康+25',  price: 20, happiness: 0,  fullness: 0,  cleanliness: 0,  health: 25 },
+    { id: 7, emoji: '🏃', name: '健身房一次', effect: '健康+55',  price: 35, happiness: 0,  fullness: 0,  cleanliness: 0,  health: 55 },
+    { id: 8, emoji: '🎁', name: '礼物盒',     effect: '开心+50',  price: 36, happiness: 50, fullness: 0,  cleanliness: 0,  health: 0  }
   ],
   // v3 起永远为空数组 —— 老字段保留只为 SYNC_FIELDS 兼容/老 client hydrate 不崩。
   notebooks: [],
@@ -638,24 +557,13 @@ function migrateState(raw) {
       if (raw.pet.fullness == null)         raw.pet.fullness         = 80
       if (raw.pet.cleanliness == null)      raw.pet.cleanliness      = 90
       if (raw.pet.health == null)           raw.pet.health           = 95
-      // exp/levelup 模型上线 — 旧 pet 没这些字段,显式初始化为 0/null 让
-      // cloud-sync / debug dump 都看得明白。读路径全是 `|| 0` 兜底,所以
-      // 不写也不崩,但写了更整洁。
-      if (raw.pet.exp == null)              raw.pet.exp              = 0
-      if (raw.pet.happinessLastDecayAt === undefined) raw.pet.happinessLastDecayAt = null
-      if (raw.pet.lastLeveledAt === undefined)        raw.pet.lastLeveledAt        = null
-      // 旧逻辑把 happinessLastDecayAt 设到当日 23:59,新规则是 finish 时刻 + 12h,
-      // 上线前 clamp 到 12h 上限,旧数据立刻对齐。 idempotent — 新代码写的值
-      // 永远 ≤ now+12h,clamp 不会再触发。
-      const maxFreezeMs = HAPPINESS_FREEZE_AFTER_PERFECT_HOURS * 3600000
-      if (typeof raw.pet.happinessLastDecayAt === 'number'
-          && raw.pet.happinessLastDecayAt > Date.now() + maxFreezeMs) {
-        raw.pet.happinessLastDecayAt = Date.now() + maxFreezeMs
-      }
-      // Growth-XP system was replaced by coin-cost upgrades — strip the old
-      // fields so cloud-sync doesn't carry them around forever.
-      if ('growth' in raw.pet)          delete raw.pet.growth
-      if ('nextLevelGrowth' in raw.pet) delete raw.pet.nextLevelGrowth
+      // 老 exp/freeze 模型已废弃 — strip 历史字段,云端 doc 不再带它们。
+      // lastLeveledAt 保留(给 pet 页升级 toast 复用)。
+      if ('exp' in raw.pet)                   delete raw.pet.exp
+      if ('happinessLastDecayAt' in raw.pet)  delete raw.pet.happinessLastDecayAt
+      if ('growth' in raw.pet)                delete raw.pet.growth
+      if ('nextLevelGrowth' in raw.pet)       delete raw.pet.nextLevelGrowth
+      if (raw.pet.lastLeveledAt === undefined) raw.pet.lastLeveledAt = null
     }
     // Pre-cloud-sync data: stamp current time so this device's data wins on
     // first cloud sync (over a fresh empty cloud doc with updatedAt=0).
@@ -790,10 +698,7 @@ function defaultOccurrence() {
     // varies by overdue/today/future and by the 20-cap status). null means
     // unfinished or paid before this field existed (legacy → treat as 0).
     rewardPaid: null,
-    rewardKind: null,
-    // Per-task happiness bump + perfect-day topup combined. revertTask
-    // subtracts this from state.pet.happiness so finish→revert nets zero.
-    happinessPaid: null
+    rewardKind: null
   }
 }
 
@@ -812,8 +717,7 @@ function getTaskState(task, dateStr) {
       completedAt: task.completedAt || null,
       actualMinutes: task.actualMinutes || null,
       rewardPaid: task.rewardPaid != null ? task.rewardPaid : null,
-      rewardKind: task.rewardKind || null,
-      happinessPaid: task.happinessPaid != null ? task.happinessPaid : null
+      rewardKind: task.rewardKind || null
     }
   }
   const occ = (task.occurrences || {})[dateStr]
@@ -1361,7 +1265,6 @@ function updateTask(taskId, updates) {
           delete next.actualMinutes
           delete next.rewardPaid
           delete next.rewardKind
-          delete next.happinessPaid
           next.occurrences = {}
         } else {
           delete next.occurrences
@@ -1426,7 +1329,6 @@ function detachOccurrence(taskId, date) {
       actualMinutes: occ.actualMinutes || null,
       rewardPaid: occ.rewardPaid != null ? occ.rewardPaid : null,
       rewardKind: occ.rewardKind || null,
-      happinessPaid: occ.happinessPaid != null ? occ.happinessPaid : null,
       // 标记从哪里 detach 出来的,方便审计 / 后续"重新合并回 recurring"功能。
       detachedFrom: src.id,
       detachedDate: date
@@ -1704,15 +1606,6 @@ function revokePerfectDay(state, day) {
   }
   state.perfectDays = state.perfectDays.filter((d) => d !== day)
   state.streakDays = recomputeStreak(state.perfectDays)
-  // Lift the happiness freeze if we just dropped today out of perfectDays —
-  // happiness should resume decaying from now (no rollback on the current
-  // value; the user's happiness stays at whatever it had reached).
-  if (day === todayStr() && state.pet && state.pet.species) {
-    const now = Date.now()
-    if (state.pet.happinessLastDecayAt != null && state.pet.happinessLastDecayAt > now) {
-      state.pet.happinessLastDecayAt = now
-    }
-  }
 }
 
 // After tasks are added (addTask / importSharedNotebook), any previously
@@ -1752,11 +1645,6 @@ function revertTask(taskId, dateStr) {
     // before rewardPaid existed are treated as having paid 10 (the old flat
     // per-task amount) so revert still claws back something reasonable.
     const refund = cur.rewardPaid != null ? cur.rewardPaid : REWARD_TASK_TODAY
-    // Happiness clawback mirrors the per-task + perfect-day topup that
-    // finishTask put on the pet. Legacy occurrences without happinessPaid
-    // are skipped (delta = 0) rather than guessed, since 0 is the safe
-    // direction — the user keeps whatever the old finish granted.
-    const happinessRefund = cur.happinessPaid || 0
 
     const patch = {
       status: 'paused',
@@ -1764,8 +1652,7 @@ function revertTask(taskId, dateStr) {
       actualMinutes: null,
       currentSegmentStartedAt: null,
       rewardPaid: null,
-      rewardKind: null,
-      happinessPaid: null
+      rewardKind: null
     }
     state.tasks = state.tasks.map((t) =>
       t.id === taskId ? applyTaskState(t, day, patch) : t
@@ -1773,11 +1660,6 @@ function revertTask(taskId, dateStr) {
 
     if (refund > 0) {
       applyCoinDelta(state, 'task_refund', -refund, { taskId, day, reason: 'task_revert' })
-    }
-
-    if (happinessRefund > 0 && state.pet && state.pet.species) {
-      state.pet = commitPetDecay(state.pet)
-      state.pet.happiness = Math.max(0, (state.pet.happiness || 0) - happinessRefund)
     }
 
     // Free up the slot in the cap counter for the wall-clock day the
@@ -1824,24 +1706,13 @@ function finishTask(taskId, dateStr) {
     const taskReward = cappedOut ? 0 : tier.amount
     const rewardKind = cappedOut ? 'capped' : tier.kind
     let reward = taskReward
-    // Split into two so the UI can show the per-task bump on the small toast
-    // and the perfect-day top-up on the big toast separately. Sum is stamped
-    // on the occurrence for revert clawback.
-    let taskHappiness = 0
-    let allDoneHappiness = 0
 
     const segMs = cur.currentSegmentStartedAt ? Math.max(0, now - cur.currentSegmentStartedAt) : 0
     const totalMs = (cur.accumulatedMs || 0) + segMs
 
-    // Per-task happiness bump: commit decay first so the +5 lands on the
-    // post-decay value, then clamp at 100. Skipped if the task was already
-    // marked done or no pet has been set up yet.
+    // 把上次 commit 起累计的 stat 衰减刷到现在 — 不再加 happiness。
     if (wasNotDone && state.pet && state.pet.species) {
       state.pet = commitPetDecay(state.pet)
-      const before = state.pet.happiness || 0
-      const after = Math.min(100, before + PER_TASK_HAPPINESS)
-      state.pet.happiness = after
-      taskHappiness = after - before
     }
 
     const patch = {
@@ -1851,10 +1722,7 @@ function finishTask(taskId, dateStr) {
       actualMinutes: Math.max(1, Math.round(totalMs / 60000)),
       currentSegmentStartedAt: null,
       rewardPaid: taskReward,
-      rewardKind,
-      // Stamped here so revertTask can claw back the exact happiness this
-      // finish put on the pet (per-task bump + perfect-day topup combined).
-      happinessPaid: 0
+      rewardKind
     }
     state.tasks = state.tasks.map((t) =>
       t.id === taskId ? applyTaskState(t, day, patch) : t
@@ -1920,22 +1788,6 @@ function finishTask(taskId, dateStr) {
           reward += weeklyBonus
         }
 
-        // Perfect-day happiness top-up: pull happiness all the way to 100 the
-        // first time the user clears the day. The per-task +5 already landed
-        // above; this delta captures what's left to reach the cap.
-        // Freeze the happiness clock for HAPPINESS_FREEZE_AFTER_PERFECT_HOURS
-        // hours from now — Tim's rule "完成所有作业,开心度加满后可持续 12h
-        // 不降低". revokePerfectDay (addTask / revertTask) lifts the freeze
-        // early if today drops out of perfectDays.
-        if (wasNotDone && state.pet && state.pet.species) {
-          const before = state.pet.happiness || 0
-          if (before < 100) {
-            state.pet.happiness = 100
-            allDoneHappiness = 100 - before
-          }
-          state.pet.happinessLastDecayAt = now + HAPPINESS_FREEZE_AFTER_PERFECT_HOURS * 3600000
-        }
-
         // Stash exact bonus paid + pre-update streak. revertTask refunds from
         // this map so the refund matches the credit even if task count or
         // streak state changes between finish and revert.
@@ -1946,17 +1798,6 @@ function finishTask(taskId, dateStr) {
         if (!state.bonusByDay || typeof state.bonusByDay !== 'object') state.bonusByDay = {}
         state.bonusByDay[day] = { dailyBonus, weeklyBonus, prevStreakDays }
       }
-    }
-
-    // Stamp the total happiness delta on the occurrence so revertTask can
-    // claw the exact amount back. Done after the perfect-day branch so the
-    // top-up is included.
-    const happinessDelta = taskHappiness + allDoneHappiness
-    if (happinessDelta > 0) {
-      const stamp = { ...patch, happinessPaid: happinessDelta }
-      state.tasks = state.tasks.map((t) =>
-        t.id === taskId ? applyTaskState(t, day, stamp) : t
-      )
     }
 
     if (reward > 0) {
@@ -1976,9 +1817,6 @@ function finishTask(taskId, dateStr) {
       rewardKind,
       dailyBonus,
       weeklyBonus,
-      taskHappiness,
-      allDoneHappiness,
-      happinessDelta,
       taskId,
       finishedAt: now,
       todayCleared
@@ -1996,20 +1834,20 @@ function buyItem(itemId) {
     if (!state.pet || !state.pet.species) return state
     state.pet = commitPetDecay(state.pet)
     applyCoinDelta(state, 'pet_purchase', -item.price, { itemId: item.id, itemName: item.name })
-    // 开心度 (happiness) 由完成作业获得,不接受道具加成 — 即便 item 字段非零
-    // 也忽略,这样后续若有人误填配置也不会偷偷给开心度。
-    state.pet.fullness    = Math.min(state.pet.fullness    + (item.fullness    || 0), 100)
-    state.pet.cleanliness = Math.min(state.pet.cleanliness + (item.cleanliness || 0), 100)
-    state.pet.health      = Math.min(state.pet.health      + (item.health      || 0), 100)
+    state.pet.happiness   = Math.min((state.pet.happiness   || 0) + (item.happiness   || 0), 100)
+    state.pet.fullness    = Math.min((state.pet.fullness    || 0) + (item.fullness    || 0), 100)
+    state.pet.cleanliness = Math.min((state.pet.cleanliness || 0) + (item.cleanliness || 0), 100)
+    state.pet.health      = Math.min((state.pet.health      || 0) + (item.health      || 0), 100)
     return state
   })
 }
 
-// commitPetDecay 现在内部会在 exp 攒够时自动升级,所以原本"手动按按钮升级"
-// 的入口不再需要。 这里保留一个 stub 仅为了:
-//   1. 兼容残留 UI / 测试代码: 调用立即触发 commitPetDecay,把当前可累加的 exp
-//      和潜在的连升结算掉。
-//   2. 返回值与旧形态对齐: { ok, level } 或 { ok: false, reason }。
+// 手动升级:花 getLevelCost(level) 金币 → level += 1。
+// 返回值约定:
+//   { ok: true, level }          — 升级成功
+//   { ok: false, reason: 'no-pet' }              — 还没设置宠物
+//   { ok: false, reason: 'max-level' }           — 已满级
+//   { ok: false, reason: 'insufficient-coins', need, have } — 金币不够
 function levelUpPet() {
   let result = null
   updateState((state) => {
@@ -2018,14 +1856,22 @@ function levelUpPet() {
       return state
     }
     const prevLevel = state.pet.level || 1
-    state.pet = commitPetDecay(state.pet)
-    const newLevel = state.pet.level || 1
-    if (newLevel > prevLevel) {
-      state.lastLevelUp = { level: newLevel, at: Date.now() }
-      result = { ok: true, level: newLevel }
-    } else {
-      result = { ok: false, reason: 'not-enough-exp', need: getLevelExpTarget(newLevel) - (state.pet.exp || 0) }
+    if (prevLevel >= LEVEL_MAX) {
+      result = { ok: false, reason: 'max-level' }
+      return state
     }
+    const cost = getLevelCost(prevLevel)
+    const coins = state.coins || 0
+    if (coins < cost) {
+      result = { ok: false, reason: 'insufficient-coins', need: cost - coins, have: coins }
+      return state
+    }
+    state.pet = commitPetDecay(state.pet)
+    applyCoinDelta(state, 'pet_level_up', -cost, { fromLevel: prevLevel, toLevel: prevLevel + 1 })
+    state.pet.level = prevLevel + 1
+    state.pet.lastLeveledAt = Date.now()
+    state.lastLevelUp = { level: state.pet.level, at: Date.now() }
+    result = { ok: true, level: state.pet.level }
     return state
   })
   return result
@@ -2044,7 +1890,6 @@ function setupPet({ species, name }) {
       bornAt: now,
       lastDecayAt: now,
       level: 1,
-      exp: 0,
       happiness: 100,
       fullness: 100,
       cleanliness: 100,
@@ -2520,12 +2365,8 @@ module.exports = {
   PET_SPECIES,
   PET_SWITCH_COST,
   PET_DECAY_PER_HOUR,
-  EXP_PER_HOUR_HEALTHY,
-  STAT_HEALTHY_THRESHOLD,
-  LEVEL_EXP_TARGET_BASE,
   LEVEL_MAX,
-  getLevelDays,
-  getLevelExpTarget,
+  getLevelCost,
   petAgeDays,
   deriveAnimState,
   setupPet,
