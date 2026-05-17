@@ -37,7 +37,9 @@
 }
 
 /* 左侧整条状态色带 — 高度等于卡片,宽度 ≈ 旧圆点直径。颜色由 row 的状态类决定;
-   doing 时叠加脉动透明度动画。 */
+   doing 时叠加脉动透明度动画。
+   todo(默认):柔和蓝,跟 doing 的主题亮蓝 #245bdb 区分 —— 之前用大红 #e54545
+   太扎眼,Tim 反馈后改。其它状态(doing / paused / done)不变。 */
 .status-stripe {
   position: absolute;
   left: 0;
@@ -45,7 +47,7 @@
   bottom: 0;
   width: 18rpx;
   border-radius: 22rpx 0 0 22rpx;
-  background: #e54545;
+  background: #8aa4d4;
 }
 
 .task-row.doing  .status-stripe {
