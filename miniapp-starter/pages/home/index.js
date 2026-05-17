@@ -141,16 +141,17 @@ Page({
     activeSegment: 'today',
     calendarOpen: false,
     // Locks the inner <scroll-view> while a task-list drag is in progress.
-    // The page itself has page-meta disable-scroll permanently on; the only
-    // scrollable surface is .scroll-area. Toggling page-meta mid-gesture
-    // wasn't preventing the screen from drifting once the touch had begun,
-    // so we keep the page locked and flip scroll-y on the inner view instead
-    // — that change is honored immediately even mid-gesture.
+    // 仅在 row 高亮态 drag 时还保留 — 主要拦截是靠 task-row 上 catchtouchmove
+    // (不冒泡到 scroll-view),这个软锁是兜底。
     disableScroll: false,
     // 任一 task-list row 左滑展开了 swipe-action 菜单时为 true。两个
     // task-list (未完成 / 已完成) 各自触发 swipeopen / swipeclose,这里
     // 用计数避免两个区先后打开 → 先关一个就误以为都关了。
     swipeMenuOpen: false,
+    // scroll-view 的 scroll-top 数据绑定值。task-row 用 catchtouchmove 阻
+    // 断了原生滚动冒泡,用户在 row 上下滑(scroll 手势)时由 task-list 抛
+    // scrollby({deltaY}) 过来,这里累加后写回 scroll-view。
+    scrollTop: 0,
     todayLabel: '今天',
     tomorrowLabel: '明天',
     dayAfterLabel: '后天',
@@ -484,6 +485,22 @@ Page({
 
   handleDragStart() { this.setData({ disableScroll: true }) },
   handleDragEnd() { this.setData({ disableScroll: false }) },
+
+  // scroll-view 的 bindscroll —— 用户从 hero / 列表外区域自然滚动时 native
+  // 在更新 scrollTop,我们这里同步缓存,下一次 row 上 scrollby 增量从这个基线起。
+  handleScrollAreaScroll(e) {
+    this._curScrollTop = (e && e.detail && e.detail.scrollTop) || 0
+  },
+
+  // task-list 在 row 上判定为 scroll 手势时,把 deltaY 抛过来,我们写回
+  // scroll-view scroll-top —— 替代被 catchtouchmove 切断的原生滚动。
+  handleScrollBy(e) {
+    const deltaY = (e && e.detail && e.detail.deltaY) || 0
+    if (!deltaY) return
+    const next = Math.max(0, (this._curScrollTop || 0) + deltaY)
+    this._curScrollTop = next
+    this.setData({ scrollTop: next })
+  },
 
   handleSwipeOpen() {
     this._openSwipeCount = (this._openSwipeCount || 0) + 1
