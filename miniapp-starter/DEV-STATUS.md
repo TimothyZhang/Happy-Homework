@@ -42,10 +42,9 @@
 - 标记进行中 / 已完成 / 误点恢复
 
 ### 4. 奖励与宠物反馈
-- 完成作业获得金币
-- 全部完成额外奖励
-- 购买宠物道具
-- 宠物成长/开心/饱腹值变化、升级反馈
+- 完成作业获得金币(单题 5/10/15 + daily-perfect 翻倍 + early-bird + weekly streak)
+- 购买宠物道具 → 四属性(开心/饱腹/清洁/健康)变化
+- 手动按按钮花金币升级(`getLevelCost = level × 20`,Lv.99→100 ≈ 2 周)
 
 ### 5. OCR 导入链路 — **真实闭环已通**
 - `pages/ocr-import`:拍照 / 相册导入 / 演示数据,真实 `wx.cloud.uploadFile` + `wx.cloud.callFunction`

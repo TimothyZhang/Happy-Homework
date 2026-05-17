@@ -64,11 +64,16 @@
 - petType
 - petName
 - level
-- growth
-- nextLevelGrowth
 - happiness
 - fullness
+- cleanliness
+- health
+- bornAt
+- lastDecayAt
+- lastLeveledAt
 - updatedAt
+
+> 历史草案里有 `growth` / `nextLevelGrowth` 字段(配 XP 自动升级)。V1 实际改回"消耗金币手动升级",这两个字段已废弃,迁移多表时不用建。
 
 ## 7. shopOrders
 - _id
