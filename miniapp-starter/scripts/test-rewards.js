@@ -1,23 +1,22 @@
 'use strict'
 
-// 奖励 / 金币账本回归测试。103 个断言,覆盖:
+// 奖励 / 金币流水回归测试。客户端 = truth 架构。覆盖:
 //   - finishTask 单题奖、daily-perfect base、early-bird、weekly streak
 //   - addTask / importSharedNotebook 触发的 perfectDay 回收(reconcilePerfectDays)
-//   - revertTask 同时退单题奖 + 回收当日完美奖(coin + xp)
+//   - revertTask 同时退单题奖 + 回收当日完美奖
 //   - DAILY_COMPLETION_CAP 与回收循环交互
-//   - 宠物 buyItem / 换皮 走 applyCoinDelta;levelUpPet 走 XP(不进 coin ledger)
-//   - applyHydratedState 把 pendingCoinEvents 的 delta 加回乐观本地余额
+//   - 宠物 buyItem / 换皮 走 applyCoinDelta;levelUpPet 走 XP(不动金币)
+//   - share / admin claim 走本地 applyCoinDelta 入账(coinLogs 记录)
 //
-// 何时跑:任何 store.js / cloud-sync.js / coin-ledger.js / coinLedger 云函数
-// 的改动之后都要跑一遍。Tim 不测试,这步是 claude 的责任:
+// 何时跑:任何 store.js / cloud-sync.js 改动之后都要跑一遍。Tim 不测试,
+// 这步是 claude 的责任:
 //
 //   node miniapp-starter/scripts/test-rewards.js
 //
-// 跑不通 → 改完再跑,直到 29/29。失败要在汇报里如实写,不要"应该 OK"糊弄。
+// 跑不通 → 改完再跑。失败要在汇报里如实写,不要"应该 OK"糊弄。
 //
 // 实现细节:stub 了 wx 的 storage 和 cloud 占位,store.js 在 Node 端能跑通
-// 整个 updateState 路径。不连真实云数据库,测的是客户端逻辑 + pendingCoinEvents
-// 队列内容,服务端账本一致性需要部署联调验证。
+// 整个 updateState 路径。不连真实云数据库,测的是客户端逻辑 + coinLogs 流水。
 
 global.wx = {
   _store: {},
@@ -58,10 +57,7 @@ function seed(stateOverride) {
     perfectDays: [],
     bonusByDay: {},
     completionsByDay: {},
-    // 不显式清 pending,上一个 seed 的 pendingCoinEvents 会通过 _stateCache 串到
-    // 这次的 hydrate,触发"乐观加回 delta"路径,让 coins 偏离 stateOverride
-    // 的预期。所有不显式测 pending 的场景应从空队列开始。
-    pendingCoinEvents: [],
+    coinLogs: [],
     tasks: [],
     notebooks: [],
     pet: null,
@@ -72,8 +68,9 @@ function seed(stateOverride) {
 }
 
 function st() { return s.getStateWithComputed() }
-function pendingLast(n) {
-  const q = (st().pendingCoinEvents || []).slice(-n)
+// 客户端 = truth 后,events 直接落 coinLogs,没有"pending 队列"概念。
+function coinLogsLast(n) {
+  const q = (st().coinLogs || []).slice(-n)
   return q.map((e) => ({ kind: e.kind, delta: e.delta, reason: e.meta && e.meta.reason }))
 }
 
@@ -97,7 +94,7 @@ const after3 = st().coins
 assert('all done → perfectDays has today', st().perfectDays.length === 1 && st().perfectDays[0] === today)
 assert('streakDays = 1', st().streakDays === 1)
 assert('final reward includes daily bonus', after3 - before3 >= 10 + 30) // task + base ≥ 30
-assert('all events are task_reward', pendingLast(3).every((e) => e.kind === 'task_reward'))
+assert('all events are task_reward', coinLogsLast(3).every((e) => e.kind === 'task_reward'))
 
 // ===== Scenario 2: exploit attempt — add 1 task, complete, add more =====
 console.log('\n[2] Exploit attempt: 1 task → complete (perfect+early bird) → add 2 more')
@@ -117,12 +114,12 @@ assert('addTask revokes perfectDays', st().perfectDays.length === 0)
 assert('addTask drops streakDays back to 0', st().streakDays === 0)
 assert('addTask clears bonusByDay[today]', !st().bonusByDay[today])
 assert('coins clawed back via task_refund', st().coins === exploitFirstCoins - firstBonus)
-assert('pendingCoinEvents tail = clawback', pendingLast(1)[0].kind === 'task_refund' && pendingLast(1)[0].reason === 'perfect_day_clawback')
+assert('coinLogs tail = clawback', coinLogsLast(1)[0].kind === 'task_refund' && coinLogsLast(1)[0].reason === 'perfect_day_clawback')
 
 // Add a third task; should NOT add a second refund event (already not-perfect).
-const refundCountBefore = st().pendingCoinEvents.filter((e) => e.kind === 'task_refund').length
+const refundCountBefore = st().coinLogs.filter((e) => e.kind === 'task_refund').length
 s.addTask({ notebookId: 'nb1', subject: '英', content: 'z', estimatedMinutes: 5 })
-const refundCountAfter = st().pendingCoinEvents.filter((e) => e.kind === 'task_refund').length
+const refundCountAfter = st().coinLogs.filter((e) => e.kind === 'task_refund').length
 assert('second addTask is no-op for revoke (not currently perfect)', refundCountAfter === refundCountBefore)
 
 // Complete the remaining 2 → re-award daily bonus with new (3-task) base.
@@ -173,7 +170,7 @@ s.revertTask(onlyId, today)
 assert('revert wiped perfectDays', st().perfectDays.length === 0)
 assert('revert clawed back per-task + bonus (net 0)', st().coins === afterFinish - 10 - dailyBonusAfter)
 // Two refund events: one for per-task, one for perfect-day clawback.
-const refundEvents = st().pendingCoinEvents.filter((e) => e.kind === 'task_refund').slice(-2)
+const refundEvents = st().coinLogs.filter((e) => e.kind === 'task_refund').slice(-2)
 assert('revert emitted task_refund (task_revert + perfect_day_clawback)',
   refundEvents.length === 2 &&
   refundEvents.some((e) => e.meta && e.meta.reason === 'task_revert') &&
@@ -263,9 +260,7 @@ assert('coins increased', sixCoins > firstPass)
 // 和 coin 用同一个 lastReward.dailyBonus,理应不可能脱钩 —— 这里把这条约束
 // 写成断言锁死,后续若有人改坏 cap/perfect 联动可以立刻被发现。
 console.log('\n[5b] 25-task day → toast bonusCoins == 实际 coin delta(>20 时不脱钩)')
-// seed 默认不清 pendingCoinEvents,applyHydratedState 会把上一轮 scenario
-// 残留的 delta 再加一次。这里显式清空,才能对绝对 coins 做断言。
-seed({ notebooks: [nb1], coins: 0, pendingCoinEvents: [] })
+seed({ notebooks: [nb1], coins: 0 })
 for (let i = 0; i < 25; i++) {
   s.addTask({ notebookId: 'nb1', subject: '语', content: 'big' + i, estimatedMinutes: 1 })
 }
@@ -290,7 +285,7 @@ assert('25-task day final coins = 20×10 + 200 = 400',  st().coins === 400,     
 // 残留 / flush 丢失)时,revokePerfectDay 必须只清记录、不发 task_refund,
 // 否则会从根本没收过的钱里扣回,造成 server.coins 偏低。
 console.log('\n[5c] revokePerfectDay 不 over-clawback;coinLogs 完整审计每条交易')
-seed({ notebooks: [nb1], coins: 0, pendingCoinEvents: [], coinLogs: [] })
+seed({ notebooks: [nb1], coins: 0, coinLogs: [] })
 s.addTask({ notebookId: 'nb1', subject: '语', content: 'a', estimatedMinutes: 1 })
 const aId = st().tasks[0].id
 s.finishTask(aId, today)
@@ -307,7 +302,7 @@ assert('coinLogs 记录 eventId / before / after',
 
 // 模拟老路径残留 / flush 丢失:手动给一个虚假 bonusByDay 条目(没有 ledgerEventId),
 // 然后 revoke,断言 coins 不被多扣。
-seed({ notebooks: [nb1], coins: 50, pendingCoinEvents: [], coinLogs: [] })
+seed({ notebooks: [nb1], coins: 50, coinLogs: [] })
 s.addTask({ notebookId: 'nb1', subject: '语', content: 'b', estimatedMinutes: 1 })
 const bId = st().tasks[0].id
 // 手动伪造一个老路径残留的 perfectDays + bonusByDay 条目(没 ledgerEventId)
@@ -316,7 +311,7 @@ const stale = s.addDays(today, -1)
 const updateState = require('path').join(__dirname, '..', 'utils', 'store.js')
 // 通过 hydrate 注入伪造 state(模拟从云端 pull 到老路径残留)
 s.applyHydratedState({
-  notebooks: [nb1], coins: 50, pendingCoinEvents: [], coinLogs: [],
+  notebooks: [nb1], coins: 50, coinLogs: [],
   tasks: st().tasks,
   perfectDays: [stale],
   bonusByDay: { [stale]: { dailyBonus: 65, weeklyBonus: 0, prevStreakDays: 0 } },
@@ -330,7 +325,7 @@ const coinsBeforeRevoke = st().coins
 const oldNb = { id: 'nbStale', name: stale, mode: 'one-shot', startDate: stale, endDate: stale, recurrence: null, createdAt: 1, order: 1 }
 // 注意:applyHydratedState 之后 notebooks 已经设了,要 add 一个 stale notebook
 s.applyHydratedState({
-  notebooks: [nb1, oldNb], coins: 50, pendingCoinEvents: [], coinLogs: [],
+  notebooks: [nb1, oldNb], coins: 50, coinLogs: [],
   tasks: [], perfectDays: [stale],
   bonusByDay: { [stale]: { dailyBonus: 65, weeklyBonus: 0, prevStreakDays: 0 } },
   completionsByDay: {}, streakDays: 1, lastReward: null, pet: null
@@ -351,7 +346,7 @@ assert('coinLogs 留下 perfect_day_clawback_skipped 审计痕迹',
   `skipLog=${JSON.stringify(skipLog)}`)
 
 // 反向验证:带 ledgerEventId 的正常路径,revoke 正确扣金币
-seed({ notebooks: [nb1], coins: 0, pendingCoinEvents: [], coinLogs: [] })
+seed({ notebooks: [nb1], coins: 0, coinLogs: [] })
 s.addTask({ notebookId: 'nb1', subject: '语', content: 'c1', estimatedMinutes: 1 })
 const cId = st().tasks[0].id
 s.finishTask(cId, today)
@@ -371,7 +366,7 @@ seed({ coins: 5000, pet: { species: 'sheep', name: '阿羊', level: 1, xp: 0, ha
 const shopItems = st().shopItems
 const affordable = shopItems.find((it) => it.price <= 50 && !it.happiness)
 s.buyItem(affordable.id)
-let last = pendingLast(1)[0]
+let last = coinLogsLast(1)[0]
 assert('buyItem → pet_purchase event', last.kind === 'pet_purchase' && last.delta === -affordable.price)
 
 // levelUpPet 现在花 XP,不花金币:扣 getXpForLevel(level) → level++,溢出 XP 留下。
@@ -381,14 +376,14 @@ seed({ coins: 5000, pet: { species: 'sheep', name: '阿羊', level: 1, xp: 220, 
 const coinsBefore6 = st().coins
 const xpBefore = st().pet.xp
 const levelBefore = st().pet.level
-const pendingBefore = st().pendingCoinEvents.length
+const logsBefore = st().coinLogs.length
 const lvUp = s.levelUpPet()
 assert('levelUpPet ok at Lv.1 (xp=220 ≥ 120)', lvUp && lvUp.ok && lvUp.level === levelBefore + 1)
 assert('levelUpPet deducts getXpForLevel(1) = 120; 溢出 100 留下', st().pet.xp === xpBefore - 120,
   `xpBefore=${xpBefore} after=${st().pet.xp}`)
 assert('levelUpPet 返回 xp = 100 (溢出)', lvUp.xp === 100)
 assert('levelUpPet 不动 coins', st().coins === coinsBefore6)
-assert('levelUpPet 不发 coin event', st().pendingCoinEvents.length === pendingBefore)
+assert('levelUpPet 不发 coin event', st().coinLogs.length === logsBefore)
 assert('levelUpPet stamps lastLeveledAt', st().pet.lastLeveledAt != null)
 
 // xp 不够时不动 state,返 insufficient-xp。Lv.50→51 cost = 1737,xp=500 → need=1237。
@@ -406,7 +401,7 @@ const beforeSwitch = st().coins
 const switchR = s.switchPetSpecies('sheep')
 assert('switchPetSpecies returns ok', switchR && switchR.ok)
 assert('switchPetSpecies deducts 100 locally', st().coins === beforeSwitch - 100)
-const lastSwitch = pendingLast(1)[0]
+const lastSwitch = coinLogsLast(1)[0]
 assert('switchPetSpecies → pet_skin_switch event delta=-100',
   lastSwitch.kind === 'pet_skin_switch' && lastSwitch.delta === -100)
 
@@ -464,22 +459,33 @@ const beforeRevertHappy = st().pet.happiness
 s.revertTask(rTask.id, today)
 assert('revertTask 不动 happiness', st().pet.happiness === beforeRevertHappy)
 
-// ===== Scenario 7: pendingCoinEvents survive hydrate; coins re-applied =====
-console.log('\n[7] Hydrate with stale server coins re-applies pending delta')
+// ===== Scenario 7: share / admin claim 走本地 applyCoinDelta 入账 =====
+console.log('\n[7] applyShareRewardClaim / applyAdminCoinClaim 直接入账 + 写 coinLogs')
+seed({ coins: 50 })
+const shareR = s.applyShareRewardClaim({ total: 9, count: 3, notebooks: ['nb1', 'nb2'] })
+assert('share claim: coins +9', st().coins === 59)
+assert('share claim: coinLogs 末尾 kind=share_reward delta=+9', coinLogsLast(1)[0].kind === 'share_reward' && coinLogsLast(1)[0].delta === 9)
+assert('share claim summary 包含 total/count', shareR && shareR.total === 9 && shareR.count === 3)
+
+const adminR = s.applyAdminCoinClaim({
+  items: [
+    { delta: 50, reason: '生日奖励', adminOpenid: 'admin1', auditId: 'a1', createdAt: 1 },
+    { delta: -20, reason: '违规扣分', adminOpenid: 'admin1', auditId: 'a2', createdAt: 2 }
+  ]
+})
+assert('admin claim: coins +50-20=+30', st().coins === 59 + 30)
+const adminLogs = st().coinLogs.slice(-2)
+assert('admin claim: coinLogs append 两条 admin_adjust',
+  adminLogs.every((l) => l.kind === 'admin_adjust') &&
+  adminLogs[0].delta === 50 && adminLogs[1].delta === -20)
+assert('admin claim: meta.reason 保留', adminLogs[0].meta.reason === '生日奖励' && adminLogs[1].meta.reason === '违规扣分')
+assert('admin claim summary: addedTotal/deductedTotal', adminR && adminR.addedTotal === 50 && adminR.deductedTotal === -20)
+
+// ===== Scenario 7b: hydrate 直接用远端 state(没有 pending 加回的逻辑了) =====
+console.log('\n[7b] hydrate 用远端 state 覆盖本地(client = truth 后没有 pending re-apply)')
 seed({ coins: 100 })
-s.addTask({ notebookId: undefined, subject: '语', content: 'one', estimatedMinutes: 5 })
-const taskId7 = st().tasks[0].id
-s.finishTask(taskId7, today)
-const localCoinsAfter = st().coins
-const pendingDelta = st().pendingCoinEvents.reduce((a, e) => a + e.delta, 0)
-// Simulate hydrate from a server that's behind by pendingDelta.
-const serverCoins = localCoinsAfter - pendingDelta
-s.applyHydratedState({
-  coins: serverCoins
-}, Date.now())
-assert('hydrate keeps local optimistic coins (server + pending re-applied)', st().coins === localCoinsAfter,
-  `coins=${st().coins} expected=${localCoinsAfter}`)
-assert('pendingCoinEvents preserved through hydrate', st().pendingCoinEvents.length > 0)
+s.applyHydratedState({ coins: 42, perfectDays: [], bonusByDay: {}, completionsByDay: {}, coinLogs: [], tasks: [], notebooks: [], pet: null }, Date.now())
+assert('hydrate snaps local coins to remote 42', st().coins === 42, `coins=${st().coins}`)
 
 // ===== Scenario 8: detachOccurrence — recurring 实例 detach 成独立 one-shot =====
 console.log('\n[8] detachOccurrence: recurring 实例拆成独立 task,原任务 excludedDates 加这天')

@@ -17,6 +17,22 @@
       "timeout": 15,
       "memorySize": 256,
       "installDependency": true
+    },
+    {
+      "name": "shareReward",
+      "runtime": "Nodejs16.13",
+      "handler": "index.main",
+      "timeout": 15,
+      "memorySize": 256,
+      "installDependency": true
+    },
+    {
+      "name": "adminPanel",
+      "runtime": "Nodejs16.13",
+      "handler": "index.main",
+      "timeout": 15,
+      "memorySize": 256,
+      "installDependency": true
     }
   ]
 }

@@ -300,11 +300,11 @@ async function adjustCoins({ openid, delta, reason, adminOpenid }) {
 }
 
 // 任意用户都能调（不走 admin 白名单）：拉自己 inbox 里所有 unclaimed 记录、
-// 服务端做 clamp ≥0、直接更新 user_state.state.coins、写 coin_ledger 审计、
-// 删除 inbox、标记 audit。最终把 newBalance + items(含 applied) 一起返。
+// 写 coin_ledger 服务端审计、删除 inbox、标记 audit、返 items 给 client。
 //
-// 客户端拿到 newBalance 后直接 set 本地 state.coins,不再做自己的累加 ——
-// state.coins 是服务端账本,client 端只反映。items 给 coinLogs 显示用。
+// 客户端 = truth 架构下,server 不再 inc user_state.state.coins、不再 clamp。
+// 每条 item 把 raw delta 推给 client,client 自己 applyCoinDelta 入账(允许
+// 把余额拍负)。server 这边只留 immutable 审计。
 async function claimAdminCoins(callerOpenid) {
   if (!callerOpenid) return { ok: false, reason: 'no_openid' }
   await ensureCollection(INBOX_COLLECTION)
@@ -320,40 +320,29 @@ async function claimAdminCoins(callerOpenid) {
 
   const rows = res.data || []
   if (rows.length === 0) {
-    const cur = await readServerBalance(callerOpenid)
-    return { ok: true, total: 0, count: 0, items: [], newBalance: cur }
+    return { ok: true, total: 0, count: 0, items: [] }
   }
 
-  // 读当前余额,作为 clamp 走逻辑的起点。
-  const startBalance = await readServerBalance(callerOpenid)
-  let balance = startBalance
-  let totalApplied = 0
+  const clientItems = []
+  let totalDelta = 0
   let addedTotal = 0
   let deductedTotal = 0
-  const appliedItems = []
   for (const r of rows) {
-    const requested = Math.trunc(Number(r.delta) || 0)
-    const next = Math.max(0, balance + requested)
-    const applied = next - balance
-    balance = next
-    totalApplied += applied
-    if (applied > 0) addedTotal += applied
-    else if (applied < 0) deductedTotal += applied
-    appliedItems.push({
-      requested,
-      applied,
+    const delta = Math.trunc(Number(r.delta) || 0)
+    totalDelta += delta
+    if (delta > 0) addedTotal += delta
+    else if (delta < 0) deductedTotal += delta
+    clientItems.push({
+      delta,
       reason: r.reason || '',
       adminOpenid: r.adminOpenid || '',
       auditId: r.auditId || '',
-      createdAt: r.createdAt || 0,
-      inboxId: r._id
+      createdAt: r.createdAt || 0
     })
   }
 
-  // 1) 写 ledger summary,优先做(失败的话不动余额)。
-  // eventId 改为 inbox 行 id 的稳定哈希 —— 这样如果上一次 claim 删 inbox
-  // 失败、下次重读到同一批行时,我们能通过查 ledger 发现"这批已入账过",
-  // 直接跳过余额变更只清 inbox,避免双倍到账。
+  // ledger summary 做服务端审计。dedup 用 inboxIds 哈希 —— client 重试时
+  // 第二次过来看到 alreadyApplied,会拿到 total=0 不重复入账。
   await ensureCollection(LEDGER_COLLECTION)
   const inboxIds = rows.map((r) => r._id).slice().sort()
   const inboxHash = crypto.createHash('sha256').update(inboxIds.join(',')).digest('hex').slice(0, 16)
@@ -362,71 +351,31 @@ async function claimAdminCoins(callerOpenid) {
     .where({ _openid: callerOpenid, eventId })
     .limit(1)
     .get()
-  if (existingLedger.data && existingLedger.data.length > 0) {
-    // 已经入过账。这次 claim 的"应得"为 0 —— 余额不动,只把残留的 inbox
-    // 行删掉(可能上次 delete 也失败,best-effort 再试一次)+ 标 audit。
-    for (const r of rows) {
-      try { await db.collection(INBOX_COLLECTION).doc(r._id).remove() } catch (e) {}
-    }
-    const curBalance = await readServerBalance(callerOpenid)
-    return {
-      ok: true,
-      total: 0,
-      totalApplied: 0,
-      addedTotal: 0,
-      deductedTotal: 0,
-      count: 0,
-      items: [],
-      newBalance: curBalance,
-      eventId,
-      alreadyApplied: true
-    }
-  }
-  try {
-    await db.collection(LEDGER_COLLECTION).add({
-      data: {
-        _openid: callerOpenid,
-        eventId,
-        kind: 'admin_coin_claim',
-        delta: totalApplied,
-        balanceAfter: null,
-        meta: {
-          count: rows.length,
-          inboxIds,
-          appliedItems: appliedItems.map((it) => ({
-            requested: it.requested,
-            applied: it.applied,
-            auditId: it.auditId
-          }))
-        },
-        clientTs: 0,
-        createdAt: Date.now()
-      }
-    })
-  } catch (e) {
-    console.warn('[adminPanel] ledger write failed', e && e.errMsg)
-    return { ok: false, reason: 'ledger_write_failed' }
-  }
-
-  // 2) 更新余额。totalApplied 可能是 0(全被 clamp 掉),那就不写。
-  if (totalApplied !== 0) {
+  const alreadyApplied = !!(existingLedger.data && existingLedger.data.length > 0)
+  if (!alreadyApplied) {
     try {
-      const upd = await db.collection(USER_COLLECTION)
-        .where({ _openid: callerOpenid })
-        .update({ data: { state: { coins: db.command.inc(totalApplied) } } })
-      if (!upd || !upd.stats || upd.stats.updated === 0) {
-        console.warn('[adminPanel] balance update affected 0 rows; user_state missing?')
-        return { ok: false, reason: 'no_user_state', eventId }
-      }
+      await db.collection(LEDGER_COLLECTION).add({
+        data: {
+          _openid: callerOpenid,
+          eventId,
+          kind: 'admin_coin_claim',
+          delta: totalDelta,
+          meta: {
+            count: rows.length,
+            inboxIds,
+            items: clientItems.map((it) => ({ delta: it.delta, auditId: it.auditId }))
+          },
+          clientTs: 0,
+          createdAt: Date.now()
+        }
+      })
     } catch (e) {
-      console.warn('[adminPanel] balance update failed', e && e.errMsg)
-      return { ok: false, reason: 'balance_update_failed', eventId }
+      console.warn('[adminPanel] ledger write failed', e && e.errMsg)
+      // 不致命 —— audit 失败但奖励照发,client 自己入账。
     }
   }
-  const newBalance = totalApplied === 0 ? startBalance : balance
 
-  // 3) 删除 inbox + 标记 audit。两个都是 best-effort。失败的话 ledger 已经
-  //    有 eventId,重领不会真的二次入账(不过这版还没做严格 dedup,人工对账)。
+  // 删除 inbox + 标记 audit (best-effort)。
   for (const r of rows) {
     try {
       await db.collection(INBOX_COLLECTION).doc(r._id).remove()
@@ -435,14 +384,14 @@ async function claimAdminCoins(callerOpenid) {
     }
   }
   await ensureCollection(AUDIT_COLLECTION)
-  for (const it of appliedItems) {
+  for (const it of clientItems) {
     if (!it.auditId) continue
     try {
       await db.collection(AUDIT_COLLECTION).doc(it.auditId).update({
         data: {
           claimed: true,
           claimedAt: Date.now(),
-          appliedDelta: it.applied
+          appliedDelta: it.delta
         }
       })
     } catch (e) {
@@ -450,41 +399,31 @@ async function claimAdminCoins(callerOpenid) {
     }
   }
 
-  // 给 client 的 items 不带 inboxId(它没用),但保留 applied + requested
-  // 用于 coinLogs 显示。
-  const clientItems = appliedItems.map((it) => ({
-    requested: it.requested,
-    applied: it.applied,
-    delta: it.applied,           // 保持和老 client 字段名兼容
-    reason: it.reason,
-    adminOpenid: it.adminOpenid,
-    auditId: it.auditId,
-    createdAt: it.createdAt
-  }))
+  if (alreadyApplied) {
+    // 重试场景:之前 ledger 已经记过这批,这次不让 client 二次入账。
+    return {
+      ok: true,
+      total: 0,
+      totalApplied: 0,
+      addedTotal: 0,
+      deductedTotal: 0,
+      count: 0,
+      items: [],
+      eventId,
+      alreadyApplied: true
+    }
+  }
 
   return {
     ok: true,
-    total: totalApplied,    // 兼容字段:老 client 把这个当 total
-    totalApplied,
+    total: totalDelta,
+    totalApplied: totalDelta,
     addedTotal,
     deductedTotal,
     count: rows.length,
     items: clientItems,
-    newBalance,
     eventId
   }
-}
-
-async function readServerBalance(openid) {
-  const db = cloud.database()
-  const res = await db.collection(USER_COLLECTION)
-    .where({ _openid: openid })
-    .field({ state: true })
-    .limit(1)
-    .get()
-  const doc = (res.data && res.data[0]) || null
-  if (!doc || !doc.state) return 0
-  return typeof doc.state.coins === 'number' ? doc.state.coins : 0
 }
 
 async function listAdjustments(event) {

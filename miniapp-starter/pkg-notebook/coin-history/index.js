@@ -1,12 +1,15 @@
 const store = require('../../utils/store')
 
-// kind → 显示文案 + emoji。覆盖 applyCoinDelta 写入的所有 kind;
-// applyAdminCoinClaim 走 admin-adjust:* 路径,在 describeLog 里特判。
+// kind → 显示文案 + emoji。覆盖 applyCoinDelta 写入的所有 kind。
+// admin_adjust 是新架构的入账 kind;legacy 老 admin 流水(没 kind,带
+// reason='admin-adjust:xxx')在 describeLog 里另走兼容分支。
 const KIND_LABELS = {
   task_reward: { label: '完成作业', emoji: '📚' },
   task_refund: { label: '撤销退款', emoji: '↩️' },
   pet_purchase: { label: '宠物商店', emoji: '🛒' },
   pet_skin_switch: { label: '更换宠物', emoji: '🔄' },
+  share_reward: { label: '分享奖励', emoji: '🎁' },
+  admin_adjust: { label: '管理员调整', emoji: '🛠️' },
   perfect_day_clawback_skipped: { label: '审计跳过', emoji: '⚠️' }
 }
 
@@ -81,6 +84,11 @@ function describeLog(log) {
   } else if (kind === 'pet_skin_switch') {
     const to = SPECIES_LABELS[meta.toSpecies] || meta.toSpecies || ''
     sub = to ? `换成${to}` : '更换宠物'
+  } else if (kind === 'share_reward') {
+    const n = Number(meta.count) || 0
+    sub = n > 1 ? `${n} 位好友保存` : (n === 1 ? '好友保存' : '分享奖励')
+  } else if (kind === 'admin_adjust') {
+    sub = (meta.reason || '').toString() || '系统调整'
   } else if (kind === 'perfect_day_clawback_skipped') {
     sub = meta.day ? `${meta.day} 守卫跳过` : '守卫跳过'
   }

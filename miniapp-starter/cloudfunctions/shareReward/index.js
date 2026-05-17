@@ -207,19 +207,15 @@ async function claimRewards(callerOpenid) {
 
   const rows = res.data || []
   if (rows.length === 0) {
-    // 没领的也回一个 newBalance,让 client 在 claim 之后能用同一个值对齐
-    // (state.coins 是服务端账本,client 没法本地推断)。
-    const cur = await readServerBalance(callerOpenid)
-    return { ok: true, total: 0, count: 0, newBalance: cur }
+    return { ok: true, total: 0, count: 0 }
   }
 
   const total = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
 
-  // 1) 写一条 ledger summary entry,做审计。先写 ledger 再改余额:这样
-  //    余额改失败的话,审计上能看到"应入账但没成功"。
-  // eventId 用 inbox 行 id 的稳定哈希 —— 上一次 claim 如果删 inbox 失败、
-  // 下次重读到同一批行,我们能通过查 ledger 发现"已入账过",直接跳过余额
-  // 变更只清 inbox,避免双倍到账。
+  // 写一条 ledger summary entry 做服务端审计。客户端 = truth 架构下,
+  // server 不再 inc user_state.state.coins,余额完全由 client applyCoinDelta
+  // 维护,但 server 这边仍然记一条 immutable 流水,跟当事人 user_state 上的
+  // coinLogs 互为对账。dedup 用 inboxIds 哈希(防 client 重试时多记一条)。
   await ensureLedgerCollection()
   const inboxIds = rows.map((r) => r._id).slice().sort()
   const inboxHash = crypto.createHash('sha256').update(inboxIds.join(',')).digest('hex').slice(0, 16)
@@ -228,63 +224,32 @@ async function claimRewards(callerOpenid) {
     .where({ _openid: callerOpenid, eventId })
     .limit(1)
     .get()
-  if (existingLedger.data && existingLedger.data.length > 0) {
-    for (const r of rows) {
-      try { await db.collection(COLLECTION).doc(r._id).remove() } catch (e) {}
+  const alreadyApplied = !!(existingLedger.data && existingLedger.data.length > 0)
+  if (!alreadyApplied) {
+    try {
+      await db.collection(LEDGER_COLLECTION).add({
+        data: {
+          _openid: callerOpenid,
+          eventId,
+          kind: 'share_reward_claim',
+          delta: total,
+          meta: {
+            count: rows.length,
+            inboxIds,
+            notebookIds: rows.map((r) => r.notebookId).filter(Boolean)
+          },
+          clientTs: 0,
+          createdAt: Date.now()
+        }
+      })
+    } catch (e) {
+      console.warn('[shareReward] ledger write failed', e && e.errMsg)
+      // 不致命 —— audit 失败但奖励照发,client 自己 applyCoinDelta 入账。
     }
-    const curBalance = await readServerBalance(callerOpenid)
-    return {
-      ok: true,
-      total: 0,
-      count: 0,
-      notebooks: [],
-      newBalance: curBalance,
-      eventId,
-      alreadyApplied: true
-    }
-  }
-  try {
-    await db.collection(LEDGER_COLLECTION).add({
-      data: {
-        _openid: callerOpenid,
-        eventId,
-        kind: 'share_reward_claim',
-        delta: total,
-        balanceAfter: null,    // 写完余额后没必要回填,审计够用
-        meta: {
-          count: rows.length,
-          inboxIds,
-          notebookIds: rows.map((r) => r.notebookId).filter(Boolean)
-        },
-        clientTs: 0,
-        createdAt: Date.now()
-      }
-    })
-  } catch (e) {
-    console.warn('[shareReward] ledger write failed', e && e.errMsg)
-    return { ok: false, reason: 'ledger_write_failed' }
   }
 
-  // 2) 原子 inc 余额。如果 user_state 不存在(0 rows updated),拒绝并把
-  //    ledger 这条标记为 voided —— 但 WeChat cloud 没法事务回滚,这里
-  //    只能 best-effort,记一条 warn,client 下次会再试。
-  let newBalance = null
-  try {
-    const upd = await db.collection(USER_COLLECTION)
-      .where({ _openid: callerOpenid })
-      .update({ data: { state: { coins: db.command.inc(total) } } })
-    if (!upd || !upd.stats || upd.stats.updated === 0) {
-      console.warn('[shareReward] balance update affected 0 rows; user_state missing?')
-      return { ok: false, reason: 'no_user_state', eventId }
-    }
-    newBalance = await readServerBalance(callerOpenid)
-  } catch (e) {
-    console.warn('[shareReward] balance update failed', e && e.errMsg)
-    return { ok: false, reason: 'balance_update_failed', eventId }
-  }
-
-  // 3) 删除 inbox(best-effort)。已经入账了,删除失败下次仍可能重领 ——
-  //    但 ledger eventId 已经记录,人工对账时能发现。
+  // 删除 inbox(best-effort)。已经记 ledger 了,删除失败下次重读时通过
+  // ledger eventId dedup 会被识别为 alreadyApplied,不会重发奖励。
   for (const r of rows) {
     try {
       await db.collection(COLLECTION).doc(r._id).remove()
@@ -293,12 +258,24 @@ async function claimRewards(callerOpenid) {
     }
   }
 
+  if (alreadyApplied) {
+    // 之前已发过,客户端这次又来要 —— 还回 total=0 不让重复入账。
+    return {
+      ok: true,
+      total: 0,
+      count: 0,
+      notebooks: [],
+      eventId,
+      alreadyApplied: true
+    }
+  }
+
   return {
     ok: true,
     total,
     count: rows.length,
     notebooks: rows.map((r) => r.notebookName || '').filter(Boolean),
-    newBalance
+    eventId
   }
 }
 
@@ -311,14 +288,3 @@ async function ensureLedgerCollection() {
   }
 }
 
-async function readServerBalance(openid) {
-  const db = cloud.database()
-  const res = await db.collection(USER_COLLECTION)
-    .where({ _openid: openid })
-    .field({ state: true })
-    .limit(1)
-    .get()
-  const doc = (res.data && res.data[0]) || null
-  if (!doc || !doc.state) return 0
-  return typeof doc.state.coins === 'number' ? doc.state.coins : 0
-}

@@ -1,5 +1,4 @@
 const cloudSync = require('./cloud-sync')
-const coinLedger = require('./coin-ledger')
 
 const STORAGE_KEY = 'homework-pet-v1'
 const SCHEMA_VERSION = 3
@@ -22,24 +21,19 @@ const DEFAULT_ORGANIZATION = '校内'
 // NOTE: `profile` carries both nickname AND avatar (a cloud:// fileID), so
 // the avatar is synced through the existing entry — no separate field needed.
 //
-// `coins` 故意不在 sync list 里 —— 余额改成由服务端账本独占维护(coinLedger
-// 云函数 + shareReward.claim + adminPanel.claimAdminCoins),客户端 push 整包
-// state 时不携带 coins,避免 localStorage 篡改秒变 999999。本地 state.coins
-// 仅作即时 UI 缓存,通过 hydrate 或事件 flush 的 newBalance 校准。
-// `pendingCoinEvents` 也只在本机持久化 —— 它是未上报的 coin 事件队列,
-// flush 成功后会被 drain。跨设备切换时未上报的事件会丢(很少),可接受。
+// 架构:客户端 = truth。所有 coin / bonus / perfectDays / completionsByDay
+// 都是本地决定 + push 上云作 mirror。云端不再有"权威账本"概念,server
+// 上 shareReward.claim / adminPanel.claimAdminCoins 只把 inbox items 推回给
+// client,client 自己走 applyCoinDelta 入账。
 const SYNC_FIELDS = [
   // schemaVersion 必须 sync — 否则 hydrate 拿到的 remote state 没这字段,
   // migrate 把 v2 数据(有 notebooks + 无 schemaVersion)误判为 v1,走 fallback
   // 把所有 task 塞进 nb_mig_today,首页"已完成"列表炸开。
   'schemaVersion',
   'notebooks', 'tasks',
+  'coins',
   'streakDays', 'perfectDays', 'bonusByDay', 'completionsByDay',
-  // coinLogs 是客户端完整审计:每次 applyCoinDelta 都 append 一条,
-  // cap 至 COIN_LOG_KEEP 条防 cloud doc 膨胀。和服务端 coin_ledger 互为
-  // 备份 —— ledger 漏了(client 端 pending event 没 flush 上就丢了 / 老
-  // 版本走 cloud-sync 直接覆写 coins 路径)时,本地这份是 source of truth。
-  // 也是 revokePerfectDay 检查"对应入账是否真的发生过"的依据。
+  // coinLogs 是完整流水审计。append-only,cap 至 COIN_LOG_KEEP 条。
   'coinLogs',
   'pet', 'lastReward',
   'profile'
@@ -379,19 +373,12 @@ const defaultState = {
   // ms timestamp of last sync-relevant local mutation. 0 = never written, so
   // anything from cloud will win on first hydrate.
   updatedAt: 0,
-  // 服务端账本权威值的本地缓存。hydrate / coinLedger flush / claim 之后被
-  // 重写。不在 SYNC_FIELDS 里 —— 客户端 push 不带这个字段。
-  // 新用户首次启动从 100 起步(在 cloud-sync.createInitialDoc 里 seed
-  // 进云端 user_state.state.coins,之后服务端账本独占维护)。
+  // 余额本地真值。每次 applyCoinDelta 直接改本地,saveState 整包 push 上云。
+  // 新用户从 100 起步。
   coins: 100,
-  // 未上报到 coinLedger 的事件队列。每次 coin 变更同时 push 进来,
-  // coin-ledger.flush() 按批次提交后,server 返回 appliedEventIds 用来 drain。
-  pendingCoinEvents: [],
-  // 客户端完整金币交易审计。append-only,cap 至 COIN_LOG_KEEP 条。和
-  // pendingCoinEvents 不同:flush 成功后 pending 会 drain,但 coinLogs
-  // 永不删 —— 既能事后对账(本地 vs 服务端 ledger),也是 revokePerfectDay
-  // 判定"对应 perfect 入账是否真发生过"的唯一依据。
-  // 进 SYNC_FIELDS,sync 到 user_state,admin 后台可读。
+  // 完整流水审计。append-only,cap 至 COIN_LOG_KEEP 条。push 上云作 mirror。
+  // revokePerfectDay 据此判定"对应 perfect 入账是否真发生过"(看 bonusByDay
+  // 上的 ledgerEventId 是否能在 coinLogs 中找到)。
   coinLogs: [],
   streakDays: 0,
   // YYYY-MM-DD strings for days where every task got completed. Used to
@@ -598,7 +585,10 @@ function migrateState(raw) {
     if (!raw.completionsByDay || typeof raw.completionsByDay !== 'object') raw.completionsByDay = {}
     if (typeof raw.streakDays !== 'number') raw.streakDays = 0
     if (typeof raw.coins !== 'number') raw.coins = 0
-    if (!Array.isArray(raw.pendingCoinEvents)) raw.pendingCoinEvents = []
+    // 老 schema 残留的 pendingCoinEvents 字段 — 新架构不再异步上报事件,
+    // 直接 strip 掉。这些未发出的事件已经在本地 applyCoinDelta 时反映到
+    // state.coins,丢了 server-side 的"待入账"列表无伤大雅。
+    if ('pendingCoinEvents' in raw) delete raw.pendingCoinEvents
     if (!Array.isArray(raw.coinLogs)) raw.coinLogs = []
     // Pet schema upgrade: legacy data had {name, emoji, level, growth,
     // happiness, fullness} but no species / cleanliness / health / age. If
@@ -666,12 +656,9 @@ function loadState() {
 function saveState(state) {
   _stateCache = state
   wx.setStorageSync(STORAGE_KEY, state)
-  // Push synced subset to cloud (debounced inside cloud-sync). coins +
-  // pendingCoinEvents 都不在 SYNC_FIELDS,这里只推非 coin 字段。
+  // Push synced subset to cloud (debounced inside cloud-sync). coins 现在
+  // 在 SYNC_FIELDS 里,随 state 一起整包推。
   cloudSync.pushState(pickSyncFields(state), state.updatedAt)
-  // 顺手让 coin-ledger debounced flush。queue 为空时是个 no-op,有事件就
-  // 批量上送 coinLedger.commit。
-  coinLedger.scheduleFlush()
 }
 
 function pickSyncFields(state) {
@@ -684,10 +671,8 @@ function pickSyncFields(state) {
 // the user "switches to this device"). Overlays the synced subset onto local
 // cache + storage WITHOUT triggering a push back.
 //
-// 注意:remoteSyncedFields 是从云端 user_state.state 拉下来的整个 state 子集
-// (包括 coins,因为云端 doc 上有这个字段 —— 由 coinLedger / shareReward.claim
-// / adminPanel.claimAdminCoins 维护)。客户端 push 不写 coins,但 hydrate 必须
-// 把 coins 当 truth 拉下来。
+// 客户端 = truth 架构下,hydrate 只在"另一台设备写过 / 本机 storage 被清"
+// 时才会接到云端比本地新的 state — 那种情况就用云端的 snapshot 覆盖本地。
 function applyHydratedState(remoteSyncedFields, remoteUpdatedAt) {
   const cur = loadState()
   const next = {
@@ -695,19 +680,8 @@ function applyHydratedState(remoteSyncedFields, remoteUpdatedAt) {
     ...remoteSyncedFields,
     updatedAt: remoteUpdatedAt || Date.now()
   }
-  // pendingCoinEvents 不在 SYNC_FIELDS,所以 spread 之后保留 cur 的本地队列。
-  // 服务端 coins 没看过这些 pending,我们把它们的 delta 先乐观加上去,UI 不会
-  // 看到 coins 短暂回落 —— 后续 coin-ledger.flush 会把它们送上,服务端返
-  // newBalance 就是这个加完的值。
-  const pending = Array.isArray(next.pendingCoinEvents) ? next.pendingCoinEvents : []
-  if (pending.length > 0) {
-    const pendingDelta = pending.reduce((s, ev) => s + (Math.trunc(Number(ev.delta) || 0)), 0)
-    next.coins = (typeof next.coins === 'number' ? next.coins : 0) + pendingDelta
-  }
   _stateCache = next
   wx.setStorageSync(STORAGE_KEY, next)
-  // 触发 flush 让 pending 队列尽快归零,本机和云端 coins 对齐。
-  coinLedger.scheduleFlush()
 }
 
 function getStateForSync() {
@@ -716,14 +690,6 @@ function getStateForSync() {
 
 function getUpdatedAt() {
   return loadState().updatedAt || 0
-}
-
-// 仅给 cloud-sync.createInitialDoc 用 —— 首次建云文档时把本地缓存的
-// coins(新用户 defaultState 100 或老用户的最后余额)seed 进去。
-// 后续 push 不带 coins, 服务端账本独占维护。
-function getLocalCoins() {
-  const s = loadState()
-  return typeof s.coins === 'number' ? s.coins : 0
 }
 
 // === Task scheduling === //
@@ -1096,26 +1062,24 @@ function updateState(updater) {
   return { ...next }
 }
 
-// === Server-authoritative coin ledger === //
+// === Client-truth coin model === //
 //
-// 余额改成由服务端账本独占维护(见 cloudfunctions/coinLedger + shareReward.claim
-// + adminPanel.claimAdminCoins)。客户端这边:
-//   - 每次 coin 变更都同时改 state.coins(乐观 UI)+ 推一条 event 进 queue
-//   - utils/coin-ledger 模块 debounce 把 queue 批量送给 coinLedger.commit
-//   - server 返回 newBalance + appliedEventIds,client 用来对齐 state.coins
-//     和 drain queue
-//   - 任何 claim(share / admin)直接返回 newBalance,client set 即可
+// 客户端 = truth。每次 coin 变更走 applyCoinDelta:直接改 state.coins +
+// append 一条 coinLogs 审计条目。saveState 整包 push 上云(coinLogs 在
+// SYNC_FIELDS 里)。没有"待上报队列",没有"服务端账本",也没有 server
+// 返 newBalance 这件事。
 //
-// applyCoinDelta 是给 updateState 的 updater 函数内调用的工具 —— 它同时改
-// state.coins(本地缓存)和 state.pendingCoinEvents(事件队列)。
+// 服务端的 shareReward / adminPanel 云函数只把 inbox items 推回给 client,
+// client 自己 applyCoinDelta 入账。
 
 function genEventId() {
   return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
 }
 
 // In-updater coin mutation. Caller must be inside `updateState((state) => {...})`.
-// kind: 'task_reward' | 'task_refund' | 'pet_purchase' | 'pet_level_up' | 'pet_skin_switch'
-// delta: signed integer matching kind's allowed range (server re-validates).
+// kind: 'task_reward' | 'task_refund' | 'pet_purchase' | 'pet_skin_switch'
+//       | 'share_reward' | 'admin_adjust'
+// delta: signed integer.
 // meta:  optional debug context for the ledger entry (taskId, itemId, etc.).
 // 返回写入的 eventId(no-op 时返 null) —— finishTask 用来 stamp 到
 // bonusByDay[day].ledgerEventId,后续 revokePerfectDay 凭它判定那次入账
@@ -1125,27 +1089,20 @@ function applyCoinDelta(state, kind, delta, meta) {
   const d = Math.trunc(Number(delta) || 0)
   if (!d) return null
   const before = state.coins || 0
-  // 乐观更新本地缓存 —— 服务端 commit 后会回 newBalance 覆盖纠偏。
-  // 不再 clip 在 0 —— task_refund(完美日撤销 / task_revert)允许把余额拍负,
-  // 用户欠的钱后续 task_reward 先补债再正向累计。spending 路径(buyItem /
-  // levelUpPet / switchPetSpecies / renamePet)在 caller 端各自 guard
-  // state.coins < cost,不会从这里走出负值。
+  // task_refund(完美日撤销 / task_revert)允许把余额拍负,用户欠的钱后续
+  // task_reward 先补债再正向累计。spending 路径(buyItem / levelUpPet /
+  // switchPetSpecies / renamePet)在 caller 端各自 guard state.coins < cost,
+  // 不会从这里走出负值。
   state.coins = before + d
   const after = state.coins
   const eventId = genEventId()
   const ts = Date.now()
-  if (!Array.isArray(state.pendingCoinEvents)) state.pendingCoinEvents = []
-  state.pendingCoinEvents.push({ eventId, kind, delta: d, ts, meta: meta || null })
-  // 同步 append 到 coinLogs(永久审计,不随 flush drain)。带 balance
-  // before/after 方便事后看每条 event 对账面的真实影响 —— ledger 也存
-  // balanceAfter 但只服务端有,本地这份独立。
   if (!Array.isArray(state.coinLogs)) state.coinLogs = []
   state.coinLogs.push({
     eventId, kind, delta: d, balanceBefore: before, balanceAfter: after,
     ts, meta: meta || null
   })
-  // Prune 防 cloud doc 撑爆。早期记录进 coin_ledger 兜底(只要 flush 过),
-  // 本地这里只留最近 COIN_LOG_KEEP 条够人工审查。
+  // Prune 防 cloud doc 撑爆。
   if (state.coinLogs.length > COIN_LOG_KEEP) {
     state.coinLogs = state.coinLogs.slice(state.coinLogs.length - COIN_LOG_KEEP)
   }
@@ -1154,28 +1111,6 @@ function applyCoinDelta(state, kind, delta, meta) {
 
 // XP 累计走 commitPetDecay(挂机积分),消费走 levelUpPet(扣 pet.xp 直写)。
 // 不再需要 applyPetXpDelta 这种通用 helper。
-
-// Read-only snapshot of unflushed events; coin-ledger module pulls this batch.
-function getPendingCoinEvents() {
-  const events = loadState().pendingCoinEvents
-  return Array.isArray(events) ? events.slice() : []
-}
-
-// Drain events that the server confirmed applied, and snap local coins to
-// the server-returned balance. Called from coin-ledger after a successful
-// commit (or after a claim returns newBalance with no events).
-function applyServerCoinResult({ appliedEventIds, newBalance }) {
-  const drained = Array.isArray(appliedEventIds) ? new Set(appliedEventIds) : null
-  updateState((state) => {
-    if (drained && Array.isArray(state.pendingCoinEvents)) {
-      state.pendingCoinEvents = state.pendingCoinEvents.filter((ev) => !drained.has(ev.eventId))
-    }
-    if (typeof newBalance === 'number' && Number.isFinite(newBalance)) {
-      state.coins = Math.trunc(newBalance)
-    }
-    return state
-  })
-}
 
 // === Notebook CRUD === //
 
@@ -2253,21 +2188,17 @@ function serializeTasksForShare(dateStr, options) {
   }
 }
 
-// Apply share-save coins claimed from cloud. Cloud function已经服务端入账,
-// 这里只做本地缓存校准 + 触发 toast UI。
-// payload: { total, count, notebooks, newBalance }
-function applyShareRewardClaim({ total, count, notebooks, newBalance }) {
+// Apply share-save coins claimed from cloud. 客户端 = truth:走本地
+// applyCoinDelta 入账并 append coinLogs,然后整包 push 上云。
+// payload: { total, count, notebooks }
+function applyShareRewardClaim({ total, count, notebooks }) {
   if (!total || total <= 0) return null
   let next = null
   updateState((state) => {
-    // 服务端账本权威 —— 直接 set,不再 +=。允许 newBalance 是负数
-    // (用户欠债状态下分享拿到 +3 把余额从 -10 拉到 -7,合理)。
-    if (typeof newBalance === 'number' && Number.isFinite(newBalance)) {
-      state.coins = Math.trunc(newBalance)
-    } else {
-      // 老版云函数没返 newBalance,fallback 走 += 以免本次 claim 看不到金币。
-      state.coins = (state.coins || 0) + total
-    }
+    applyCoinDelta(state, 'share_reward', total, {
+      count: count || 0,
+      notebooks: Array.isArray(notebooks) ? notebooks.slice(0, 5) : []
+    })
     state.lastShareReward = {
       total,
       count: count || 0,
@@ -2280,57 +2211,34 @@ function applyShareRewardClaim({ total, count, notebooks, newBalance }) {
   return next
 }
 
-// Apply an admin-coin-inbox claim. Server 已经完成 clamp ≥0 + 余额更新 +
-// 审计写入,本地这边只:
-//   - 把 state.coins 校准到 server 返的 newBalance
-//   - 追加 coinLogs(用 item.applied 而不是 item.requested,因为 server 已 clamp)
-//   - 触发 lastAdminCoinClaim 给 UI 闪 toast
+// Apply an admin-coin-inbox claim. 客户端 = truth:server 把 inbox items
+// 推回来,这里逐条走 applyCoinDelta 入账,balanceBefore/After 自动落账。
 //
-// payload: { totalApplied, addedTotal, deductedTotal, count, items, newBalance }
-//   items[i] = { requested, applied, delta, reason, adminOpenid, auditId, createdAt }
-//   (delta 字段是老 client 兼容字段,等价 applied)
-function applyAdminCoinClaim({ items, totalApplied, addedTotal, deductedTotal, newBalance }) {
+// payload: { items, totalApplied?, addedTotal?, deductedTotal? }
+//   items[i] = { delta, reason, adminOpenid, auditId, createdAt }
+//     (老 payload 可能用 applied 字段,fallback 兼容)
+function applyAdminCoinClaim({ items, totalApplied, addedTotal, deductedTotal }) {
   if (!Array.isArray(items) || items.length === 0) return null
   let summary = null
   updateState((state) => {
-    const logs = Array.isArray(state.coinLogs) ? state.coinLogs : []
     const appliedItems = []
-    // 从当前余额起算 running balance,每条 admin item 各记一对 before/after,
-    // coin-history 里就能跟其它流水一样显示"余 X"(之前漏了这俩字段,UI 直接
-    // wx:if 隐藏了余额一栏)。多 item 时按返回顺序累加,最终值应与 newBalance 一致。
-    let running = typeof state.coins === 'number' ? state.coins : 0
     for (const it of items) {
-      // Server 已经做过 clamp;applied 字段就是真实入账值。老版兼容:如果
-      // 只有 delta 没有 applied,把 delta 当 applied 用。
-      const applied = typeof it.applied === 'number' ? it.applied : (Number(it.delta) || 0)
-      const requested = typeof it.requested === 'number' ? it.requested : applied
-      if (!applied && !requested) continue
+      const delta = typeof it.delta === 'number'
+        ? it.delta
+        : (typeof it.applied === 'number' ? it.applied : 0)
+      if (!delta) continue
       const reason = (it.reason || '').toString()
-      const before = running
-      running += applied
-      logs.push({
-        at: Number(it.createdAt) || Date.now(),
-        delta: applied,
-        balanceBefore: before,
-        balanceAfter: running,
-        reason: `admin-adjust:${reason}`,
+      applyCoinDelta(state, 'admin_adjust', delta, {
+        reason,
         adminOpenid: it.adminOpenid || '',
-        auditId: it.auditId || ''
+        auditId: it.auditId || '',
+        adjustedAt: Number(it.createdAt) || 0
       })
-      appliedItems.push({ requested, applied, reason })
+      appliedItems.push({ delta, reason })
     }
-    // 服务端账本权威 —— 直接 set。老版云函数没返 newBalance 的话维持原值
-    // (后续 hydrate 会拉到正确值)。允许 newBalance 是负数(admin 扣款可能
-    // 拍负)。
-    if (typeof newBalance === 'number' && Number.isFinite(newBalance)) {
-      state.coins = Math.trunc(newBalance)
-    }
-    // 防止 coinLogs 无限增长。云端单文档 + 客户端 storage 都有上限,长期
-    // 重度调整的用户(测试号 / admin 自己)会撑爆。只留最近 200 条够审查。
-    state.coinLogs = logs.length > COIN_LOG_KEEP ? logs.slice(-COIN_LOG_KEEP) : logs
     const totalAppliedFinal = typeof totalApplied === 'number'
       ? totalApplied
-      : appliedItems.reduce((s, it) => s + (it.applied || 0), 0)
+      : appliedItems.reduce((s, it) => s + it.delta, 0)
     state.lastAdminCoinClaim = {
       receivedAt: Date.now(),
       totalApplied: totalAppliedFinal,
@@ -2340,10 +2248,10 @@ function applyAdminCoinClaim({ items, totalApplied, addedTotal, deductedTotal, n
       totalApplied: totalAppliedFinal,
       addedTotal: typeof addedTotal === 'number'
         ? addedTotal
-        : appliedItems.reduce((s, it) => s + (it.applied > 0 ? it.applied : 0), 0),
+        : appliedItems.reduce((s, it) => s + (it.delta > 0 ? it.delta : 0), 0),
       deductedTotal: typeof deductedTotal === 'number'
         ? deductedTotal
-        : appliedItems.reduce((s, it) => s + (it.applied < 0 ? it.applied : 0), 0),
+        : appliedItems.reduce((s, it) => s + (it.delta < 0 ? it.delta : 0), 0),
       count: items.length,
       items: appliedItems
     }
@@ -2610,11 +2518,7 @@ module.exports = {
   applyHydratedState,
   getStateForSync,
   getUpdatedAt,
-  getLocalCoins,
   consumeV2V3MigrationFlag,
-  // coin-ledger interface (for utils/coin-ledger module)
-  getPendingCoinEvents,
-  applyServerCoinResult,
   // reward rules (read-only constants exposed for UI display + tests)
   REWARD_TASK_OVERDUE,
   REWARD_TASK_TODAY,
@@ -2637,14 +2541,5 @@ module.exports = {
 cloudSync.init({
   applyHydratedState,
   getStateForSync,
-  getUpdatedAt,
-  getLocalCoins
-})
-
-// Wire coin-ledger with the same init pattern as cloud-sync. coin-ledger 自己
-// 不 require store(它只用 init 传进来的接口),所以这两个 require 在文件顶部
-// 不会产生循环依赖。
-coinLedger.init({
-  getPendingCoinEvents,
-  applyServerCoinResult
+  getUpdatedAt
 })
