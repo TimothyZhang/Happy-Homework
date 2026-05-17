@@ -144,8 +144,19 @@ Component({
           this._gestureMode = 'swipe'
         } else {
           this._gestureMode = 'scroll'
-          return
+          // catchtouchmove 阻止冒泡后 scroll-view 收不到原始 touchmove,
+          // 这里把纵向位移转成增量喂给父页 → scroll-view scroll-top。
+          // 第一次进 scroll 用 touchStartY 当 baseline,后续 move 用上一次 pageY。
+          this._scrollLastY = this.touchStartY
         }
+      }
+
+      if (this._gestureMode === 'scroll') {
+        const lastY = this._scrollLastY != null ? this._scrollLastY : t.pageY
+        const deltaY = lastY - t.pageY
+        this._scrollLastY = t.pageY
+        if (deltaY !== 0) this.triggerEvent('scrollby', { deltaY })
+        return
       }
 
       if (this._gestureMode === 'drag') {
@@ -233,6 +244,7 @@ Component({
       this.touchStartX = null
       this.touchStartY = null
       this.dragStartY = null
+      this._scrollLastY = null
       this._gestureMode = null
       this._gestureRowId = null
     },
