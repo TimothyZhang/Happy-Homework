@@ -702,7 +702,7 @@ function applyHydratedState(remoteSyncedFields, remoteUpdatedAt) {
   const pending = Array.isArray(next.pendingCoinEvents) ? next.pendingCoinEvents : []
   if (pending.length > 0) {
     const pendingDelta = pending.reduce((s, ev) => s + (Math.trunc(Number(ev.delta) || 0)), 0)
-    next.coins = Math.max(0, (typeof next.coins === 'number' ? next.coins : 0) + pendingDelta)
+    next.coins = (typeof next.coins === 'number' ? next.coins : 0) + pendingDelta
   }
   _stateCache = next
   wx.setStorageSync(STORAGE_KEY, next)
@@ -1125,8 +1125,12 @@ function applyCoinDelta(state, kind, delta, meta) {
   const d = Math.trunc(Number(delta) || 0)
   if (!d) return null
   const before = state.coins || 0
-  // 乐观更新本地缓存 —— 服务端 commit 后会回 newBalance 覆盖纠偏
-  state.coins = Math.max(0, before + d)
+  // 乐观更新本地缓存 —— 服务端 commit 后会回 newBalance 覆盖纠偏。
+  // 不再 clip 在 0 —— task_refund(完美日撤销 / task_revert)允许把余额拍负,
+  // 用户欠的钱后续 task_reward 先补债再正向累计。spending 路径(buyItem /
+  // levelUpPet / switchPetSpecies / renamePet)在 caller 端各自 guard
+  // state.coins < cost,不会从这里走出负值。
+  state.coins = before + d
   const after = state.coins
   const eventId = genEventId()
   const ts = Date.now()
@@ -1167,7 +1171,7 @@ function applyServerCoinResult({ appliedEventIds, newBalance }) {
       state.pendingCoinEvents = state.pendingCoinEvents.filter((ev) => !drained.has(ev.eventId))
     }
     if (typeof newBalance === 'number' && Number.isFinite(newBalance)) {
-      state.coins = Math.max(0, Math.trunc(newBalance))
+      state.coins = Math.trunc(newBalance)
     }
     return state
   })
@@ -1680,8 +1684,8 @@ function recomputeStreak(perfectDays) {
 // recompute streakDays from the remaining perfectDays, and remove `day` from
 // perfectDays. No-op if the day wasn't perfect or has no bonus log. The
 // claw-back goes through applyCoinDelta so the server ledger sees a
-// 'task_refund' event (coins clip to 0 inside applyCoinDelta if user has
-// spent the bonus already). Used by revertTask (a finished task got
+// 'task_refund' event. 用户已经把奖励花掉的话余额会被拍负(欠债),
+// 后续 task_reward 先补债。Used by revertTask (a finished task got
 // un-done) and reconcilePerfectDays (a newly added task broke an
 // all-done day).
 //
@@ -1768,10 +1772,9 @@ function reconcilePerfectDays(state) {
 // Send a done task back to undone (paused) — used for "误点完成" recovery.
 // Keeps accumulatedMs so the user picks up where they left off. Also claws
 // back the +10 single-task reward; if reverting breaks an all-done day,
-// refunds the daily bonus (and weekly bonus if any) too. Coins clip to 0
-// rather than going negative — the user may have spent some between finish
-// and revert. This anti-farms the finish→revert→finish loop: each cycle
-// nets zero coins.
+// refunds the daily bonus (and weekly bonus if any) too. 余额允许走负
+// (用户已经把奖励花掉的话欠债),后续 task_reward 先补债。This anti-farms
+// the finish→revert→finish loop: each cycle nets zero coins.
 function revertTask(taskId, dateStr) {
   const day = dateStr || todayStr()
   return updateState((state) => {
@@ -2257,9 +2260,10 @@ function applyShareRewardClaim({ total, count, notebooks, newBalance }) {
   if (!total || total <= 0) return null
   let next = null
   updateState((state) => {
-    // 服务端账本权威 —— 直接 set,不再 +=。
+    // 服务端账本权威 —— 直接 set,不再 +=。允许 newBalance 是负数
+    // (用户欠债状态下分享拿到 +3 把余额从 -10 拉到 -7,合理)。
     if (typeof newBalance === 'number' && Number.isFinite(newBalance)) {
-      state.coins = Math.max(0, Math.trunc(newBalance))
+      state.coins = Math.trunc(newBalance)
     } else {
       // 老版云函数没返 newBalance,fallback 走 += 以免本次 claim 看不到金币。
       state.coins = (state.coins || 0) + total
@@ -2308,9 +2312,10 @@ function applyAdminCoinClaim({ items, totalApplied, addedTotal, deductedTotal, n
       appliedItems.push({ requested, applied, reason })
     }
     // 服务端账本权威 —— 直接 set。老版云函数没返 newBalance 的话维持原值
-    // (后续 hydrate 会拉到正确值)。
+    // (后续 hydrate 会拉到正确值)。允许 newBalance 是负数(admin 扣款可能
+    // 拍负)。
     if (typeof newBalance === 'number' && Number.isFinite(newBalance)) {
-      state.coins = Math.max(0, Math.trunc(newBalance))
+      state.coins = Math.trunc(newBalance)
     }
     // 防止 coinLogs 无限增长。云端单文档 + 客户端 storage 都有上限,长期
     // 重度调整的用户(测试号 / admin 自己)会撑爆。只留最近 200 条够审查。

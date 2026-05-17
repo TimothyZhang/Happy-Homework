@@ -1,7 +1,6 @@
 'use strict'
 
-// 金币账本云函数 (v3: per-event 容错,单条不合法不再整批拒;单条 over-debit
-// clip 到 0 不再 for-loop break)。
+// 金币账本云函数 (v4: per-event 容错 + 允许 balance 走负)。
 //
 // 历史背景:state.coins 之前在 cloud-sync 的 SYNC_FIELDS 里随 state 一起
 // 整包 push,客户端篡改 localStorage 就能直接覆盖云端余额。这个云函数把
@@ -10,7 +9,7 @@
 //
 // 接口:
 //   commit  → 批量提交事件,返回 { ok, appliedCount, newBalance,
-//                                  appliedEventIds, droppedEventIds, clippedEventIds, lastReason }
+//                                  appliedEventIds, droppedEventIds, lastReason }
 //   balance → 仅查当前余额
 //
 // 事件 schema(client → server):
@@ -20,15 +19,15 @@
 //     ts: number,         // client 时间,仅用于审计
 //     meta?: object }     // taskId / itemId 之类,审计用
 //
-// v3 容错语义:
+// v4 容错语义:
 // - 单条 schema 校验失败(legacy kind / 越界 delta / 缺字段)→ drop + drain,不入账。
 //   保护客户端 pending 队列不被一条"老版本残留"事件堵死;过去 v2 的整批拒会
 //   让所有后续 event 永远到不了 server(例:client 升级前 pet_level_up,server
 //   只认 level_upgrade)。
-// - 单条 balance 不够(balance + delta < 0)→ delta clip 到 -balance,balance 落到 0,
-//   仍然写 ledger(标 clipped + requestedDelta) + drain。过去 v2 的 break 会让
-//   该条以及之后所有 event 卡在队头(例:perfect_day_clawback 退 -65 但 server
-//   只有 18,导致 for-loop break,后续 +10 task_reward 全卡)。
+// - balance + delta 可以走负 —— task_refund(完美日撤销 / task_revert)允许把
+//   余额拍负(用户欠债),后续 task_reward 先补债。不再 for-loop break,也不再
+//   clip 到 0。spending 路径(pet_purchase / level_upgrade / pet_skin_switch)
+//   由客户端 caller 自己 guard 余额,不会从这里走出负值。
 //
 // 设计上的弱点(刻意保留):
 // - 我们不真正反作弊"用户给自己刷分"。攻击者可以伪造 kind=task_reward 多个
@@ -173,7 +172,6 @@ async function commitEvents(openid, events) {
   const appliedEventIds = []     // client 应当从 pending 排空的 eventId(实际入账 / 已 seen / 被丢弃)
   const writtenEventIds = []     // 真正写进 ledger 的子集,用于 rollback
   const droppedEventIds = []     // schema 校验失败被丢弃的 eventId(audit / 排查用)
-  const clippedEventIds = []     // delta 被 clip 到 0 的 eventId(audit)
   let netDelta = 0
   let stopReason = ''
   let appliedCount = 0
@@ -200,26 +198,17 @@ async function commitEvents(openid, events) {
       continue
     }
 
-    const requestedDelta = Math.trunc(Number(ev.delta))
-    let effectiveDelta = requestedDelta
-    let clipped = false
-    if (balance + requestedDelta < 0) {
-      // 服务端 balance 不允许负 —— clip 到 0(跟客户端 applyCoinDelta 的
-      // max(0, ...) 一致)。这样单条还不起钱的 event 不会 poison 后续 event,
-      // 该 event 仍然被 drain,只是 server 这边按 -balance 入账。
-      effectiveDelta = -balance
-      clipped = true
-    }
-
+    const delta = Math.trunc(Number(ev.delta))
+    // 不 clip 不 break —— balance 允许走负(task_refund 撤销完美日 / task_revert
+    // 时用户已经把奖励花了的话欠债)。后续 task_reward 会先补债。
     try {
       await db.collection(LEDGER_COLLECTION).add({
         data: {
           _openid: openid,
           eventId: ev.eventId,
           kind: ev.kind,
-          delta: effectiveDelta,
-          ...(clipped ? { requestedDelta, clipped: true } : {}),
-          balanceAfter: balance + effectiveDelta,
+          delta,
+          balanceAfter: balance + delta,
           clientTs: Number(ev.ts) || 0,
           meta: ev.meta && typeof ev.meta === 'object' ? ev.meta : null,
           createdAt: Date.now()
@@ -231,11 +220,10 @@ async function commitEvents(openid, events) {
       stopReason = 'ledger_write_failed'
       break
     }
-    balance += effectiveDelta
-    netDelta += effectiveDelta
+    balance += delta
+    netDelta += delta
     appliedEventIds.push(ev.eventId)
     writtenEventIds.push(ev.eventId)
-    if (clipped) clippedEventIds.push(ev.eventId)
     appliedCount += 1
   }
 
@@ -280,7 +268,6 @@ async function commitEvents(openid, events) {
     skippedCount: events.length - appliedCount,
     appliedEventIds,
     droppedEventIds,
-    clippedEventIds,
     newBalance: balance,
     lastReason: stopReason
   }
