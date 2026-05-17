@@ -436,7 +436,7 @@ function migrateState(raw) {
   // v2 → v3: 拍平 notebook,把 mode / startDate / endDate / recurrence 平移到
   // task 上,加默认 organization。orphan task(notebookId 找不到本)按
   // one-shot/今日 兜底。perfectDays / coinLogs / bonusByDay / completionsByDay
-  // / pet exp 全部不动 —— 它们本来就是 task 粒度或全局粒度。
+  // / pet 字段 全部不动 —— 它们本来就是 task 粒度或全局粒度。
   //
   // 判定放宽:不再要求 schemaVersion === 2,只要"还不是 v3 + 有 v2 形态的
   // notebooks/tasks"就走平移。这是为了兼容云端 schemaVersion 字段丢失的场景
@@ -1001,7 +1001,7 @@ function genEventId() {
 }
 
 // In-updater coin mutation. Caller must be inside `updateState((state) => {...})`.
-// kind: 'task_reward' | 'task_refund' | 'pet_purchase' | 'level_upgrade' | 'pet_skin_switch'
+// kind: 'task_reward' | 'task_refund' | 'pet_purchase' | 'pet_level_up' | 'pet_skin_switch'
 // delta: signed integer matching kind's allowed range (server re-validates).
 // meta:  optional debug context for the ledger entry (taskId, itemId, etc.).
 // 返回写入的 eventId(no-op 时返 null) —— finishTask 用来 stamp 到

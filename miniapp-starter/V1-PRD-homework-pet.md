@@ -1,5 +1,14 @@
 # 小学生家庭作业管理 + 打卡奖励小程序 V1 PRD
 
+> ⚠️ **此文档是 V1 设计阶段的产品需求 draft,部分数值与字段已被后续迭代覆盖**。
+> 实际线上的金币 / 衰减 / 商店 / 升级数值以 [`V1-VALUES-DESIGN.md`](./V1-VALUES-DESIGN.md) 为准;
+> 当前代码实现 / 数据结构以 `utils/store.js` 为准。
+> 本 PRD 保留作为"V1 开发动机和功能范围"的设计起点参考。已知与现状的差异:
+> - §3.3 "奖励规则建议" 写的是 +5/+3/+10/+20 草案,实际是 5/10/15 单题 × daily-perfect + early-bird + weekly streak(见 VALUES-DESIGN §2)
+> - §3.4 "宠物字段" 把"开心值/饥饿值"分两档且把饥饿值标为"可选",实际四属性等价(happiness / fullness / cleanliness / health),全部线上(见 VALUES-DESIGN §3)
+> - §3.4 "增加成长值"字段已废弃 —— 升级走金币消耗,不再走 growth points(见 VALUES-DESIGN §5)
+
+
 ## 1. 产品概述
 
 ### 1.1 产品名称（暂定）
