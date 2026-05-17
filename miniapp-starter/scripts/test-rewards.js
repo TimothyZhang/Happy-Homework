@@ -822,6 +822,35 @@ const tOK = s.tasksForDate(st(), today).find((it) => it.task.id === 'tk_on_time'
 assert('当天完成:isMakeup=false', tOK && tOK.isMakeup === false)
 assert('当天完成:isOverdue=false', tOK && tOK.isOverdue === false)
 
+// --- 提前完成(目标24课1 / Arthur 场景):
+// 一次性 task,跨两天作业本(startDate=5.16, endDate=5.17),5.16 当天就完成。
+// 期望:仅 5.16 显示(白底,正常已完成),5.17 不再重复显示。
+const yest = yesterday  // 5.16
+const tdy = today       // 5.17
+seed({
+  notebooks: [],
+  tasks: [{
+    id: 'tk_early_finish',
+    subject: '目标24课1', organization: '校外', content: '跨两天作业本提前完成',
+    estimatedMinutes: 10,
+    mode: 'one-shot', startDate: yest, endDate: tdy, recurrence: null,
+    order: 0, createdAt: 1,
+    status: 'done',
+    // 完成于"昨天"22:00 — 用 setNowHour(22) 固定的 today 22:00 减 1 天
+    completedAt: Date.now() - 24 * 3600 * 1000,
+    accumulatedMs: 60000, actualMinutes: 1,
+    rewardPaid: 15, rewardKind: 'future'
+  }]
+})
+
+const yEarly = s.tasksForDate(st(), yest).filter((it) => it.task.id === 'tk_early_finish')
+const tEarly = s.tasksForDate(st(), tdy).filter((it) => it.task.id === 'tk_early_finish')
+assert('提前完成:5.16(完成日)显示 1 次', yEarly.length === 1)
+assert('提前完成:5.16 视图 isMakeup=false(不算补做)',
+  yEarly[0] && yEarly[0].isMakeup === false)
+assert('提前完成:5.16 视图 isOverdue=false', yEarly[0] && yEarly[0].isOverdue === false)
+assert('提前完成:5.17(归属日/截止日)不再重复显示', tEarly.length === 0)
+
 // ===== Summary =====
 console.log(`\n=== ${passed} passed, ${failed} failed ===`)
 process.exit(failed === 0 ? 0 : 1)

@@ -783,30 +783,44 @@ function tasksForDate(state, dateStr, cache) {  // eslint-disable-line no-unused
 
     if (task.mode !== 'recurring') {
       oneShotDue = effectiveDueDate(task)
-      onSchedule = !!oneShotDue && oneShotDue === dateStr
       const status = task.status || 'todo'
       const completedDay = (status === 'done' && task.completedAt)
         ? dateToStr(new Date(task.completedAt)) : null
 
-      // For past/today views, also surface tasks actually completed that day.
-      if (!isFuture && completedDay === dateStr) {
-        completedOnDate = true
-        // 任务归属早于 dateStr 但今天才完成 → 补做(黄底)。
-        if (oneShotDue && compareDateStr(oneShotDue, dateStr) < 0) {
-          isMakeup = true
+      // 一次性 task 显示策略,按 completedDay 和 oneShotDue 关系分三档:
+      //
+      //   1) 未 done                → 按归属日(oneShotDue)单显;过期未做的
+      //                              在 today 视图额外标 isOverdue(红色)
+      //   2) done + completedDay > oneShotDue (漏做后来补)
+      //                              → 归属日 + 完成日双显,归属日红、完成日黄
+      //   3) done + completedDay <= oneShotDue (准时 / 提前完成)
+      //                              → 仅完成日单显(白底)
+      //
+      // (跨两天作业本 5.16 就提前完成的 case 走 3,5.17 截止日不再重复显示)
+      if (status === 'done' && completedDay) {
+        const cmp = oneShotDue ? compareDateStr(completedDay, oneShotDue) : 0
+        if (cmp > 0) {
+          // 漏做:双显
+          if (!isFuture && dateStr === oneShotDue) {
+            onSchedule = true
+            if (isPast) isOverdue = true
+          }
+          if (!isFuture && dateStr === completedDay) {
+            completedOnDate = true
+            isMakeup = true
+          }
+        } else {
+          // 准时 / 提前:仅完成日
+          if (!isFuture && dateStr === completedDay) {
+            completedOnDate = true
+          }
         }
-      }
-
-      // 历史视图:任务归属本日但已 done 且 completedAt 落在别的日子 →
-      // "这一天没做完(被后来补的)",仍然进已完成区(status 保持 done),
-      // 但 isOverdue=true 让 task-row 上 .is-overdue 红底提示"这天本来没完成"。
-      if (isPast && onSchedule && status === 'done' && completedDay !== dateStr) {
-        isOverdue = true
-      }
-
-      // Overdue: still-open one-shot whose own due date already passed. Today only.
-      if (!onSchedule && isToday) {
-        if (oneShotDue && compareDateStr(oneShotDue, today) < 0 && status !== 'done') {
+      } else {
+        // 未 done:归属日显示
+        onSchedule = !!oneShotDue && oneShotDue === dateStr
+        // Overdue: still-open one-shot whose own due date already passed. Today only.
+        if (!onSchedule && isToday && oneShotDue &&
+            compareDateStr(oneShotDue, today) < 0) {
           isOverdue = true
         }
       }
@@ -1656,11 +1670,31 @@ function revokePerfectDay(state, day) {
 // This blocks the "add 1 trivial task → grab early-bird bonus → add the
 // real homework" exploit. Walks newest-first so multi-day streak
 // snapshots unwind in the right order.
+// 列出"归属"某日的所有 task(无视视图过滤,不管在哪天完成)。perfect-day
+// 判定 / baseBonus 求和等业务逻辑要用这个,而不是 tasksForDate(它是给"显
+// 示"用的,会把"提前完成"挪到完成日单显)。
+//
+// 返回 [{ task, occurrence }],一次性 task occurrence 从 task 顶层读,
+// recurring 从 task.occurrences[date] 读。
+function tasksScheduledOn(state, dateStr) {
+  const out = []
+  for (const t of state.tasks) {
+    if (t.mode === 'recurring') {
+      if (!isTaskActiveOn(t, dateStr)) continue
+      out.push({ task: t, occurrence: getTaskState(t, dateStr) })
+    } else {
+      if (effectiveDueDate(t) !== dateStr) continue
+      out.push({ task: t, occurrence: getTaskState(t, dateStr) })
+    }
+  }
+  return out
+}
+
 function reconcilePerfectDays(state) {
   if (!Array.isArray(state.perfectDays) || state.perfectDays.length === 0) return
   const days = state.perfectDays.slice().sort().reverse()
   for (const d of days) {
-    const items = tasksForDate(state, d)
+    const items = tasksScheduledOn(state, d)
     const stillAllDone = items.length > 0 && items.every((it) => it.occurrence.status === 'done')
     if (!stillAllDone) revokePerfectDay(state, d)
   }
@@ -1781,8 +1815,12 @@ function finishTask(taskId, dateStr) {
     // First all-done moment of the day → daily bonus + streak bookkeeping.
     // Re-completing after a revert doesn't double-credit because perfectDays
     // already contains the date.
-    const todayItems = tasksForDate(state, day)
-    const allDone = todayItems.length > 0 && todayItems.every((it) => it.occurrence.status === 'done')
+    //
+    // 用 tasksScheduledOn(按归属日)而不是 tasksForDate(按显示视图):
+    // 一个归属 day 但提前完成于别天的 task 不会出现在 tasksForDate(state, day)
+    // 视图里(单显于 completedDay),但归属意义上仍属于 day 当天 perfect 的计算。
+    const dayTasks = tasksScheduledOn(state, day)
+    const allDone = dayTasks.length > 0 && dayTasks.every((it) => it.occurrence.status === 'done')
 
     // Whether today's home view is now empty (all visible items done). When
     // `day === today` this is the same as `allDone`; when finishing a backlog
@@ -1790,7 +1828,7 @@ function finishTask(taskId, dateStr) {
     // occurrence, so allDone may be true while today still has pending items.
     // Used by the home page to gate the "今日全部完成" toast so a single backlog
     // tap doesn't fire it.
-    const todayViewItems = day === today ? todayItems : tasksForDate(state, today)
+    const todayViewItems = tasksForDate(state, today)
     const todayCleared = todayViewItems.length > 0 &&
       todayViewItems.every((it) => it.occurrence.status === 'done')
 
@@ -1802,7 +1840,7 @@ function finishTask(taskId, dateStr) {
         // the 20-cap have rewardPaid=0 already, so the cap propagates here for
         // free. Early-bird extra (flat +50/+30/+20) stacks on top. Weekly
         // streak is tracked separately, not part of dailyBonus.
-        const baseBonus = todayItems.reduce(
+        const baseBonus = dayTasks.reduce(
           (sum, it) => sum + (it.occurrence.rewardPaid || 0),
           0
         )
