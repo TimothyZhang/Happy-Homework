@@ -92,30 +92,28 @@
   font-family: "Menlo", "Monaco", "Helvetica Neue", sans-serif;
 }
 
-/* negative margin 抵消 page 横向 48rpx padding + 下方 48rpx,让按钮真的贯穿
-   屏幕宽并贴到屏幕底(保留 safe-area-inset-bottom 由 page padding 兜底)。
-   按钮去掉 border-radius 也是为了视觉上"全屏宽":之前 999rpx 胶囊让两端是
-   半圆,看起来像浮在屏幕中央,不像贯穿。 */
+/* 按钮在 page 横向 48rpx padding 内,跟 tasks / pet / home 一致的全屏宽 pill 形。
+   之前实验过"贯穿屏幕 + border-radius 0"的方案,但跟其他页全屏宽 pill 不一致,
+   回退到这个版本(Tim 指示:做成圆角的,全屏宽,保持和其他页面一致)。 */
 .actions {
   display: flex;
   flex-direction: column;
-  gap: 2rpx;
-  margin: 0 -48rpx -48rpx;
+  gap: 24rpx;
 }
 
 .action-btn {
   width: 100%;
-  height: 140rpx;
-  border-radius: 0;
+  height: 112rpx;
+  border-radius: 999rpx;
   border: none;
-  font-size: 40rpx;
+  font-size: 36rpx;
   font-weight: 700;
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 18rpx;
-  box-shadow: none;
+  box-shadow: 0 12rpx 28rpx rgba(31, 35, 41, 0.16);
   box-sizing: border-box;
   padding: 0;
 }
