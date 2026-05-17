@@ -551,16 +551,28 @@
 .xp-bar-max .xp-bar-fill {
   background: linear-gradient(90deg, #ffd166 0%, #f5a623 100%);
 }
-.xp-rate {
-  display: block;
-  margin-top: 8rpx;
-  font-size: 22rpx;
-  color: #6b7785;
-  line-height: 1.4;
-}
 @keyframes xp-ready-pulse {
   0%, 100% { filter: brightness(1);    box-shadow: 0 0 0 rgba(255, 156, 31, 0); }
   50%      { filter: brightness(1.15); box-shadow: 0 0 12rpx rgba(255, 156, 31, 0.5); }
+}
+
+/* 下一小时预览段:贴在主蓝条右侧,由 0 逐步长到 --preview-width(%),
+   完成后停一小段再循环,看起来像"经验在慢慢涨"。border-radius 只取右端,
+   防止跟主条左端拼接处出现圆角断层。*/
+.xp-bar-preview {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(106, 166, 255, 0.55) 0%, rgba(106, 166, 255, 0.25) 100%);
+  border-radius: 0 999rpx 999rpx 0;
+  animation: xp-preview-grow 2.4s ease-in-out infinite;
+}
+@keyframes xp-preview-grow {
+  0%   { width: 0; opacity: 0.0; }
+  10%  { opacity: 0.9; }
+  70%  { width: var(--preview-width); opacity: 0.9; }
+  90%  { width: var(--preview-width); opacity: 0.0; }
+  100% { width: 0; opacity: 0.0; }
 }
 
 /* === 升级动画 overlay === */

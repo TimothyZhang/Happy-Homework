@@ -247,7 +247,11 @@ Page({
     if (!this.data.selectedDate) {
       this.setData({ selectedDate: store.todayStr() })
     }
-    this.refreshState({ perfStamp: stamp })
+    // maybeCelebrate: 让 home 在 onShow 时也跑一次 reward 检查 —— 用户在
+    // task-focus 页点完成 → navigateBack 回 home,完成动作发生在另一个页面,
+    // home 自己的 handleTaskTap 路径没走过。maybeShowReward 内部有 3s 守卫 +
+    // _lastSeenRewardAt dedupe,onShow 反复触发也不会 double-pop。
+    this.refreshState({ perfStamp: stamp, maybeCelebrate: true })
     // Background-check cloud (debounced 30s). Repaint if remote was newer.
     cloudSync.hydrateIfStale().then((r) => {
       if (r && r.changed) this.refreshState()

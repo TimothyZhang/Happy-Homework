@@ -121,13 +121,15 @@ Page({
     ageDays: 0,
     // 升级:经验值满 → 用户手动点按钮触发升级动画。
     // xp = 当前已积累的 XP;xpNeeded = 升到下一级需要的 XP;xpPercent = 进度条百分比。
-    // xpPerHour / xpPerHourMax:当前实际速率 / 满速,用于显示"+X / h(满 Y)"
-    // 提示,让用户直观看到"照顾好宠物可以加快升级"。
+    // xpPerHour:当前实际速率,显示在 "经验值 · X 点/小时" 标签里。
+    // xpPreviewWidth:下一小时即将获得的 XP 占 xpNeeded 的百分比;
+    //   xp-bar 主蓝条右侧用浅蓝色画一段"由短变长"的动画,长度上限就是这个值,
+    //   告诉用户"下一小时可以涨到这里"。canLevelUp 时不显示(用户该点升级了)。
     xp: 0,
     xpNeeded: 0,
     xpPercent: 0,
     xpPerHour: 0,
-    xpPerHourMax: 0,
+    xpPreviewWidth: 0,
     canLevelUp: false,
     isMaxLevel: false,
     levelMax: store.LEVEL_MAX,
@@ -188,6 +190,11 @@ Page({
     // 显示一位小数足够区分 "+6.5 / h" vs "+10 / h",避免 "+6 / h" 失真。
     const xpPerHourRaw = isSetup ? store.currentXpPerHour(pet) : 0
     const xpPerHour = Math.round(xpPerHourRaw * 10) / 10
+    // 下一小时预览段宽度:把下一小时能涨的 XP 折算成进度条 % 长度,
+    // clip 到 [0, 100 - xpPercent](不能超过条尾)。
+    const xpPreviewWidth = !isSetup || isMaxLevel || xpNeeded <= 0
+      ? 0
+      : Math.max(0, Math.min(100 - xpPercent, xpPerHourRaw * 100 / xpNeeded))
     this.setData({
       pet,
       coins: state.coins,
@@ -199,7 +206,7 @@ Page({
       xpNeeded,
       xpPercent,
       xpPerHour,
-      xpPerHourMax: store.XP_PER_HOUR_FULL,
+      xpPreviewWidth,
       canLevelUp,
       isMaxLevel,
       levelBadge: levelBadge(pet.level || 1),
