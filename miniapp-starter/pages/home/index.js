@@ -196,6 +196,10 @@ Page({
     // so we keep the page locked and flip scroll-y on the inner view instead
     // — that change is honored immediately even mid-gesture.
     disableScroll: false,
+    // 任一 task-list row 左滑展开了 swipe-action 菜单时为 true。两个
+    // task-list (未完成 / 已完成) 各自触发 swipeopen / swipeclose,这里
+    // 用计数避免两个区先后打开 → 先关一个就误以为都关了。
+    swipeMenuOpen: false,
     todayLabel: '今天',
     tomorrowLabel: '明天',
     dayAfterLabel: '后天',
@@ -518,6 +522,17 @@ Page({
 
   handleDragStart() { this.setData({ disableScroll: true }) },
   handleDragEnd() { this.setData({ disableScroll: false }) },
+
+  handleSwipeOpen() {
+    this._openSwipeCount = (this._openSwipeCount || 0) + 1
+    if (!this.data.swipeMenuOpen) this.setData({ swipeMenuOpen: true })
+  },
+  handleSwipeClose() {
+    this._openSwipeCount = Math.max(0, (this._openSwipeCount || 0) - 1)
+    if (this._openSwipeCount === 0 && this.data.swipeMenuOpen) {
+      this.setData({ swipeMenuOpen: false })
+    }
+  },
 
   onHide() { this.hideAllRewards(); this._stopPetMessageRotation() },
   onUnload() { this.hideAllRewards(); this._stopPetMessageRotation() },

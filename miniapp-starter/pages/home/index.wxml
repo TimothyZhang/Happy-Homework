@@ -1,6 +1,6 @@
 <page-meta disable-scroll="true" />
 <view class="page">
-  <scroll-view scroll-y="{{!disableScroll}}" class="scroll-area" show-scrollbar="{{false}}">
+  <scroll-view scroll-y="{{!disableScroll && !swipeMenuOpen}}" class="scroll-area" show-scrollbar="{{false}}">
     <view class="card hero">
       <view class="seg-bar">
         <view class="seg-btn today-seg {{activeSegment === 'today' ? 'active' : ''}}"
@@ -67,6 +67,8 @@
                  active-date="{{selectedDate}}"
                  bind:dragstart="handleDragStart"
                  bind:dragend="handleDragEnd"
+                 bind:swipeopen="handleSwipeOpen"
+                 bind:swipeclose="handleSwipeClose"
                  bind:changed="handleTasksChanged" />
     </view>
 
@@ -77,6 +79,8 @@
       <task-list items="{{doneItems}}"
                  active-date="{{selectedDate}}"
                  enable-drag="{{false}}"
+                 bind:swipeopen="handleSwipeOpen"
+                 bind:swipeclose="handleSwipeClose"
                  bind:changed="handleTasksChanged" />
     </view>
   </scroll-view>
