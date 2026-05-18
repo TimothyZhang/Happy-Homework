@@ -123,10 +123,18 @@ Page({
           return (b.createdAt || 0) - (a.createdAt || 0)
         })
       }))
-      // 学科分组:按学科名字母 / 中文排;组织分组:固定顺序(校内/校外/其他)。
+      // 学科分组:按学科名字母 / 中文排;组织分组:按用户在我 Tab 配置的列表顺序,
+      // 未在列表里的标签(老 task 残留)排到最后。
       if (key === 'organization') {
-        const order = ['校内', '校外', '其他']
-        groups.sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label))
+        const order = store.getOrganizations()
+        groups.sort((a, b) => {
+          const ia = order.indexOf(a.label)
+          const ib = order.indexOf(b.label)
+          const ra = ia < 0 ? Number.MAX_SAFE_INTEGER : ia
+          const rb = ib < 0 ? Number.MAX_SAFE_INTEGER : ib
+          if (ra !== rb) return ra - rb
+          return a.label.localeCompare(b.label, 'zh')
+        })
       } else {
         groups.sort((a, b) => a.label.localeCompare(b.label, 'zh'))
       }

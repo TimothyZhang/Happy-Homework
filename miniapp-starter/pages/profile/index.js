@@ -15,6 +15,11 @@ Page({
     // admin 入口可见性。whoami 返回 isAdmin=true 才渲染管理后台卡片。
     isAdmin: false,
     adminCheckDone: false,
+    // 用户自定义的组织标签列表(在 task-edit 下拉里出现)。
+    organizations: [],
+    orgMaxLen: store.ORGANIZATION_MAX_LEN,
+    orgMaxCount: store.ORGANIZATION_MAX_COUNT,
+    newOrgInput: '',
     // 版本号 + commit id。build-info 由 scripts/write-build-info.js 在
     // upload 前生成 —— 本地开发(没跑过 script)显示 dev/unknown。
     buildVersion: buildInfo.version || 'dev',
@@ -27,10 +32,14 @@ Page({
     if (tb) tb.setData({ selected: 3 })
     this.setData({
       profile: store.getProfile(),
+      organizations: store.getOrganizations(),
       syncStatus: cloudSync.getSyncStatus()
     }, () => perf.markPaint(stamp))
     cloudSync.hydrateIfStale().then(() => {
-      this.setData({ profile: store.getProfile() })
+      this.setData({
+        profile: store.getProfile(),
+        organizations: store.getOrganizations()
+      })
       this.refreshSyncStatus()
     }).catch(() => {})
     // admin 身份每次 onShow 都检查一次:权限变化能及时反映。
@@ -234,5 +243,108 @@ Page({
         })
       }
     })
+  },
+
+  // === Organization tag management === //
+
+  handleOrgInput(e) {
+    this.setData({ newOrgInput: e.detail.value })
+  },
+
+  handleAddOrg() {
+    const name = (this.data.newOrgInput || '').trim()
+    if (!name) {
+      wx.showToast({ title: '请输入标签名', icon: 'none' })
+      return
+    }
+    const res = store.addOrganization(name)
+    if (!res.ok) {
+      wx.showToast({ title: this.orgErrorMessage(res.reason), icon: 'none' })
+      return
+    }
+    this.setData({
+      organizations: store.getOrganizations(),
+      newOrgInput: ''
+    })
+    wx.showToast({ title: '已添加', icon: 'success' })
+  },
+
+  handleRemoveOrg(e) {
+    const name = e.currentTarget.dataset.name
+    if (!name) return
+    wx.showModal({
+      title: `删除「${name}」？`,
+      content: '已用该标签的作业仍保留显示，仅在下次选择时不再出现。',
+      confirmColor: '#e54545',
+      confirmText: '删除',
+      cancelText: '取消',
+      success: (r) => {
+        if (!r.confirm) return
+        const res = store.removeOrganization(name)
+        if (!res.ok) {
+          wx.showToast({ title: this.orgErrorMessage(res.reason), icon: 'none' })
+          return
+        }
+        this.setData({ organizations: store.getOrganizations() })
+        wx.showToast({ title: '已删除', icon: 'success' })
+      }
+    })
+  },
+
+  handleRenameOrg(e) {
+    const name = e.currentTarget.dataset.name
+    if (!name) return
+    wx.showModal({
+      title: `重命名「${name}」`,
+      editable: true,
+      placeholderText: '新标签名',
+      content: name,
+      confirmText: '保存',
+      cancelText: '取消',
+      success: (r) => {
+        if (!r.confirm) return
+        const next = (r.content || '').trim()
+        if (!next) {
+          wx.showToast({ title: '请输入新标签名', icon: 'none' })
+          return
+        }
+        if (next === name) return
+        const res = store.renameOrganization(name, next)
+        if (!res.ok) {
+          wx.showToast({ title: this.orgErrorMessage(res.reason), icon: 'none' })
+          return
+        }
+        this.setData({ organizations: store.getOrganizations() })
+        wx.showToast({ title: '已重命名', icon: 'success' })
+      }
+    })
+  },
+
+  handleResetOrgs() {
+    wx.showModal({
+      title: '恢复默认标签？',
+      content: '会重置为「校内 / 校外 / 其他」。已存在的作业标签不变。',
+      confirmText: '恢复',
+      cancelText: '取消',
+      success: (r) => {
+        if (!r.confirm) return
+        store.resetOrganizations()
+        this.setData({ organizations: store.getOrganizations() })
+        wx.showToast({ title: '已恢复默认', icon: 'success' })
+      }
+    })
+  },
+
+  orgErrorMessage(reason) {
+    switch (reason) {
+      case 'empty':     return '请输入标签名'
+      case 'too_long':  return `标签最长 ${store.ORGANIZATION_MAX_LEN} 字`
+      case 'duplicate': return '该标签已存在'
+      case 'too_many':  return `最多 ${store.ORGANIZATION_MAX_COUNT} 个标签`
+      case 'last_one':  return '至少保留一个标签'
+      case 'unknown':   return '标签不存在'
+      case 'noop':      return ''
+      default:          return '操作失败'
+    }
   }
 })
