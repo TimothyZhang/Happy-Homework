@@ -148,10 +148,6 @@ Page({
     // task-list (未完成 / 已完成) 各自触发 swipeopen / swipeclose,这里
     // 用计数避免两个区先后打开 → 先关一个就误以为都关了。
     swipeMenuOpen: false,
-    // scroll-view 的 scroll-top 数据绑定值。task-row 用 catchtouchmove 阻
-    // 断了原生滚动冒泡,用户在 row 上下滑(scroll 手势)时由 task-list 抛
-    // scrollby({deltaY}) 过来,这里累加后写回 scroll-view。
-    scrollTop: 0,
     todayLabel: '今天',
     tomorrowLabel: '明天',
     dayAfterLabel: '后天',
@@ -182,6 +178,15 @@ Page({
     allDoneVisible: false,
     allDoneCoins: 0,
     allDoneSubtitle: ''
+  },
+
+  onReady() {
+    // enhanced scroll-view 的 ScrollViewContext —— 第一次渲染完后拿一次,
+    // 给 handleScrollBy 用。createSelectorQuery 异步,这里缓存住,touchmove
+    // 60Hz 不能再走 query → exec 那条慢路径。
+    this.createSelectorQuery().select('#scrollarea').node().exec((res) => {
+      if (res && res[0]) this._scrollVw = res[0].node
+    })
   },
 
   onShow() {
@@ -492,14 +497,15 @@ Page({
     this._curScrollTop = (e && e.detail && e.detail.scrollTop) || 0
   },
 
-  // task-list 在 row 上判定为 scroll 手势时,把 deltaY 抛过来,我们写回
-  // scroll-view scroll-top —— 替代被 catchtouchmove 切断的原生滚动。
+  // task-list 在 row 上判定为 scroll 手势时,把 deltaY 抛过来。enhanced
+  // scroll-view 直接调 native scrollTo() 比 setData scroll-top 绕一圈
+  // 渲染快一两帧,row 上滚动跟手很多。
   handleScrollBy(e) {
     const deltaY = (e && e.detail && e.detail.deltaY) || 0
-    if (!deltaY) return
+    if (!deltaY || !this._scrollVw) return
     const next = Math.max(0, (this._curScrollTop || 0) + deltaY)
     this._curScrollTop = next
-    this.setData({ scrollTop: next })
+    this._scrollVw.scrollTo({ top: next, duration: 0 })
   },
 
   handleSwipeOpen() {

@@ -65,10 +65,13 @@ Page({
     selectedItems: [],
     // Locks the inner <scroll-view> while a task-list drag is in progress.
     // See pages/home/index.js for the rationale.
-    disableScroll: false,
-    // task-row 用 catchtouchmove 切断了 scroll-view 原生滚动,在 row 上的
-    // 纵向滑动由 task-list 抛 scrollby 过来,这里累加写回 scroll-view。
-    scrollTop: 0
+    disableScroll: false
+  },
+
+  onReady() {
+    this.createSelectorQuery().select('#scrollarea').node().exec((res) => {
+      if (res && res[0]) this._scrollVw = res[0].node
+    })
   },
 
   onLoad() {
@@ -126,9 +129,9 @@ Page({
 
   handleScrollBy(e) {
     const deltaY = (e && e.detail && e.detail.deltaY) || 0
-    if (!deltaY) return
+    if (!deltaY || !this._scrollVw) return
     const next = Math.max(0, (this._curScrollTop || 0) + deltaY)
     this._curScrollTop = next
-    this.setData({ scrollTop: next })
+    this._scrollVw.scrollTo({ top: next, duration: 0 })
   }
 })
