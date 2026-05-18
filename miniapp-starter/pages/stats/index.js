@@ -20,10 +20,19 @@ function shortLabel(dateStr) {
   return `${Number(m)}/${Number(d)}`
 }
 
-// 周模式额外标 "今"
-function labelFor(dateStr, period, today) {
-  if (period === 'week' && dateStr === today) return '今'
-  return shortLabel(dateStr)
+// label 策略:
+//   - 周(7根):每根显示 "M/D",今天显 "今"
+//   - 月(30根):太挤 → 每 5 根 + 首/尾/今天 显示,其余空字符串
+function labelFor(dateStr, period, today, idx, total) {
+  if (period === 'week') {
+    return dateStr === today ? '今' : shortLabel(dateStr)
+  }
+  // month
+  if (dateStr === today) return '今'
+  const isFirst = idx === 0
+  const isLast = idx === total - 1
+  if (isFirst || isLast || idx % 5 === 0) return shortLabel(dateStr)
+  return ''
 }
 
 function aggregateTasks(state) {
@@ -98,27 +107,28 @@ function buildCharts(state, period) {
   const { counts, minutes } = aggregateTasks(state)
   const coins = aggregateCoins(state)
 
-  const countBars = dates.map((d) => ({
+  const total = dates.length
+  const countBars = dates.map((d, i) => ({
     date: d,
-    label: labelFor(d, period, today),
+    label: labelFor(d, period, today, i, total),
     isToday: d === today,
     value: counts[d] || 0
   }))
   scaleBars(countBars, 'value')
 
-  const minutesBars = dates.map((d) => ({
+  const minutesBars = dates.map((d, i) => ({
     date: d,
-    label: labelFor(d, period, today),
+    label: labelFor(d, period, today, i, total),
     isToday: d === today,
     value: minutes[d] || 0
   }))
   scaleBars(minutesBars, 'value')
 
-  const coinBars = dates.map((d) => {
+  const coinBars = dates.map((d, i) => {
     const c = coins[d] || { gain: 0, spend: 0, net: 0 }
     return {
       date: d,
-      label: labelFor(d, period, today),
+      label: labelFor(d, period, today, i, total),
       isToday: d === today,
       gain: c.gain,
       spend: c.spend,

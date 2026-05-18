@@ -16,7 +16,7 @@
       <text class="section-title">作业数量</text>
       <text class="subtle">{{period === 'week' ? '近 7 天' : '近 30 天'}}共 {{countTotal}} 项</text>
     </view>
-    <scroll-view scroll-x="{{period === 'month'}}" class="chart-scroll">
+    <view class="chart-scroll">
       <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
             style="height: {{barAreaRpx + 60}}rpx;">
         <view wx:for="{{countBars}}" wx:key="date" class="bar-col">
@@ -28,7 +28,7 @@
           <text class="bar-label {{item.isToday ? 'is-today' : ''}}">{{item.label}}</text>
         </view>
       </view>
-    </scroll-view>
+    </view>
   </view>
 
   <view class="card section-card chart-card">
@@ -36,7 +36,7 @@
       <text class="section-title">作业耗时</text>
       <text class="subtle">共 {{minutesTotal}} 分钟</text>
     </view>
-    <scroll-view scroll-x="{{period === 'month'}}" class="chart-scroll">
+    <view class="chart-scroll">
       <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
             style="height: {{barAreaRpx + 60}}rpx;">
         <view wx:for="{{minutesBars}}" wx:key="date" class="bar-col">
@@ -48,7 +48,7 @@
           <text class="bar-label {{item.isToday ? 'is-today' : ''}}">{{item.label}}</text>
         </view>
       </view>
-    </scroll-view>
+    </view>
   </view>
 
   <view class="card section-card chart-card">
@@ -56,7 +56,7 @@
       <text class="section-title">金币</text>
       <text class="subtle">获得 +{{coinGainTotal}} · 消耗 -{{coinSpendTotal}}</text>
     </view>
-    <scroll-view scroll-x="{{period === 'month'}}" class="chart-scroll">
+    <view class="chart-scroll">
       <view class="bar-row coin-row {{period === 'month' ? 'is-month' : 'is-week'}}"
             style="height: {{barAreaRpx * 2 + 80}}rpx;">
         <view wx:for="{{coinBars}}" wx:key="date" class="bar-col coin-col">
@@ -74,6 +74,6 @@
           <text class="bar-label {{item.isToday ? 'is-today' : ''}}">{{item.label}}</text>
         </view>
       </view>
-    </scroll-view>
+    </view>
   </view>
 </view>

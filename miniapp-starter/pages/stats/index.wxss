@@ -27,41 +27,30 @@
 .chart-scroll {
   margin-top: 16rpx;
   width: 100%;
-  white-space: nowrap;
 }
 
 .bar-row {
   display: flex;
   align-items: flex-end;
-  justify-content: space-around;
   padding: 0 4rpx;
   box-sizing: border-box;
+  width: 100%;
 }
 
-/* 月模式横向滚动,每列固定窄宽 */
+.bar-row.is-week {
+  justify-content: space-around;
+}
+
 .bar-row.is-month {
-  display: inline-flex;
-  justify-content: flex-start;
-  gap: 6rpx;
-  padding-right: 16rpx;
+  justify-content: space-between;
 }
 
 .bar-col {
   display: flex;
   flex-direction: column;
   align-items: center;
-}
-
-/* week:7 列均分 */
-.bar-row.is-week .bar-col {
   flex: 1;
   min-width: 0;
-}
-
-/* month:30 列固定宽 */
-.bar-row.is-month .bar-col {
-  width: 40rpx;
-  flex: none;
 }
 
 .bar-stack {
@@ -78,8 +67,11 @@
   transition: height 0.25s ease;
 }
 
+/* 月模式 30 根挤一屏:每根用百分比占满列,留 4rpx 视觉间隙 */
 .bar-row.is-month .bar {
-  width: 24rpx;
+  width: 80%;
+  max-width: 16rpx;
+  border-radius: 4rpx 4rpx 0 0;
 }
 
 .bar-count {
@@ -117,8 +109,9 @@
   margin-bottom: 0;
 }
 
+/* 月模式数字塞不下,隐藏每根 bar 上的数字,看总计即可 */
 .bar-row.is-month .bar-value {
-  font-size: 18rpx;
+  display: none;
 }
 
 .bar-label {
@@ -130,6 +123,7 @@
 
 .bar-row.is-month .bar-label {
   font-size: 18rpx;
+  min-height: 22rpx;
 }
 
 .bar-label.is-today {
