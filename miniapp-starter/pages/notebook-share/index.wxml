@@ -40,7 +40,6 @@
           <view class="row-body">
             <text class="row-content">{{t.content}}</text>
             <view class="row-chips">
-              <text class="chip org-chip">{{t.organization}}</text>
               <text wx:if="{{t.dueDateLabel}}" class="chip range-chip">{{t.dueDateLabel}}</text>
               <text wx:if="{{t.estimatedMinutes > 0}}" class="chip est-chip">{{t.estimatedMinutes}} 分钟</text>
             </view>
