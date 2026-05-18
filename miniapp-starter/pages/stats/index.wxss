@@ -44,9 +44,26 @@
   left: 4rpx;
   right: 4rpx;
   height: 0;
-  border-top: 1rpx dashed rgba(31, 35, 41, 0.12);
+  border-top: 1rpx dashed rgba(31, 35, 41, 0.32);
   pointer-events: none;
   z-index: 0;
+}
+
+/* 参考线数值标签 —— 浮在虚线右上方 */
+.grid-label {
+  position: absolute;
+  right: 0;
+  bottom: 2rpx;
+  font-size: 18rpx;
+  line-height: 1;
+  color: rgba(31, 35, 41, 0.55);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 2rpx 8rpx;
+  border-radius: 6rpx;
+}
+
+.grid-label-neg {
+  color: rgba(181, 64, 64, 0.75);
 }
 
 .bar-row.is-week {
