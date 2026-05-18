@@ -180,15 +180,6 @@ Page({
     allDoneSubtitle: ''
   },
 
-  onReady() {
-    // enhanced scroll-view 的 ScrollViewContext —— 第一次渲染完后拿一次,
-    // 给 handleScrollBy 用。createSelectorQuery 异步,这里缓存住,touchmove
-    // 60Hz 不能再走 query → exec 那条慢路径。
-    this.createSelectorQuery().select('#scrollarea').node().exec((res) => {
-      if (res && res[0]) this._scrollVw = res[0].node
-    })
-  },
-
   onShow() {
     const stamp = perf.markPageShow('home')
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
@@ -490,23 +481,6 @@ Page({
 
   handleDragStart() { this.setData({ disableScroll: true }) },
   handleDragEnd() { this.setData({ disableScroll: false }) },
-
-  // scroll-view 的 bindscroll —— 用户从 hero / 列表外区域自然滚动时 native
-  // 在更新 scrollTop,我们这里同步缓存,下一次 row 上 scrollby 增量从这个基线起。
-  handleScrollAreaScroll(e) {
-    this._curScrollTop = (e && e.detail && e.detail.scrollTop) || 0
-  },
-
-  // task-list 在 row 上判定为 scroll 手势时,把 deltaY 抛过来。enhanced
-  // scroll-view 直接调 native scrollTo() 比 setData scroll-top 绕一圈
-  // 渲染快一两帧,row 上滚动跟手很多。
-  handleScrollBy(e) {
-    const deltaY = (e && e.detail && e.detail.deltaY) || 0
-    if (!deltaY || !this._scrollVw) return
-    const next = Math.max(0, (this._curScrollTop || 0) + deltaY)
-    this._curScrollTop = next
-    this._scrollVw.scrollTo({ top: next, duration: 0 })
-  },
 
   handleSwipeOpen() {
     this._openSwipeCount = (this._openSwipeCount || 0) + 1

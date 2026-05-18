@@ -68,12 +68,6 @@ Page({
     disableScroll: false
   },
 
-  onReady() {
-    this.createSelectorQuery().select('#scrollarea').node().exec((res) => {
-      if (res && res[0]) this._scrollVw = res[0].node
-    })
-  },
-
   onLoad() {
     this.setData({ selectedDate: store.todayStr() })
   },
@@ -121,17 +115,5 @@ Page({
   },
 
   handleDragStart() { this.setData({ disableScroll: true }) },
-  handleDragEnd() { this.setData({ disableScroll: false }) },
-
-  handleScrollAreaScroll(e) {
-    this._curScrollTop = (e && e.detail && e.detail.scrollTop) || 0
-  },
-
-  handleScrollBy(e) {
-    const deltaY = (e && e.detail && e.detail.deltaY) || 0
-    if (!deltaY || !this._scrollVw) return
-    const next = Math.max(0, (this._curScrollTop || 0) + deltaY)
-    this._curScrollTop = next
-    this._scrollVw.scrollTo({ top: next, duration: 0 })
-  }
+  handleDragEnd() { this.setData({ disableScroll: false }) }
 })

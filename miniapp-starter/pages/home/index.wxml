@@ -1,9 +1,6 @@
 <page-meta disable-scroll="true" />
 <view class="page">
   <scroll-view scroll-y="{{!disableScroll && !swipeMenuOpen}}"
-               enhanced="{{true}}"
-               bindscroll="handleScrollAreaScroll"
-               id="scrollarea"
                class="scroll-area"
                show-scrollbar="{{false}}">
     <view class="card hero">
@@ -74,7 +71,6 @@
                  bind:dragend="handleDragEnd"
                  bind:swipeopen="handleSwipeOpen"
                  bind:swipeclose="handleSwipeClose"
-                 bind:scrollby="handleScrollBy"
                  bind:changed="handleTasksChanged" />
     </view>
 
@@ -87,7 +83,6 @@
                  enable-drag="{{false}}"
                  bind:swipeopen="handleSwipeOpen"
                  bind:swipeclose="handleSwipeClose"
-                 bind:scrollby="handleScrollBy"
                  bind:changed="handleTasksChanged" />
     </view>
   </scroll-view>
