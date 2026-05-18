@@ -22,27 +22,28 @@
     <view wx:for="{{drafts}}" wx:key="id" class="draft-card">
       <view class="draft-top">
         <text class="draft-index">作业 {{index + 1}}</text>
-        <text class="confidence confidence-{{item.confidenceClass || 'low'}}">{{item.confidence}}置信度</text>
+        <view class="draft-top-actions">
+          <text class="confidence confidence-{{item.confidenceClass || 'low'}}">{{item.confidence}}置信度</text>
+          <text class="delete-link" data-index="{{index}}" bindtap="handleDeleteDraft">删除</text>
+        </view>
       </view>
 
-      <view class="field">
+      <view class="field field-inline">
         <text class="field-label">科目</text>
-        <picker mode="selector" range="{{subjectOptions}}" value="{{item.subject ? subjectOptions.indexOf(item.subject) : 0}}" data-index="{{index}}" bindchange="handleSubjectChange">
-          <view class="picker">{{item.subject || '未识别，点此选择'}}</view>
+        <picker class="field-control" mode="selector" range="{{subjectOptions}}" value="{{item.subject ? subjectOptions.indexOf(item.subject) : 0}}" data-index="{{index}}" bindchange="handleSubjectChange">
+          <view class="picker draft-picker">{{item.subject || '未识别，点此选择'}}</view>
         </picker>
       </view>
 
       <view class="field">
         <text class="field-label">作业内容</text>
-        <textarea class="input textarea" value="{{item.content}}" data-index="{{index}}" bindinput="handleContentInput" placeholder="补全或修正识别内容"></textarea>
+        <textarea class="input textarea draft-textarea" value="{{item.content}}" data-index="{{index}}" bindinput="handleContentInput" placeholder="补全或修正识别内容" auto-height></textarea>
       </view>
 
       <view wx:if="{{item.rawText}}" class="raw-fragment">
         <text class="fragment-label">原始片段</text>
         <text class="fragment-text">{{item.rawText}}</text>
       </view>
-
-      <button class="ghost-btn" size="mini" data-index="{{index}}" bindtap="handleDeleteDraft">删除这条</button>
     </view>
 
     <button class="plain-add-btn" bindtap="handleAddDraft">+ 手动补一条作业</button>
