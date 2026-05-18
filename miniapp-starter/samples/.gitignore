@@ -1,9 +1,15 @@
-# 默认不入仓真实手写图(隐私 + repo 体积)。想 commit 某张就单独 `git add -f`。
+# 默认不入仓未知图(防止临时截图误提交)。
+# OCR 评估样本(sample*.jpg 等)是正式收录的,显式 unignore。
 *.jpg
 *.jpeg
 *.png
 *.webp
 *.heic
+!sample*.jpg
+!sample*.jpeg
+!sample*.png
+!sample*.webp
+!sample*.heic
 
 # eval-homework-ocr.js --report 写到这里
 _reports/
