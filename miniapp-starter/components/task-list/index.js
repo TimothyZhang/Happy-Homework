@@ -144,20 +144,18 @@ Component({
           this._gestureMode = 'swipe'
         } else {
           this._gestureMode = 'scroll'
-          // catchtouchmove 阻止冒泡后 scroll-view 收不到原始 touchmove,
-          // 这里把纵向位移转成增量喂给父页 → scroll-view scroll-top。
-          // 第一次进 scroll 用 touchStartY 当 baseline,后续 move 用上一次 pageY。
-          this._scrollLastY = this.touchStartY
+          return
         }
       }
 
-      if (this._gestureMode === 'scroll') {
-        const lastY = this._scrollLastY != null ? this._scrollLastY : t.pageY
-        const deltaY = lastY - t.pageY
-        this._scrollLastY = t.pageY
-        if (deltaY !== 0) this.triggerEvent('scrollby', { deltaY })
-        return
-      }
+      // scroll 模式下什么都不做 —— catchtouchmove 切断了 native 滚动冒泡,
+      // 我们曾经试过用 triggerEvent('scrollby') + scroll-view scrollTo() 把
+      // row 上的纵向手势喂回父 scroll-view,但 60Hz 走 JS 桥不管是 setData
+      // scroll-top 还是 enhanced scrollTo() 都比 native 慢一两帧,放手指能感
+      // 觉到微抖。索性放弃 row 内滚 —— 用户在 hero / section header / row 之间
+      // 空隙 / 列表底部那些区域,touchmove 不经过 task-row,继续走 native scroll,
+      // 视觉零抖动。row 自身的纵向手势在 catch 阶段就 dropped。
+      if (this._gestureMode === 'scroll') return
 
       if (this._gestureMode === 'drag') {
         const now = Date.now()
@@ -244,7 +242,6 @@ Component({
       this.touchStartX = null
       this.touchStartY = null
       this.dragStartY = null
-      this._scrollLastY = null
       this._gestureMode = null
       this._gestureRowId = null
     },
