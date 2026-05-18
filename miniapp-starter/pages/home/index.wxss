@@ -16,9 +16,13 @@
      bluish band that previously hung above the tab bar. Tasks tab doesn't
      show this because the notebook list usually fills the viewport. */
   background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 30%, #ffffff 55%);
-  /* Reserve space at the bottom for the fixed custom tab bar (~100rpx +
-     safe area). Put it on .page (not .scroll-area) so the scroll-view ends
-     flush with the tab bar. */
+  /* Override app.wxss 的 `.page { padding: 24rpx }` —— 那条会让 .page 的
+     左/右/顶 各留 24rpx 空白,scroll-view 整体被推进去,屏幕最左 / 最右
+     的 24rpx 落在 .page padding 区,touch 不进 scroll-view 不能滚。视觉
+     上的留白搬到 .scroll-area 自己的 padding 里 —— 那块在 scroll-view 内,
+     原生 scroll 收得到。Reserve space at the bottom for the fixed custom
+     tab bar (~100rpx + safe area). */
+  padding: 0;
   padding-bottom: calc(100rpx + env(safe-area-inset-bottom));
 }
 
@@ -26,13 +30,11 @@
   flex: 1;
   min-height: 0;
   box-sizing: border-box;
-  /* Horizontal padding is 0 (not the usual 24rpx) because
-     <scroll-view enhanced> reserves space for its native scrollbar lane on
-     each side even with show-scrollbar=false, plus the scroll-view's own
-     viewport inset — total ~24rpx of implicit horizontal inset that pulls
-     the outer cards visibly inward vs other tabs that use
-     <view class="page"> with 24rpx padding. Zero here so the cards align. */
-  padding: 0;
+  /* 24rpx 视觉留白由 scroll-view 自己撑出来,这样屏幕边缘 0-24rpx 那条
+     窄带也是 scroll-view 的命中区(padding 在 hit-test 里属于元素自身)。
+     calendar 页一直这么做,首页之前漏抄。 */
+  padding: 24rpx;
+  padding-bottom: 0;
 }
 
 .card {
