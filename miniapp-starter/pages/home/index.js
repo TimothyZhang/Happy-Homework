@@ -491,23 +491,15 @@ Page({
     this._curScrollTop = (e && e.detail && e.detail.scrollTop) || 0
   },
 
-  // task-list row scroll 模式喂过来的 deltaY。同帧多个事件合并成一次
-  // setData,避免 60Hz × setData 渲染 → scroll-view 抖动叠加。
+  // task-list row scroll 模式 / momentum 喂过来的 deltaY,直接累加写回。
+  // 之前试过 setTimeout(0) 同 tick 合并,但 WeChat 自带 setData 合并,我们
+  // 多套一层只是给 momentum tick 再添一帧延迟。
   handleScrollBy(e) {
     const deltaY = (e && e.detail && e.detail.deltaY) || 0
     if (!deltaY) return
-    this._pendingScrollDelta = (this._pendingScrollDelta || 0) + deltaY
-    if (this._scrollFlushScheduled) return
-    this._scrollFlushScheduled = true
-    setTimeout(() => {
-      this._scrollFlushScheduled = false
-      const total = this._pendingScrollDelta || 0
-      this._pendingScrollDelta = 0
-      if (!total) return
-      const next = Math.max(0, (this._curScrollTop || 0) + total)
-      this._curScrollTop = next
-      this.setData({ scrollTop: next })
-    }, 0)
+    const next = Math.max(0, (this._curScrollTop || 0) + deltaY)
+    this._curScrollTop = next
+    this.setData({ scrollTop: next })
   },
 
   handleSwipeOpen() {
