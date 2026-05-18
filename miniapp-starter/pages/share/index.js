@@ -22,6 +22,12 @@ function buildDateRangeLabel(start, end) {
   return `${shortMD(start)} – ${shortMD(end)}`
 }
 
+// chip 上展示的"短日期"。带前缀 emoji,让 chip 一眼是日期(picker 触发器)。
+function chipDateLabel(dateStr, prefix) {
+  if (!dateStr) return prefix
+  return `${prefix}${shortMD(dateStr)}`
+}
+
 function buildPreviewTitle(nickname) {
   const n = (nickname || '').trim()
   return n ? `${n} 分享的作业` : '我分享的作业'
@@ -66,6 +72,8 @@ Page({
     previewTitle: '',
     orgLabel: '',
     dateRangeLabel: '',
+    startDateLabel: '',
+    endDateLabel: '',
     totalCount: 0,
     subjectGroups: [],
     filterEmptyHint: '该范围内没有可分享的作业',
@@ -144,6 +152,8 @@ Page({
       subjectGroups,
       totalCount,
       dateRangeLabel,
+      startDateLabel: chipDateLabel(startDate, '📅 '),
+      endDateLabel: chipDateLabel(endDate, '至 '),
       orgLabel: organization,
       previewTitle,
       _cachedPayload: payload

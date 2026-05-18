@@ -1,36 +1,8 @@
 <view class="page">
   <scroll-view scroll-y="{{true}}" show-scrollbar="{{false}}" class="scroll-area">
-    <view class="card filter-card">
-      <view class="filter-row">
-        <text class="filter-label">日期</text>
-        <view class="filter-control date-controls">
-          <picker mode="date" value="{{startDate}}" bindchange="handleStartDateChange">
-            <view class="date-input">{{startDate}}</view>
-          </picker>
-          <text class="date-sep">至</text>
-          <picker mode="date" value="{{endDate}}" bindchange="handleEndDateChange">
-            <view class="date-input">{{endDate}}</view>
-          </picker>
-        </view>
-      </view>
-
-      <view class="filter-row">
-        <text class="filter-label">组织</text>
-        <picker class="filter-control"
-                mode="selector"
-                range="{{orgOptions}}"
-                value="{{orgIndex}}"
-                bindchange="handleOrgChange">
-          <view class="org-input">
-            <text>{{orgOptions[orgIndex]}}</text>
-            <text class="org-caret">▾</text>
-          </view>
-        </picker>
-      </view>
-
-      <view class="filter-hint">分享所有学科·一次性作业(不含重复)</view>
-    </view>
-
+    <!-- 顶部预览卡 = 落地页结构。组织 / 日期 chip 本身就是 picker 触发器,
+         调整筛选不再需要单独的"筛选模块" UI。微信分享卡片自动截图抓到的
+         就是这一坨,看起来和落地页一致。 -->
     <view class="card preview-card">
       <view class="sharer-row">
         <image wx:if="{{sharerAvatar}}"
@@ -45,8 +17,27 @@
       </view>
 
       <view class="chip-row">
-        <text class="chip org-chip">{{orgLabel}}</text>
-        <text class="chip date-chip">{{dateRangeLabel}}</text>
+        <picker mode="selector"
+                range="{{orgOptions}}"
+                value="{{orgIndex}}"
+                bindchange="handleOrgChange">
+          <view class="chip org-chip chip-picker">
+            <text>{{orgLabel}}</text>
+            <text class="chip-caret">▾</text>
+          </view>
+        </picker>
+        <picker mode="date" value="{{startDate}}" bindchange="handleStartDateChange">
+          <view class="chip date-chip chip-picker">
+            <text>{{startDateLabel}}</text>
+            <text class="chip-caret">▾</text>
+          </view>
+        </picker>
+        <picker mode="date" value="{{endDate}}" bindchange="handleEndDateChange">
+          <view class="chip date-chip chip-picker">
+            <text>{{endDateLabel}}</text>
+            <text class="chip-caret">▾</text>
+          </view>
+        </picker>
       </view>
     </view>
 
