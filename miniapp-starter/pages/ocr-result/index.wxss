@@ -50,6 +50,17 @@
   padding: 20rpx;
 }
 
+.drafts-meta {
+  margin-top: 16rpx;
+  padding: 14rpx 20rpx;
+  border-radius: 20rpx;
+  background: #eef4ff;
+}
+
+.drafts-meta .field {
+  margin-top: 0;
+}
+
 .draft-card {
   margin-top: 16rpx;
   padding: 20rpx 24rpx;
