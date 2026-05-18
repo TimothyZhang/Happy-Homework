@@ -19,6 +19,11 @@
     <view class="chart-scroll">
       <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
             style="height: {{barAreaRpx + 60}}rpx;">
+        <block wx:if="{{period === 'month'}}">
+          <view class="grid-line grid-line-bar" style="bottom: 84rpx;"></view>
+          <view class="grid-line grid-line-bar" style="bottom: 134rpx;"></view>
+          <view class="grid-line grid-line-bar" style="bottom: 184rpx;"></view>
+        </block>
         <view wx:for="{{countBars}}" wx:key="date" class="bar-col">
           <view class="bar-stack" style="height: {{barAreaRpx}}rpx;">
             <text wx:if="{{item.value > 0}}" class="bar-value">{{item.value}}</text>
@@ -39,6 +44,11 @@
     <view class="chart-scroll">
       <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
             style="height: {{barAreaRpx + 60}}rpx;">
+        <block wx:if="{{period === 'month'}}">
+          <view class="grid-line grid-line-bar" style="bottom: 84rpx;"></view>
+          <view class="grid-line grid-line-bar" style="bottom: 134rpx;"></view>
+          <view class="grid-line grid-line-bar" style="bottom: 184rpx;"></view>
+        </block>
         <view wx:for="{{minutesBars}}" wx:key="date" class="bar-col">
           <view class="bar-stack" style="height: {{barAreaRpx}}rpx;">
             <text wx:if="{{item.value > 0}}" class="bar-value">{{item.value}}</text>
@@ -59,6 +69,10 @@
     <view class="chart-scroll">
       <view class="bar-row coin-row {{period === 'month' ? 'is-month' : 'is-week'}}"
             style="height: {{barAreaRpx * 2 + 80}}rpx;">
+        <block wx:if="{{period === 'month'}}">
+          <view class="grid-line grid-line-coin" style="bottom: 380rpx;"></view>
+          <view class="grid-line grid-line-coin" style="bottom: 178rpx;"></view>
+        </block>
         <view wx:for="{{coinBars}}" wx:key="date" class="bar-col coin-col">
           <view class="bar-half bar-half-pos" style="height: {{barAreaRpx}}rpx;">
             <text wx:if="{{item.gain > 0}}" class="bar-value">+{{item.gain}}</text>

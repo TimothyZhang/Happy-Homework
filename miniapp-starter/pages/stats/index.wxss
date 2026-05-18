@@ -35,6 +35,18 @@
   padding: 0 4rpx;
   box-sizing: border-box;
   width: 100%;
+  position: relative;
+}
+
+/* 月模式参考线 —— bar 区内的 25/50/75% 水平虚线 */
+.grid-line {
+  position: absolute;
+  left: 4rpx;
+  right: 4rpx;
+  height: 0;
+  border-top: 1rpx dashed rgba(31, 35, 41, 0.12);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .bar-row.is-week {
@@ -51,6 +63,8 @@
   align-items: center;
   flex: 1;
   min-width: 0;
+  position: relative;
+  z-index: 1;
 }
 
 .bar-stack {
