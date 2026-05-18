@@ -5,6 +5,7 @@
     "pages/leaderboard/index",
     "pages/calendar/index",
     "pages/notebook-share/index",
+    "pages/share/index",
     "pages/ocr-import/index",
     "pages/ocr-result/index",
     "pages/pet/index",

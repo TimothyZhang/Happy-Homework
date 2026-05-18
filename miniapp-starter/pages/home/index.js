@@ -508,6 +508,12 @@ Page({
     wx.navigateTo({ url: `/pkg-notebook/task-edit/index?date=${date}` })
   },
 
+  handleNavigateToShare() {
+    // 分享页默认带当前选中的日期 — start/end 都设到这天,用户再调范围。
+    const date = this.data.selectedDate || store.todayStr()
+    wx.navigateTo({ url: `/pages/share/index?date=${date}` })
+  },
+
   // === Date segment === //
 
   handleSegmentTap(e) {

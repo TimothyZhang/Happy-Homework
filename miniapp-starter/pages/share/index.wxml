@@ -1,0 +1,83 @@
+<view class="page">
+  <scroll-view scroll-y="{{true}}" show-scrollbar="{{false}}" class="scroll-area">
+    <view class="card filter-card">
+      <view class="filter-row">
+        <text class="filter-label">日期</text>
+        <view class="filter-control date-controls">
+          <picker mode="date" value="{{startDate}}" bindchange="handleStartDateChange">
+            <view class="date-input">{{startDate}}</view>
+          </picker>
+          <text class="date-sep">至</text>
+          <picker mode="date" value="{{endDate}}" bindchange="handleEndDateChange">
+            <view class="date-input">{{endDate}}</view>
+          </picker>
+        </view>
+      </view>
+
+      <view class="filter-row">
+        <text class="filter-label">组织</text>
+        <picker class="filter-control"
+                mode="selector"
+                range="{{orgOptions}}"
+                value="{{orgIndex}}"
+                bindchange="handleOrgChange">
+          <view class="org-input">
+            <text>{{orgOptions[orgIndex]}}</text>
+            <text class="org-caret">▾</text>
+          </view>
+        </picker>
+      </view>
+
+      <view class="filter-hint">分享所有学科·一次性作业(不含重复)</view>
+    </view>
+
+    <view class="card preview-card">
+      <view class="sharer-row">
+        <image wx:if="{{sharerAvatar}}"
+               class="sharer-avatar"
+               src="{{sharerAvatar}}"
+               mode="aspectFill" />
+        <view wx:else class="sharer-avatar sharer-avatar-fallback">📤</view>
+        <view class="sharer-text">
+          <text class="sharer-name">{{previewTitle}}</text>
+          <text class="sharer-hint">共 {{totalCount}} 项作业</text>
+        </view>
+      </view>
+
+      <view class="chip-row">
+        <text class="chip org-chip">{{orgLabel}}</text>
+        <text class="chip date-chip">{{dateRangeLabel}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{totalCount === 0}}" class="card empty-card">
+      <text class="empty-emoji">📝</text>
+      <text class="empty-text">{{filterEmptyHint}}</text>
+    </view>
+
+    <block wx:for="{{subjectGroups}}" wx:key="subject" wx:for-item="group">
+      <view class="subject-header">{{group.subject}} ({{group.tasks.length}})</view>
+      <view wx:for="{{group.tasks}}"
+            wx:key="id"
+            wx:for-item="t"
+            class="task-row">
+        <view class="row-body">
+          <text class="row-content">{{t.content}}</text>
+          <view class="row-chips">
+            <text class="chip org-chip">{{t.organization}}</text>
+            <text wx:if="{{t.dueDateLabel}}" class="chip range-chip">{{t.dueDateLabel}}</text>
+            <text wx:if="{{t.estimatedMinutes > 0}}" class="chip est-chip">{{t.estimatedMinutes}} 分钟</text>
+          </view>
+        </view>
+      </view>
+    </block>
+  </scroll-view>
+
+  <view class="bottom-actions">
+    <button class="full-btn share-btn"
+            open-type="share"
+            disabled="{{totalCount === 0}}">
+      💬 分享 {{totalCount}} 项作业
+    </button>
+  </view>
+</view>

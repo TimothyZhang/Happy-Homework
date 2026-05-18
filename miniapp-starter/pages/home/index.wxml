@@ -89,6 +89,11 @@
                  bind:swipeend="handleSwipeEnd"
                  bind:changed="handleTasksChanged" />
     </view>
+
+    <view class="home-share-action" bindtap="handleNavigateToShare">
+      <text class="home-share-icon">💬</text>
+      <text class="home-share-label">分享作业</text>
+    </view>
   </scroll-view>
 
   <reward-toast kind="task"

@@ -2254,55 +2254,102 @@ function resetOrganizations() {
 // v3 分享:按日期 + 可选学科/组织过滤,序列化当日可见 task 列表。
 // shareId 由调用方传入(客户端 nanoid),作为云函数 dedup key + 接收页 once-only 标记。
 // `taskIds` 可选 —— 不传时序列化"当日全部",传时只取选中的 task。
-function serializeTasksForShare(dateStr, options) {
+// 接受两种调用方式以兼容老 caller:
+//   serializeTasksForShare(dateStr, options)      // legacy: 单日,sub/org 过滤
+//   serializeTasksForShare(options)               // new: 日期范围 + org 单选
+// options:
+//   - startDate / endDate: 日期范围 [起, 止] 闭区间。endDate 默认 = startDate(单日)
+//   - organization: 单个组织名,空串 = 不过滤(全部)
+//   - taskIds / subjects / organizations: legacy 多选过滤(保持兼容)
+//   - sharerOpenid, shareId: 元数据
+//
+// 行为:
+//   1) 在 [start, end] 范围内逐日 tasksForDate(state, d) 收集 item
+//   2) 默认只取一次性 task — recurring 不进 payload(分享页 UI 也屏蔽)
+//   3) 去重到 task.id
+//   4) 按 organization / 旧 sub-org 过滤
+//   5) 序列化为 v2 payload,附加 de(end date)+ org(选中标签)+ 每 task dd(displayDueDate)
+function serializeTasksForShare(arg1, arg2) {
+  let opts
+  if (typeof arg1 === 'string' || arg1 == null) {
+    opts = arg2 ? { ...arg2 } : {}
+    if (arg1) opts.startDate = arg1
+  } else {
+    opts = arg1 || {}
+  }
+
   const state = loadState()
-  const opts = options || {}
-  const day = dateStr || todayStr()
+  const startDate = opts.startDate || todayStr()
+  const endDate = opts.endDate || startDate
+  const includeRecurring = !!opts.includeRecurring  // 默认 false:一次性 only
   const sharerOpenid = opts.sharerOpenid || ''
   const shareId = opts.shareId || genId('sh')
 
-  const items = tasksForDate(state, day)
-  // taskIds 过滤:UI 让用户勾选要分享哪些。
-  let filtered = items
+  // 逐日收集,以 task.id 去重(同一一次性 task 在多日视图最多出 1 次)。
+  const collected = []
+  const seenTaskIds = new Set()
+  const pushUnique = (it) => {
+    if (seenTaskIds.has(it.task.id)) return
+    seenTaskIds.add(it.task.id)
+    collected.push(it)
+  }
+
+  // start ≤ end:逐日。start > end:直接空(空范围)。
+  if (compareDateStr(startDate, endDate) <= 0) {
+    let d = startDate
+    let guard = 0
+    while (compareDateStr(d, endDate) <= 0 && guard < 366) {
+      for (const it of tasksForDate(state, d)) {
+        if (!includeRecurring && it.task.mode === 'recurring') continue
+        pushUnique(it)
+      }
+      d = addDays(d, 1)
+      guard++
+    }
+  }
+
+  let filtered = collected
   if (Array.isArray(opts.taskIds) && opts.taskIds.length > 0) {
     const idSet = new Set(opts.taskIds)
-    filtered = items.filter((it) => idSet.has(it.task.id))
+    filtered = filtered.filter((it) => idSet.has(it.task.id))
   }
-  // 学科/组织过滤(快速分享按钮)。
   if (Array.isArray(opts.subjects) && opts.subjects.length > 0) {
     const set = new Set(opts.subjects)
     filtered = filtered.filter((it) => set.has(it.task.subject || '其他'))
+  }
+  if (typeof opts.organization === 'string' && opts.organization) {
+    filtered = filtered.filter((it) => (it.task.organization || DEFAULT_ORGANIZATION) === opts.organization)
   }
   if (Array.isArray(opts.organizations) && opts.organizations.length > 0) {
     const set = new Set(opts.organizations)
     filtered = filtered.filter((it) => set.has(it.task.organization || DEFAULT_ORGANIZATION))
   }
 
-  // 同一 task 在同一日期最多 1 行 — tasksForDate 已经去重(recurring task 在 today
-  // 会按 backlog 输出多行,但每行 occurrenceDate 不同 → 这里序列化时去重到 task.id)。
-  const seenTaskIds = new Set()
-  const tasks = []
-  for (const it of filtered) {
-    if (seenTaskIds.has(it.task.id)) continue
-    seenTaskIds.add(it.task.id)
+  const tasks = filtered.map((it) => {
     const t = it.task
-    tasks.push({
+    const dd = t.mode === 'recurring' ? '' : (effectiveDueDate(t) || '')
+    return {
       s: t.subject || '其他',
       o: t.organization || DEFAULT_ORGANIZATION,
       c: t.content || '',
       m: Number(t.estimatedMinutes) || 0,
       mo: t.mode === 'recurring' ? 'recurring' : 'one-shot',
-      sd: t.startDate || day,
+      sd: t.startDate || startDate,
       ed: t.endDate === undefined ? null : t.endDate,
+      // dd: 分享时刻的归属日,落地页用来画日期 chip。导入时 buildTaskFromShare 也会
+      // 读这个字段做 dueDate 还原。
+      dd,
       r: t.mode === 'recurring' ? (t.recurrence || { type: 'daily', weekdays: [] }) : null
-    })
-  }
+    }
+  })
 
   return {
     v: 2,
     sharer: sharerOpenid,
     shareId,
-    d: day,
+    d: startDate,
+    de: endDate,
+    org: typeof opts.organization === 'string' ? opts.organization : '',
     t: tasks
   }
 }
@@ -2382,6 +2429,9 @@ function applyAdminCoinClaim({ items, totalApplied, addedTotal, deductedTotal })
 // v3: 从分享条目构建一个全字段 task。estimatedMinutes 缺失时按接收方历史估算。
 // 调度字段(mode / startDate / endDate / recurrence)从 share 条目继承,recurring
 // 任务的 startDate 钳到 ≤ 今天,避免分享方设了未来日期导致接收方看不到。
+//
+// dd(displayDueDate)优先用于一次性 task 的 dueDate:分享方原始的归属日(可能 ≠ ed),
+// 接收方导入后保持挂在同一天。dd 缺失时退化到 endDate。
 function buildTaskFromShare(item, today) {
   const mode = item.mo === 'recurring' ? 'recurring' : 'one-shot'
   let startDate = item.sd || today
@@ -2404,7 +2454,7 @@ function buildTaskFromShare(item, today) {
     organization: normalizeOrganization(item.o),
     content: item.c || '',
     estimatedMinutes: Number(item.m || estimateTaskMinutes(item.c, item.s) || 0),
-    dueDate: null,
+    dueDate: mode === 'one-shot' ? (item.dd || null) : null,
     mode,
     startDate,
     endDate,
@@ -2475,15 +2525,19 @@ function sanitizeSharePayload(payload) {
         mo: mode,
         sd,
         ed,
+        dd: '',
         r
       }
     }).filter(Boolean)
+    const dResolved = sd || todayStr()
     return {
       v: 2,
       from: safeShareString(payload.from, SHARE_MAX_FROM),
       sharer: safeShareString(payload.sharer, SHARE_MAX_ID),
       shareId: safeShareString(payload.nbId, SHARE_MAX_ID),  // v1 nbId 当 shareId 用
-      d: sd || todayStr(),
+      d: dResolved,
+      de: dResolved,
+      org: '',
       t: tasks
     }
   }
@@ -2514,15 +2568,19 @@ function sanitizeSharePayload(payload) {
       mo: mode,
       sd: safeShareString(it.sd, SHARE_MAX_DATE_STR),
       ed: it.ed === null ? null : (it.ed === undefined ? undefined : safeShareString(it.ed, SHARE_MAX_DATE_STR)),
+      dd: safeShareString(it.dd, SHARE_MAX_DATE_STR),
       r
     }
   }).filter(Boolean)
+  const dResolved = safeShareString(payload.d, SHARE_MAX_DATE_STR) || todayStr()
   return {
     v: 2,
     from: safeShareString(payload.from, SHARE_MAX_FROM),
     sharer: safeShareString(payload.sharer, SHARE_MAX_ID),
     shareId: safeShareString(payload.shareId, SHARE_MAX_ID),
-    d: safeShareString(payload.d, SHARE_MAX_DATE_STR) || todayStr(),
+    d: dResolved,
+    de: safeShareString(payload.de, SHARE_MAX_DATE_STR) || dResolved,
+    org: safeShareString(payload.org, SHARE_MAX_ORGANIZATION),
     t: tasks
   }
 }

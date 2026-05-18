@@ -348,6 +348,24 @@
   color: #6b7785;
 }
 
+/* === bottom share action (navigates to /pages/share/index) === //
+   24rpx 负边距吃掉 .scroll-area 自带的 padding,让按钮真正 edge-to-edge。 */
+.home-share-action {
+  margin: 36rpx -24rpx 24rpx;
+  height: 96rpx;
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  box-shadow: 0 -4rpx 18rpx rgba(36, 91, 219, 0.18);
+}
+.home-share-icon { font-size: 32rpx; line-height: 1; }
+.home-share-label { line-height: 1; }
+
 /* overdue section */
 .overdue-card .section-title { color: #b42318; }
 
