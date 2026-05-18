@@ -49,10 +49,7 @@ Component({
       this.startTickerIfNeeded()
     }
   },
-  detached() {
-    this.stopTicker()
-    if (this._momentumTimer) clearTimeout(this._momentumTimer)
-  },
+  detached() { this.stopTicker() },
   methods: {
     startTickerIfNeeded() {
       this.stopTicker()
@@ -95,9 +92,6 @@ Component({
     },
 
     handleRowTouchStart(e) {
-      // 任何新触摸都先打断进行中的惯性滚动 —— 用户可能想点 / 拖 / 滑,不能让
-      // 之前的 momentum 继续往下走破坏 hit test。
-      this._stopMomentumScroll()
       const t = (e.touches && e.touches[0]) || null
       this.touchStartX = t ? t.pageX : 0
       this.touchStartY = t ? t.pageY : 0
@@ -148,30 +142,20 @@ Component({
         if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
         if (Math.abs(dx) > Math.abs(dy)) {
           this._gestureMode = 'swipe'
+          // 起划:让父页锁 scroll,免得 swipe 后续 touchmove 的 dy 分量带着
+          // scroll-view 一起动。第一帧 dy(就是越过 6rpx 阈值的那次)还是会
+          // 漏给 native 滚一点点 —— 1-5rpx 量级,用户视觉上注意力都在 row 横
+          // 向偏移,基本察觉不到。
+          this.triggerEvent('swipestart')
         } else {
           this._gestureMode = 'scroll'
-          this._scrollLastY = this.touchStartY
+          // scroll 模式下我们什么都不做 —— bindtouchmove 自然冒泡到 scroll-view,
+          // 原生 GPU 滚动接管,自带 momentum / bounce / scrollbar 全套。
+          return
         }
       }
 
-      // catchtouchmove 切断了 native scroll 冒泡,row 上的纵向手势这里把
-      // deltaY 喂回父页 → setData scroll-top binding。每帧 setData 比 native
-      // GPU 滚动慢一点点,所以触摸过程的运动跟 native 没法 100% 拼,但
-      // 我们用 EMA 跟踪手速,松手后 _startMomentumScroll 接着衰减自滚 —
-      // 加速减速的"惯性感"靠这段补回来。
-      if (this._gestureMode === 'scroll') {
-        const now = Date.now()
-        const lastY = this._scrollLastY != null ? this._scrollLastY : t.pageY
-        const lastT = this._scrollLastT || now
-        const deltaY = lastY - t.pageY
-        const dt = Math.max(1, now - lastT)
-        const instVel = deltaY / dt
-        this._scrollVelocity = (this._scrollVelocity || 0) * 0.6 + instVel * 0.4
-        this._scrollLastY = t.pageY
-        this._scrollLastT = now
-        if (deltaY !== 0) this.triggerEvent('scrollby', { deltaY })
-        return
-      }
+      if (this._gestureMode === 'scroll') return
 
       if (this._gestureMode === 'drag') {
         const now = Date.now()
@@ -254,53 +238,13 @@ Component({
         const dx = this.data.swipeDx
         const opened = dx <= -swipeMax / 2
         this._setSwipeOpen(opened ? id : null, swipeMax, { swipeId: null, swipeDx: 0 })
-      } else if (this._gestureMode === 'scroll') {
-        const v = this._scrollVelocity || 0
-        // 速度阈值 0.1 px/ms ≈ 100px/s,以下视作"轻放手不带 flick",不启动
-        // 惯性。再小的话会出现轻触微移后还自滚的怪感。
-        if (Math.abs(v) > 0.1) this._startMomentumScroll(v)
+        this.triggerEvent('swipeend')
       }
       this.touchStartX = null
       this.touchStartY = null
       this.dragStartY = null
-      this._scrollLastY = null
-      this._scrollLastT = null
-      this._scrollVelocity = 0
       this._gestureMode = null
       this._gestureRowId = null
-    },
-
-    // 触摸释放后按最近的滚动速度继续往下滚,逐帧指数衰减。WeChat 没有 RAF,
-    // 用 setTimeout(~16ms)模拟 60Hz。每 tick 把 dy 喂给父页(走跟 touchmove
-    // 一样的 scrollby 通道)。最近触摸或拖动会 _stopMomentumScroll 打断。
-    _startMomentumScroll(initialVelocity) {
-      this._stopMomentumScroll()
-      let velocity = initialVelocity
-      let lastTime = Date.now()
-      const minVel = 0.04 // px/ms,≈ 40px/s,低于这个停
-      const tick = () => {
-        const now = Date.now()
-        // 防极端帧间隔(切后台再切回来)把 dy 推到天上
-        const dt = Math.max(1, Math.min(50, now - lastTime))
-        lastTime = now
-        if (Math.abs(velocity) < minVel) {
-          this._momentumTimer = null
-          return
-        }
-        const dy = velocity * dt
-        this.triggerEvent('scrollby', { deltaY: dy })
-        // 每 16ms 衰减 5%,iOS 风格的"挺长的拖尾"
-        velocity *= Math.pow(0.95, dt / 16)
-        this._momentumTimer = setTimeout(tick, 16)
-      }
-      tick()
-    },
-
-    _stopMomentumScroll() {
-      if (this._momentumTimer) {
-        clearTimeout(this._momentumTimer)
-        this._momentumTimer = null
-      }
     },
 
     // === Actions === //

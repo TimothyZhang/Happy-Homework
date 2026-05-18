@@ -1,10 +1,6 @@
 <page-meta disable-scroll="true" />
 <view class="page">
-  <scroll-view scroll-y="{{!disableScroll}}"
-               scroll-top="{{scrollTop}}"
-               bindscroll="handleScrollAreaScroll"
-               class="scroll-area"
-               show-scrollbar="{{false}}">
+  <scroll-view scroll-y="{{!disableScroll}}" class="scroll-area" show-scrollbar="{{false}}">
     <view class="card">
       <month-calendar id="cal"
                       value="{{selectedDate}}"
@@ -22,7 +18,8 @@
                  active-date="{{selectedDate}}"
                  bind:dragstart="handleDragStart"
                  bind:dragend="handleDragEnd"
-                 bind:scrollby="handleScrollBy"
+                 bind:swipestart="handleSwipeStart"
+                 bind:swipeend="handleSwipeEnd"
                  bind:changed="handleTasksChanged" />
     </view>
   </scroll-view>

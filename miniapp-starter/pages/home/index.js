@@ -148,9 +148,6 @@ Page({
     // task-list (未完成 / 已完成) 各自触发 swipeopen / swipeclose,这里
     // 用计数避免两个区先后打开 → 先关一个就误以为都关了。
     swipeMenuOpen: false,
-    // scroll-view scroll-top 数据绑定 —— row 上纵向手势走 catchtouchmove
-    // 阻断了 native 冒泡,只能 task-list scrollby → 这里累加后写回。
-    scrollTop: 0,
     todayLabel: '今天',
     tomorrowLabel: '明天',
     dayAfterLabel: '后天',
@@ -485,22 +482,11 @@ Page({
   handleDragStart() { this.setData({ disableScroll: true }) },
   handleDragEnd() { this.setData({ disableScroll: false }) },
 
-  // hero / 列表外区域 native scroll 时 scroll-view 报当前 scrollTop,
-  // 缓存作为 row 上 scrollby 增量的 baseline。
-  handleScrollAreaScroll(e) {
-    this._curScrollTop = (e && e.detail && e.detail.scrollTop) || 0
-  },
-
-  // task-list row scroll 模式 / momentum 喂过来的 deltaY,直接累加写回。
-  // 之前试过 setTimeout(0) 同 tick 合并,但 WeChat 自带 setData 合并,我们
-  // 多套一层只是给 momentum tick 再添一帧延迟。
-  handleScrollBy(e) {
-    const deltaY = (e && e.detail && e.detail.deltaY) || 0
-    if (!deltaY) return
-    const next = Math.max(0, (this._curScrollTop || 0) + deltaY)
-    this._curScrollTop = next
-    this.setData({ scrollTop: next })
-  },
+  // swipestart / swipeend:row 横向手势期间锁 scroll-view scroll-y,免得
+  // swipe 的 dy 分量被 native scroll 吃掉。注意第一帧(越过 6rpx 阈值
+  // 那次)还是会带一点点 native 滚动,可接受。
+  handleSwipeStart() { this.setData({ disableScroll: true }) },
+  handleSwipeEnd() { this.setData({ disableScroll: false }) },
 
   handleSwipeOpen() {
     this._openSwipeCount = (this._openSwipeCount || 0) + 1
