@@ -31,7 +31,7 @@
             bindtap="handleRowTap"
             bindtouchstart="handleRowTouchStart"
             bindlongpress="handleRowLongPress"
-            catchtouchmove="handleRowTouchMove"
+            bindtouchmove="handleRowTouchMove"
             bindtouchend="handleRowTouchEnd"
             bindtouchcancel="handleRowTouchEnd"
             data-id="{{item.id}}"
