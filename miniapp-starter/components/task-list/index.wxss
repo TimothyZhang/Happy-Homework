@@ -61,12 +61,13 @@
 .task-row.paused .status-stripe { background: #ff8c1a; }
 .task-row.done   .status-stripe { background: #07c160; }
 
-/* 重复类型作业:状态条叠加紫色斜条纹,与一次性作业区分。background-image 单独设,
-   不覆盖各状态色的 background-color;紫色跟 recurring-chip 同色系 (#7c4dff)。 */
+/* 重复类型作业:状态条叠加斜条纹,与一次性作业区分。background-image 单独设,
+   不覆盖各状态色的 background-color;rgba 半透明白条对四种底色都看得见。
+   曾试过紫色条纹跟 chip 同色,Tim 反馈难看,改回白色。 */
 .task-row.is-recurring .status-stripe {
   background-image: repeating-linear-gradient(
     -45deg,
-    rgba(124, 77, 255, 0.9) 0 5rpx,
+    rgba(255, 255, 255, 0.55) 0 5rpx,
     transparent 5rpx 10rpx
   );
 }
