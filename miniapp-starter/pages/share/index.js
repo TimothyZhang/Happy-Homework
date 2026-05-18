@@ -3,7 +3,6 @@ const shareReward = require('../../utils/share-reward')
 
 // 学科顺序与 notebook-share 保持一致 — 让接收方看到的分组顺序与分享方预览一致。
 const SUBJECT_ORDER = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
-const ORG_ALL_LABEL = '全部组织'
 
 function subjectRank(s) {
   const i = SUBJECT_ORDER.indexOf(s)
@@ -59,12 +58,13 @@ Page({
   data: {
     startDate: '',
     endDate: '',
-    orgOptions: [ORG_ALL_LABEL],
+    // 组织 picker:必选一个,无"全部"项 — 业务上每次分享一个组织的作业列表。
+    orgOptions: [],
     orgIndex: 0,
     sharerNickname: '',
     sharerAvatar: '',
     previewTitle: '',
-    orgLabel: ORG_ALL_LABEL,
+    orgLabel: '',
     dateRangeLabel: '',
     totalCount: 0,
     subjectGroups: [],
@@ -77,8 +77,7 @@ Page({
   onLoad(options) {
     const today = store.todayStr()
     const initialDate = (options && options.date) || today
-    const orgs = store.getOrganizations()
-    const orgOptions = [ORG_ALL_LABEL].concat(orgs)
+    const orgOptions = store.getOrganizations()
     const profile = store.getProfile()
     this.setData({
       startDate: initialDate,
@@ -129,7 +128,7 @@ Page({
   // 重算预览 + payload。每次过滤项变动就跑一次,纯本地。
   refreshPreview() {
     const { startDate, endDate, orgOptions, orgIndex, sharerNickname } = this.data
-    const organization = orgIndex > 0 ? orgOptions[orgIndex] : ''
+    const organization = orgOptions[orgIndex] || ''
     const sharer = shareReward.getMyOpenidSync() || ''
     const payload = store.serializeTasksForShare({
       startDate,
@@ -140,13 +139,12 @@ Page({
     const subjectGroups = groupBySubject(payload.t || [])
     const totalCount = (payload.t || []).length
     const dateRangeLabel = buildDateRangeLabel(startDate, endDate)
-    const orgLabel = organization || ORG_ALL_LABEL
     const previewTitle = buildPreviewTitle(sharerNickname)
     this.setData({
       subjectGroups,
       totalCount,
       dateRangeLabel,
-      orgLabel,
+      orgLabel: organization,
       previewTitle,
       _cachedPayload: payload
     })
@@ -156,7 +154,7 @@ Page({
     // refreshPreview 已经把 payload 缓存到 _cachedPayload;万一缓存丢失就重算。
     let payload = this.data._cachedPayload
     if (!payload) {
-      const organization = this.data.orgIndex > 0 ? this.data.orgOptions[this.data.orgIndex] : ''
+      const organization = this.data.orgOptions[this.data.orgIndex] || ''
       payload = store.serializeTasksForShare({
         startDate: this.data.startDate,
         endDate: this.data.endDate,

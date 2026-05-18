@@ -349,10 +349,12 @@
 }
 
 /* === bottom share action (navigates to /pages/share/index) === //
-   24rpx 负边距吃掉 .scroll-area 自带的 padding,让按钮真正 edge-to-edge。 */
+   .scroll-area 自带 24rpx side padding,这里走 0 横向 margin 即在 padding 之内
+   离屏边各 24rpx,配 pill 圆角看着像 CTA。 */
 .home-share-action {
-  margin: 36rpx -24rpx 24rpx;
+  margin: 36rpx 0 24rpx;
   height: 96rpx;
+  border-radius: 999rpx;
   background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
   color: #ffffff;
   display: flex;
@@ -361,7 +363,7 @@
   gap: 12rpx;
   font-size: 30rpx;
   font-weight: 700;
-  box-shadow: 0 -4rpx 18rpx rgba(36, 91, 219, 0.18);
+  box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
 }
 .home-share-icon { font-size: 32rpx; line-height: 1; }
 .home-share-label { line-height: 1; }
