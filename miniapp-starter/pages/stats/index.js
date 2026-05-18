@@ -114,7 +114,7 @@ function buildCharts(state, period) {
     isToday: d === today,
     value: counts[d] || 0
   }))
-  scaleBars(countBars, 'value')
+  const countMax = scaleBars(countBars, 'value')
 
   const minutesBars = dates.map((d, i) => ({
     date: d,
@@ -122,7 +122,7 @@ function buildCharts(state, period) {
     isToday: d === today,
     value: minutes[d] || 0
   }))
-  scaleBars(minutesBars, 'value')
+  const minutesMax = scaleBars(minutesBars, 'value')
 
   const coinBars = dates.map((d, i) => {
     const c = coins[d] || { gain: 0, spend: 0, net: 0 }
@@ -135,7 +135,7 @@ function buildCharts(state, period) {
       net: c.net
     }
   })
-  scaleCoinBars(coinBars)
+  const coinMax = scaleCoinBars(coinBars)
 
   return {
     countBars,
@@ -144,7 +144,15 @@ function buildCharts(state, period) {
     countTotal: countBars.reduce((s, b) => s + b.value, 0),
     minutesTotal: minutesBars.reduce((s, b) => s + b.value, 0),
     coinGainTotal: coinBars.reduce((s, b) => s + b.gain, 0),
-    coinSpendTotal: coinBars.reduce((s, b) => s + b.spend, 0)
+    coinSpendTotal: coinBars.reduce((s, b) => s + b.spend, 0),
+    // 月模式参考线上标的数字 —— 25/50/75% 三档(金币只标 50%)
+    countQ1: Math.round(countMax * 0.25),
+    countQ2: Math.round(countMax * 0.5),
+    countQ3: Math.round(countMax * 0.75),
+    minutesQ1: Math.round(minutesMax * 0.25),
+    minutesQ2: Math.round(minutesMax * 0.5),
+    minutesQ3: Math.round(minutesMax * 0.75),
+    coinHalf: Math.round(coinMax * 0.5)
   }
 }
 
@@ -158,7 +166,10 @@ Page({
     countTotal: 0,
     minutesTotal: 0,
     coinGainTotal: 0,
-    coinSpendTotal: 0
+    coinSpendTotal: 0,
+    countQ1: 0, countQ2: 0, countQ3: 0,
+    minutesQ1: 0, minutesQ2: 0, minutesQ3: 0,
+    coinHalf: 0
   },
 
   onShow() {

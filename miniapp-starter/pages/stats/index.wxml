@@ -20,9 +20,9 @@
       <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
             style="height: {{barAreaRpx + 60}}rpx;">
         <block wx:if="{{period === 'month'}}">
-          <view class="grid-line grid-line-bar" style="bottom: 84rpx;"></view>
-          <view class="grid-line grid-line-bar" style="bottom: 134rpx;"></view>
-          <view class="grid-line grid-line-bar" style="bottom: 184rpx;"></view>
+          <view class="grid-line" style="bottom: 84rpx;"><text class="grid-label">{{countQ1}}</text></view>
+          <view class="grid-line" style="bottom: 134rpx;"><text class="grid-label">{{countQ2}}</text></view>
+          <view class="grid-line" style="bottom: 184rpx;"><text class="grid-label">{{countQ3}}</text></view>
         </block>
         <view wx:for="{{countBars}}" wx:key="date" class="bar-col">
           <view class="bar-stack" style="height: {{barAreaRpx}}rpx;">
@@ -45,9 +45,9 @@
       <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
             style="height: {{barAreaRpx + 60}}rpx;">
         <block wx:if="{{period === 'month'}}">
-          <view class="grid-line grid-line-bar" style="bottom: 84rpx;"></view>
-          <view class="grid-line grid-line-bar" style="bottom: 134rpx;"></view>
-          <view class="grid-line grid-line-bar" style="bottom: 184rpx;"></view>
+          <view class="grid-line" style="bottom: 84rpx;"><text class="grid-label">{{minutesQ1}}</text></view>
+          <view class="grid-line" style="bottom: 134rpx;"><text class="grid-label">{{minutesQ2}}</text></view>
+          <view class="grid-line" style="bottom: 184rpx;"><text class="grid-label">{{minutesQ3}}</text></view>
         </block>
         <view wx:for="{{minutesBars}}" wx:key="date" class="bar-col">
           <view class="bar-stack" style="height: {{barAreaRpx}}rpx;">
@@ -70,8 +70,8 @@
       <view class="bar-row coin-row {{period === 'month' ? 'is-month' : 'is-week'}}"
             style="height: {{barAreaRpx * 2 + 80}}rpx;">
         <block wx:if="{{period === 'month'}}">
-          <view class="grid-line grid-line-coin" style="bottom: 380rpx;"></view>
-          <view class="grid-line grid-line-coin" style="bottom: 178rpx;"></view>
+          <view class="grid-line" style="bottom: 380rpx;"><text class="grid-label">+{{coinHalf}}</text></view>
+          <view class="grid-line" style="bottom: 178rpx;"><text class="grid-label grid-label-neg">-{{coinHalf}}</text></view>
         </block>
         <view wx:for="{{coinBars}}" wx:key="date" class="bar-col coin-col">
           <view class="bar-half bar-half-pos" style="height: {{barAreaRpx}}rpx;">
