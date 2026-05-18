@@ -105,11 +105,15 @@ Page({
     }
 
     const today = store.todayStr()
+    // OCR 草稿默认取用户标签列表的第一项(自定义后通常是用户最常用的)。
+    // 若用户把列表清光,getOrganizations 兜底回 DEFAULT_ORGANIZATIONS。
+    const orgList = store.getOrganizations()
+    const defaultOrg = orgList[0] || store.DEFAULT_ORGANIZATION
     validDrafts.forEach((item) => {
       // 拍照识别出的草稿统一作为一次性任务、落到今天。
       store.addTask({
         subject: item.subject || '其他',
-        organization: store.DEFAULT_ORGANIZATION,
+        organization: defaultOrg,
         content: item.content.trim(),
         estimatedMinutes: 20,
         mode: 'one-shot',

@@ -7,12 +7,32 @@ const SCHEMA_VERSION = 3
 // 全部下沉到 task 自身,task 增加 organization 字段(校内/校外/其他)。
 // state.notebooks[] 在 v3 之后永远是 []。SYNC_FIELDS 仍保留 'notebooks' 一段
 // 时间,让老 client 拿到云端空数组而不是 undefined,迁移更平滑。
-const ORGANIZATIONS = ['校内', '校外', '其他']
-// 默认 "校内" — 大多数作业是学校布置的,跟 task-edit 表单默认值保持一致。
-// 影响:migrate v2→v3 给历史 task 补 organization、OCR 导入兜底、share import 兜底、
-//      sanitize share payload 兜底。已经写过 organization 字段的 task 不会被覆盖
-//      (v3 backfill 只在字段缺失或非法时才填默认值)。
+// organization 改为用户可在「我」Tab 自定义的列表。store 维护一份 state.organizations,
+// 默认 ['校内', '校外', '其他'](与历史行为一致)。task.organization 存的是字符串,
+// 不再做枚举校验 — 用户删除某个标签后,仍持有该标签的旧 task 显示不变,只是新的
+// task-edit 下拉里不再出现该选项。
+const DEFAULT_ORGANIZATIONS = ['校内', '校外', '其他']
 const DEFAULT_ORGANIZATION = '校内'
+const ORGANIZATION_MAX_LEN = 8
+const ORGANIZATION_MAX_COUNT = 16
+
+// 规整一份任意来源的 organizations 数组:strip 非字符串、trim、过滤空串、cap 长度、
+// 去重(保序)、cap 总数。结果为空时回退默认列表 —— 永远保证至少一个标签可选。
+function sanitizeOrganizationList(raw) {
+  if (!Array.isArray(raw)) return DEFAULT_ORGANIZATIONS.slice()
+  const seen = new Set()
+  const out = []
+  for (const v of raw) {
+    if (typeof v !== 'string') continue
+    const s = v.trim()
+    if (!s || s.length > ORGANIZATION_MAX_LEN) continue
+    if (seen.has(s)) continue
+    seen.add(s)
+    out.push(s)
+    if (out.length >= ORGANIZATION_MAX_COUNT) break
+  }
+  return out.length > 0 ? out : DEFAULT_ORGANIZATIONS.slice()
+}
 
 // Subset of state fields synced to cloud. Everything else is local-only:
 // transient UI state (editTaskId, editNotebookId), OCR jobs (ephemeral and
@@ -36,7 +56,9 @@ const SYNC_FIELDS = [
   // coinLogs 是完整流水审计。append-only,cap 至 COIN_LOG_KEEP 条。
   'coinLogs',
   'pet', 'lastReward',
-  'profile'
+  'profile',
+  // 用户自定义的「组织」标签列表(在我 Tab 编辑)。
+  'organizations'
 ]
 
 // === Date helpers (local timezone, YYYY-MM-DD) === //
@@ -414,7 +436,10 @@ const defaultState = {
   // v3 起永远为空数组 —— 老字段保留只为 SYNC_FIELDS 兼容/老 client hydrate 不崩。
   notebooks: [],
   tasks: [],
-  profile: { nickname: '', avatar: '' }
+  profile: { nickname: '', avatar: '' },
+  // 用户自定义的组织标签列表(我 Tab 可编辑)。task.organization 存的是字符串,
+  // 删除某个标签不会改动已有 task —— 仅影响 task-edit 下拉。
+  organizations: DEFAULT_ORGANIZATIONS.slice()
 }
 
 // === Storage / migration === //
@@ -558,7 +583,11 @@ function migrateState(raw) {
         }
       }
       if (!out.subject) out.subject = '其他'
-      if (!ORGANIZATIONS.includes(out.organization)) out.organization = DEFAULT_ORGANIZATION
+      // organization 现在是自由字符串(用户在我 Tab 自定义标签列表)。
+      // 这里只兜底缺失/非法值,不再做枚举校验 — 历史 task 的任意 string 都保留。
+      if (typeof out.organization !== 'string' || !out.organization.trim()) {
+        out.organization = DEFAULT_ORGANIZATION
+      }
       out.mode = out.mode === 'recurring' ? 'recurring' : 'one-shot'
       if (!out.startDate) out.startDate = today
       if (out.endDate === undefined) out.endDate = out.mode === 'one-shot' ? out.startDate : null
@@ -576,6 +605,9 @@ function migrateState(raw) {
     raw.profile = raw.profile && typeof raw.profile === 'object'
       ? { nickname: raw.profile.nickname || '', avatar: raw.profile.avatar || '' }
       : { nickname: '', avatar: '' }
+    // 标签列表:trim/去重/卡长度卡总数,空数组回退默认。老用户(无 organizations 字段)
+    // 自然落到默认 ['校内', '校外', '其他'] —— 跟历史 ORGANIZATIONS 常量一致。
+    raw.organizations = sanitizeOrganizationList(raw.organizations)
     // shopItems is config (same for everyone), not user state — always
     // refresh from defaultState so item updates ship to existing users
     // without a manual cache wipe.
@@ -1219,9 +1251,14 @@ function estimateTaskMinutes(taskName, subject) {
 
 // === Task CRUD === //
 
-// v3: 标准化 organization,落不到三选一就回退默认。
+// 标准化 organization:trim + 长度卡 — 任意非空字符串都保留(不再做枚举校验,
+// 因为用户在我 Tab 自定义标签)。空/非法回退默认。截断 ORGANIZATION_MAX_LEN 避免
+// share import 灌脏数据撑爆 chip 渲染。
 function normalizeOrganization(v) {
-  return ORGANIZATIONS.includes(v) ? v : DEFAULT_ORGANIZATION
+  if (typeof v !== 'string') return DEFAULT_ORGANIZATION
+  const s = v.trim()
+  if (!s) return DEFAULT_ORGANIZATION
+  return s.length > ORGANIZATION_MAX_LEN ? s.slice(0, ORGANIZATION_MAX_LEN) : s
 }
 
 // v3: 标准化 mode + 配套字段(startDate/endDate/recurrence)。
@@ -1368,7 +1405,7 @@ function detachOccurrence(taskId, date) {
     const detached = {
       id: genId('tk'),
       subject: src.subject || '其他',
-      organization: ORGANIZATIONS.includes(src.organization) ? src.organization : DEFAULT_ORGANIZATION,
+      organization: normalizeOrganization(src.organization),
       content: src.content || '',
       estimatedMinutes: Number(src.estimatedMinutes) || 0,
       dueDate: null,
@@ -2125,6 +2162,83 @@ function updateProfileAvatar(avatar) {
   })
 }
 
+// === Organizations (custom tag list, edited in 我 Tab) === //
+
+function getOrganizations() {
+  const state = loadState()
+  return Array.isArray(state.organizations) && state.organizations.length > 0
+    ? state.organizations.slice()
+    : DEFAULT_ORGANIZATIONS.slice()
+}
+
+// 新增标签。返回 { ok, reason } —— UI 据此 toast。
+// reason: 'empty' | 'too_long' | 'duplicate' | 'too_many'
+function addOrganization(name) {
+  const raw = typeof name === 'string' ? name.trim() : ''
+  if (!raw) return { ok: false, reason: 'empty' }
+  if (raw.length > ORGANIZATION_MAX_LEN) return { ok: false, reason: 'too_long' }
+  const cur = getOrganizations()
+  if (cur.includes(raw)) return { ok: false, reason: 'duplicate' }
+  if (cur.length >= ORGANIZATION_MAX_COUNT) return { ok: false, reason: 'too_many' }
+  updateState((state) => {
+    state.organizations = sanitizeOrganizationList(cur.concat([raw]))
+    return state
+  })
+  return { ok: true }
+}
+
+// 删除标签。最后一个不允许删 —— 保证 picker 永远至少一个选项。
+// 不级联改 task —— 已经用着该标签的 task 显示不变(以"历史值"形态保留),
+// 仅影响新的 task-edit 下拉。
+// reason: 'unknown' | 'last_one'
+function removeOrganization(name) {
+  const target = typeof name === 'string' ? name.trim() : ''
+  const cur = getOrganizations()
+  const idx = cur.indexOf(target)
+  if (idx < 0) return { ok: false, reason: 'unknown' }
+  if (cur.length <= 1) return { ok: false, reason: 'last_one' }
+  updateState((state) => {
+    const next = cur.slice()
+    next.splice(idx, 1)
+    state.organizations = sanitizeOrganizationList(next)
+    return state
+  })
+  return { ok: true }
+}
+
+// 重命名标签 + 级联更新所有 task.organization。同名/空名/超长拒绝。
+// reason: 'empty' | 'too_long' | 'duplicate' | 'unknown' | 'noop'
+function renameOrganization(oldName, newName) {
+  const oldTrim = typeof oldName === 'string' ? oldName.trim() : ''
+  const newTrim = typeof newName === 'string' ? newName.trim() : ''
+  if (!newTrim) return { ok: false, reason: 'empty' }
+  if (newTrim.length > ORGANIZATION_MAX_LEN) return { ok: false, reason: 'too_long' }
+  if (oldTrim === newTrim) return { ok: false, reason: 'noop' }
+  const cur = getOrganizations()
+  const idx = cur.indexOf(oldTrim)
+  if (idx < 0) return { ok: false, reason: 'unknown' }
+  if (cur.includes(newTrim)) return { ok: false, reason: 'duplicate' }
+  updateState((state) => {
+    const next = cur.slice()
+    next[idx] = newTrim
+    state.organizations = sanitizeOrganizationList(next)
+    // 级联到所有引用了 oldTrim 的 task,保持显示连贯。
+    state.tasks = state.tasks.map((t) => (
+      t.organization === oldTrim ? { ...t, organization: newTrim } : t
+    ))
+    return state
+  })
+  return { ok: true }
+}
+
+function resetOrganizations() {
+  updateState((state) => {
+    state.organizations = DEFAULT_ORGANIZATIONS.slice()
+    return state
+  })
+  return { ok: true }
+}
+
 // === Sharing === //
 
 // Build a clean payload to embed into a WeChat share path.
@@ -2287,7 +2401,7 @@ function buildTaskFromShare(item, today) {
   const base = {
     id: genId('tk'),
     subject: item.s || '其他',
-    organization: ORGANIZATIONS.includes(item.o) ? item.o : DEFAULT_ORGANIZATION,
+    organization: normalizeOrganization(item.o),
     content: item.c || '',
     estimatedMinutes: Number(item.m || estimateTaskMinutes(item.c, item.s) || 0),
     dueDate: null,
@@ -2392,7 +2506,9 @@ function sanitizeSharePayload(payload) {
     const o = safeShareString(it.o, SHARE_MAX_ORGANIZATION)
     return {
       s: safeShareString(it.s, SHARE_MAX_SUBJECT),
-      o: ORGANIZATIONS.includes(o) ? o : DEFAULT_ORGANIZATION,
+      // 分享 payload 的 o 接收任意字符串(已 safeShareString 卡到 16 char,
+      // buildTaskFromShare → normalizeOrganization 还会再 trim/cap 一次)。
+      o: o || DEFAULT_ORGANIZATION,
       c: safeShareString(it.c, SHARE_MAX_CONTENT),
       m: Number.isFinite(mNum) && mNum > 0 && mNum <= SHARE_MAX_TASK_MINUTES ? Math.trunc(mNum) : 0,
       mo: mode,
@@ -2482,8 +2598,15 @@ module.exports = {
   getTaskState,
   formatRecurrenceLabel,
   // organization
-  ORGANIZATIONS,
+  DEFAULT_ORGANIZATIONS,
   DEFAULT_ORGANIZATION,
+  ORGANIZATION_MAX_LEN,
+  ORGANIZATION_MAX_COUNT,
+  getOrganizations,
+  addOrganization,
+  removeOrganization,
+  renameOrganization,
+  resetOrganizations,
   // pet
   PET_SPECIES,
   PET_SWITCH_COST,

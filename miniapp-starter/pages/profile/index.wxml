@@ -60,6 +60,36 @@
     </view>
   </view>
 
+  <view class="card org-card">
+    <view class="section-header">
+      <text class="section-title">作业组织标签</text>
+      <text class="org-count">{{organizations.length}}/{{orgMaxCount}}</text>
+    </view>
+    <text class="org-hint">用于给作业分门别类（校内/校外/兴趣班…），添加作业时可选。</text>
+
+    <view class="org-list">
+      <view wx:for="{{organizations}}" wx:key="*this" class="org-row">
+        <text class="org-name">{{item}}</text>
+        <view class="org-actions">
+          <text class="org-btn ghost" data-name="{{item}}" bindtap="handleRenameOrg">改名</text>
+          <text class="org-btn danger" data-name="{{item}}" bindtap="handleRemoveOrg">删除</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="org-add">
+      <input class="input org-input"
+             placeholder="新标签名（最多 {{orgMaxLen}} 字）"
+             maxlength="{{orgMaxLen}}"
+             value="{{newOrgInput}}"
+             bindinput="handleOrgInput"
+             bindconfirm="handleAddOrg"
+             confirm-type="done" />
+      <button class="org-add-btn" bindtap="handleAddOrg">添加</button>
+    </view>
+    <view class="org-reset" bindtap="handleResetOrgs">恢复默认</view>
+  </view>
+
   <view wx:if="{{isAdmin}}" class="card admin-card" bindtap="handleOpenAdmin">
     <view class="admin-row">
       <view class="admin-text">

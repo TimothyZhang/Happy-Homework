@@ -1,7 +1,17 @@
 const store = require('../../utils/store')
 
 const SUBJECT_OPTIONS = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
-const ORGANIZATION_OPTIONS = ['校内', '校外', '其他']
+
+// 标签列表来源 = store.getOrganizations()(用户在我 Tab 自定义)。
+// 编辑模式若 task.organization 不在列表里(用户事后删除了该标签),把它临时
+// 加到列表头部,picker 仍能展示当前值。新增模式默认取列表第一项。
+function buildOrgPickerOptions(currentValue) {
+  const base = store.getOrganizations()
+  if (currentValue && !base.includes(currentValue)) {
+    return [currentValue].concat(base)
+  }
+  return base
+}
 const MODE_OPTIONS = [
   { key: 'one-shot', label: '一次性' },
   { key: 'recurring', label: '重复' }
@@ -37,10 +47,10 @@ Page({
     formSubject: '语文',
     formSubjectIndex: 0,
     subjectOptions: SUBJECT_OPTIONS,
-    // 新增模式默认"校内"(Tim 大部分作业是学校布置的);编辑模式从 task 自身读。
-    formOrganization: '校内',
+    // 新增模式默认第一项(用户可在我 Tab 自定义列表顺序);编辑模式从 task 自身读。
+    formOrganization: '',
     formOrganizationIndex: 0,
-    organizationOptions: ORGANIZATION_OPTIONS,
+    organizationOptions: [],
     // 调度
     formMode: 'one-shot',
     modeOptions: MODE_OPTIONS,
@@ -78,8 +88,11 @@ Page({
       }
       const subj = task.subject || '语文'
       const subjIdx = Math.max(0, SUBJECT_OPTIONS.indexOf(subj))
-      const org = ORGANIZATION_OPTIONS.includes(task.organization) ? task.organization : '其他'
-      const orgIdx = ORGANIZATION_OPTIONS.indexOf(org)
+      const orgOptions = buildOrgPickerOptions(task.organization)
+      const org = task.organization && orgOptions.indexOf(task.organization) >= 0
+        ? task.organization
+        : (orgOptions[0] || '校内')
+      const orgIdx = Math.max(0, orgOptions.indexOf(org))
       this._userSelectedSubject = true
 
       // 编辑此次:从 recurring 的某天 instance 进来。表单强制 one-shot,
@@ -98,6 +111,7 @@ Page({
           formSubjectIndex: subjIdx,
           formOrganization: org,
           formOrganizationIndex: orgIdx,
+          organizationOptions: orgOptions,
           // 关键:detach 后是独立 one-shot,所以 mode 锁定 one-shot;
           // 用户改回 recurring 也允许,但会创建一个新 recurring(语义上是"把这次实例
           // 变成另一个 recurring 起点",不常用但合法)。
@@ -127,6 +141,7 @@ Page({
         formSubjectIndex: subjIdx,
         formOrganization: org,
         formOrganizationIndex: orgIdx,
+        organizationOptions: orgOptions,
         formMode: mode,
         formStartDate: task.startDate || today,
         formEndDate: task.endDate === null ? '' : (task.endDate || today),
@@ -141,11 +156,15 @@ Page({
     // New mode — 开始日期默认跟随首页选中(seedDate),没有则 today;
     // 重复作业默认结束日期留空 = 长期。
     this._userSelectedSubject = false
+    const newOrgOptions = buildOrgPickerOptions('')
     this.setData({
       isEdit: false,
       taskId: '',
       formStartDate: seedDate || today,
-      formEndDate: ''
+      formEndDate: '',
+      organizationOptions: newOrgOptions,
+      formOrganization: newOrgOptions[0] || '校内',
+      formOrganizationIndex: 0
     })
     wx.setNavigationBarTitle({ title: '新增作业' })
   },
@@ -238,9 +257,11 @@ Page({
 
   handleOrganizationChange(e) {
     const idx = Number(e.detail.value)
+    const opts = this.data.organizationOptions || []
+    if (idx < 0 || idx >= opts.length) return
     this.setData({
       formOrganizationIndex: idx,
-      formOrganization: ORGANIZATION_OPTIONS[idx]
+      formOrganization: opts[idx]
     })
   },
 
