@@ -1,8 +1,9 @@
 <page-meta disable-scroll="true" />
 <view class="page">
   <scroll-view scroll-y="{{!disableScroll}}"
-               scroll-top="{{scrollTop}}"
+               enhanced="{{true}}"
                bindscroll="handleScrollAreaScroll"
+               id="scrollarea"
                class="scroll-area"
                show-scrollbar="{{false}}">
     <view class="card">
