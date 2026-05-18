@@ -174,6 +174,18 @@
   width: 120rpx;
   display: flex;
   align-items: stretch;
+  /* 默认完全不绘 —— .task-row 自己有 22rpx border-radius,4 个圆角切掉的
+     三角区不绘 bg,会漏底层 swipe-action 的颜色(尤其是 done row 右侧
+     蓝色"继续"按钮)。静态下 .task-row-swipable overflow:hidden 限制到圆角
+     内,三角刚好暴露蓝色一点点;快速滚屏时 .task-row 有 transform 走独立
+     合成层,跟 scroll-view 主层有微妙合成时差,瞬时漏得更多。让 swipe-action
+     默认 hidden,用户真要 swipe / 菜单展开时才显,根上断掉漏底问题。 */
+  visibility: hidden;
+}
+
+.task-row-swipable.is-swiping .swipe-action,
+.task-row-swipable.is-open .swipe-action {
+  visibility: visible;
 }
 
 .task-row-swipable .swipe-action.swipe-action-double {

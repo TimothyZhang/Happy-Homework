@@ -1,6 +1,6 @@
 <view class="task-list {{dragId ? 'is-dragging-mode' : ''}}">
   <block wx:for="{{list}}" wx:key="id">
-    <view class="task-row-swipable {{swipeId === item.id ? 'is-swiping' : ''}}"
+    <view class="task-row-swipable {{swipeId === item.id ? 'is-swiping' : ''}} {{swipeOpenId === item.id ? 'is-open' : ''}}"
           data-id="{{item.id}}">
 
       <!-- Swipe-revealed action zone. Undone: 仅编辑(删除入口在编辑页内);Done: 编辑 + 继续。 -->
