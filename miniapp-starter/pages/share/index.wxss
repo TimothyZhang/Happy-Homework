@@ -30,77 +30,6 @@
 .card + .subject-header { margin-top: 28rpx; }
 .task-row + .subject-header { margin-top: 28rpx; }
 
-/* === filter card === */
-.filter-card { padding: 12rpx 28rpx; }
-
-.filter-row {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  padding: 14rpx 0;
-  border-bottom: 1rpx solid #f0f2f5;
-}
-.filter-row:last-of-type { border-bottom: 0; }
-
-.filter-label {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: #1f2329;
-  width: 96rpx;
-  flex-shrink: 0;
-}
-
-.filter-control {
-  flex: 1;
-  min-width: 0;
-}
-
-.date-controls {
-  display: flex;
-  align-items: center;
-  gap: 12rpx;
-}
-
-.date-input {
-  flex: 1;
-  min-width: 0;
-  padding: 12rpx 18rpx;
-  background: #f3f6fa;
-  border-radius: 14rpx;
-  font-size: 26rpx;
-  color: #1f2329;
-  text-align: center;
-}
-
-.date-sep {
-  font-size: 22rpx;
-  color: #6b7785;
-  flex-shrink: 0;
-}
-
-.org-input {
-  padding: 12rpx 18rpx;
-  background: #f3f6fa;
-  border-radius: 14rpx;
-  font-size: 26rpx;
-  color: #1f2329;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.org-caret {
-  font-size: 22rpx;
-  color: #6b7785;
-  margin-left: 12rpx;
-}
-
-.filter-hint {
-  padding: 12rpx 0 4rpx;
-  font-size: 22rpx;
-  color: #6b7785;
-}
-
 /* === preview header card === */
 .preview-card { padding: 24rpx 28rpx; }
 
@@ -157,17 +86,31 @@
 }
 
 .chip {
-  padding: 6rpx 16rpx;
+  padding: 8rpx 18rpx;
   border-radius: 999rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   line-height: 1.55;
   background: #f7f8fa;
   color: #5f6b7a;
 }
 .org-chip { background: #f0e9ff; color: #6c3fdb; font-weight: 600; }
 .date-chip { background: #eef4ff; color: #245bdb; font-weight: 600; }
-.range-chip { background: #f3f6fa; color: #6b7785; }
-.est-chip { background: #f7f8fa; color: #6b7785; }
+.range-chip { background: #f3f6fa; color: #6b7785; font-size: 22rpx; padding: 6rpx 16rpx; }
+.est-chip { background: #f7f8fa; color: #6b7785; font-size: 22rpx; padding: 6rpx 16rpx; }
+
+/* chip 兼任 picker 触发器:加 caret 让用户知道可点。caret 用 ::after 不行
+   (picker 包裹一层 view 后 caret 要在 chip 内部),所以模板里直接渲染一个
+   chip-caret text 节点。 */
+.chip-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+}
+.chip-caret {
+  font-size: 20rpx;
+  opacity: 0.6;
+  margin-left: 2rpx;
+}
 
 /* === subject groups === */
 .subject-header {
