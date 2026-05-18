@@ -148,6 +148,9 @@ Page({
     // task-list (未完成 / 已完成) 各自触发 swipeopen / swipeclose,这里
     // 用计数避免两个区先后打开 → 先关一个就误以为都关了。
     swipeMenuOpen: false,
+    // scroll-view scroll-top 数据绑定 —— row 上纵向手势走 catchtouchmove
+    // 阻断了 native 冒泡,只能 task-list scrollby → 这里累加后写回。
+    scrollTop: 0,
     todayLabel: '今天',
     tomorrowLabel: '明天',
     dayAfterLabel: '后天',
@@ -481,6 +484,31 @@ Page({
 
   handleDragStart() { this.setData({ disableScroll: true }) },
   handleDragEnd() { this.setData({ disableScroll: false }) },
+
+  // hero / 列表外区域 native scroll 时 scroll-view 报当前 scrollTop,
+  // 缓存作为 row 上 scrollby 增量的 baseline。
+  handleScrollAreaScroll(e) {
+    this._curScrollTop = (e && e.detail && e.detail.scrollTop) || 0
+  },
+
+  // task-list row scroll 模式喂过来的 deltaY。同帧多个事件合并成一次
+  // setData,避免 60Hz × setData 渲染 → scroll-view 抖动叠加。
+  handleScrollBy(e) {
+    const deltaY = (e && e.detail && e.detail.deltaY) || 0
+    if (!deltaY) return
+    this._pendingScrollDelta = (this._pendingScrollDelta || 0) + deltaY
+    if (this._scrollFlushScheduled) return
+    this._scrollFlushScheduled = true
+    setTimeout(() => {
+      this._scrollFlushScheduled = false
+      const total = this._pendingScrollDelta || 0
+      this._pendingScrollDelta = 0
+      if (!total) return
+      const next = Math.max(0, (this._curScrollTop || 0) + total)
+      this._curScrollTop = next
+      this.setData({ scrollTop: next })
+    }, 0)
+  },
 
   handleSwipeOpen() {
     this._openSwipeCount = (this._openSwipeCount || 0) + 1

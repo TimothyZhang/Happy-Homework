@@ -65,7 +65,8 @@ Page({
     selectedItems: [],
     // Locks the inner <scroll-view> while a task-list drag is in progress.
     // See pages/home/index.js for the rationale.
-    disableScroll: false
+    disableScroll: false,
+    scrollTop: 0
   },
 
   onLoad() {
@@ -115,5 +116,26 @@ Page({
   },
 
   handleDragStart() { this.setData({ disableScroll: true }) },
-  handleDragEnd() { this.setData({ disableScroll: false }) }
+  handleDragEnd() { this.setData({ disableScroll: false }) },
+
+  handleScrollAreaScroll(e) {
+    this._curScrollTop = (e && e.detail && e.detail.scrollTop) || 0
+  },
+
+  handleScrollBy(e) {
+    const deltaY = (e && e.detail && e.detail.deltaY) || 0
+    if (!deltaY) return
+    this._pendingScrollDelta = (this._pendingScrollDelta || 0) + deltaY
+    if (this._scrollFlushScheduled) return
+    this._scrollFlushScheduled = true
+    setTimeout(() => {
+      this._scrollFlushScheduled = false
+      const total = this._pendingScrollDelta || 0
+      this._pendingScrollDelta = 0
+      if (!total) return
+      const next = Math.max(0, (this._curScrollTop || 0) + total)
+      this._curScrollTop = next
+      this.setData({ scrollTop: next })
+    }, 0)
+  }
 })
