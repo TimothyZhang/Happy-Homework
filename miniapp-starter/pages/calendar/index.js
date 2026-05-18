@@ -125,17 +125,8 @@ Page({
   handleScrollBy(e) {
     const deltaY = (e && e.detail && e.detail.deltaY) || 0
     if (!deltaY) return
-    this._pendingScrollDelta = (this._pendingScrollDelta || 0) + deltaY
-    if (this._scrollFlushScheduled) return
-    this._scrollFlushScheduled = true
-    setTimeout(() => {
-      this._scrollFlushScheduled = false
-      const total = this._pendingScrollDelta || 0
-      this._pendingScrollDelta = 0
-      if (!total) return
-      const next = Math.max(0, (this._curScrollTop || 0) + total)
-      this._curScrollTop = next
-      this.setData({ scrollTop: next })
-    }, 0)
+    const next = Math.max(0, (this._curScrollTop || 0) + deltaY)
+    this._curScrollTop = next
+    this.setData({ scrollTop: next })
   }
 })
