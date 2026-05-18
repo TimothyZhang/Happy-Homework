@@ -1712,11 +1712,14 @@ function reconcilePerfectDays(state) {
 // the finish→revert→finish loop: each cycle nets zero coins.
 function revertTask(taskId, dateStr) {
   const day = dateStr || todayStr()
-  return updateState((state) => {
+  let totalRefund = 0
+  updateState((state) => {
     const task = state.tasks.find((t) => t.id === taskId)
     if (!task) return state
     const cur = getTaskState(task, day)
     if (cur.status !== 'done') return state
+
+    const coinsBefore = state.coins || 0
 
     // Refund exactly what finishTask paid out (varies by overdue/today/future
     // and may be 0 if the 20-cap had been hit). Legacy occurrences finished
@@ -1754,8 +1757,10 @@ function revertTask(taskId, dateStr) {
 
     revokePerfectDay(state, day)
 
+    totalRefund = Math.max(0, coinsBefore - (state.coins || 0))
     return state
   })
+  return totalRefund
 }
 
 function finishTask(taskId, dateStr) {

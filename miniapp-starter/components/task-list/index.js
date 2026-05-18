@@ -322,9 +322,12 @@ Component({
       const ds = e.currentTarget.dataset
       const taskId = ds.taskId || ds.id
       const date = ds.occurrenceDate || this.data.activeDate
-      store.revertTask(taskId, date)
+      const refund = store.revertTask(taskId, date)
       this._setSwipeOpen(null, 0, { swipeId: null, swipeDx: 0 })
       this.triggerEvent('changed')
+      if (refund > 0) {
+        wx.showToast({ title: `扣除 ${refund} 金币`, icon: 'none', duration: 1500 })
+      }
     }
   }
 })
