@@ -19,6 +19,15 @@
       <text class="tag">共 {{drafts.length}} 条</text>
     </view>
 
+    <view class="drafts-meta">
+      <view class="field field-inline">
+        <text class="field-label">组织（全部）</text>
+        <picker class="field-control" mode="selector" range="{{organizationOptions}}" value="{{organizationIndex}}" bindchange="handleOrganizationChange">
+          <view class="picker draft-picker">{{organization}}</view>
+        </picker>
+      </view>
+    </view>
+
     <view wx:for="{{drafts}}" wx:key="id" class="draft-card">
       <view class="draft-top">
         <text class="draft-index">作业 {{index + 1}}</text>
@@ -32,6 +41,13 @@
         <text class="field-label">科目</text>
         <picker class="field-control" mode="selector" range="{{subjectOptions}}" value="{{item.subject ? subjectOptions.indexOf(item.subject) : 0}}" data-index="{{index}}" bindchange="handleSubjectChange">
           <view class="picker draft-picker">{{item.subject || '未识别，点此选择'}}</view>
+        </picker>
+      </view>
+
+      <view class="field field-inline">
+        <text class="field-label">日期</text>
+        <picker class="field-control" mode="date" value="{{item.dueDate}}" data-index="{{index}}" bindchange="handleDueDateChange">
+          <view class="picker draft-picker">{{item.dueDate}}</view>
         </picker>
       </view>
 

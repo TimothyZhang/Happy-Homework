@@ -28,6 +28,9 @@ Page({
     rawText: '',
     drafts: [],
     subjectOptions,
+    organizationOptions: [],
+    organization: '',
+    organizationIndex: 0,
     importedCount: 0,
     source: '',
     providerWarning: ''
@@ -43,14 +46,23 @@ Page({
       return
     }
 
+    const today = store.todayStr()
+    const orgList = store.getOrganizations()
+    const organization = orgList[0] || store.DEFAULT_ORGANIZATION
+    const organizationIndex = Math.max(0, orgList.indexOf(organization))
+
     this.setData({
       imagePath: job.imagePath,
       rawText: job.rawText,
       source: job.source || '',
       sourceLabel: getSourceLabel(job.source),
       providerWarning: job.providerWarning || '',
+      organizationOptions: orgList,
+      organization,
+      organizationIndex,
       drafts: (job.drafts || []).map((draft) => ({
         ...draft,
+        dueDate: draft.dueDate || today,
         confidenceClass: getConfidenceClass(draft.confidence)
       }))
     })
@@ -76,6 +88,18 @@ Page({
     this.setData({ [`drafts[${index}].content`]: event.detail.value })
   },
 
+  handleDueDateChange(event) {
+    const { index } = event.currentTarget.dataset
+    this.setData({ [`drafts[${index}].dueDate`]: event.detail.value })
+  },
+
+  handleOrganizationChange(event) {
+    const idx = Number(event.detail.value)
+    const organization = this.data.organizationOptions[idx]
+    if (!organization) return
+    this.setData({ organizationIndex: idx, organization })
+  },
+
   handleDeleteDraft(event) {
     const { index } = event.currentTarget.dataset
     const drafts = this.data.drafts.slice()
@@ -89,6 +113,7 @@ Page({
       subject: '',
       content: '',
       rawText: '',
+      dueDate: store.todayStr(),
       confidence: '低',
       confidenceClass: 'low',
       needsConfirm: true
@@ -105,27 +130,24 @@ Page({
     }
 
     const today = store.todayStr()
-    // OCR 草稿默认取用户标签列表的第一项(自定义后通常是用户最常用的)。
-    // 若用户把列表清光,getOrganizations 兜底回 DEFAULT_ORGANIZATIONS。
-    const orgList = store.getOrganizations()
-    const defaultOrg = orgList[0] || store.DEFAULT_ORGANIZATION
+    const organization = this.data.organization || store.DEFAULT_ORGANIZATION
     validDrafts.forEach((item) => {
-      // 拍照识别出的草稿统一作为一次性任务、落到今天。
+      const due = item.dueDate || today
       store.addTask({
         subject: item.subject || '其他',
-        organization: defaultOrg,
+        organization,
         content: item.content.trim(),
         estimatedMinutes: 20,
         mode: 'one-shot',
-        startDate: today,
-        endDate: today
+        startDate: due,
+        endDate: due
       })
     })
 
     this.setData({ importedCount: validDrafts.length })
     wx.showModal({
       title: '导入成功',
-      content: `已往今天添加 ${validDrafts.length} 条作业。`,
+      content: `已添加 ${validDrafts.length} 条作业。`,
       showCancel: false,
       success: () => {
         wx.switchTab({ url: '/pages/home/index' })
