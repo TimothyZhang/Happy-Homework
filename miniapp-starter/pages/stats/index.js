@@ -3,6 +3,11 @@ const store = require('../../utils/store')
 const PERIOD_DAYS = { week: 7, month: 30 }
 // 柱状区固定高度 (rpx),最大值占满,其余按比例。
 const BAR_AREA_RPX = 200
+// 完成时间用绝对刻度 0:00 → 24:00 → 0..BAR_AREA_RPX,跨天对比直观。
+const DAY_MINUTES = 24 * 60
+
+function pad2(n) { return `${n}`.padStart(2, '0') }
+function fmtHM(mins) { return `${pad2(Math.floor(mins / 60))}:${pad2(mins % 60)}` }
 
 function buildDateList(period) {
   const days = PERIOD_DAYS[period] || 7
@@ -60,6 +65,29 @@ function aggregateTasks(state) {
   return { counts, minutes }
 }
 
+// 每天的"完成时间":取该日所有 done 任务里最晚的 completedAt(=当天最后一笔
+// 作业完成的时刻)。返回 { dateStr: maxTs }。
+function aggregateFinishTimes(state) {
+  const map = {}
+  const consider = (ts) => {
+    if (!ts) return
+    const d = store.dateToStr(new Date(ts))
+    if (!map[d] || ts > map[d]) map[d] = ts
+  }
+  for (const t of state.tasks) {
+    if (t.mode !== 'recurring') {
+      if (t.status === 'done' && t.completedAt) consider(t.completedAt)
+    } else {
+      const occs = t.occurrences || {}
+      for (const k in occs) {
+        const occ = occs[k]
+        if (occ && occ.status === 'done' && occ.completedAt) consider(occ.completedAt)
+      }
+    }
+  }
+  return map
+}
+
 function aggregateCoins(state) {
   const map = {}  // dateStr -> { gain, spend, net }
   for (const log of (state.coinLogs || [])) {
@@ -87,6 +115,16 @@ function scaleBars(bars, valueKey) {
   return max
 }
 
+// 完成时间用固定 0..1440 min → 0..BAR_AREA_RPX 刻度,bar 高度直接读时间段。
+// max-relative scale 会让所有"傍晚完成"的柱子都贴近顶端、互相看不出差异。
+function scaleFinishTimeBars(bars) {
+  for (const b of bars) {
+    b.heightRpx = b.value > 0
+      ? Math.round((b.value / DAY_MINUTES) * BAR_AREA_RPX)
+      : 0
+  }
+}
+
 // 金币图:bar 上下两半,正向 gain 朝上,负向 spend 朝下,统一对 max(|gain|,|spend|) scale
 function scaleCoinBars(bars) {
   let max = 0
@@ -106,8 +144,34 @@ function buildCharts(state, period) {
   const dates = buildDateList(period)
   const { counts, minutes } = aggregateTasks(state)
   const coins = aggregateCoins(state)
+  const finishTs = aggregateFinishTimes(state)
 
   const total = dates.length
+
+  const finishTimeBars = dates.map((d, i) => {
+    const ts = finishTs[d] || 0
+    let value = 0
+    let displayValue = ''
+    if (ts > 0) {
+      const dt = new Date(ts)
+      value = dt.getHours() * 60 + dt.getMinutes()
+      displayValue = fmtHM(value)
+    }
+    return {
+      date: d,
+      label: labelFor(d, period, today, i, total),
+      isToday: d === today,
+      value,
+      displayValue
+    }
+  })
+  scaleFinishTimeBars(finishTimeBars)
+  const finishedDays = finishTimeBars.filter((b) => b.value > 0)
+  const finishTimeAvgMin = finishedDays.length > 0
+    ? Math.round(finishedDays.reduce((s, b) => s + b.value, 0) / finishedDays.length)
+    : 0
+  const finishTimeAvgLabel = finishTimeAvgMin > 0 ? fmtHM(finishTimeAvgMin) : '—'
+
   const countBars = dates.map((d, i) => ({
     date: d,
     label: labelFor(d, period, today, i, total),
@@ -138,6 +202,8 @@ function buildCharts(state, period) {
   const coinMax = scaleCoinBars(coinBars)
 
   return {
+    finishTimeBars,
+    finishTimeAvgLabel,
     countBars,
     minutesBars,
     coinBars,
@@ -145,14 +211,17 @@ function buildCharts(state, period) {
     minutesTotal: minutesBars.reduce((s, b) => s + b.value, 0),
     coinGainTotal: coinBars.reduce((s, b) => s + b.gain, 0),
     coinSpendTotal: coinBars.reduce((s, b) => s + b.spend, 0),
-    // 月模式参考线上标的数字 —— 25/50/75% 三档(金币只标 50%)
+    // 月模式参考线上标的数字 —— 25/50/75% 三档(金币只标 50%);完成时间用固定刻度
     countQ1: Math.round(countMax * 0.25),
     countQ2: Math.round(countMax * 0.5),
     countQ3: Math.round(countMax * 0.75),
     minutesQ1: Math.round(minutesMax * 0.25),
     minutesQ2: Math.round(minutesMax * 0.5),
     minutesQ3: Math.round(minutesMax * 0.75),
-    coinHalf: Math.round(coinMax * 0.5)
+    coinHalf: Math.round(coinMax * 0.5),
+    finishTimeQ1: '06:00',
+    finishTimeQ2: '12:00',
+    finishTimeQ3: '18:00'
   }
 }
 
@@ -160,6 +229,8 @@ Page({
   data: {
     period: 'week',
     barAreaRpx: BAR_AREA_RPX,
+    finishTimeBars: [],
+    finishTimeAvgLabel: '—',
     countBars: [],
     minutesBars: [],
     coinBars: [],
@@ -169,7 +240,8 @@ Page({
     coinSpendTotal: 0,
     countQ1: 0, countQ2: 0, countQ3: 0,
     minutesQ1: 0, minutesQ2: 0, minutesQ3: 0,
-    coinHalf: 0
+    coinHalf: 0,
+    finishTimeQ1: '06:00', finishTimeQ2: '12:00', finishTimeQ3: '18:00'
   },
 
   onShow() {

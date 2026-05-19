@@ -113,6 +113,10 @@
   background: linear-gradient(180deg, #ffc56b 0%, #ff9933 100%);
 }
 
+.bar-finish {
+  background: linear-gradient(180deg, #b08bee 0%, #7c3aed 100%);
+}
+
 .bar-coin-gain {
   background: linear-gradient(180deg, #6dd58c 0%, #1aab50 100%);
   border-radius: 8rpx 8rpx 0 0;

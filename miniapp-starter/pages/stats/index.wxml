@@ -13,6 +13,31 @@
 
   <view class="card section-card chart-card">
     <view class="section-header">
+      <text class="section-title">完成时间</text>
+      <text class="subtle">平均 {{finishTimeAvgLabel}}</text>
+    </view>
+    <view class="chart-scroll">
+      <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
+            style="height: {{barAreaRpx + 60}}rpx;">
+        <block wx:if="{{period === 'month'}}">
+          <view class="grid-line" style="bottom: 84rpx;"><text class="grid-label">{{finishTimeQ1}}</text></view>
+          <view class="grid-line" style="bottom: 134rpx;"><text class="grid-label">{{finishTimeQ2}}</text></view>
+          <view class="grid-line" style="bottom: 184rpx;"><text class="grid-label">{{finishTimeQ3}}</text></view>
+        </block>
+        <view wx:for="{{finishTimeBars}}" wx:key="date" class="bar-col">
+          <view class="bar-stack" style="height: {{barAreaRpx}}rpx;">
+            <text wx:if="{{item.value > 0}}" class="bar-value">{{item.displayValue}}</text>
+            <view class="bar bar-finish {{item.isToday ? 'is-today' : ''}}"
+                  style="height: {{item.heightRpx}}rpx;"></view>
+          </view>
+          <text class="bar-label {{item.isToday ? 'is-today' : ''}}">{{item.label}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card section-card chart-card">
+    <view class="section-header">
       <text class="section-title">作业数量</text>
       <text class="subtle">{{period === 'week' ? '近 7 天' : '近 30 天'}}共 {{countTotal}} 项</text>
     </view>
