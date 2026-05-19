@@ -2301,6 +2301,10 @@ function serializeTasksForShare(arg1, arg2) {
     while (compareDateStr(d, endDate) <= 0 && guard < 366) {
       for (const it of tasksForDate(state, d)) {
         if (!includeRecurring && it.task.mode === 'recurring') continue
+        // 只要 occurrenceDate(一次性 task 即 effectiveDueDate)落在分享区间内。
+        // 否则 d==today 时 tasksForDate 会带上 dueDate < startDate 的历史逾期 task。
+        if (compareDateStr(it.occurrenceDate, startDate) < 0) continue
+        if (compareDateStr(it.occurrenceDate, endDate) > 0) continue
         pushUnique(it)
       }
       d = addDays(d, 1)
