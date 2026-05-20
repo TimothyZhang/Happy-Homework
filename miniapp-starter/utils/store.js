@@ -2114,6 +2114,7 @@ function setCurrentOcrJob(job) {
     const normalized = {
       id: job.id || Date.now(),
       imagePath: job.imagePath || '',
+      imageFileID: job.imageFileID || '',
       rawText: job.rawText || '',
       source: job.source || '',
       providerWarning: job.providerWarning || '',

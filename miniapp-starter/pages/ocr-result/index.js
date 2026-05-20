@@ -2,6 +2,11 @@ const store = require('../../utils/store')
 
 const subjectOptions = ['未识别', '语文', '数学', '英语', '科学', '道法', '美术', '音乐', '体育', '其他']
 
+// 用户拍照识别完后,把(原图 + 用户最终确认的作业列表)沉淀成 OCR 样本,
+// 供 scripts/eval-homework-ocr.js 离线评估 prompt。
+// 样本 JSON 路径跟原图保持同名 stem,只是换前缀和扩展名,方便后续配对下载。
+const SAMPLE_CLOUD_PATH_PREFIX = 'homework-register-samples'
+
 function getConfidenceClass(confidence) {
   if (confidence === '高') return 'high'
   if (confidence === '中') return 'medium'
@@ -36,6 +41,11 @@ Page({
     providerWarning: ''
   },
 
+  // 非响应式字段:仅用于上传样本时引用,不需要进 setData
+  _imageFileID: '',
+  _ocrDraftsSnapshot: [],
+  _sampleUploaded: false,
+
   onShow() {
     const job = store.getCurrentOcrJob()
     if (!job) {
@@ -50,6 +60,15 @@ Page({
     const orgList = store.getOrganizations()
     const organization = orgList[0] || store.DEFAULT_ORGANIZATION
     const organizationIndex = Math.max(0, orgList.indexOf(organization))
+
+    this._imageFileID = job.imageFileID || ''
+    this._ocrDraftsSnapshot = (job.drafts || []).map((d) => ({
+      subject: d.subject || '',
+      content: d.content || '',
+      confidence: d.confidence || '',
+      rawText: d.rawText || ''
+    }))
+    this._sampleUploaded = false
 
     this.setData({
       imagePath: job.imagePath,
@@ -145,12 +164,74 @@ Page({
     })
 
     this.setData({ importedCount: validDrafts.length })
+
+    // fire-and-forget:把这次识别留底当作 OCR 样本。失败也不打断用户。
+    this.persistOcrSample(validDrafts)
+
     wx.showModal({
       title: '导入成功',
       content: `已添加 ${validDrafts.length} 条作业。`,
       showCancel: false,
       success: () => {
         wx.switchTab({ url: '/pages/home/index' })
+      }
+    })
+  },
+
+  // 把"原始图片 + 用户最终确认的作业列表"上传成 OCR 样本。开发者用
+  // scripts/pull-ocr-samples.js 把云存储里这些样本拉回本地 samples/,
+  // 然后 scripts/eval-homework-ocr.js 就能跑离线评估。
+  //
+  // 跳过条件:mock 数据没真 fileID、wx.cloud 不可用、同一次识别已经上传过。
+  persistOcrSample(finalDrafts) {
+    if (this._sampleUploaded) return
+    if (typeof wx === 'undefined' || !wx.cloud) return
+    const fileID = this._imageFileID
+    if (!fileID) return  // mock / 演示数据没真 fileID
+
+    // 用图片 fileID 的 stem 当样本名,方便一对一配对
+    const stem = (fileID.split('/').pop() || '').replace(/\.[^.]+$/, '')
+    if (!stem) return
+
+    const sample = {
+      groundTruth: finalDrafts.map((d) => ({
+        subject: d.subject || '',
+        content: (d.content || '').trim()
+      })).filter((d) => d.content),
+      imageFileID: fileID,
+      ocrSource: this.data.source || '',
+      ocrRawText: this.data.rawText || '',
+      ocrDrafts: this._ocrDraftsSnapshot || [],
+      capturedAt: store.todayStr(),
+      createdAt: new Date().toISOString()
+    }
+
+    this._sampleUploaded = true
+
+    const cloudPath = `${SAMPLE_CLOUD_PATH_PREFIX}/${stem}.json`
+    const fsm = wx.getFileSystemManager()
+    const tmpPath = `${wx.env.USER_DATA_PATH}/ocr-sample-${stem}.json`
+
+    try {
+      fsm.writeFileSync(tmpPath, JSON.stringify(sample, null, 2), 'utf8')
+    } catch (error) {
+      console.warn('persistOcrSample: write tmp file failed', error)
+      this._sampleUploaded = false
+      return
+    }
+
+    wx.cloud.uploadFile({
+      cloudPath,
+      filePath: tmpPath,
+      success: (res) => {
+        console.info('OCR sample uploaded', cloudPath, res && res.fileID)
+      },
+      fail: (error) => {
+        console.warn('persistOcrSample: upload failed', error)
+        this._sampleUploaded = false
+      },
+      complete: () => {
+        try { fsm.unlinkSync(tmpPath) } catch (_) { /* ignore */ }
       }
     })
   }

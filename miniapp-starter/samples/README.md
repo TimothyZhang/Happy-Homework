@@ -38,9 +38,29 @@ samples/
 
 ## 添加新样本
 
+### 方式 A:手工添加(自己拍的图)
+
 1. 把图片放在 `samples/` 下,命名 `<sample-id>.jpg`(`.gitignore` 默认忽略)
 2. 新建同名 `<sample-id>.json`,填好 ground truth
 3. 跑 `node scripts/eval-homework-ocr.js` 验证
+
+### 方式 B:从线上回流(用户真实使用沉淀)
+
+`pages/ocr-result` 在用户点「导入」时,会把(原图 fileID + 用户最终确认的作业列表)
+作为样本上传到云存储 `homework-register-samples/<stem>.json`。本机用 tcb-cli
+把它们拉回来:
+
+```bash
+# 先确保 `tcb login` 过,且 cloudbaserc.json 里的 envId 是当前环境
+node miniapp-starter/scripts/pull-ocr-samples.js               # 全量拉,覆盖本地
+node miniapp-starter/scripts/pull-ocr-samples.js --keep        # 本地已有的跳过
+node miniapp-starter/scripts/pull-ocr-samples.js --dry-run     # 只列出会做什么
+```
+
+拉下来后:
+- 人工审一下 `groundTruth` 是不是真期望(用户可能编辑得不完整)
+- 通过的样本用 `git add -f samples/<id>.jpg samples/<id>.json` 强制入仓
+  (.gitignore 默认忽略 jpg)
 
 ## 离线评估
 
