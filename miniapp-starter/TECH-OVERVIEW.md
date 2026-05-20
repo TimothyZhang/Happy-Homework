@@ -187,11 +187,12 @@ stub 了 `wx.storage` 和 `wx.cloud`,跑的是 store.js 客户端逻辑。云函
 当前 OCR 链路如下：
 
 1. 用户在 `pages/ocr-import` 选择图片(或从作业本详情页的「📷 拍照识别」入口进入，带 `notebookId`)
-2. 调用 `wx.cloud.uploadFile`
+2. 调用 `wx.cloud.uploadFile` 上传到 `homework-register/<stem>.jpg`
 3. 调用 `wx.cloud.callFunction({ name: 'homeworkOCR' })`
 4. 云函数返回 `rawText + drafts`
 5. 在 `pages/ocr-result` 中让用户确认后导入
 6. 若入口带了 `notebookId`,导入直接落到该作业本并 navigateBack 回详情页;否则走老路径(进当日 one-shot)
+7. 导入成功后 fire-and-forget 上传一份样本 JSON 到 `homework-register-samples/<stem>.json`,作为 ground truth 沉淀(见下文样本回流)
 
 ### 当前云函数
 路径：`cloudfunctions/homeworkOCR/index.js`
@@ -209,6 +210,12 @@ stub 了 `wx.storage` 和 `wx.cloud`,跑的是 store.js 客户端逻辑。云函
 - 本地脚本 `scripts/test-homework-ocr.js` 用于 prompt 迭代,不必每次重部署整个云函数
 - OCR job 数据当前仅在本地 store 留最近 10 条历史,未落库
 - 失败重试 / 配额耗尽提示不细,无 multi-provider 并行合并能力
+
+### 样本回流(用户拍照沉淀成 eval ground truth)
+- `pages/ocr-result.handleImportTasks` 导入成功后,fire-and-forget 上传 `{ groundTruth, imageFileID, ocrSource, ocrRawText, ocrDrafts, capturedAt, createdAt }` 到 `cloud://.../homework-register-samples/<stem>.json`(stem 跟原图同名,方便配对)
+- mock 数据(无真 fileID)不会上传,不污染样本库
+- 本机 `node miniapp-starter/scripts/pull-ocr-samples.js` 用 tcb-cli 拉回 `samples/<stem>.jpg` + `<stem>.json`(`--keep` 跳过已有,`--dry-run` 只看),人工审 ground truth 后用 `git add -f` 入仓
+- 拉回的 JSON 已 normalize 成 `samples/README.md` 描述的 schema,直接喂 `scripts/eval-homework-ocr.js`
 
 ---
 

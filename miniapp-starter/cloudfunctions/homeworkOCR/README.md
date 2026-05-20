@@ -96,3 +96,20 @@ OCR_REASONING_EFFORT=none  node miniapp-starter/scripts/eval-homework-ocr.js
 prompt 调通后,改 `cloudfunctions/homeworkOCR/index.js` 里的同款字符串(`scripts/lib/homework-ocr.js` 顶部的 `USER_PROMPT` 也要同步),再重新部署。
 
 跑 `node miniapp-starter/scripts/check-prompt-sync.js` 验证两边一致(0 = OK,非 0 = drift)。
+
+## 样本来源 —— 用户拍照自动回流
+
+除了手工放进 `samples/` 的图,`pages/ocr-result` 在用户点「导入」后会把(原图 fileID + 用户最终确认的作业列表)上传到 `cloud://.../homework-register-samples/<stem>.json`。
+
+本机拉回 + 入仓:
+
+```bash
+# 全量拉,覆盖本地;--keep 跳过已有
+node miniapp-starter/scripts/pull-ocr-samples.js
+node miniapp-starter/scripts/pull-ocr-samples.js --keep
+
+# 人工审过 groundTruth 后入仓(.gitignore 默认忽略 jpg,要 -f)
+git add -f miniapp-starter/samples/<stem>.jpg miniapp-starter/samples/<stem>.json
+```
+
+JSON 已 normalize 成本目录 README 描述的 schema,可直接喂 `eval-homework-ocr.js`。详见 [samples/README.md](../../samples/README.md) 的「方式 B:从线上回流」。

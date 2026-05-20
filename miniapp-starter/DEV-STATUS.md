@@ -56,6 +56,7 @@
 - 多 provider 兜底:OpenAI Vision OCR → 腾讯云 OCR(**GeneralHandwriting** → GeneralAccurate → GeneralBasic 顺序回退)→ 微信 OpenAPI → Tesseract.js
 - prompt 按语义拆分,共享前缀传递("17课生字、抄书本" → "17课生字" + "17课抄书本")
 - **作业本详情页「📷 拍照识别」按钮**:识别结果直接落到该作业本(而不是默认当日 one-shot),notebookId 经 `store.ocrCurrentJob` 流串
+- **用户拍照样本沉淀**:导入成功时把(原图 fileID + 用户最终确认的作业列表)上传到 `homework-register-samples/<stem>.json`;本机 `node scripts/pull-ocr-samples.js` 用 tcb-cli 拉回 `samples/` 喂 eval(详见 [samples/README.md](samples/README.md))
 
 ### 6. 跨端云同步 — **真实闭环已通**
 - `utils/cloud-sync.js` + 云数据库 `user_state` 集合,单设备 claim 模型
