@@ -2359,6 +2359,8 @@ function serializeTasksForShare(arg1, arg2) {
     d: startDate,
     de: endDate,
     org: typeof opts.organization === 'string' ? opts.organization : '',
+    // 分享卡片 + 落地页通用标题。空串 = 接收方走默认 "{组织}作业({日期})"。
+    title: typeof opts.title === 'string' ? opts.title.slice(0, SHARE_MAX_TITLE) : '',
     t: tasks
   }
 }
@@ -2488,6 +2490,9 @@ const SHARE_MAX_FROM = 24
 const SHARE_MAX_ID = 100
 const SHARE_MAX_DATE_STR = 16
 const SHARE_MAX_TASK_MINUTES = 600
+// 分享标题:UI 输入框 maxlength 20,这里再多留些余量给 emoji / 多字节字符,
+// 但拒绝撑过 30 个 char(payload 体积考虑)。
+const SHARE_MAX_TITLE = 30
 
 function safeShareString(s, maxLen) {
   if (typeof s !== 'string') return ''
@@ -2547,6 +2552,7 @@ function sanitizeSharePayload(payload) {
       d: dResolved,
       de: dResolved,
       org: '',
+      title: '',  // v1 没有自定义标题字段
       t: tasks
     }
   }
@@ -2590,14 +2596,77 @@ function sanitizeSharePayload(payload) {
     d: dResolved,
     de: safeShareString(payload.de, SHARE_MAX_DATE_STR) || dResolved,
     org: safeShareString(payload.org, SHARE_MAX_ORGANIZATION),
+    title: safeShareString(payload.title, SHARE_MAX_TITLE),
     t: tasks
   }
+}
+
+// 判断两条 task 是否"算同一项"。
+// 一次性:subject + content(trim) + dueDate(归属日)三者全等。
+// 周期:subject + content + startDate + recurrence.type 全等(weekdays 不细比,
+// 用户多半不会精确同 weekdays 又改成不同的)。空 content 不参与判重。
+function _isSameTask(shareItem, existingTask) {
+  const sub = shareItem.s || '其他'
+  const cont = (shareItem.c || '').trim()
+  if (!cont) return false
+  const tSub = existingTask.subject || '其他'
+  const tCont = (existingTask.content || '').trim()
+  if (tSub !== sub || tCont !== cont) return false
+  const shareMode = shareItem.mo === 'recurring' ? 'recurring' : 'one-shot'
+  const taskMode = existingTask.mode === 'recurring' ? 'recurring' : 'one-shot'
+  if (shareMode !== taskMode) return false
+  if (shareMode === 'one-shot') {
+    return (shareItem.dd || '') === (existingTask.dueDate || '')
+  }
+  const shareType = shareItem.r && shareItem.r.type === 'weekly' ? 'weekly' : 'daily'
+  const taskType = existingTask.recurrence && existingTask.recurrence.type === 'weekly' ? 'weekly' : 'daily'
+  if (shareType !== taskType) return false
+  return (shareItem.sd || '') === (existingTask.startDate || '')
+}
+
+// 让 UI 在导入前预检重复 —— 让用户选择"替换 / 重命名 / 放弃重复 / 全部放弃"。
+// 输入:任意来源的 share payload(会先 sanitize)。
+// 输出:[{ shareIdx, existingTaskId, shareSubject, shareContent }, ...]
+//   - shareIdx 是 sanitize 后 t[] 的下标,UI 拿到后展示给用户用。
+//   - existingTaskId 用于 'replace' 模式精确删除目标。
+function findShareDuplicates(payload) {
+  const safe = sanitizeSharePayload(payload)
+  if (!safe) return []
+  const state = loadState()
+  const dups = []
+  for (let i = 0; i < safe.t.length; i++) {
+    const it = safe.t[i]
+    const exist = state.tasks.find((t) => _isSameTask(it, t))
+    if (exist) {
+      dups.push({
+        shareIdx: i,
+        existingTaskId: exist.id,
+        shareSubject: it.s || '其他',
+        shareContent: (it.c || '').trim()
+      })
+    }
+  }
+  return dups
+}
+
+// 重命名后缀:多次导入同一题会叠加成"X(副本)(副本)",可接受 —— 用户能区分,
+// 也能从最后一次的内容看出导入了多少次。
+function _renamedShareContent(content) {
+  const c = (content || '').trim()
+  return c ? `${c}（副本）` : '（副本）'
 }
 
 // v3 importSharedTasks: 把分享 payload 中的 task 列表追加到 state.tasks。
 // options:
 //   - selectedIndexes: number[]   只导入这些下标(UI 让用户勾选)。不传 = 全部。
-// 返回新增的 task id 数组。
+//   - conflictMode: 'add' | 'replace' | 'rename' | 'skip'   重复处理策略:
+//     - add (默认,向后兼容):不查重,全加 —— 会产生肉眼重复行,只在老路径用。
+//     - replace:删掉现有 task,加新的(保留新 task 的 id;旧 task 连同
+//       occurrences 一起没了)。
+//     - rename:新 task 的 content 后加 "（副本）" 再加。
+//     - skip:跳过 payload 里跟现有 task 重复的项,只加非重复的。
+// 返回新增的 task id 数组。conflictMode='skip' 且全部重复时返回 [],
+// 调用方据此判断"啥也没加"。
 function importSharedTasks(payload, options) {
   // 即使调用方已经 sanitize 过,这里再做一次 —— 防止其它入口漏 sanitize。
   const safe = sanitizeSharePayload(payload)
@@ -2607,13 +2676,44 @@ function importSharedTasks(payload, options) {
     ? opts.selectedIndexes.map((i) => safe.t[i]).filter(Boolean)
     : safe.t
   if (sourceTasks.length === 0) return []
+  const conflictMode = ['add', 'replace', 'rename', 'skip'].includes(opts.conflictMode)
+    ? opts.conflictMode
+    : 'add'
 
   const today = todayStr()
   const newIds = []
   updateState((state) => {
+    // 把 sourceTasks 跟 state.tasks 做一次比对 —— 即使调用方提前传了 findShareDuplicates
+    // 结果,store 内部也要重检测一次防 race(中间可能 addTask 过)。
+    const dupSourceIdx = new Set()
+    const dupExistingIds = []
+    if (conflictMode !== 'add') {
+      for (let i = 0; i < sourceTasks.length; i++) {
+        const it = sourceTasks[i]
+        const exist = state.tasks.find((t) => _isSameTask(it, t))
+        if (exist) {
+          dupSourceIdx.add(i)
+          dupExistingIds.push(exist.id)
+        }
+      }
+    }
+
+    // 'replace' 先删旧,再正常导入新的(走 push)。这样 newIds 仍然指向新行,
+    // 上层 toast / 跳转逻辑不用区分。
+    if (conflictMode === 'replace' && dupExistingIds.length > 0) {
+      const set = new Set(dupExistingIds)
+      state.tasks = state.tasks.filter((t) => !set.has(t.id))
+    }
+
     const maxOrder = state.tasks.reduce((m, t) => Math.max(m, t.order || 0), -1)
     let cursor = maxOrder + 1
-    for (const it of sourceTasks) {
+    for (let i = 0; i < sourceTasks.length; i++) {
+      let it = sourceTasks[i]
+      const isDup = dupSourceIdx.has(i)
+      if (isDup && conflictMode === 'skip') continue
+      if (isDup && conflictMode === 'rename') {
+        it = { ...it, c: _renamedShareContent(it.c) }
+      }
       const row = buildTaskFromShare(it, today)
       row.order = cursor++
       state.tasks.push(row)
@@ -2706,6 +2806,7 @@ module.exports = {
   serializeTasksForShare,
   sanitizeSharePayload,
   importSharedTasks,
+  findShareDuplicates,
   applyShareRewardClaim,
   applyAdminCoinClaim,
   // cloud-sync interface (for cloud-sync module's use; pages should use

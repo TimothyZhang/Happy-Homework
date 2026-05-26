@@ -20,6 +20,15 @@ function buildDateRangeLabel(start, end) {
   return `${shortMD(start)} – ${shortMD(end)}`
 }
 
+// 默认标题:跟 share 页 buildDefaultTitle 同形式 —— 客态视角 "{组织}作业({日期})"。
+// 老 payload(没 title 字段)在这里兜底,使得 "客态" 不再出现 "我分享的作业"。
+function buildDefaultTitle(organization, startDate, endDate) {
+  const org = (organization || '').trim()
+  const range = buildDateRangeLabel(startDate, endDate)
+  const prefix = org ? `${org}作业` : '作业'
+  return range ? `${prefix}(${range})` : prefix
+}
+
 // payload.t 按学科分组,组内保留原顺序。每条 task 保留原下标 _idx 让导入时
 // 可以精准定位回 payload.t。
 function groupBySubject(tasks) {
@@ -74,7 +83,12 @@ Page({
         throw new Error('payload invalid')
       }
       const subjectGroups = groupBySubject(payload.t)
-      const headerTitle = '好友分享的作业'
+      // 标题优先级:payload.title(分享方自定义)→ buildDefaultTitle(org+日期)。
+      // 不再用 "{nickname} 分享的作业" / "好友分享的作业" 这种 fallback —— 客态
+      // 视角不应该出现"我分享的"/"好友分享的"这种关于"谁"的描述,只描述作业本身。
+      const customTitle = (payload.title || '').trim()
+      const headerTitle = customTitle ||
+        buildDefaultTitle(payload.org, payload.d, payload.de)
       const orgLabel = payload.org ? payload.org : '全部组织'
       const dateRangeLabel = buildDateRangeLabel(payload.d, payload.de)
       this.setData({
@@ -86,13 +100,13 @@ Page({
       })
       wx.setNavigationBarTitle({ title: '导入作业' })
       if (payload.sharer) {
+        // 仍然 fetch 头像/昵称用于头像位的展示,但 *不再覆盖 headerTitle* —
+        // 标题由 payload.title / 默认推导,跟分享者身份解耦。
         shareReward.fetchSharerProfile(payload.sharer).then((profile) => {
           if (!profile) return
-          const nickname = (profile.nickname || '').trim()
           this.setData({
-            sharerNickname: nickname,
-            sharerAvatar: profile.avatar || '',
-            headerTitle: nickname ? `${nickname} 分享的作业` : '好友分享的作业'
+            sharerNickname: (profile.nickname || '').trim(),
+            sharerAvatar: profile.avatar || ''
           })
         }).catch(() => {})
       }
@@ -109,8 +123,51 @@ Page({
       wx.showToast({ title: '没有可保存的作业', icon: 'none' })
       return
     }
+    // 先检测和现有作业的重复 —— 有重复就弹 actionSheet 让用户选;
+    // 没重复直接走 'add' 默认路径。
+    const dups = store.findShareDuplicates(payload)
+    if (dups.length > 0) {
+      this.promptConflict(dups.length, payload.t.length)
+      return
+    }
+    this.doImport('add')
+  },
+
+  // 提示用户选重复处理策略。actionSheet 的取消按钮 = "全部放弃"。
+  // 4 项中"放弃重复项" / "全部放弃" 语义有重叠,分别对应:
+  //   - "跳过重复": 只导入不重复的部分(有 N-dup 项被加)
+  //   - "全部放弃": 整次 import 取消(没有任何变更)
+  promptConflict(dupCount, total) {
+    const newCount = total - dupCount
+    const itemList = [
+      `替换重复项(覆盖现有 ${dupCount} 项)`,
+      `重命名重复项(加"（副本）"导入)`,
+      `跳过重复项(仅导入新增 ${newCount} 项)`
+    ]
+    wx.showActionSheet({
+      itemList,
+      success: (res) => {
+        const modes = ['replace', 'rename', 'skip']
+        const mode = modes[res.tapIndex]
+        if (!mode) return
+        // skip 模式如果没有非重复项,等于啥也不加,直接给用户一个明确提示。
+        if (mode === 'skip' && newCount === 0) {
+          wx.showToast({ title: '没有可新增的作业', icon: 'none' })
+          return
+        }
+        this.doImport(mode)
+      },
+      fail: () => {
+        // 用户点取消按钮 = 全部放弃,啥也不做。
+      }
+    })
+  },
+
+  // 真正写 store + 跳转。封装出来让 handleImport 和 promptConflict 共用。
+  doImport(conflictMode) {
+    const payload = this.data.payload
     this.setData({ importing: true })
-    const newIds = store.importSharedTasks(payload)
+    const newIds = store.importSharedTasks(payload, { conflictMode })
     if (!newIds || newIds.length === 0) {
       this.setData({ importing: false, error: '保存失败，请稍后再试' })
       return
@@ -118,7 +175,10 @@ Page({
     // 保存成功:importing→false, imported→true,按钮文本变 "✓ 已保存",
     // 在 600ms 跳转 tasks tab 之前用户能看到完成状态(原来一直停在 "保存中…")。
     this.setData({ importing: false, imported: true })
-    wx.showToast({ title: `已保存 ${newIds.length} 项`, icon: 'success' })
+    const verb = conflictMode === 'replace'
+      ? '已替换'
+      : (conflictMode === 'rename' ? '已重命名导入' : '已保存')
+    wx.showToast({ title: `${verb} ${newIds.length} 项`, icon: 'success' })
     // 服务端 shareReward 给分享者 +3 coin(以 shareId 做 dedup,重复导入不会重复发)。
     if (payload.sharer && payload.shareId) {
       shareReward.reportShareSave({
@@ -142,14 +202,14 @@ Page({
   },
 
   // 转发卡片继续往下传播 — payload 里包含 shareId,reportShareSave 仍归属原作者。
+  // title 跟当前页头部 headerTitle 一致(payload.title 或默认组织-日期),转发出去的
+  // 卡片还是客态视角。
   onShareAppMessage() {
     const payload = this.data.payload
     if (!payload) return { title: '作业分享', path: '/pages/tasks/index' }
     const forwarded = { ...payload }
     delete forwarded.from
-    const title = this.data.sharerNickname
-      ? `${this.data.sharerNickname} 分享的作业`
-      : '好友分享的作业'
+    const title = this.data.headerTitle || '作业分享'
     const encoded = encodeURIComponent(JSON.stringify(forwarded))
     return { title, path: `/pages/notebook-share/index?d=${encoded}` }
   }

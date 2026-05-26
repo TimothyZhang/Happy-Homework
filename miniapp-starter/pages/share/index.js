@@ -28,9 +28,13 @@ function chipDateLabel(dateStr, prefix) {
   return `${prefix}${shortMD(dateStr)}`
 }
 
-function buildPreviewTitle(nickname) {
-  const n = (nickname || '').trim()
-  return n ? `${n} 分享的作业` : '我分享的作业'
+// 默认标题:{组织}作业({日期}) —— 客态视角(接收方看到的就是这个),不要再写
+// "我分享的作业" 这类主态文案。空 organization 退化为 "作业"。
+function buildDefaultTitle(organization, startDate, endDate) {
+  const org = (organization || '').trim()
+  const range = buildDateRangeLabel(startDate, endDate)
+  const prefix = org ? `${org}作业` : '作业'
+  return range ? `${prefix}(${range})` : prefix
 }
 
 // 把 payload.t 按学科分组,组内保留原顺序。
@@ -67,9 +71,10 @@ Page({
     // 组织 picker:必选一个,无"全部"项 — 业务上每次分享一个组织的作业列表。
     orgOptions: [],
     orgIndex: 0,
-    sharerNickname: '',
     sharerAvatar: '',
-    previewTitle: '',
+    // 自定义标题:用户在 input 里手输,空字符串=用 titlePlaceholder 当默认。
+    customTitle: '',
+    titlePlaceholder: '',
     orgLabel: '',
     dateRangeLabel: '',
     startDateLabel: '',
@@ -92,7 +97,6 @@ Page({
       endDate: initialDate,
       orgOptions,
       orgIndex: 0,
-      sharerNickname: profile.nickname || '',
       sharerAvatar: profile.avatar || ''
     })
     this.refreshPreview()
@@ -133,21 +137,41 @@ Page({
     this.refreshPreview()
   },
 
+  // 自定义标题输入。空串等价于 "用默认 placeholder"。
+  onTitleInput(e) {
+    const v = (e.detail && e.detail.value) || ''
+    this.setData({ customTitle: v })
+    // 刷一遍 payload 缓存,让 onShareAppMessage 同步取到带新 title 的版本。
+    this.refreshPreview()
+  },
+
+  // 算出实际生效的 title:用户输入有就用,没有走默认。共用给预览和 onShareAppMessage。
+  resolveTitle() {
+    const { customTitle, titlePlaceholder } = this.data
+    const t = (customTitle || '').trim()
+    return t || titlePlaceholder
+  },
+
   // 重算预览 + payload。每次过滤项变动就跑一次,纯本地。
   refreshPreview() {
-    const { startDate, endDate, orgOptions, orgIndex, sharerNickname } = this.data
+    const { startDate, endDate, orgOptions, orgIndex } = this.data
     const organization = orgOptions[orgIndex] || ''
     const sharer = shareReward.getMyOpenidSync() || ''
+    const titlePlaceholder = buildDefaultTitle(organization, startDate, endDate)
+    // resolveTitle 依赖 titlePlaceholder,先把它写进 data 再读 —— setData 是同步合并,
+    // 但 this.data 在同一 setData 调用内不会立即更新。所以这里手算一遍生效 title。
+    const customTrim = (this.data.customTitle || '').trim()
+    const effectiveTitle = customTrim || titlePlaceholder
     const payload = store.serializeTasksForShare({
       startDate,
       endDate,
       organization,
-      sharerOpenid: sharer
+      sharerOpenid: sharer,
+      title: effectiveTitle
     })
     const subjectGroups = groupBySubject(payload.t || [])
     const totalCount = (payload.t || []).length
     const dateRangeLabel = buildDateRangeLabel(startDate, endDate)
-    const previewTitle = buildPreviewTitle(sharerNickname)
     this.setData({
       subjectGroups,
       totalCount,
@@ -155,7 +179,7 @@ Page({
       startDateLabel: chipDateLabel(startDate, '📅 '),
       endDateLabel: chipDateLabel(endDate, '至 '),
       orgLabel: organization,
-      previewTitle,
+      titlePlaceholder,
       _cachedPayload: payload
     })
   },
@@ -163,16 +187,21 @@ Page({
   onShareAppMessage() {
     // refreshPreview 已经把 payload 缓存到 _cachedPayload;万一缓存丢失就重算。
     let payload = this.data._cachedPayload
+    const title = this.resolveTitle()
     if (!payload) {
       const organization = this.data.orgOptions[this.data.orgIndex] || ''
       payload = store.serializeTasksForShare({
         startDate: this.data.startDate,
         endDate: this.data.endDate,
         organization,
-        sharerOpenid: shareReward.getMyOpenidSync() || ''
+        sharerOpenid: shareReward.getMyOpenidSync() || '',
+        title
       })
+    } else if (payload.title !== title) {
+      // 缓存的 payload title 可能跟当前 input 不一致(refreshPreview 节流场景);
+      // 直接替换 payload.title 而不重新 serialize,避免重跑 task collection。
+      payload = { ...payload, title }
     }
-    const title = buildPreviewTitle(this.data.sharerNickname)
     const encoded = encodeURIComponent(JSON.stringify(payload))
     return {
       title,

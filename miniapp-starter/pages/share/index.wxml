@@ -11,8 +11,14 @@
                mode="aspectFill" />
         <view wx:else class="sharer-avatar sharer-avatar-fallback">📤</view>
         <view class="sharer-text">
-          <text class="sharer-name">{{previewTitle}}</text>
-          <text class="sharer-hint">共 {{totalCount}} 项作业</text>
+          <input class="sharer-name title-input"
+                 placeholder="{{titlePlaceholder}}"
+                 placeholder-class="title-input-placeholder"
+                 value="{{customTitle}}"
+                 maxlength="20"
+                 bindinput="onTitleInput"
+                 confirm-type="done" />
+          <text class="sharer-hint">共 {{totalCount}} 项作业 · 可改标题</text>
         </view>
       </view>
 

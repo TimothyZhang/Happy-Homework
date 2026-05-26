@@ -71,6 +71,20 @@
   line-height: 1.25;
 }
 
+/* 标题 input:跟 .sharer-name 同字号粗细,但去掉 input 自带 padding 让位置与
+   原 text 对齐。placeholder 用稍浅灰让"默认占位"和"用户已输入"视觉可区分。 */
+.title-input {
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.title-input-placeholder {
+  color: #1f2329;
+  font-weight: 700;
+}
+
 .sharer-hint {
   font-size: 24rpx;
   color: #245bdb;

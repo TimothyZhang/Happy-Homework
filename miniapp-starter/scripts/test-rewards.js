@@ -968,6 +968,157 @@ assert('sanity:today 当天完成仍触发 perfect-day', st().perfectDays.includ
 assert('sanity:today 当天完成 dailyBonus > 0',
   st().lastReward && st().lastReward.dailyBonus > 0)
 
+// ===== Scenario P: 导入分享作业的重复检测 + conflictMode 处理 =====
+// 用户反馈:之前 importSharedTasks 不查重,会产生肉眼重复行。改成 UI 先调
+// findShareDuplicates,根据返回结果弹 4 选项:替换/重命名/跳过/全部放弃。
+// 这里只测 store 层 — findShareDuplicates + importSharedTasks 各 conflictMode。
+console.log('\n[P] importSharedTasks: 重复检测 + replace / rename / skip')
+
+// 构造现有 state:已有 1 项 one-shot(语-课文一-today)和 1 项 recurring(数-练习册-weekly)。
+function seedExisting() {
+  seed({
+    notebooks: [
+      { id: 'nbE1', name: today, mode: 'one-shot', startDate: today, endDate: today, recurrence: null, createdAt: 1, order: 0 }
+    ],
+    tasks: [
+      {
+        id: 'tk_exist_oneshot', notebookId: 'nbE1', subject: '语', content: '课文一',
+        estimatedMinutes: 10, mode: 'one-shot', dueDate: today, startDate: today, endDate: today,
+        order: 0, createdAt: 1,
+        status: 'todo', startedAt: null, currentSegmentStartedAt: null,
+        accumulatedMs: 0, completedAt: null, actualMinutes: null,
+        rewardPaid: null, rewardKind: null
+      },
+      {
+        id: 'tk_exist_recurring', notebookId: 'nbE1', subject: '数', content: '练习册',
+        estimatedMinutes: 15, mode: 'recurring', dueDate: null,
+        startDate: yesterday, endDate: null,
+        recurrence: { type: 'daily', weekdays: [] },
+        excludedDates: [], occurrences: {},
+        order: 1, createdAt: 1
+      }
+    ],
+    coins: 0
+  })
+}
+
+// 共用的 payload 构造器 —— 模拟分享方序列化后的 v2 schema。
+function makeSharePayload(tasks, extras) {
+  return {
+    v: 2,
+    sharer: 'sharer-openid',
+    shareId: 'share-1',
+    d: today,
+    de: today,
+    org: '校内',
+    title: '',
+    t: tasks,
+    ...(extras || {})
+  }
+}
+
+// --- P.1 findShareDuplicates 正确识别 ---
+seedExisting()
+const dupPayload = makeSharePayload([
+  { s: '语', c: '课文一', m: 10, mo: 'one-shot', sd: today, ed: today, dd: today, r: null, o: '校内' }, // dup
+  { s: '英', c: '听写', m: 5, mo: 'one-shot', sd: today, ed: today, dd: today, r: null, o: '校内' }    // new
+])
+const dups1 = s.findShareDuplicates(dupPayload)
+assert('findShareDuplicates: 命中 1 项 one-shot 重复', dups1.length === 1, `len=${dups1.length}`)
+assert('findShareDuplicates: shareIdx 指向第 0 项', dups1[0] && dups1[0].shareIdx === 0)
+assert('findShareDuplicates: existingTaskId 指向旧 task',
+  dups1[0] && dups1[0].existingTaskId === 'tk_exist_oneshot')
+
+// --- P.2 不同 dueDate 不算重复 ---
+seedExisting()
+const noDupPayload = makeSharePayload([
+  { s: '语', c: '课文一', m: 10, mo: 'one-shot', sd: tomorrow, ed: tomorrow, dd: tomorrow, r: null, o: '校内' }
+])
+const dups2 = s.findShareDuplicates(noDupPayload)
+assert('findShareDuplicates: 同 subject+content 但 dueDate 不同 → 不算重复',
+  dups2.length === 0, `len=${dups2.length}`)
+
+// --- P.3 recurring 重复检测 ---
+seedExisting()
+const recurDupPayload = makeSharePayload([
+  { s: '数', c: '练习册', m: 15, mo: 'recurring', sd: yesterday, ed: null, dd: '', r: { type: 'daily', weekdays: [] }, o: '校内' }
+])
+const dups3 = s.findShareDuplicates(recurDupPayload)
+assert('findShareDuplicates: recurring 同 subject+content+startDate+type → 重复',
+  dups3.length === 1)
+
+// --- P.4 conflictMode='add'(默认) 不去重 ---
+seedExisting()
+const beforeAdd = st().tasks.length
+s.importSharedTasks(makeSharePayload([
+  { s: '语', c: '课文一', m: 10, mo: 'one-shot', sd: today, ed: today, dd: today, r: null, o: '校内' }
+]))
+assert('add 模式:即使重复也照样追加', st().tasks.length === beforeAdd + 1)
+
+// --- P.5 conflictMode='skip' 跳过重复 ---
+seedExisting()
+const beforeSkip = st().tasks.length
+const skipPayload = makeSharePayload([
+  { s: '语', c: '课文一', m: 10, mo: 'one-shot', sd: today, ed: today, dd: today, r: null, o: '校内' }, // dup
+  { s: '英', c: '听写', m: 5, mo: 'one-shot', sd: today, ed: today, dd: today, r: null, o: '校内' }    // new
+])
+const newIdsSkip = s.importSharedTasks(skipPayload, { conflictMode: 'skip' })
+assert('skip 模式:只加 1 项(跳过重复的语课文一)', newIdsSkip.length === 1)
+assert('skip 模式:state.tasks 净增 1 项', st().tasks.length === beforeSkip + 1)
+assert('skip 模式:旧 task 仍在,id 未变',
+  st().tasks.some((t) => t.id === 'tk_exist_oneshot'))
+
+// --- P.6 conflictMode='replace' 删旧加新 ---
+seedExisting()
+const beforeReplace = st().tasks.length
+const replacePayload = makeSharePayload([
+  { s: '语', c: '课文一', m: 99, mo: 'one-shot', sd: today, ed: today, dd: today, r: null, o: '校内' }, // dup, m 改了
+  { s: '英', c: '听写', m: 5, mo: 'one-shot', sd: today, ed: today, dd: today, r: null, o: '校内' }    // new
+])
+const newIdsReplace = s.importSharedTasks(replacePayload, { conflictMode: 'replace' })
+assert('replace 模式:新加 2 项 id', newIdsReplace.length === 2)
+assert('replace 模式:旧的 tk_exist_oneshot 被删',
+  !st().tasks.some((t) => t.id === 'tk_exist_oneshot'))
+assert('replace 模式:net count = before - 1 + 2 = before + 1',
+  st().tasks.length === beforeReplace + 1)
+const replaced = st().tasks.find((t) => t.content === '课文一')
+assert('replace 模式:新版本带新的 estimatedMinutes(99)',
+  replaced && replaced.estimatedMinutes === 99)
+
+// --- P.7 conflictMode='rename' 重复项加副本后缀 ---
+seedExisting()
+const beforeRename = st().tasks.length
+const renamePayload = makeSharePayload([
+  { s: '语', c: '课文一', m: 10, mo: 'one-shot', sd: today, ed: today, dd: today, r: null, o: '校内' }, // dup
+  { s: '英', c: '听写', m: 5, mo: 'one-shot', sd: today, ed: today, dd: today, r: null, o: '校内' }    // new
+])
+const newIdsRename = s.importSharedTasks(renamePayload, { conflictMode: 'rename' })
+assert('rename 模式:加 2 项', newIdsRename.length === 2)
+assert('rename 模式:旧 task 还在',
+  st().tasks.some((t) => t.id === 'tk_exist_oneshot' && t.content === '课文一'))
+assert('rename 模式:重复项被改名为 课文一（副本）',
+  st().tasks.some((t) => t.content === '课文一（副本）'))
+assert('rename 模式:非重复项 content 不变',
+  st().tasks.some((t) => t.content === '听写'))
+
+// --- P.8 sanitizeSharePayload 接受/截断 title 字段 ---
+const sane1 = s.sanitizeSharePayload({
+  v: 2, sharer: '', shareId: '', d: today, de: today, org: '校内', title: '校内作业(5/26)', t: []
+})
+assert('sanitize: title 字段被保留', sane1 && sane1.title === '校内作业(5/26)')
+
+const longTitle = '一'.repeat(50)
+const sane2 = s.sanitizeSharePayload({
+  v: 2, sharer: '', shareId: '', d: today, de: today, org: '', title: longTitle, t: []
+})
+assert('sanitize: title 截断到 30 字符', sane2 && sane2.title.length === 30,
+  `len=${sane2 && sane2.title.length}`)
+
+const sane3 = s.sanitizeSharePayload({
+  v: 2, sharer: '', shareId: '', d: today, de: today, org: '', t: []
+})
+assert('sanitize: 缺 title 字段 → 默认空串', sane3 && sane3.title === '')
+
 // ===== Summary =====
 console.log(`\n=== ${passed} passed, ${failed} failed ===`)
 process.exit(failed === 0 ? 0 : 1)
