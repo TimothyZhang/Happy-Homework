@@ -57,7 +57,8 @@ Page({
     orgLabel: '全部组织',
     dateRangeLabel: '',
     error: '',
-    importing: false
+    importing: false,
+    imported: false
   },
 
   onLoad(options) {
@@ -101,7 +102,7 @@ Page({
   },
 
   handleImport() {
-    if (this.data.importing) return
+    if (this.data.importing || this.data.imported) return
     if (!this.data.payload) return
     const payload = this.data.payload
     if (!payload.t || payload.t.length === 0) {
@@ -114,6 +115,9 @@ Page({
       this.setData({ importing: false, error: '保存失败，请稍后再试' })
       return
     }
+    // 保存成功:importing→false, imported→true,按钮文本变 "✓ 已保存",
+    // 在 600ms 跳转 tasks tab 之前用户能看到完成状态(原来一直停在 "保存中…")。
+    this.setData({ importing: false, imported: true })
     wx.showToast({ title: `已保存 ${newIds.length} 项`, icon: 'success' })
     // 服务端 shareReward 给分享者 +3 coin(以 shareId 做 dedup,重复导入不会重复发)。
     if (payload.sharer && payload.shareId) {

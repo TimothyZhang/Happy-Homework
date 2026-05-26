@@ -51,8 +51,8 @@
     <view class="bottom-actions">
       <button class="full-btn save-btn"
               bindtap="handleImport"
-              disabled="{{importing || payload.t.length === 0}}">
-        {{importing ? '保存中…' : '💾 保存 ' + payload.t.length + ' 项作业'}}
+              disabled="{{importing || imported || payload.t.length === 0}}">
+        {{imported ? '✓ 已保存' : (importing ? '保存中…' : '💾 保存 ' + payload.t.length + ' 项作业')}}
       </button>
     </view>
   </block>
