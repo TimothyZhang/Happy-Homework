@@ -894,6 +894,80 @@ assert('recurring + weekly + 空 weekdays → 每周?',
 assert('recurring + 无 recurrence 字段 → 每天(默认)',
   s.formatRecurrenceLabel({ mode: 'recurring' }) === '每天')
 
+// ===== Scenario O: 延期(overdue)补做不补发归属日 perfect-day 奖 =====
+// 用户反馈:1 号作业拖到 2 号才做完,1 号当天本身没全部完成,perfect 奖不该
+// 事后补发。tier.kind === 'overdue' 时跳过 dailyBonus / earlyBird / streak /
+// perfectDays push,只保留 overdue 单题奖(5)。
+console.log('\n[O] overdue 补做不补发归属日 perfect-day 奖')
+
+// 单一 overdue task:昨天的作业今天才做。
+const nbO = { id: 'nbO', name: yesterday, mode: 'one-shot', startDate: yesterday, endDate: yesterday, recurrence: null, createdAt: 1, order: 0 }
+seed({
+  notebooks: [nbO],
+  tasks: [{
+    id: 'tk_overdue_solo', notebookId: 'nbO', subject: '语', content: 'a',
+    estimatedMinutes: 5, mode: 'one-shot', dueDate: yesterday, endDate: yesterday,
+    order: 0, createdAt: 1, occurrences: {}
+  }],
+  coins: 0
+})
+const coinsBeforeO = st().coins
+s.finishTask('tk_overdue_solo', yesterday)
+const coinsAfterO = st().coins
+assert('overdue 补做:只发 overdue 单题奖(5),不补 perfect bonus',
+  coinsAfterO - coinsBeforeO === 5, `delta=${coinsAfterO - coinsBeforeO}`)
+assert('overdue 补做:perfectDays 不含归属日', !st().perfectDays.includes(yesterday))
+assert('overdue 补做:streakDays 仍为 0', st().streakDays === 0)
+assert('overdue 补做:bonusByDay 没条目', !(st().bonusByDay && st().bonusByDay[yesterday]))
+assert('overdue 补做:lastReward.dailyBonus === 0', st().lastReward && st().lastReward.dailyBonus === 0)
+assert('overdue 补做:lastReward.rewardKind === overdue',
+  st().lastReward && st().lastReward.rewardKind === 'overdue')
+
+// 混合 case:昨天的两道题,A 昨天当天就完成了,B 今天才补做。
+// allDone 在 B 补做后变 true,但因为 B 是 overdue,不该补发 perfect。
+const nbO2 = { id: 'nbO2', name: yesterday, mode: 'one-shot', startDate: yesterday, endDate: yesterday, recurrence: null, createdAt: 1, order: 0 }
+seed({
+  notebooks: [nbO2],
+  tasks: [
+    {
+      id: 'tk_overdue_mix_A', notebookId: 'nbO2', subject: '语', content: 'a',
+      estimatedMinutes: 5, mode: 'one-shot', dueDate: yesterday, endDate: yesterday,
+      order: 0, createdAt: 1,
+      // A 昨天当天就 done,带正常 10 金币的 today reward 痕迹。
+      occurrences: { [yesterday]: {
+        status: 'done', rewardPaid: 10, rewardKind: 'today',
+        completedAt: 1, actualMinutes: 5, accumulatedMs: 5 * 60000,
+        currentSegmentStartedAt: null
+      } }
+    },
+    {
+      id: 'tk_overdue_mix_B', notebookId: 'nbO2', subject: '数', content: 'b',
+      estimatedMinutes: 5, mode: 'one-shot', dueDate: yesterday, endDate: yesterday,
+      order: 1, createdAt: 1, occurrences: {}
+    }
+  ],
+  coins: 100
+})
+const coinsBeforeMix = st().coins
+s.finishTask('tk_overdue_mix_B', yesterday)
+const coinsAfterMix = st().coins
+assert('overdue 混合:allDone 但 overdue,只发 5 金币不补 perfect',
+  coinsAfterMix - coinsBeforeMix === 5, `delta=${coinsAfterMix - coinsBeforeMix}`)
+assert('overdue 混合:perfectDays 仍不含归属日', !st().perfectDays.includes(yesterday))
+assert('overdue 混合:streakDays 仍为 0', st().streakDays === 0)
+assert('overdue 混合:lastReward.dailyBonus === 0',
+  st().lastReward && st().lastReward.dailyBonus === 0)
+
+// 反例 sanity:today 当天最后一题完成 → perfect 该发的还是发(确认改动没把正常路径打坏)。
+const nbS = { id: 'nbS', name: today, mode: 'one-shot', startDate: today, endDate: today, recurrence: null, createdAt: 1, order: 0 }
+seed({ notebooks: [nbS], coins: 0 })
+s.addTask({ notebookId: 'nbS', subject: '语', content: 'a', estimatedMinutes: 5 })
+const tkS = st().tasks[0].id
+s.finishTask(tkS, today)
+assert('sanity:today 当天完成仍触发 perfect-day', st().perfectDays.includes(today))
+assert('sanity:today 当天完成 dailyBonus > 0',
+  st().lastReward && st().lastReward.dailyBonus > 0)
+
 // ===== Summary =====
 console.log(`\n=== ${passed} passed, ${failed} failed ===`)
 process.exit(failed === 0 ? 0 : 1)

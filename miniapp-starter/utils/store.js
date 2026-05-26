@@ -1879,7 +1879,11 @@ function finishTask(taskId, dateStr) {
     const todayCleared = todayViewItems.length > 0 &&
       todayViewItems.every((it) => it.occurrence.status === 'done')
 
-    if (allDone) {
+    // 补做(overdue)不补发归属日的 perfect-day 奖:1 号的最后一题拖到 2 号才做,
+    // 1 号当天本身就没"全部完成",事后再判 perfect 等于鼓励拖延。只跳过 bonus
+    // 发放,task 自身的 overdue 单题奖(5)照常走。tier.kind 比 rewardKind 准 ——
+    // 后者在 20-cap 命中后会被改成 'capped',丢掉 overdue 信息。
+    if (allDone && tier.kind !== 'overdue') {
       if (!Array.isArray(state.perfectDays)) state.perfectDays = []
       if (!state.perfectDays.includes(day)) {
         // Daily-perfect base = sum of rewardPaid across this day's tasks (i.e.
