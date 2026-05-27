@@ -409,12 +409,13 @@ Page({
       app.globalData.petAnimQueue = 'celebrating'
     }
 
-    if (bonusCoins > 0 && this.data.isToday && lr.todayCleared) {
+    if (bonusCoins > 0 && this.data.isToday && lr.rewardKind === 'today') {
       // 全完成: queue allDone after the task pop has had time to fade.
-      // Gated to today view because the subtitle assumes "今日"; also gated to
-      // `todayCleared` so finishing a single past-day backlog item (which
-      // earns a per-past-day perfect bonus) doesn't fire the toast while
-      // today still has pending rows.
+      // 触发条件:今日视图 + 本次完成的是 today 归属的 task + 该次触发了 perfect 奖。
+      // rewardKind 取代了原本的 todayCleared 门槛 —— overdue 补做不再发 perfect
+      // (bonusCoins=0 自动过滤),所以不需要再用 todayCleared 来防"过去日补做误
+      // 触发 today toast"了。todayCleared 在有未补 overdue 时为 false,会错挡掉
+      // today 真完成时的庆祝。
       const subtitle = weeklyBonus > 0
         ? '今日全部完成 · 连续 7 天!'
         : '今日全部完成!'
