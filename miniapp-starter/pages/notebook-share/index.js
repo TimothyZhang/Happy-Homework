@@ -202,14 +202,16 @@ Page({
   },
 
   // 转发卡片继续往下传播 — payload 里包含 shareId,reportShareSave 仍归属原作者。
-  // title 跟当前页头部 headerTitle 一致(payload.title 或默认组织-日期),转发出去的
-  // 卡片还是客态视角。
+  // 卡片 title 用 "{原作者 nickname} 分享给你的作业"(跟 share 页 onShareAppMessage
+  // 同形),没 nickname 退化为 "好友分享给你的作业"。payload.title(落地页 header)
+  // 不变,跟着 payload 透传给下家。
   onShareAppMessage() {
     const payload = this.data.payload
     if (!payload) return { title: '作业分享', path: '/pages/tasks/index' }
     const forwarded = { ...payload }
     delete forwarded.from
-    const title = this.data.headerTitle || '作业分享'
+    const nickname = (this.data.sharerNickname || '').trim()
+    const title = nickname ? `${nickname} 分享给你的作业` : '好友分享给你的作业'
     const encoded = encodeURIComponent(JSON.stringify(forwarded))
     return { title, path: `/pages/notebook-share/index?d=${encoded}` }
   }

@@ -28,13 +28,22 @@ function chipDateLabel(dateStr, prefix) {
   return `${prefix}${shortMD(dateStr)}`
 }
 
-// 默认标题:{组织}作业({日期}) —— 客态视角(接收方看到的就是这个),不要再写
-// "我分享的作业" 这类主态文案。空 organization 退化为 "作业"。
+// 落地页 + 预览卡的默认标题:{组织}作业({日期}) —— 描述作业本身,不带"谁"。
+// 这个 title 会塞进 payload.title,落地页接收后用作 headerTitle。空 organization
+// 退化为 "作业"。
 function buildDefaultTitle(organization, startDate, endDate) {
   const org = (organization || '').trim()
   const range = buildDateRangeLabel(startDate, endDate)
   const prefix = org ? `${org}作业` : '作业'
   return range ? `${prefix}(${range})` : prefix
+}
+
+// 微信对话框里看到的分享卡片标题:"{nickname} 分享给你的作业"。是客态文案,
+// 但跟 buildDefaultTitle 不同 —— 这个强调"谁分享给你的",方便接收方一眼知道
+// 来源;落地页内的 headerTitle 描述作业本身。两者独立,不互相覆盖。
+function buildShareCardTitle(nickname) {
+  const n = (nickname || '').trim()
+  return n ? `${n} 分享给你的作业` : '好友分享给你的作业'
 }
 
 // 把 payload.t 按学科分组,组内保留原顺序。
@@ -71,8 +80,12 @@ Page({
     // 组织 picker:必选一个,无"全部"项 — 业务上每次分享一个组织的作业列表。
     orgOptions: [],
     orgIndex: 0,
+    sharerNickname: '',
     sharerAvatar: '',
     // 自定义标题:用户在 input 里手输,空字符串=用 titlePlaceholder 当默认。
+    // 注意:customTitle 只影响"预览卡 / 落地页头部"标题(随 payload.title 走),
+    // 不影响微信对话框里看到的分享卡片标题 —— 那个固定走 "{nickname} 分享给
+    // 你的作业",由 onShareAppMessage 单独拼。
     customTitle: '',
     titlePlaceholder: '',
     orgLabel: '',
@@ -97,6 +110,7 @@ Page({
       endDate: initialDate,
       orgOptions,
       orgIndex: 0,
+      sharerNickname: (profile.nickname || '').trim(),
       sharerAvatar: profile.avatar || ''
     })
     this.refreshPreview()
@@ -186,8 +200,12 @@ Page({
 
   onShareAppMessage() {
     // refreshPreview 已经把 payload 缓存到 _cachedPayload;万一缓存丢失就重算。
+    // 注意两种 title 不一样:
+    //   - cardTitle:微信对话框分享卡片上显示的,"{nickname} 分享给你的作业"
+    //   - previewTitle:落地页头部 headerTitle 用,塞 payload.title,默认 "{组织}作业({日期})"
+    const previewTitle = this.resolveTitle()
+    const cardTitle = buildShareCardTitle(this.data.sharerNickname)
     let payload = this.data._cachedPayload
-    const title = this.resolveTitle()
     if (!payload) {
       const organization = this.data.orgOptions[this.data.orgIndex] || ''
       payload = store.serializeTasksForShare({
@@ -195,16 +213,16 @@ Page({
         endDate: this.data.endDate,
         organization,
         sharerOpenid: shareReward.getMyOpenidSync() || '',
-        title
+        title: previewTitle
       })
-    } else if (payload.title !== title) {
+    } else if (payload.title !== previewTitle) {
       // 缓存的 payload title 可能跟当前 input 不一致(refreshPreview 节流场景);
       // 直接替换 payload.title 而不重新 serialize,避免重跑 task collection。
-      payload = { ...payload, title }
+      payload = { ...payload, title: previewTitle }
     }
     const encoded = encodeURIComponent(JSON.stringify(payload))
     return {
-      title,
+      title: cardTitle,
       path: `/pages/notebook-share/index?d=${encoded}`
     }
   }
