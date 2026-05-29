@@ -13,6 +13,32 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 const OCR_SESSION_LIMIT = 30
 let ocrCallsThisSession = 0
 
+// 客户端预建 job doc 的集合 —— 见 handleStartRecognize 里网关超时兜底的注释。
+const OCR_JOB_COLLECTION = 'ocr_jobs'
+// 网关 ~60s 放弃后改 DB 轮询的节奏:每 3s 一次,最多 ~66s,足够覆盖到云函数
+// 自身 120s timeout(轮询从网关放弃的那一刻起算)。
+const OCR_POLL_INTERVAL_MS = 3000
+const OCR_POLL_MAX_TRIES = 22
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+// 判断 callFunction 失败是不是"微信网关 60s 同步超时"这一类。命中时云函数其实
+// 还在后台跑,改走 job doc 轮询;其它错误(网络 / 函数不存在 / 鉴权)直接抛,
+// 走原有失败弹窗。
+function isGatewayTimeout(error) {
+  const msg = `${(error && error.errMsg) || ''} ${(error && error.message) || ''}`.toLowerCase()
+  if (!msg.trim()) return false
+  return (
+    msg.includes('esockettimedout') ||
+    msg.includes('-501002') ||
+    msg.includes('resource server timeout') ||
+    msg.includes('etimedout') ||
+    (msg.includes('callfunction:fail') && msg.includes('timeout'))
+  )
+}
+
 const mockRawText = `语文：抄写第3课生字两遍
 数学：练习册第12页第1-5题
 英语：背诵单词1-20
@@ -105,6 +131,10 @@ function getRecognizeFailureMessage(error) {
 
   if (code === 'OPENAI_OCR_TIMEOUT') {
     return 'OpenAI OCR 请求超时。可以换更清晰、更小的图片再试，或提高 OPENAI_OCR_TIMEOUT_MS。'
+  }
+
+  if (code === 'OCR_POLL_TIMEOUT') {
+    return '这次识别用时过长（超过 2 分钟还没出结果）。可以换一张更清晰、更小的图片再试。'
   }
 
   if (code === 'OPENAI_OCR_FAILED') {
@@ -233,6 +263,7 @@ Page({
       return
     }
 
+    let jobDocId = ''
     try {
       ocrCallsThisSession += 1
       const uploadFilePath = await this.prepareImageForUpload(this.data.imagePath)
@@ -241,19 +272,38 @@ Page({
         filePath: uploadFilePath
       })
 
-      const callRes = await wx.cloud.callFunction({
-        name: 'homeworkOCR',
-        // 云函数侧 timeout 60s(腾讯云函数免费档硬上限),客户端预留余量到 70s。
-        timeout: 70000,
-        data: {
-          imageFileID: uploadRes.fileID,
-          imagePath: this.data.imagePath
-        }
-      })
+      // 预建一条 job doc(_openid 自动落到当前用户,creator-only ACL 下自己可读)。
+      // 失败不致命:只丢掉"网关超时后轮询"这条兜底路径,同步 <60s 的识别仍正常。
+      jobDocId = await this.createOcrJobDoc()
 
-      const result = (callRes && callRes.result) || {}
-      if (!result.ok) {
-        throw createCloudFunctionError(result)
+      let result
+      try {
+        const callRes = await wx.cloud.callFunction({
+          name: 'homeworkOCR',
+          // 微信 callFunction 网关同步超时硬上限 60s(控制台 / 这里的 timeout 都改
+          // 不动)。OCR 偶尔跑过 60s 时这次调用会以 -501002 / ESOCKETTIMEDOUT 失败,
+          // 但云函数作为独立 SCF 执行仍会跑到 120s,把结果写进 job doc —— 下面
+          // catch 命中网关超时就改用 DB 轮询把结果捞回来。
+          timeout: 60000,
+          data: {
+            imageFileID: uploadRes.fileID,
+            imagePath: this.data.imagePath,
+            jobDocId
+          }
+        })
+        result = (callRes && callRes.result) || {}
+      } catch (callErr) {
+        if (jobDocId && isGatewayTimeout(callErr)) {
+          // 网关超时,云函数后台还在跑 —— 轮询 job doc 把结果捞回来
+          // (pollOcrJobResult 在超时/不可用时会抛 OCR_POLL_TIMEOUT)。
+          result = await this.pollOcrJobResult(jobDocId)
+        } else {
+          throw callErr
+        }
+      }
+
+      if (!result || !result.ok) {
+        throw createCloudFunctionError(result || {})
       }
 
       store.setCurrentOcrJob({
@@ -265,11 +315,13 @@ Page({
         providerWarning: result.providerWarning || ''
       })
 
+      this.cleanupOcrJobDoc(jobDocId)
       this.setData({ isRecognizing: false })
       wx.navigateTo({
         url: '/pages/ocr-result/index'
       })
     } catch (error) {
+      this.cleanupOcrJobDoc(jobDocId)
       console.error('OCR recognize failed', error)
       this.setData({ isRecognizing: false })
       wx.showModal({
@@ -284,6 +336,62 @@ Page({
         }
       })
     }
+  },
+
+  // 预建 job doc;返回 _id(失败返回 ''),用于网关超时后的轮询兜底。
+  async createOcrJobDoc() {
+    if (!wx.cloud || !wx.cloud.database) return ''
+    try {
+      const res = await wx.cloud.database().collection(OCR_JOB_COLLECTION).add({
+        data: { status: 'pending', createdAt: Date.now() }
+      })
+      return (res && res._id) || ''
+    } catch (error) {
+      // 多半是集合还没建(首次部署后由云函数 createCollection 建,下次就有了)。
+      console.warn('createOcrJobDoc failed, poll fallback disabled this call', error && error.errMsg)
+      return ''
+    }
+  },
+
+  // best-effort 删自己的 job doc,别让作业文本在云端留存。失败无所谓。
+  cleanupOcrJobDoc(jobDocId) {
+    if (!jobDocId || !wx.cloud || !wx.cloud.database) return
+    try {
+      wx.cloud.database().collection(OCR_JOB_COLLECTION).doc(jobDocId).remove().catch(() => {})
+    } catch (_) {}
+  },
+
+  // 网关已在 ~60s 放弃,但云函数仍在后台跑(SCF timeout 120s)。轮询 job doc
+  // 直到 status==='done',拿回云函数写入的 payload。给用户"识别中"的明确反馈。
+  async pollOcrJobResult(jobDocId) {
+    const d = (wx.cloud && wx.cloud.database) ? wx.cloud.database() : null
+    if (!d) {
+      const e = new Error('云数据库不可用，无法轮询识别结果')
+      e.code = 'OCR_POLL_TIMEOUT'
+      throw e
+    }
+    wx.showLoading({ title: '识别中，请稍候', mask: true })
+    try {
+      for (let i = 0; i < OCR_POLL_MAX_TRIES; i++) {
+        await wait(OCR_POLL_INTERVAL_MS)
+        let doc = null
+        try {
+          const res = await d.collection(OCR_JOB_COLLECTION).doc(jobDocId).get()
+          doc = (res && res.data) || null
+        } catch (readErr) {
+          // 短暂读不到(最终一致性 / 云函数还没 update)—— 继续轮询。
+          continue
+        }
+        if (doc && doc.status === 'done') {
+          return doc.payload || {}
+        }
+      }
+    } finally {
+      wx.hideLoading()
+    }
+    const timeoutErr = new Error('homeworkOCR 后台识别超时，未拿到结果')
+    timeoutErr.code = 'OCR_POLL_TIMEOUT'
+    throw timeoutErr
   },
 
   runMockRecognition() {

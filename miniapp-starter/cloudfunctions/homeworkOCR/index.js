@@ -42,6 +42,14 @@ const OCR_RATE_COLLECTION = 'ocr_rate_limit'
 const OCR_RATE_WINDOW_MS = 60 * 1000
 const OCR_RATE_MAX_PER_WINDOW = 10
 
+// 客户端预建 job doc 的集合。微信 wx.cloud.callFunction 网关有 60s 硬性同步
+// 超时(-501002 / ESOCKETTIMEDOUT,控制台/客户端 timeout 都改不了)。OCR 偶尔
+// 跑过 60s 时,网关会断掉同步连接,但本函数作为独立 SCF 执行仍会跑到 120s
+// timeout 才结束。我们把最终结果落进 job doc,客户端网关超时后改用 DB 轮询
+// 把结果捞回来。详见 main() 末尾和 persistJobResult。
+const OCR_JOB_COLLECTION = 'ocr_jobs'
+let hasEnsuredOcrJobCollection = false
+
 // mockRawText 旁路只在本地/预发联调用 —— 生产部署不要置这个环境变量,
 // 否则任意 client 都能塞一段假"识别结果",后续 ocr-result 页就用假数据
 // 走完打卡链路。
@@ -154,6 +162,12 @@ async function main(event = {}) {
     }
   }
 
+  // 客户端在调用前预建了 job doc(用自己的 _openid,creator-only ACL),用于
+  // 网关 60s 超时后的轮询兜底。这里顺手保证集合存在 —— 客户端建不了集合,
+  // 首次部署后由本函数创建,第二次调用起客户端就能预建 doc。
+  await ensureOcrJobCollection()
+
+  let response
   try {
     const recognition = await recognizeRegisterText(event)
     // Provider(主要是 OpenAI Vision)若已经直接吐出结构化 drafts,直接用,
@@ -162,21 +176,7 @@ async function main(event = {}) {
       ? recognition.drafts
       : parseHomeworkRegister(recognition.rawText)
 
-    // 识别成功后清云存储里的原图。我们已经把作业文本提取到客户端 state,
-    // 原图(孩子手写作业,含可能的姓名/班级/家长签名)再保留没必要,
-    // 也避免长期合规风险。失败只 warn,不阻塞响应。
-    // 注意:只删 wx.cloud.uploadFile 上传的 fileID,不要碰本地 imagePath。
-    if (event.imageFileID && cloud) {
-      try {
-        await cloud.deleteFile({ fileList: [event.imageFileID] })
-      } catch (cleanupErr) {
-        console.warn('homeworkOCR cleanup failed', {
-          message: cleanupErr && cleanupErr.message
-        })
-      }
-    }
-
-    return {
+    response = {
       ok: true,
       source: recognition.source,
       providerWarning: recognition.providerWarning || '',
@@ -194,19 +194,7 @@ async function main(event = {}) {
       requestId: error.requestId || ''
     })
 
-    // 识别失败也清原图。客户端没有用 fileID 复跑的路径(失败后弹框 →
-    // 看演示 / 重新选图都不会复用旧 fileID),留着只会让云存储攒垃圾。
-    if (event.imageFileID && cloud) {
-      try {
-        await cloud.deleteFile({ fileList: [event.imageFileID] })
-      } catch (cleanupErr) {
-        console.warn('homeworkOCR cleanup-on-error failed', {
-          message: cleanupErr && cleanupErr.message
-        })
-      }
-    }
-
-    return {
+    response = {
       ok: false,
       source: 'cloud-function',
       imageFileID: event.imageFileID || '',
@@ -215,6 +203,63 @@ async function main(event = {}) {
       requestId: error.requestId || '',
       canFallback: isBuiltinOcrFallbackEnabled()
     }
+  }
+
+  // 识别成功/失败都清云存储里的原图。我们已经把作业文本提取到响应里,
+  // 原图(孩子手写作业,含可能的姓名/班级/家长签名)再保留没必要,
+  // 也避免长期合规风险。客户端没有用 fileID 复跑的路径(失败后弹框 →
+  // 看演示 / 重新选图都不会复用旧 fileID)。失败只 warn,不阻塞响应。
+  // 注意:只删 wx.cloud.uploadFile 上传的 fileID,不要碰本地 imagePath。
+  if (event.imageFileID && cloud) {
+    try {
+      await cloud.deleteFile({ fileList: [event.imageFileID] })
+    } catch (cleanupErr) {
+      console.warn('homeworkOCR cleanup failed', {
+        message: cleanupErr && cleanupErr.message
+      })
+    }
+  }
+
+  // 把最终结果(成功/失败都写)落进客户端预建的 job doc。这是绕开微信
+  // callFunction 网关 60s 同步超时(-501002 / ESOCKETTIMEDOUT)的兜底:网关
+  // 断了同步连接,但本函数仍跑到 120s 才结束,结果在这里持久化,客户端轮询
+  // 捞回。payload 含作业文本,只有建 doc 的用户自己可读,客户端读完即删。
+  await persistJobResult(event.jobDocId, response)
+
+  return response
+}
+
+async function ensureOcrJobCollection() {
+  if (!cloud || hasEnsuredOcrJobCollection) return
+  hasEnsuredOcrJobCollection = true
+  try {
+    await cloud.database().createCollection(OCR_JOB_COLLECTION)
+  } catch (e) {
+    // 已存在 / 权限问题都忽略 —— 真正的读写靠下面 persistJobResult 与客户端,
+    // 出问题那里会再 warn。
+  }
+}
+
+// 把识别结果写回客户端预建的 job doc(见 OCR_JOB_COLLECTION 注释)。
+// best-effort:写失败只 warn,绝不影响同步返回。doc 是客户端用自己的
+// _openid 建的,这里以 admin 身份按 _id update —— 不动 _openid 等系统字段,
+// 所以客户端仍按 creator-only ACL 读得到自己这条。
+async function persistJobResult(jobDocId, payload) {
+  if (!jobDocId || !cloud) return
+  try {
+    const db = cloud.database()
+    await db.collection(OCR_JOB_COLLECTION).doc(jobDocId).update({
+      data: {
+        status: 'done',
+        payload,
+        finishedAt: Date.now()
+      }
+    })
+  } catch (error) {
+    console.warn('homeworkOCR persistJobResult failed', {
+      jobDocId,
+      message: error && error.message
+    })
   }
 }
 
