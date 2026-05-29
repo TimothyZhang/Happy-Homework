@@ -181,6 +181,9 @@ Page({
   data: {
     imagePath: '',
     isRecognizing: false,
+    ocrProgress: 0,
+    ocrStage: '',
+    ocrHint: '',
     canUseCloud: typeof wx.cloud !== 'undefined',
     tips: [
       '尽量正面拍整页，避免裁掉边缘',
@@ -256,7 +259,7 @@ Page({
       return
     }
 
-    this.setData({ isRecognizing: true })
+    this.setData({ isRecognizing: true, ocrProgress: 0, ocrStage: '准备上传…', ocrHint: '' })
 
     if (!this.data.canUseCloud) {
       this.runMockRecognition()
@@ -266,15 +269,20 @@ Page({
     let jobDocId = ''
     try {
       ocrCallsThisSession += 1
+      this.setData({ ocrStage: '压缩照片…' })
       const uploadFilePath = await this.prepareImageForUpload(this.data.imagePath)
-      const uploadRes = await wx.cloud.uploadFile({
-        cloudPath: `${CLOUD_PATH_PREFIX}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`,
-        filePath: uploadFilePath
-      })
+      this.setData({ ocrStage: '上传照片…' })
+      const uploadRes = await this.uploadWithProgress(
+        `${CLOUD_PATH_PREFIX}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`,
+        uploadFilePath
+      )
 
       // 预建一条 job doc(_openid 自动落到当前用户,creator-only ACL 下自己可读)。
       // 失败不致命:只丢掉"网关超时后轮询"这条兜底路径,同步 <60s 的识别仍正常。
       jobDocId = await this.createOcrJobDoc()
+
+      // 进入 AI 识别阶段:后端不上报中间进度,用「已用时长」驱动进度条(见 startRecognizeProgress)。
+      this.startRecognizeProgress()
 
       let result
       try {
@@ -306,6 +314,7 @@ Page({
         throw createCloudFunctionError(result || {})
       }
 
+      this.finishRecognizeProgress()
       store.setCurrentOcrJob({
         imagePath: this.data.imagePath,
         rawText: result.rawText || '',
@@ -316,14 +325,14 @@ Page({
       })
 
       this.cleanupOcrJobDoc(jobDocId)
-      this.setData({ isRecognizing: false })
       wx.navigateTo({
-        url: '/pages/ocr-result/index'
+        url: '/pages/ocr-result/index',
+        complete: () => this.resetRecognizeProgress()
       })
     } catch (error) {
       this.cleanupOcrJobDoc(jobDocId)
       console.error('OCR recognize failed', error)
-      this.setData({ isRecognizing: false })
+      this.resetRecognizeProgress()
       wx.showModal({
         title: '识别失败',
         content: getRecognizeFailureMessage(error),
@@ -370,28 +379,76 @@ Page({
       e.code = 'OCR_POLL_TIMEOUT'
       throw e
     }
-    wx.showLoading({ title: '识别中，请稍候', mask: true })
-    try {
-      for (let i = 0; i < OCR_POLL_MAX_TRIES; i++) {
-        await wait(OCR_POLL_INTERVAL_MS)
-        let doc = null
-        try {
-          const res = await d.collection(OCR_JOB_COLLECTION).doc(jobDocId).get()
-          doc = (res && res.data) || null
-        } catch (readErr) {
-          // 短暂读不到(最终一致性 / 云函数还没 update)—— 继续轮询。
-          continue
-        }
-        if (doc && doc.status === 'done') {
-          return doc.payload || {}
-        }
+    // 网关已 ~60s 放弃,云函数后台还在跑 —— 进度条计时器仍在推进,这里只更新文案。
+    this.setData({ ocrStage: 'AI 识别中 · 正在取回结果…' })
+    for (let i = 0; i < OCR_POLL_MAX_TRIES; i++) {
+      await wait(OCR_POLL_INTERVAL_MS)
+      let doc = null
+      try {
+        const res = await d.collection(OCR_JOB_COLLECTION).doc(jobDocId).get()
+        doc = (res && res.data) || null
+      } catch (readErr) {
+        // 短暂读不到(最终一致性 / 云函数还没 update)—— 继续轮询。
+        continue
       }
-    } finally {
-      wx.hideLoading()
+      if (doc && doc.status === 'done') {
+        return doc.payload || {}
+      }
     }
     const timeoutErr = new Error('homeworkOCR 后台识别超时，未拿到结果')
     timeoutErr.code = 'OCR_POLL_TIMEOUT'
     throw timeoutErr
+  },
+
+  // 带真实上传进度的 uploadFile 封装。onProgressUpdate 给 0–100,映射到进度条
+  // 前 18%(剩下留给「AI 识别」阶段)。
+  uploadWithProgress(cloudPath, filePath) {
+    return new Promise((resolve, reject) => {
+      const task = wx.cloud.uploadFile({ cloudPath, filePath, success: resolve, fail: reject })
+      if (task && typeof task.onProgressUpdate === 'function') {
+        task.onProgressUpdate((res) => {
+          const p = Math.min(18, Math.round((((res && res.progress) || 0)) * 0.18))
+          this.setData({ ocrProgress: p })
+        })
+      }
+    })
+  },
+
+  // 识别阶段后端不上报中间进度,用「已用时长」按经验值(~80s)做 ease-out 推进:
+  // 前期快、越接近 95% 越慢,反映真实等待又不卡在假 100%。真正拿到结果时由
+  // finishRecognizeProgress 跳到 100。
+  startRecognizeProgress() {
+    this.recognizeStartTs = Date.now()
+    this.clearRecognizeTimer()
+    this.setData({ ocrProgress: 20, ocrStage: 'AI 正在识别作业…', ocrHint: '已用 0s · 通常 1–2 分钟' })
+    this.recognizeTimer = setInterval(() => {
+      const elapsed = Date.now() - this.recognizeStartTs
+      const eased = 1 - Math.exp(-(elapsed / 80000) * 1.4)
+      const p = Math.min(95, Math.round(20 + 75 * eased))
+      this.setData({ ocrProgress: p, ocrHint: `已用 ${Math.round(elapsed / 1000)}s · 通常 1–2 分钟` })
+    }, 500)
+  },
+
+  finishRecognizeProgress() {
+    this.clearRecognizeTimer()
+    this.setData({ ocrProgress: 100, ocrStage: '识别完成', ocrHint: '' })
+  },
+
+  clearRecognizeTimer() {
+    if (this.recognizeTimer) {
+      clearInterval(this.recognizeTimer)
+      this.recognizeTimer = null
+    }
+  },
+
+  // 清计时器 + 收起等待动画(失败 / 跳转完成后调用)。
+  resetRecognizeProgress() {
+    this.clearRecognizeTimer()
+    this.setData({ isRecognizing: false, ocrProgress: 0, ocrStage: '', ocrHint: '' })
+  },
+
+  onUnload() {
+    this.clearRecognizeTimer()
   },
 
   runMockRecognition() {
@@ -402,9 +459,9 @@ Page({
         drafts: mockDrafts
       })
 
-      this.setData({ isRecognizing: false })
       wx.navigateTo({
-        url: '/pages/ocr-result/index'
+        url: '/pages/ocr-result/index',
+        complete: () => this.resetRecognizeProgress()
       })
     }, 800)
   }

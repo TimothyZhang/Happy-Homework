@@ -62,9 +62,9 @@
 }
 
 .draft-card {
-  margin-top: 16rpx;
-  padding: 20rpx 24rpx;
-  border-radius: 24rpx;
+  margin-top: 12rpx;
+  padding: 16rpx 18rpx;
+  border-radius: 18rpx;
   background: #f8fafc;
 }
 
@@ -114,17 +114,17 @@
 }
 
 .field {
-  margin-top: 12rpx;
+  margin-top: 8rpx;
 }
 
 .field + .field {
-  margin-top: 12rpx;
+  margin-top: 8rpx;
 }
 
 .field-inline {
   display: flex;
   align-items: center;
-  gap: 16rpx;
+  gap: 12rpx;
 }
 
 .field-inline .field-label {
@@ -137,22 +137,22 @@
 
 .draft-picker {
   margin-top: 0;
-  min-height: 64rpx;
-  padding: 14rpx 18rpx;
+  min-height: 52rpx;
+  padding: 10rpx 14rpx;
   font-size: 26rpx;
 }
 
 .draft-textarea {
-  min-height: 64rpx;
-  padding: 14rpx 18rpx;
+  min-height: 52rpx;
+  padding: 10rpx 14rpx;
   font-size: 26rpx;
   line-height: 1.5;
 }
 
 .raw-fragment {
-  margin-top: 14rpx;
-  padding: 12rpx 18rpx;
-  border-radius: 16rpx;
+  margin-top: 10rpx;
+  padding: 8rpx 14rpx;
+  border-radius: 14rpx;
   background: #ffffff;
 }
 

@@ -41,4 +41,16 @@
   <view class="bottom-bar">
     <button class="save-btn" loading="{{isRecognizing}}" bindtap="handleStartRecognize">开始识别</button>
   </view>
+
+  <view wx:if="{{isRecognizing}}" class="ocr-overlay">
+    <view class="ocr-overlay-card">
+      <view class="ocr-spinner"></view>
+      <view class="ocr-progress-num">{{ocrProgress}}%</view>
+      <view class="ocr-progress-bar">
+        <view class="ocr-progress-fill" style="width: {{ocrProgress}}%;"></view>
+      </view>
+      <view class="ocr-stage">{{ocrStage}}</view>
+      <view wx:if="{{ocrHint}}" class="ocr-hint">{{ocrHint}}</view>
+    </view>
+  </view>
 </view>
