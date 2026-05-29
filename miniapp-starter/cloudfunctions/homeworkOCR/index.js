@@ -925,7 +925,11 @@ function getOpenAiClient(apiKey) {
       endpoint,
       apiVersion: getAzureOpenAiApiVersion(),
       deployment: getAzureOpenAiDeployment(),
-      timeout: getOpenAiTimeoutMs()
+      timeout: getOpenAiTimeoutMs(),
+      // 不让 SDK 自动重试 —— 默认 maxRetries=2,会把单次 timeout 放大到 3 倍,
+      // 最坏撑爆 SCF 120s(本次线上即 45s 砍断+重试 ≈ 66.9s)。OCR 慢基本是
+      // 模型推理慢而非网络抖动,重试也是慢,不如一次给足 timeout。
+      maxRetries: 0
     })
   } else {
     if (!OpenAi) {
@@ -937,7 +941,9 @@ function getOpenAiClient(apiKey) {
     openAiClientCache = new OpenAi({
       apiKey,
       baseURL: getOpenAiBaseUrl(),
-      timeout: getOpenAiTimeoutMs()
+      timeout: getOpenAiTimeoutMs(),
+      // 见 Azure 分支的 maxRetries 注释:关掉自动重试,避免重试累加撑爆 SCF。
+      maxRetries: 0
     })
   }
 
@@ -1410,7 +1416,13 @@ function getOpenAiReasoningEffort() {
 
 function getOpenAiTimeoutMs() {
   const timeoutMs = Number(getFirstEnv(['OPENAI_OCR_TIMEOUT_MS']))
-  return Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 45000
+  // 默认 100s。SCF timeout 是 120s,这里给单次 OpenAI 调用足够时间一次跑完。
+  // 旧默认 45s 太短 —— gpt-5.5 + reasoning 在信息量大的登记本上常跑 50~65s,
+  // 45s 会被 SDK 砍断并自动重试(见 getOpenAiClient 的 maxRetries),把总耗时
+  // 累加到逼近甚至超过 SCF 120s;云函数一旦被杀,persistJobResult 来不及把结果
+  // 写进 ocr_jobs,客户端轮询就永远等不到 done。100s + maxRetries:0 → 最坏单次
+  // 100s,留 ~20s 给图片下载/解析/写库,稳定落在 120s 内。
+  return Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 100000
 }
 
 function detectImageMimeType(buffer) {
