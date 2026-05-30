@@ -344,13 +344,15 @@ Component({
             this.setData({ postponeId: null, postponeDx: 0, postponeArmed: false })
           }, 200)
         } else {
-          // 未过半屏(红):回弹归位。
-          this.setData({ postponeDragging: false, postponeDx: 0, postponeArmed: false })
-          setTimeout(() => {
-            if (this.data.postponeId === id && this.data.postponeDx === 0) {
-              this.setData({ postponeId: null })
-            }
-          }, 200)
+          // 未过半屏(红):回弹到「菜单展开态」(露出编辑菜单),而非完全归位。
+          // 清 postpone 状态 + _setSwipeOpen 切菜单态:transform 从 postponeDx 落到
+          // swipeOpenId 分支(-swipeOpenMax),即时吸附到菜单宽,和正常左滑开菜单一致;
+          // swipeopen 事件让父页锁 scroll。
+          const item = this.data.list.find((it) => it.id === id)
+          const swipeMax = (item && item.swipeMax) || SWIPE_MAX_RPX.undone
+          this._setSwipeOpen(id, swipeMax, {
+            postponeId: null, postponeDx: 0, postponeArmed: false, postponeDragging: false
+          })
         }
         this.triggerEvent('swipeend')
       } else if (this._gestureMode === 'swipe') {
