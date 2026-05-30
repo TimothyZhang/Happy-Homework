@@ -496,7 +496,11 @@ Page({
     const taskId = e.detail && e.detail.taskId
     if (!taskId) return
     const base = this.data.selectedDate || store.todayStr()
-    store.updateTask(taskId, { dueDate: store.addDays(base, 1) })
+    const next = store.addDays(base, 1)
+    // 一次性 task 的 startDate=endDate=dueDate(见 normalizeScheduling)。只改
+    // dueDate 会被 effectiveDueDate 的 `due > endDate → 钳回 endDate` 拉回原日,
+    // 任务原地不动(toast 提示移了但还在当天的真凶)。三个日期一起移才生效。
+    store.updateTask(taskId, { dueDate: next, startDate: next, endDate: next })
     this.refreshState()
     wx.showToast({ title: '已移到下一天', icon: 'none' })
   },
