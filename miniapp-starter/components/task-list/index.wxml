@@ -26,9 +26,10 @@
               catchtap="handleRevert">继续</view>
       </view>
 
-      <!-- 右滑顺延色块:垫在 row 底层左侧,卡片右移露出。红=未过阈值,绿=已过(松手即顺延)。 -->
-      <view wx:if="{{postponeId === item.id}}" class="postpone-action {{postponeArmed ? 'is-armed' : ''}}">
-        <text class="postpone-text">移至下一天</text>
+      <!-- 顺延色块:垫在 row 底层,卡片滑动露出。右滑→下一天(文字靠左)、左滑→
+           上一天(文字靠右)。红=未过半屏、绿=已过(松手即顺延)。 -->
+      <view wx:if="{{postponeId === item.id}}" class="postpone-action {{postponeArmed ? 'is-armed' : ''}} {{postponeDx < 0 ? 'postpone-left' : 'postpone-right'}}">
+        <text class="postpone-text">{{postponeDx < 0 ? '移至上一天' : '移至下一天'}}</text>
       </view>
 
       <view class="task-row {{item.status}} {{rowVariant}} {{item.isOverdue ? 'is-overdue' : ''}} {{item.isMakeup ? 'is-makeup' : ''}} {{item.taskMode === 'recurring' ? 'is-recurring' : ''}} {{dragId === item.id ? 'is-dragging' : ''}}"

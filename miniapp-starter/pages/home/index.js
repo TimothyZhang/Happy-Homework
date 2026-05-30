@@ -489,20 +489,21 @@ Page({
   handleSwipeStart() { this.setData({ disableScroll: true }) },
   handleSwipeEnd() { this.setData({ disableScroll: false }) },
 
-  // 右滑顺延:把一次性 task 的 dueDate 改到「当前查看日 + 1」再刷新。用
-  // selectedDate 而非 row 自己的 occurrenceDate —— 这样逾期项也能正确移到明天,
-  // 不会出现"顺延后还留在今天"。组件已保证只有一次性未完成 row 会触发本事件。
+  // 顺延:把一次性 task 移到「当前查看日 ± 1」。dir=+1 右滑→下一天,dir=-1 左滑→
+  // 上一天。用 selectedDate 而非 row 的 occurrenceDate —— 逾期项也能正确移动,
+  // 不会"顺延后还留在原处"。组件已保证只有一次性未完成 row 会触发本事件。
   handlePostpone(e) {
     const taskId = e.detail && e.detail.taskId
     if (!taskId) return
+    const dir = (e.detail && e.detail.dir) || 1
     const base = this.data.selectedDate || store.todayStr()
-    const next = store.addDays(base, 1)
+    const next = store.addDays(base, dir)
     // 一次性 task 的 startDate=endDate=dueDate(见 normalizeScheduling)。只改
     // dueDate 会被 effectiveDueDate 的 `due > endDate → 钳回 endDate` 拉回原日,
-    // 任务原地不动(toast 提示移了但还在当天的真凶)。三个日期一起移才生效。
+    // 任务原地不动(toast 提示移了但还在当天)。三个日期一起移才生效。
     store.updateTask(taskId, { dueDate: next, startDate: next, endDate: next })
     this.refreshState()
-    wx.showToast({ title: '已移到下一天', icon: 'none' })
+    wx.showToast({ title: dir < 0 ? '已移到上一天' : '已移到下一天', icon: 'none' })
   },
 
   handleSwipeOpen() {

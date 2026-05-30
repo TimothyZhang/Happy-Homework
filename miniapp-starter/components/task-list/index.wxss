@@ -242,7 +242,8 @@
   transition: none;
 }
 
-/* 顺延色块:绝对定位垫在 row 底层铺满,卡片右移后从左侧露出。红=未过 1/3,绿=已过。 */
+/* 顺延色块:绝对定位垫在 row 底层铺满,卡片滑走后露出。红=未过半屏,绿=已过。
+   右滑露左侧(文字靠左)、左滑露右侧(文字靠右)。 */
 .task-row-swipable .postpone-action {
   position: absolute;
   top: 0;
@@ -251,11 +252,17 @@
   bottom: 0;
   display: flex;
   align-items: center;
-  padding-left: 44rpx;
+  padding: 0 44rpx;
   border-radius: 22rpx;
   background: #cf1322;
   z-index: 0;
   transition: background 0.15s ease;
+}
+.task-row-swipable .postpone-action.postpone-right {
+  justify-content: flex-start;
+}
+.task-row-swipable .postpone-action.postpone-left {
+  justify-content: flex-end;
 }
 .task-row-swipable .postpone-action.is-armed {
   background: #26a65b;

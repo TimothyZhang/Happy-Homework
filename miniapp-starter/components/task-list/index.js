@@ -122,7 +122,8 @@ Component({
       } catch (e) {}
       this._pxToRpx = 750 / winPx
       this._rowWidthRpx = 750 - 48
-      this._postponeThresholdRpx = this._rowWidthRpx / 3
+      // 顺延阈值 = 卡宽的一半。左右滑共用:划过半屏才 armed(变绿 + 松手生效)。
+      this._postponeThresholdRpx = this._rowWidthRpx / 2
     },
 
     handleRowLongPress(e) {
@@ -168,15 +169,23 @@ Component({
           // 否则按起划方向:右(dx>0)= 顺延,左 = 编辑菜单。
           const rowId = this._gestureRowId
           if (this.data.swipeOpenId === rowId) {
+            // 菜单已展开:这次横滑是关菜单,不进顺延。
             this._swipeDir = 'left'
+            this._postponeEligible = false
           } else {
             this._swipeDir = dx > 0 ? 'right' : 'left'
-          }
-          // 右滑顺延只对「一次性 + 未完成」row 生效。
-          if (this._swipeDir === 'right') {
+            // 顺延(右滑→下一天 / 左滑→上一天)只对「一次性 + 未完成」row 生效。
             const it = this.data.list.find((x) => x.id === rowId)
-            this._postponeEligible = !!this.data.enablePostpone && !!it &&
+            let eligible = !!this.data.enablePostpone && !!it &&
               it.status !== 'done' && it.taskMode !== 'recurring'
+            // 左滑→上一天:仅当查看的是「未来日期」才允许。否则把今天的作业拉到
+            // 昨天 = 立即逆期红显在今天,语义混乱。activeDate 空(首页今日)视为今天。
+            if (eligible && this._swipeDir === 'left') {
+              const todayS = store.todayStr()
+              const viewDate = this.data.activeDate || todayS
+              if (viewDate <= todayS) eligible = false
+            }
+            this._postponeEligible = eligible
             if (this._postponeEligible) this._ensurePostponeMetrics()
           }
           // 起划:让父页锁 scroll,免得 swipe 后续 touchmove 的 dy 分量带着
@@ -230,14 +239,36 @@ Component({
         const armed = dxRpx >= this._postponeThresholdRpx
         this.setData({ postponeId: id, postponeDx: tx, postponeArmed: armed, postponeDragging: true })
       } else if (this._gestureMode === 'swipe') {
+        // 左滑:浅划(≤ 菜单宽)露编辑菜单【原行为】;eligible 时继续左划过
+        // 菜单宽 → 进入「移至上一天」顺延区,卡片继续跟手,藏菜单显左滑色块。
         const id = this._gestureRowId
         const item = this.data.list.find((it) => it.id === id)
         if (!item) return
+        if (!this._pxToRpx) this._ensurePostponeMetrics()
         const swipeMax = item.swipeMax || SWIPE_MAX_RPX.undone
         const isOpen = this.data.swipeOpenId === id
         const base = isOpen ? -swipeMax : 0
-        const tx = Math.max(-swipeMax, Math.min(0, base + dx))
-        this.setData({ swipeId: id, swipeDx: tx })
+        const raw = base + dx * this._pxToRpx   // 跟手位移(rpx,左滑为负)
+        if (this._postponeEligible && !isOpen && -raw > swipeMax) {
+          // 顺延区:卡片跟手(切换点 raw=-swipeMax 与菜单态连续,无跳变),
+          // 藏菜单(swipeId=null)只显色块。armed = 过半屏。
+          const tx = Math.max(-this._rowWidthRpx, raw)
+          const armed = -tx >= this._postponeThresholdRpx
+          this.setData({
+            postponeId: id, postponeDx: tx, postponeArmed: armed,
+            postponeDragging: true, swipeId: null, swipeDx: 0
+          })
+        } else {
+          // 菜单区:卡片钳在菜单宽内,露编辑菜单。
+          const tx = Math.max(-swipeMax, Math.min(0, raw))
+          const patch = { swipeId: id, swipeDx: tx }
+          if (this.data.postponeId === id) {
+            patch.postponeId = null
+            patch.postponeArmed = false
+            patch.postponeDx = 0
+          }
+          this.setData(patch)
+        }
       }
     },
 
@@ -280,17 +311,40 @@ Component({
         // 右滑顺延松手:postponeDragging=false 让 transition 生效。
         const id = this.data.postponeId
         if (id && this.data.postponeArmed) {
-          // 已过 1/3(绿):卡片飞出右侧,动画结束后触发 postpone,父页改 dueDate + 刷新。
+          // 已过半屏(绿):卡片飞出右侧,动画结束后触发 postpone(dir=+1 → 下一天)。
           const item = this.data.list.find((it) => it.id === id)
           const taskId = (item && (item.taskId || item.id)) || ''
           const occurrenceDate = (item && item.occurrenceDate) || ''
           this.setData({ postponeDragging: false, postponeDx: this._rowWidthRpx + 120 })
           setTimeout(() => {
-            this.triggerEvent('postpone', { taskId, occurrenceDate })
+            this.triggerEvent('postpone', { taskId, occurrenceDate, dir: 1 })
             this.setData({ postponeId: null, postponeDx: 0, postponeArmed: false })
           }, 200)
         } else if (id) {
-          // 没到 1/3(红):回弹归位。
+          // 没到半屏(红):回弹归位。
+          this.setData({ postponeDragging: false, postponeDx: 0, postponeArmed: false })
+          setTimeout(() => {
+            if (this.data.postponeId === id && this.data.postponeDx === 0) {
+              this.setData({ postponeId: null })
+            }
+          }, 200)
+        }
+        this.triggerEvent('swipeend')
+      } else if (this._gestureMode === 'swipe' && this.data.postponeId === this._gestureRowId) {
+        // 左滑进了顺延区松手。
+        const id = this.data.postponeId
+        if (this.data.postponeArmed) {
+          // 过半屏(绿):卡片飞出左侧,触发 postpone(dir=-1 → 上一天)。
+          const item = this.data.list.find((it) => it.id === id)
+          const taskId = (item && (item.taskId || item.id)) || ''
+          const occurrenceDate = (item && item.occurrenceDate) || ''
+          this.setData({ postponeDragging: false, postponeDx: -(this._rowWidthRpx + 120) })
+          setTimeout(() => {
+            this.triggerEvent('postpone', { taskId, occurrenceDate, dir: -1 })
+            this.setData({ postponeId: null, postponeDx: 0, postponeArmed: false })
+          }, 200)
+        } else {
+          // 未过半屏(红):回弹归位。
           this.setData({ postponeDragging: false, postponeDx: 0, postponeArmed: false })
           setTimeout(() => {
             if (this.data.postponeId === id && this.data.postponeDx === 0) {
@@ -300,6 +354,7 @@ Component({
         }
         this.triggerEvent('swipeend')
       } else if (this._gestureMode === 'swipe') {
+        // 左滑菜单区松手(原逻辑不动):过半菜单宽吸附打开,否则回弹。
         const id = this._gestureRowId
         const item = this.data.list.find((it) => it.id === id)
         const swipeMax = (item && item.swipeMax) || SWIPE_MAX_RPX.undone
