@@ -489,6 +489,18 @@ Page({
   handleSwipeStart() { this.setData({ disableScroll: true }) },
   handleSwipeEnd() { this.setData({ disableScroll: false }) },
 
+  // 右滑顺延:把一次性 task 的 dueDate 改到「当前查看日 + 1」再刷新。用
+  // selectedDate 而非 row 自己的 occurrenceDate —— 这样逾期项也能正确移到明天,
+  // 不会出现"顺延后还留在今天"。组件已保证只有一次性未完成 row 会触发本事件。
+  handlePostpone(e) {
+    const taskId = e.detail && e.detail.taskId
+    if (!taskId) return
+    const base = this.data.selectedDate || store.todayStr()
+    store.updateTask(taskId, { dueDate: store.addDays(base, 1) })
+    this.refreshState()
+    wx.showToast({ title: '已移到下一天', icon: 'none' })
+  },
+
   handleSwipeOpen() {
     this._openSwipeCount = (this._openSwipeCount || 0) + 1
     if (!this.data.swipeMenuOpen) this.setData({ swipeMenuOpen: true })

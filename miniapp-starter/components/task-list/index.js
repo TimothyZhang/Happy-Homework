@@ -26,6 +26,8 @@ Component({
     activeDate: { type: String, value: '' },
     // Whether to enable long-press drag reorder.
     enableDrag: { type: Boolean, value: true },
+    // 是否启用「右滑顺延到下一天」。只对一次性未完成 row 生效(组件内再判)。
+    enablePostpone: { type: Boolean, value: true },
     // Optional row variant class (e.g. 'is-overdue') applied to every row.
     rowVariant: { type: String, value: '' }
   },
@@ -36,7 +38,11 @@ Component({
     swipeId: null,       // 当前正在 swipe 的 row id(touchmove 中)
     swipeDx: 0,          // swipe 期间 row 的 x 位移(rpx)
     swipeOpenId: null,   // 当前展开 swipe-action 的 row id
-    swipeOpenMax: 0      // 当前展开的 max 偏移(rpx) — done 120 / undone 240
+    swipeOpenMax: 0,     // 当前展开的 max 偏移(rpx) — done 120 / undone 240
+    postponeId: null,    // 当前正在右滑顺延的 row id
+    postponeDx: 0,       // 右滑期间 row 的 x 位移(rpx,正值=向右)
+    postponeArmed: false,// 右滑距离 ≥ 1/3 卡宽 → true(绿色,松手即顺延)
+    postponeDragging: false // 拖动中(true→关 transition 跟手;松手→开 transition 飞出/回弹)
   },
   observers: {
     'items': function (items) {
@@ -97,10 +103,26 @@ Component({
       this.touchStartY = t ? t.pageY : 0
       this._gestureMode = 'pending'
       this._gestureRowId = e.currentTarget.dataset.id
+      this._swipeDir = null            // 'left'(编辑菜单)/ 'right'(顺延),进入 swipe 时锁定
+      this._postponeEligible = false   // 右滑这一行能否顺延(一次性 + 未完成)
       // 触摸到另一个 row 时,关闭已展开的 swipe-action
       if (this.data.swipeOpenId && this.data.swipeOpenId !== this._gestureRowId) {
         this._setSwipeOpen(null)
       }
+    },
+
+    // 懒算 px→rpx 换算 + 卡片宽度(rpx)+ 1/3 阈值。rpx 在 750=屏宽 下自适应,
+    // 卡片宽 ≈ 屏宽 - scroll-area 左右各 24rpx padding = 702rpx。
+    _ensurePostponeMetrics() {
+      if (this._pxToRpx) return
+      let winPx = 375
+      try {
+        const info = (wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()) || {}
+        winPx = info.windowWidth || info.screenWidth || 375
+      } catch (e) {}
+      this._pxToRpx = 750 / winPx
+      this._rowWidthRpx = 750 - 48
+      this._postponeThresholdRpx = this._rowWidthRpx / 3
     },
 
     handleRowLongPress(e) {
@@ -142,6 +164,21 @@ Component({
         if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
         if (Math.abs(dx) > Math.abs(dy)) {
           this._gestureMode = 'swipe'
+          // 锁定横滑方向。菜单已展开的 row 一律走 left 逻辑(右滑用于关菜单),
+          // 否则按起划方向:右(dx>0)= 顺延,左 = 编辑菜单。
+          const rowId = this._gestureRowId
+          if (this.data.swipeOpenId === rowId) {
+            this._swipeDir = 'left'
+          } else {
+            this._swipeDir = dx > 0 ? 'right' : 'left'
+          }
+          // 右滑顺延只对「一次性 + 未完成」row 生效。
+          if (this._swipeDir === 'right') {
+            const it = this.data.list.find((x) => x.id === rowId)
+            this._postponeEligible = !!this.data.enablePostpone && !!it &&
+              it.status !== 'done' && it.taskMode !== 'recurring'
+            if (this._postponeEligible) this._ensurePostponeMetrics()
+          }
           // 起划:让父页锁 scroll,免得 swipe 后续 touchmove 的 dy 分量带着
           // scroll-view 一起动。第一帧 dy(就是越过 6rpx 阈值的那次)还是会
           // 漏给 native 滚一点点 —— 1-5rpx 量级,用户视觉上注意力都在 row 横
@@ -184,6 +221,14 @@ Component({
           return { ...it, shiftY }
         })
         this.setData({ list: updated, dragDy: dy })
+      } else if (this._gestureMode === 'swipe' && this._swipeDir === 'right') {
+        // 右滑顺延:卡片跟手向右,左侧露出「移至下一天」色块。
+        if (!this._postponeEligible) return
+        const id = this._gestureRowId
+        const dxRpx = Math.max(0, dx * this._pxToRpx)
+        const tx = Math.min(this._rowWidthRpx, dxRpx)
+        const armed = dxRpx >= this._postponeThresholdRpx
+        this.setData({ postponeId: id, postponeDx: tx, postponeArmed: armed, postponeDragging: true })
       } else if (this._gestureMode === 'swipe') {
         const id = this._gestureRowId
         const item = this.data.list.find((it) => it.id === id)
@@ -231,6 +276,29 @@ Component({
         } else {
           this.setData({ list: reset, dragId: null, dragDy: 0 })
         }
+      } else if (this._gestureMode === 'swipe' && this._swipeDir === 'right') {
+        // 右滑顺延松手:postponeDragging=false 让 transition 生效。
+        const id = this.data.postponeId
+        if (id && this.data.postponeArmed) {
+          // 已过 1/3(绿):卡片飞出右侧,动画结束后触发 postpone,父页改 dueDate + 刷新。
+          const item = this.data.list.find((it) => it.id === id)
+          const taskId = (item && (item.taskId || item.id)) || ''
+          const occurrenceDate = (item && item.occurrenceDate) || ''
+          this.setData({ postponeDragging: false, postponeDx: this._rowWidthRpx + 120 })
+          setTimeout(() => {
+            this.triggerEvent('postpone', { taskId, occurrenceDate })
+            this.setData({ postponeId: null, postponeDx: 0, postponeArmed: false })
+          }, 200)
+        } else if (id) {
+          // 没到 1/3(红):回弹归位。
+          this.setData({ postponeDragging: false, postponeDx: 0, postponeArmed: false })
+          setTimeout(() => {
+            if (this.data.postponeId === id && this.data.postponeDx === 0) {
+              this.setData({ postponeId: null })
+            }
+          }, 200)
+        }
+        this.triggerEvent('swipeend')
       } else if (this._gestureMode === 'swipe') {
         const id = this._gestureRowId
         const item = this.data.list.find((it) => it.id === id)
