@@ -27,7 +27,13 @@
 }
 
 .scroll-area {
-  flex: 1;
+  /* flex:1 会让 scroll-view 永远撑满整屏 —— 内容不满一屏时无内容可滚,
+     拖拽/左滑就触发 iOS 橡皮筋回弹(bounce),而 scroll-y=false 拦不住
+     "无内容时的回弹",于是整屏跟着手指动。改成 flex:0 1 auto:短内容时
+     高度贴合内容、没有 over-scroll 空间 → 不回弹;长内容时靠 flex-shrink
+     + min-height:0 收缩到可用空间内,照常滚动 + scroll-y 软锁生效。 */
+  flex: 0 1 auto;
+  max-height: 100%;
   min-height: 0;
   box-sizing: border-box;
   /* 24rpx 视觉留白由 scroll-view 自己撑出来,这样屏幕边缘 0-24rpx 那条

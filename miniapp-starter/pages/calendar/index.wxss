@@ -10,7 +10,11 @@
 }
 
 .scroll-area {
-  flex: 1;
+  /* 见 home/index.wxss 同名规则:flex:1 撑满整屏,内容不满一屏时拖拽/左滑
+     会触发 bounce 回弹带动整屏(scroll-y=false 拦不住无内容回弹)。改 flex:0
+     1 auto + max-height:100%,短内容贴合不回弹、长内容收缩照常滚 + 软锁生效。 */
+  flex: 0 1 auto;
+  max-height: 100%;
   min-height: 0;
   box-sizing: border-box;
   padding: 24rpx;
