@@ -2,6 +2,16 @@
    only scrollable surface is the inner <scroll-view>. That lets the long-press
    drag in <task-list> toggle scroll-y off mid-gesture — page-meta alone wasn't
    stopping the screen from drifting once the touch had already begun. */
+/* 真凶(官方文档证实):<page-meta disable-scroll> 在 iOS 上只是组件级锁,拦不住
+   WebView 文档级橡皮筋回弹(安卓才整页锁)。内容不满一屏时,长按拖动 / 左滑卡片的
+   touchmove 冒泡到根 WebView 触发 document rubber-band → 整屏跟着动。给根节点
+   page 设 overflow:hidden,在 CSS 渲染层锁死文档滚动,比 page-meta 更底层;内部
+   .scroll-area 的 scroll-view 照常滚,不碰 enhanced/scroll-y,不回归历史 drag 锁。
+   ⚠️ iOS 真机特有,IDE 模拟器(Chromium)不复现,改完务必真机验证。 */
+page {
+  height: 100%;
+  overflow: hidden;
+}
 .page {
   height: 100vh;
   width: 100%;
