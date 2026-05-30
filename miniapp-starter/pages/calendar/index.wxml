@@ -16,6 +16,7 @@
       <task-list wx:if="{{selectedItems.length > 0}}"
                  items="{{selectedItems}}"
                  active-date="{{selectedDate}}"
+                 enable-postpone="{{false}}"
                  bind:dragstart="handleDragStart"
                  bind:dragend="handleDragEnd"
                  bind:swipestart="handleSwipeStart"
