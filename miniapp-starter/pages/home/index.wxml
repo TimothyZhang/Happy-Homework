@@ -67,12 +67,14 @@
       <task-list wx:if="{{undoneItems.length > 0}}"
                  items="{{undoneItems}}"
                  active-date="{{selectedDate}}"
+                 enable-postpone="{{true}}"
                  bind:dragstart="handleDragStart"
                  bind:dragend="handleDragEnd"
                  bind:swipeopen="handleSwipeOpen"
                  bind:swipeclose="handleSwipeClose"
                  bind:swipestart="handleSwipeStart"
                  bind:swipeend="handleSwipeEnd"
+                 bind:postpone="handlePostpone"
                  bind:changed="handleTasksChanged" />
     </view>
 
@@ -83,6 +85,7 @@
       <task-list items="{{doneItems}}"
                  active-date="{{selectedDate}}"
                  enable-drag="{{false}}"
+                 enable-postpone="{{false}}"
                  bind:swipeopen="handleSwipeOpen"
                  bind:swipeclose="handleSwipeClose"
                  bind:swipestart="handleSwipeStart"
