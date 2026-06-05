@@ -24,6 +24,22 @@ function parsePairs(rawText) {
   return pairs
 }
 
+// 规范化云端单词表识别返回的 [{en,cn}]:去空、去重、限长。
+function normalizePairs(rawPairs) {
+  const pairs = []
+  const seen = {}
+  ;(Array.isArray(rawPairs) ? rawPairs : []).forEach((p) => {
+    const cn = String((p && p.cn) || '').trim().slice(0, 40)
+    const en = String((p && p.en) || '').trim().replace(/\s+/g, ' ').slice(0, 40)
+    if (!cn || !en) return
+    const key = cn + '|' + en.toLowerCase()
+    if (seen[key]) return
+    seen[key] = 1
+    pairs.push({ cn, en })
+  })
+  return pairs
+}
+
 Page({
   data: {
     bookId: '',
@@ -103,12 +119,14 @@ Page({
         filePath
       })
       wx.showLoading({ title: '识别中…', mask: true })
-      const callRes = await wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 60000, data: { imageFileID: up.fileID } })
+      const callRes = await wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 60000, data: { action: 'wordpairs', imageFileID: up.fileID } })
       const result = (callRes && callRes.result) || {}
       wx.hideLoading()
       this._ocrBusy = false
-      if (!result.ok) throw new Error(result.message || '识别失败')
-      const pairs = parsePairs(result.rawText || '')
+      if (!result.ok) throw new Error(result.error || result.message || '识别失败')
+      // 优先用云端单词表专用识别的成对结果;老云函数还没认 wordpairs 时只回 rawText,本地正则兜底。
+      let pairs = normalizePairs(result.pairs)
+      if (!pairs.length) pairs = parsePairs(result.rawText || '')
       if (!pairs.length) {
         wx.showModal({ title: '没识别到单词', content: '试着拍清楚点,保证图里有「中文 英文」成对的词。', showCancel: false })
         return

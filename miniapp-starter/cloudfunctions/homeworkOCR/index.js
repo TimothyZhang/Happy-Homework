@@ -168,6 +168,14 @@ async function main(event = {}) {
     }
   }
 
+  // 单词表 OCR:{ action:'wordpairs', imageFileID } → 用单词表专用 vision 提示词,
+  // 直接识别成 [{en,cn}] 成对返回。不能复用作业登记本那套 prompt —— 它会按科目栏/
+  // 编号切碎、还做"口答→口算"之类纠错,套到单词表上识别很不准(这就是反馈的根因)。
+  // 复用上面的 OPENID 闸 + 限流。
+  if (event && event.action === 'wordpairs') {
+    return await handleWordPairsRequest(event)
+  }
+
   // 客户端在调用前预建了 job doc(用自己的 _openid,creator-only ACL),用于
   // 网关 60s 超时后的轮询兜底。这里顺手保证集合存在 —— 客户端建不了集合,
   // 首次部署后由本函数创建,第二次调用起客户端就能预建 doc。
@@ -1034,6 +1042,116 @@ async function handleTtsRequest(event) {
       status: (error && error.status) || 0
     }
   }
+}
+
+// === 单词表 OCR:照片 → [{en,cn}] === //
+
+async function handleWordPairsRequest(event) {
+  if (!event || !event.imageFileID) {
+    return { ok: false, errorCode: 'MISSING_IMAGE_FILE_ID', error: '缺少 imageFileID,无法识别单词表' }
+  }
+  if (!getOpenAiApiKey()) {
+    return { ok: false, errorCode: 'OPENAI_API_KEY_MISSING', error: '云函数没配置 OpenAI/Azure key' }
+  }
+  let response
+  try {
+    const pairs = await recognizeWordPairs(event.imageFileID)
+    response = { ok: true, pairs }
+  } catch (error) {
+    console.error('homeworkOCR wordpairs failed', {
+      code: error && error.code,
+      status: error && error.status,
+      message: error && error.message
+    })
+    response = {
+      ok: false,
+      errorCode: (error && error.code) || normalizeOpenAiErrorCode(error) || 'WORDPAIRS_FAILED',
+      error: (error && error.message) || '单词识别失败'
+    }
+  }
+  // 识别完清掉云存储原图(同作业识别流程,减少敏感面 + 省空间)。
+  if (event.imageFileID && cloud) {
+    try {
+      await cloud.deleteFile({ fileList: [event.imageFileID] })
+    } catch (e) {
+      console.warn('homeworkOCR wordpairs cleanup failed', { message: e && e.message })
+    }
+  }
+  return response
+}
+
+async function recognizeWordPairs(imageFileID) {
+  const apiKey = getOpenAiApiKey()
+  if (!apiKey) {
+    throw createError('OPENAI_API_KEY_MISSING', '单词识别已启用,但云函数没配置 OpenAI/Azure key')
+  }
+
+  const imageBuffer = await downloadImageBuffer(imageFileID)
+  const dataUrl = `data:${detectImageMimeType(imageBuffer)};base64,${imageBuffer.toString('base64')}`
+
+  const systemInstructions = [
+    '你是一个英语单词表 / 词汇表照片识别引擎。',
+    '任务:从照片里识别每一条「外语词或短语 + 中文释义」,配成对,返回严格 JSON。',
+    '只输出 JSON 对象本身,不要解释、不要 Markdown、不要代码块围栏。'
+  ].join('\n')
+
+  const userPromptText = [
+    '识别这张单词表照片里的所有词条,按下面 JSON schema 输出:',
+    '{',
+    '  "pairs": [',
+    '    { "en": "外语词或短语(图中原文,保持原拼写)", "cn": "对应的中文释义" }',
+    '  ]',
+    '}',
+    '',
+    '规则:',
+    '1. 单词表常见排版:左右两栏(一栏外语一栏中文)、一行"word 中文"、带序号"1. word 中文"、或外语和中文上下两行。按视觉对齐把同一条目的外语和中文配成一对。',
+    '2. en 用图中外语原文,逐字母精确;不要纠正拼写、不要替换成别的词、不要翻译、不要补全或缩写。短语保留词间空格(如 "get up"、"a lot of")。大小写按图。',
+    '3. cn 用该词对应的中文释义。一个词有多个义项时用"；"连接合并到同一个 cn,不要拆成多条。',
+    '4. 去掉这些非词条内容:序号、音标(/…/ 或 […])、词性缩写(n./v./adj./adv./prep. 等可去)、页码、单元或课的标题(Unit 1 / 第一单元 / Lesson 3)、表头(单词/释义)、日期、姓名。',
+    '5. 只输出"既有外语又有中文"的成对词条;只有外语没中文、或只有中文没外语的,跳过,不要硬凑。',
+    '6. 逐行核对,图里有几条就输出几条,既不要漏行,也不要把相邻两条合并成一条。',
+    '7. 看不清的字按最可能的原文识别,但不要编造图里没有的词;整张图都不是单词表时 pairs 返回空数组。'
+  ].join('\n')
+
+  const response = await callOpenAiVision(apiKey, {
+    model: getOpenAiModel(),
+    systemInstructions,
+    userPromptText,
+    imageDataUrl: dataUrl
+  })
+
+  return extractWordPairs(response)
+}
+
+function extractWordPairs(response) {
+  const textContent = extractOpenAiTextContent(response)
+  if (!textContent.trim()) {
+    throw createError('OCR_EMPTY_RESULT', '单词识别已调用成功,但没有返回内容')
+  }
+
+  let parsed
+  try {
+    parsed = JSON.parse(textContent)
+  } catch (error) {
+    throw createError('OCR_EMPTY_RESULT', '单词识别返回内容无法解析为 JSON')
+  }
+
+  const list = (parsed && Array.isArray(parsed.pairs)) ? parsed.pairs : []
+  const out = []
+  const seen = {}
+  list.forEach((p) => {
+    if (!p) return
+    const en = String(p.en == null ? '' : p.en).trim().replace(/\s+/g, ' ').slice(0, 40)
+    const cn = String(p.cn == null ? '' : p.cn).trim().replace(/\s+/g, ' ').slice(0, 40)
+    // en 至少含一个字母,cn 至少含一个中文字 —— 把没配成对的脏数据挡掉。
+    if (!/[a-zA-Z]/.test(en)) return
+    if (!/[一-鿿]/.test(cn)) return
+    const key = en.toLowerCase() + '|' + cn
+    if (seen[key]) return
+    seen[key] = 1
+    out.push({ en, cn })
+  })
+  return out
 }
 
 function getAzureOpenAiApiVersion() {
