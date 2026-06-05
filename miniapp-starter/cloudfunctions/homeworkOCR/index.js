@@ -2,6 +2,7 @@
 
 const http = require('http')
 const https = require('https')
+const crypto = require('crypto')
 
 // === OpenAI 模型 + reasoning effort 配对(此处改一个,另一个一起评估) ===
 // 默认走 gpt-5.5(对应 Azure 同名 deployment)。实测在小学生作业登记本手写体
@@ -992,9 +993,16 @@ function getAzureOpenAiDeployment() {
   )
 }
 
-// === 听写 TTS:Azure OpenAI 语音合成 === //
+// === 听写 TTS:腾讯云语音合成(默认)/ Azure OpenAI(可选) === //
+// Tim 要求用腾讯云。Azure 路径保留(pbs-0 没建 TTS 部署),设 env TTS_PROVIDER=azure 可切回。
 const DEFAULT_TTS_MODEL = 'gpt-4o-mini-tts'   // Azure 上对应同名 deployment;OPENAI_TTS_MODEL 可覆盖
 const DEFAULT_TTS_VOICE = 'alloy'
+// 腾讯云默认音色:1051 = WeRose 英文女声(读英文单词清楚);自测确认账号可用后再定。
+const DEFAULT_TENCENT_TTS_VOICE = 1051
+
+function getTtsProvider() {
+  return String(getFirstEnv(['TTS_PROVIDER']) || 'tencent').toLowerCase()
+}
 
 function getTtsModel() {
   return getFirstEnv(['OPENAI_TTS_MODEL', 'AZURE_OPENAI_TTS_DEPLOYMENT']) || DEFAULT_TTS_MODEL
@@ -1018,9 +1026,16 @@ function getTtsClient(apiKey) {
   return { client: new OpenAi({ apiKey, baseURL: getOpenAiBaseUrl(), maxRetries: 0, timeout: 30000 }), model }
 }
 
+// 听写入口:按 provider 分流。客户端永远传 { action:'tts', text },返回
+// { ok, audioBase64(mp3 的 base64), mime } —— 与 provider 无关,客户端不用改。
 async function handleTtsRequest(event) {
   const text = String((event && event.text) || '').trim().slice(0, 200)
   if (!text) return { ok: false, errorCode: 'EMPTY_TEXT', error: '缺少要朗读的文本' }
+  if (getTtsProvider() === 'azure') return await handleTtsAzure(text, event)
+  return await handleTtsTencent(text, event)
+}
+
+async function handleTtsAzure(text, event) {
   const apiKey = getOpenAiApiKey()
   if (!apiKey) return { ok: false, errorCode: 'OPENAI_API_KEY_MISSING', error: '云函数没配置 OpenAI/Azure key' }
   const voice = String((event && event.voice) || getFirstEnv(['OPENAI_TTS_VOICE']) || DEFAULT_TTS_VOICE)
@@ -1032,16 +1047,89 @@ async function handleTtsRequest(event) {
     const resp = await client.audio.speech.create({ model, voice, input: text, response_format: 'mp3' })
     const ab = await resp.arrayBuffer()
     const base64 = Buffer.from(ab).toString('base64')
-    return { ok: true, audioBase64: base64, mime: 'audio/mpeg', model, voice }
+    return { ok: true, audioBase64: base64, mime: 'audio/mpeg', provider: 'azure', model, voice }
   } catch (error) {
-    console.error('homeworkOCR tts failed', { code: error && error.code, status: error && error.status, message: error && error.message })
-    return {
-      ok: false,
-      errorCode: normalizeOpenAiErrorCode(error) || 'TTS_FAIL',
-      error: (error && error.message) || 'TTS 调用失败',
-      status: (error && error.status) || 0
-    }
+    console.error('homeworkOCR tts(azure) failed', { code: error && error.code, status: error && error.status, message: error && error.message })
+    return { ok: false, errorCode: normalizeOpenAiErrorCode(error) || 'TTS_FAIL', error: (error && error.message) || 'TTS 调用失败', status: (error && error.status) || 0 }
   }
+}
+
+// 腾讯云 TextToVoice(一句话合成):TC3-HMAC-SHA256 签名直连,拿回 base64 mp3。
+// 凭据复用 getCredential()(和 OCR 同一套);需账号开通"语音合成"+ 该凭据有 tts 权限。
+async function handleTtsTencent(text, event) {
+  const cred = getCredential()
+  if (!cred || !cred.secretId) {
+    return { ok: false, errorCode: 'TENCENT_CRED_MISSING', error: '云函数缺腾讯云密钥(OCR_SECRET_ID/KEY 或 SCF 角色)' }
+  }
+  const voiceType = Number((event && event.voiceType) || getFirstEnv(['TENCENT_TTS_VOICE']) || DEFAULT_TENCENT_TTS_VOICE)
+  const primaryLanguage = Number(getFirstEnv(['TENCENT_TTS_PRIMARY_LANG']) || (isEnglishVoice(voiceType) ? 2 : 1))
+  try {
+    const audio = await tencentTextToVoice(cred, text, { voiceType, primaryLanguage })
+    return { ok: true, audioBase64: audio, mime: 'audio/mpeg', provider: 'tencent', voiceType }
+  } catch (error) {
+    console.error('homeworkOCR tts(tencent) failed', { code: error && error.code, message: error && error.message })
+    return { ok: false, errorCode: (error && error.code) || 'TENCENT_TTS_FAIL', error: (error && error.message) || '腾讯云 TTS 调用失败' }
+  }
+}
+
+function isEnglishVoice(v) {
+  return (v >= 1050 && v < 1060) || (v >= 101050 && v < 101060)
+}
+
+function tc3Sha256Hex(s) { return crypto.createHash('sha256').update(s, 'utf8').digest('hex') }
+function tc3Hmac(key, s) { return crypto.createHmac('sha256', key).update(s, 'utf8').digest() }
+
+async function tencentTextToVoice(cred, text, opts) {
+  const host = 'tts.tencentcloudapi.com'
+  const service = 'tts'
+  const action = 'TextToVoice'
+  const version = '2019-08-23'
+  const region = getFirstEnv(['OCR_REGION', 'TENCENTCLOUD_REGION']) || 'ap-guangzhou'
+  const timestamp = Math.floor(Date.now() / 1000)
+  const date = new Date(timestamp * 1000).toISOString().slice(0, 10)
+
+  const body = {
+    Text: text,
+    SessionId: 'tts' + timestamp + Math.random().toString(36).slice(2, 8),
+    Volume: 0,
+    Speed: 0,
+    ProjectId: 0,
+    ModelType: 1,
+    VoiceType: opts.voiceType,
+    PrimaryLanguage: opts.primaryLanguage,
+    SampleRate: 16000,
+    Codec: 'mp3'
+  }
+  const payload = JSON.stringify(body)
+
+  const signedHeaders = 'content-type;host'
+  const canonicalHeaders = 'content-type:application/json; charset=utf-8\n' + 'host:' + host + '\n'
+  const canonicalRequest = ['POST', '/', '', canonicalHeaders, signedHeaders, tc3Sha256Hex(payload)].join('\n')
+  const credentialScope = date + '/' + service + '/tc3_request'
+  const stringToSign = ['TC3-HMAC-SHA256', String(timestamp), credentialScope, tc3Sha256Hex(canonicalRequest)].join('\n')
+  const kDate = tc3Hmac('TC3' + cred.secretKey, date)
+  const kService = tc3Hmac(kDate, service)
+  const kSigning = tc3Hmac(kService, 'tc3_request')
+  const signature = crypto.createHmac('sha256', kSigning).update(stringToSign, 'utf8').digest('hex')
+  const authorization = 'TC3-HMAC-SHA256 Credential=' + cred.secretId + '/' + credentialScope +
+    ', SignedHeaders=' + signedHeaders + ', Signature=' + signature
+
+  const headers = {
+    Authorization: authorization,
+    'Content-Type': 'application/json; charset=utf-8',
+    Host: host,
+    'X-TC-Action': action,
+    'X-TC-Timestamp': String(timestamp),
+    'X-TC-Version': version,
+    'X-TC-Region': region
+  }
+  if (cred.token) headers['X-TC-Token'] = cred.token
+
+  const resp = await postJson('https://' + host + '/', headers, body, 15000)
+  const r = (resp && resp.Response) || {}
+  if (r.Error) throw createError(r.Error.Code || 'TENCENT_TTS_ERROR', r.Error.Message || '腾讯云 TTS 返回错误')
+  if (!r.Audio) throw createError('TENCENT_TTS_EMPTY', '腾讯云 TTS 没返回音频')
+  return r.Audio
 }
 
 // === 单词表 OCR:照片 → [{en,cn}] === //
