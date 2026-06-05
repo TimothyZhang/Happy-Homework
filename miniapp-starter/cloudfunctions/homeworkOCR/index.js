@@ -134,6 +134,12 @@ async function main(event = {}) {
     return { ok: false, reason: 'no_openid' }
   }
 
+  // 听写 TTS:{ action:'tts', text, voice? } → Azure OpenAI 语音合成 → base64 mp3。
+  // 复用上面的 OPENID 闸(挡匿名刷算力);客户端做了持久缓存,真实调用量很低。
+  if (event && event.action === 'tts') {
+    return await handleTtsRequest(event)
+  }
+
   // mockRawText 旁路在生产环境直接关掉。
   if (event && event.mockRawText && !MOCK_RAW_TEXT_ALLOWED) {
     return {
@@ -976,6 +982,58 @@ function getAzureOpenAiDeployment() {
     getFirstEnv(['AZURE_OPENAI_DEPLOYMENT', 'AZURE_OPENAI_DEPLOYMENT_NAME', 'OPENAI_OCR_MODEL', 'OPENAI_MODEL']) ||
     DEFAULT_OPENAI_MODEL
   )
+}
+
+// === 听写 TTS:Azure OpenAI 语音合成 === //
+const DEFAULT_TTS_MODEL = 'gpt-4o-mini-tts'   // Azure 上对应同名 deployment;OPENAI_TTS_MODEL 可覆盖
+const DEFAULT_TTS_VOICE = 'alloy'
+
+function getTtsModel() {
+  return getFirstEnv(['OPENAI_TTS_MODEL', 'AZURE_OPENAI_TTS_DEPLOYMENT']) || DEFAULT_TTS_MODEL
+}
+
+// 单独建指向 TTS deployment 的客户端 —— 不能复用 getOpenAiClient(它锁死在 gpt-5.5
+// deployment + 做了缓存)。Azure 下 deployment 名 = TTS 模型名。
+function getTtsClient(apiKey) {
+  const { OpenAi, AzureOpenAi } = loadOpenAiSdk()
+  const model = getTtsModel()
+  if (isAzureOpenAi()) {
+    if (!AzureOpenAi) throw createError('OPENAI_SDK_MISSING', '缺少 openai SDK(Azure)')
+    const endpoint = getAzureOpenAiEndpoint()
+    if (!endpoint) throw createError('AZURE_OPENAI_ENDPOINT_MISSING', '未配置 AZURE_OPENAI_ENDPOINT')
+    return {
+      client: new AzureOpenAi({ apiKey, endpoint, apiVersion: getAzureOpenAiApiVersion(), deployment: model, maxRetries: 0, timeout: 30000 }),
+      model
+    }
+  }
+  if (!OpenAi) throw createError('OPENAI_SDK_MISSING', '缺少 openai SDK')
+  return { client: new OpenAi({ apiKey, baseURL: getOpenAiBaseUrl(), maxRetries: 0, timeout: 30000 }), model }
+}
+
+async function handleTtsRequest(event) {
+  const text = String((event && event.text) || '').trim().slice(0, 200)
+  if (!text) return { ok: false, errorCode: 'EMPTY_TEXT', error: '缺少要朗读的文本' }
+  const apiKey = getOpenAiApiKey()
+  if (!apiKey) return { ok: false, errorCode: 'OPENAI_API_KEY_MISSING', error: '云函数没配置 OpenAI/Azure key' }
+  const voice = String((event && event.voice) || getFirstEnv(['OPENAI_TTS_VOICE']) || DEFAULT_TTS_VOICE)
+  try {
+    const { client, model } = getTtsClient(apiKey)
+    if (!client.audio || !client.audio.speech || typeof client.audio.speech.create !== 'function') {
+      return { ok: false, errorCode: 'TTS_UNSUPPORTED', error: '当前 openai SDK 不支持 audio.speech,需升级重部署' }
+    }
+    const resp = await client.audio.speech.create({ model, voice, input: text, response_format: 'mp3' })
+    const ab = await resp.arrayBuffer()
+    const base64 = Buffer.from(ab).toString('base64')
+    return { ok: true, audioBase64: base64, mime: 'audio/mpeg', model, voice }
+  } catch (error) {
+    console.error('homeworkOCR tts failed', { code: error && error.code, status: error && error.status, message: error && error.message })
+    return {
+      ok: false,
+      errorCode: normalizeOpenAiErrorCode(error) || 'TTS_FAIL',
+      error: (error && error.message) || 'TTS 调用失败',
+      status: (error && error.status) || 0
+    }
+  }
 }
 
 function getAzureOpenAiApiVersion() {

@@ -56,16 +56,24 @@ Page({
 
   onUnload() { if (this._t) { clearTimeout(this._t); this._t = null } try { tts.stop() } catch (e) {} },
 
-  // 听写模式:读出当前词的英文(看中文模式不读)。
+  // 听写模式:读出当前词的英文(看中文模式不读)。合成失败就降级显示英文。
   _speakCurrent(word) {
     if (this.data.mode !== 'dictation' || !this.data.ttsOn) return
-    if (word && word.en) tts.speak(word.en, 'en_US')
+    if (!word || !word.en) return
+    tts.speak(word.en, 'en_US', (ok, reason) => {
+      if (!ok && reason !== 'inflight' && !this._ttsWarned) {
+        this._ttsWarned = true
+        this.setData({ ttsOn: false })
+        wx.showToast({ title: '语音暂不可用,先照着拼', icon: 'none' })
+      }
+    })
   },
 
   replay() {
-    if (this.data.mode !== 'dictation') return
-    if (!this.data.ttsOn) { wx.showToast({ title: '语音未开通', icon: 'none' }); return }
-    if (this.data.word && this.data.word.en) tts.speak(this.data.word.en, 'en_US')
+    if (this.data.mode !== 'dictation' || !this.data.word || !this.data.word.en) return
+    tts.speak(this.data.word.en, 'en_US', (ok) => {
+      if (!ok) wx.showToast({ title: '语音暂不可用', icon: 'none' })
+    })
   },
 
   _startSession() {
