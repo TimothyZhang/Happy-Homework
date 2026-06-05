@@ -66,15 +66,17 @@ Page({
       if (!ok && reason !== 'inflight' && !this._ttsWarned) {
         this._ttsWarned = true
         this.setData({ ttsOn: false })
-        wx.showToast({ title: '语音暂不可用,先照着拼', icon: 'none' })
+        wx.showToast({ title: '语音暂不可用:' + (reason || ''), icon: 'none', duration: 2400 })
       }
     })
   },
 
   replay() {
     if (this.data.mode !== 'dictation' || !this.data.word || !this.data.word.en) return
-    tts.speak(this.data.word.en, 'en_US', (ok) => {
-      if (!ok) wx.showToast({ title: '语音暂不可用', icon: 'none' })
+    // 重听不受 ttsOn 影响:即使首词降级过,手动点也再试一次(并刷新 ttsOn)。
+    tts.speak(this.data.word.en, 'en_US', (ok, reason) => {
+      if (ok) { if (!this.data.ttsOn) this.setData({ ttsOn: true }) }
+      else wx.showToast({ title: '语音暂不可用:' + (reason || ''), icon: 'none', duration: 2400 })
     })
   },
 
