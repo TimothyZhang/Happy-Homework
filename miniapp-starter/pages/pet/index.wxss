@@ -346,6 +346,35 @@
   border-right: 9rpx solid transparent;
   border-top: 14rpx solid rgba(255, 255, 255, 0.97);
 }
+
+/* === 点宠物弹出的菜单 === */
+.pet-menu-mask {
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0;
+  z-index: 120;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex; align-items: center; justify-content: center;
+}
+.pet-menu {
+  width: 560rpx;
+  background: #ffffff; border-radius: 28rpx;
+  padding: 28rpx 24rpx 18rpx;
+  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.25);
+}
+.pet-menu-title {
+  font-size: 30rpx; font-weight: 800; color: #1f2329;
+  text-align: center; margin-bottom: 20rpx;
+}
+.pet-menu-item {
+  height: 100rpx; border-radius: 18rpx; background: #f5f7fb;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32rpx; color: #1f2329; font-weight: 600; margin-bottom: 14rpx;
+}
+.pet-menu-item-hover { background: #e7edf6; }
+.pmi-emoji { font-size: 38rpx; margin-right: 14rpx; }
+.pet-menu-cancel {
+  height: 88rpx; display: flex; align-items: center; justify-content: center;
+  font-size: 28rpx; color: #8a94a0; margin-top: 2rpx;
+}
 @keyframes shadow-pulse {
   0%, 100% { transform: scaleX(1);    opacity: 0.18; }
   50%      { transform: scaleX(0.85); opacity: 0.12; }

@@ -97,6 +97,7 @@ Page({
     actorMoving: false,
     moveDurMs: 0,
     spriteAnim: '',
+    showPetMenu: false,
     showBubble: false,
     bubbleText: '',
     ageDays: 0,
@@ -338,6 +339,16 @@ Page({
   // The mood-appropriate speech bubble fires in every case.
   handleTapPet() {
     if (this.data.mode !== 'view') return
+    this.setData({ showPetMenu: true })
+  },
+
+  closePetMenu() {
+    this.setData({ showPetMenu: false })
+  },
+
+  // 菜单·摸摸它:旧的按心情互动(蹦跳 + 说话气泡)。
+  menuTouchPet() {
+    this.setData({ showPetMenu: false })
     const mood = deriveAnimState(this.data.pet)
     const unwell = mood === 'sick' || mood === 'hungry' || mood === 'dirty' || mood === 'sad'
     if (!unwell && hasAnimRig(this.data.pet)) {
@@ -351,6 +362,12 @@ Page({
       this.setData({ showBubble: false })
       this._bubbleTimer = null
     }, 2200)
+  },
+
+  // 菜单·一起来背单词吧:进背单词页(独立 navigateTo 页,天然全屏 + 无 tabBar)。
+  menuStartRecite() {
+    this.setData({ showPetMenu: false })
+    wx.navigateTo({ url: '/pkg-notebook/word-recite/index' })
   },
 
   // 点空地板 → 宠物走过去(四方向)。点宠物本身走的是 catchtap=handleTapPet

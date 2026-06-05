@@ -20,7 +20,8 @@
       "pages": [
         "task-edit/index",
         "coin-history/index",
-        "task-focus/index"
+        "task-focus/index",
+        "word-recite/index"
       ]
     }
   ],
