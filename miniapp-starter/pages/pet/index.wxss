@@ -321,7 +321,11 @@
   margin-bottom: 12rpx;
   transform: translateX(-50%);
   transform-origin: 50% 100%;
-  max-width: 320rpx;
+  /* 单行不换行:气泡宽度跟文字走,不被「left 偏移后剩下的可用宽度」压窄
+     (否则 face-right 时 left:64% 只剩 ~86rpx,中文被挤成很窄很高)。
+     说话短句最长 8 字 ≈ 250rpx,远小于 max-width,不会溢出。 */
+  white-space: nowrap;
+  max-width: 460rpx;
   background: rgba(255, 255, 255, 0.97);
   color: #1f2329;
   font-size: 26rpx;
