@@ -29,8 +29,9 @@ function normalizePairs(rawPairs) {
   const pairs = []
   const seen = {}
   ;(Array.isArray(rawPairs) ? rawPairs : []).forEach((p) => {
-    const cn = String((p && p.cn) || '').trim().slice(0, 40)
-    const en = String((p && p.en) || '').trim().replace(/\s+/g, ' ').slice(0, 40)
+    // 去掉词条前面的编号(预览就清干净,跟导入后一致)
+    const cn = store.stripWordNum(String((p && p.cn) || '')).slice(0, 40)
+    const en = store.stripWordNum(String((p && p.en) || '')).replace(/\s+/g, ' ').slice(0, 40)
     if (!cn || !en) return
     const key = cn + '|' + en.toLowerCase()
     if (seen[key]) return

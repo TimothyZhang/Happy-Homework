@@ -573,6 +573,17 @@ function renameWordBook(bookId, name) {
 }
 
 // 给单词本加一个词。返回新词(失败返 null)。不同本可重复 —— 不去重。
+// 去掉词条前面的编号/序号(导入残留):"1." "1、" "1)" "(1)" "①" 等。
+// 保守:必须带分隔符(点/顿号/括号/冒号),所以不会误伤 "2.5D"(数字后跟数字不删)
+// 或 "100 meters"(纯数字+空格不删)。幂等,可重复跑。
+function stripWordNum(s) {
+  return String(s == null ? '' : s)
+    .replace(/^[\s　]*[(（]\s*\d{1,3}\s*[)）][\s.、:：]*/, '')   // (1) （1）
+    .replace(/^[\s　]*\d{1,3}\s*[.、．。:：)]\s*(?!\d)/, '')     // 1. 1、 1) 1: 12.
+    .replace(/^[\s　]*[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳]\s*/, '')   // ①②③
+    .trim()
+}
+
 function addWord(bookId, cn, en) {
   let word = null
   updateState((state) => {
@@ -580,8 +591,8 @@ function addWord(bookId, cn, en) {
     if (!b) return state
     if (!Array.isArray(b.words)) b.words = []
     if (b.words.length >= WORD_PER_BOOK_MAX) return state
-    const c = (cn || '').trim().slice(0, WORD_TEXT_MAX)
-    const e = (en || '').trim().slice(0, WORD_TEXT_MAX)
+    const c = stripWordNum(cn).slice(0, WORD_TEXT_MAX)
+    const e = stripWordNum(en).slice(0, WORD_TEXT_MAX)
     if (!c || !e) return state
     word = freshWord(c, e, uidWord())
     b.words.push(word)
@@ -932,6 +943,9 @@ function migrateState(raw) {
         if (typeof w.mastered !== 'boolean') w.mastered = false
         if (typeof w.dueAt !== 'number') w.dueAt = 0
         if (typeof w.seen !== 'boolean') w.seen = false
+        // 清掉历史导入残留在词条前的编号(幂等)。
+        if (w.en) w.en = stripWordNum(w.en)
+        if (w.cn) w.cn = stripWordNum(w.cn)
       })
     })
     if (!raw.wordConfig || typeof raw.wordConfig !== 'object') raw.wordConfig = defaultWordConfig()
@@ -3132,6 +3146,7 @@ module.exports = {
   renameWordBook,
   addWord,
   removeWord,
+  stripWordNum,
   setReciteTargets,
   setReciteSessionSize,
   serializeWordBookForShare,

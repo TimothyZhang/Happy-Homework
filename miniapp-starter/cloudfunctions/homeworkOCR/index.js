@@ -808,7 +808,7 @@ async function callOpenAiResponses(client, options) {
     model: options.model,
     // 推理模型的 max_output_tokens 同时计推理 token,默认 2400 在 gpt-5 下不够,
     // 把推理预算单独放宽到 8000,避免在云端被截断/超时。
-    max_output_tokens: reasoning ? getOpenAiReasoningMaxTokens() : getOpenAiMaxTokens(),
+    max_output_tokens: options.maxOutputTokens || (reasoning ? getOpenAiReasoningMaxTokens() : getOpenAiMaxTokens()),
     text: { format: { type: 'json_object' } },
     input: [
       {
@@ -840,7 +840,7 @@ async function callOpenAiResponses(client, options) {
 async function callOpenAiChatCompletion(client, options) {
   const payload = {
     model: options.model,
-    max_tokens: getOpenAiMaxTokens(),
+    max_tokens: options.maxOutputTokens || getOpenAiMaxTokens(),
     response_format: { type: 'json_object' },
     messages: [
       {
@@ -1226,7 +1226,7 @@ async function recognizeWordPairs(imageFileID) {
     '3. cn 用该词对应的中文释义。一个词有多个义项时用"；"连接合并到同一个 cn,不要拆成多条。',
     '4. 去掉这些非词条内容:序号、音标(/…/ 或 […])、词性缩写(n./v./adj./adv./prep. 等可去)、页码、单元或课的标题(Unit 1 / 第一单元 / Lesson 3)、表头(单词/释义)、日期、姓名。',
     '5. 只输出"既有外语又有中文"的成对词条;只有外语没中文、或只有中文没外语的,跳过,不要硬凑。',
-    '6. 逐行核对,图里有几条就输出几条,既不要漏行,也不要把相邻两条合并成一条。',
+    '6. 完整性最重要:先数清图里一共有多少行 / 多少条词条(每行通常一条),最终输出的条数必须等于行数。一条都不能漏,也不要把相邻两条并成一条;某行字迹模糊也要尽力输出该行,不确定的字用最可能的拼写,但绝不能整行跳过。',
     '7. 看不清的字按最可能的原文识别,但不要编造图里没有的词;整张图都不是单词表时 pairs 返回空数组。'
   ].join('\n')
 
@@ -1234,6 +1234,7 @@ async function recognizeWordPairs(imageFileID) {
   const response = await callOpenAiVision(apiKey, {
     model,
     client,
+    maxOutputTokens: 8000,   // 长词表(几十上百条)别被默认 2400 截断
     systemInstructions,
     userPromptText,
     imageDataUrl: dataUrl
