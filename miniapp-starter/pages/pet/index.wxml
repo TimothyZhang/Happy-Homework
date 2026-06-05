@@ -72,15 +72,36 @@
       </view>
     </view>
 
+    <!-- 透明状态浮窗:紧凑 4 条状态条,半透明浮在房间上 -->
+    <view class="status-hud">
+      <view class="status-meta">
+        <text>Lv.{{pet.level}}</text><text class="dot">·</text><text>{{ageDays}} 天大</text>
+      </view>
+      <view class="svrow">
+        <text class="svlabel">开心</text>
+        <view class="sbar"><view class="sbar-fill" style="width: {{pet.happiness}}%; background: #ffb648"></view></view>
+        <text class="svnum">{{pet.happiness}}</text>
+      </view>
+      <view class="svrow">
+        <text class="svlabel">饱腹</text>
+        <view class="sbar"><view class="sbar-fill" style="width: {{pet.fullness}}%; background: #07c160"></view></view>
+        <text class="svnum">{{pet.fullness}}</text>
+      </view>
+      <view class="svrow">
+        <text class="svlabel">清洁</text>
+        <view class="sbar"><view class="sbar-fill" style="width: {{pet.cleanliness}}%; background: #3ea2ff"></view></view>
+        <text class="svnum">{{pet.cleanliness}}</text>
+      </view>
+      <view class="svrow">
+        <text class="svlabel">健康</text>
+        <view class="sbar"><view class="sbar-fill" style="width: {{pet.health}}%; background: #e15c5c"></view></view>
+        <text class="svnum">{{pet.health}}</text>
+      </view>
+    </view>
+
     <!-- 控制层:顶部留空看房间,往上滚把卡片盖上来 -->
     <view class="sheet">
       <view class="card sheet-first">
-
-      <view class="pet-meta">
-        <text>Lv.{{pet.level}}</text>
-        <text class="dot">·</text>
-        <text>{{ageDays}} 天大</text>
-      </view>
 
       <view class="level-block">
         <block wx:if="{{isMaxLevel}}">
@@ -114,35 +135,6 @@
             升到 Lv.{{pet.level + 1}}
           </button>
         </block>
-      </view>
-
-      <view class="stat-block">
-        <view class="stat-row">
-          <text class="field-label">开心度</text>
-          <text class="stat-num">{{pet.happiness}}</text>
-        </view>
-        <progress percent="{{pet.happiness}}" stroke-width="10" activeColor="#ffb648" backgroundColor="#edf0f3" />
-      </view>
-      <view class="stat-block">
-        <view class="stat-row">
-          <text class="field-label">饱腹度</text>
-          <text class="stat-num">{{pet.fullness}}</text>
-        </view>
-        <progress percent="{{pet.fullness}}" stroke-width="10" activeColor="#07c160" backgroundColor="#edf0f3" />
-      </view>
-      <view class="stat-block">
-        <view class="stat-row">
-          <text class="field-label">清洁度</text>
-          <text class="stat-num">{{pet.cleanliness}}</text>
-        </view>
-        <progress percent="{{pet.cleanliness}}" stroke-width="10" activeColor="#3ea2ff" backgroundColor="#edf0f3" />
-      </view>
-      <view class="stat-block">
-        <view class="stat-row">
-          <text class="field-label">健康度</text>
-          <text class="stat-num">{{pet.health}}</text>
-        </view>
-        <progress percent="{{pet.health}}" stroke-width="10" activeColor="#e15c5c" backgroundColor="#edf0f3" />
       </view>
     </view>
 

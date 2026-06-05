@@ -200,6 +200,37 @@
 .sheet .sheet-first { margin-top: 72vh; }
 .sheet .card { background: rgba(255, 255, 255, 0.96); }
 
+/* === 透明状态浮窗(紧凑 4 条状态条,半透明浮在房间上)=== */
+.status-hud {
+  position: fixed;
+  left: 20rpx;
+  top: calc(env(safe-area-inset-top) + 96rpx);
+  width: 320rpx;
+  z-index: 40;
+  box-sizing: border-box;
+  padding: 14rpx 18rpx 16rpx;
+  border-radius: 22rpx;
+  background: rgba(255, 255, 255, 0.40);
+  border: 2rpx solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 6rpx 16rpx rgba(80, 60, 30, 0.12);
+}
+.status-meta {
+  display: flex; align-items: center;
+  font-size: 22rpx; color: #6b4a23; font-weight: 600;
+  margin-bottom: 8rpx;
+}
+.status-meta .dot { margin: 0 8rpx; color: #b79a72; }
+.svrow { display: flex; align-items: center; margin-top: 9rpx; }
+.svlabel { width: 52rpx; flex-shrink: 0; font-size: 20rpx; color: #5a3d1e; }
+.sbar {
+  flex: 1; height: 10rpx; margin: 0 10rpx;
+  border-radius: 999rpx;
+  background: rgba(60, 45, 25, 0.18);
+  overflow: hidden;
+}
+.sbar-fill { height: 100%; border-radius: 999rpx; }
+.svnum { width: 42rpx; flex-shrink: 0; text-align: right; font-size: 20rpx; font-weight: 600; color: #5a3d1e; }
+
 /* posture — kept off the actor's translate so locomotion never fights it. */
 .pet-actor.still .pet-art       { animation: actor-breath 2.8s ease-in-out infinite; }
 .pet-actor.moving .pet-art      { animation: actor-step 0.46s ease-in-out infinite; }
@@ -252,7 +283,7 @@
 
 .speech-bubble {
   position: absolute;
-  top: 150rpx;
+  top: 300rpx;
   left: 50%;
   transform: translateX(-50%);
   max-width: 420rpx;
