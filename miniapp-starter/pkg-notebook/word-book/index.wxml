@@ -8,6 +8,8 @@
     </view>
   </view>
 
+  <view class="ocr-btn" bindtap="ocrImport" hover-class="ocr-btn-hover">📷 拍照 / 选图导入</view>
+
   <view class="count-line">共 {{words.length}} 个</view>
 
   <view wx:if="{{words.length === 0}}" class="empty">还没有单词,上面加一个吧~</view>
@@ -23,5 +25,24 @@
       <text wx:else>未学</text>
     </view>
     <view class="word-del" catchtap="removeWord" data-id="{{item.id}}" hover-class="del-hover">删</view>
+  </view>
+
+  <!-- OCR 识别结果预览 -->
+  <view wx:if="{{showOcr}}" class="ocr-mask" bindtap="cancelOcr" catchtouchmove="noop">
+    <view class="ocr-sheet" catchtap="noop" catchtouchmove="noop">
+      <view class="ocr-title">识别到 {{ocrPairs.length}} 个,确认导入?</view>
+      <view class="ocr-sub">点 ✕ 去掉不要的</view>
+      <scroll-view scroll-y class="ocr-list">
+        <view wx:for="{{ocrPairs}}" wx:key="index" class="ocr-pair">
+          <text class="ocr-cn">{{item.cn}}</text>
+          <text class="ocr-en">{{item.en}}</text>
+          <view class="ocr-pair-del" catchtap="removeOcrPair" data-i="{{index}}" hover-class="del-hover">✕</view>
+        </view>
+      </scroll-view>
+      <view class="ocr-actions">
+        <view class="ocr-cancel" catchtap="cancelOcr" hover-class="add-btn-hover">取消</view>
+        <view class="ocr-import {{ocrPairs.length === 0 ? 'off' : ''}}" catchtap="importOcr" hover-class="add-btn-hover">导入这 {{ocrPairs.length}} 个</view>
+      </view>
+    </view>
   </view>
 </view>
