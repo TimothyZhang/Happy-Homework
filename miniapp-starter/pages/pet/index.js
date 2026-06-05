@@ -63,9 +63,6 @@ const PET_ANIM_SEQUENCES = {
 }
 const DEFAULT_ANIM_SEQUENCE = ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy']
 
-const DEV_TAP_PAUSE_MS = 8000
-const DEV_LABEL_DURATION_MS = 1500
-
 function petSequence(pet) {
   if (!pet || !pet.species) return DEFAULT_ANIM_SEQUENCE
   return PET_ANIM_SEQUENCES[pet.species] || DEFAULT_ANIM_SEQUENCE
@@ -114,10 +111,6 @@ Page({
     // (Standard) or .parrot-anim-{currentAnim} (Premium) class binds here.
     // See V1-PET-ANIMATION-SPEC §1.5 for the canonical action set.
     currentAnim: 'idle',
-    // Dev test-entry overlay: name of the animation the user just tapped to,
-    // shown briefly above the pet. See _cyclePetAnimForDev.
-    devAnimLabel: '',
-    devAnimLabelVisible: false,
     showBubble: false,
     bubbleText: '',
     ageDays: 0,
@@ -248,11 +241,8 @@ Page({
     if (this._cycleTimer)     { clearTimeout(this._cycleTimer);     this._cycleTimer = null }
     if (this._flyTimer)       { clearTimeout(this._flyTimer);       this._flyTimer = null }
     if (this._oneShotTimer)   { clearTimeout(this._oneShotTimer);   this._oneShotTimer = null }
-    if (this._devLabelTimer)  { clearTimeout(this._devLabelTimer);  this._devLabelTimer = null }
-    if (this._devResumeTimer) { clearTimeout(this._devResumeTimer); this._devResumeTimer = null }
     this._oneShotActive = false
     this._queuedOneShot = null
-    this._devOverrideUntil = 0
   },
 
   _scheduleNextAuto(delay) {
@@ -279,10 +269,9 @@ Page({
       if (!speciesCanFly(this.data.pet)) return
       const pet = this.data.pet
       const unwell = (pet.health || 0) < 30 || (pet.cleanliness || 0) < 30
-      // Don't fly while sick/dirty (per spec §3), during a user-triggered
-      // one-shot, or while the dev-tap override holds the stage.
-      if (unwell || this._oneShotActive ||
-          (this._devOverrideUntil && Date.now() < this._devOverrideUntil)) {
+      // Don't fly while sick/dirty (per spec §3) or during a user-triggered
+      // one-shot.
+      if (unwell || this._oneShotActive) {
         this._scheduleFlying()
         return
       }
@@ -354,64 +343,28 @@ Page({
   },
 
   // === Pet interactions === //
+  // Tap the pet to interact. A content pet gives a delightful one-shot
+  // reaction — a quick `happy` bounce, or an occasional bigger `celebrate`
+  // when it's already in a great mood. A pet that isn't feeling well
+  // (sick / hungry / dirty / sad) only acknowledges the touch with its mood
+  // line — it shouldn't bounce happily while it still needs care, so the tap
+  // never contradicts the mood the stat bars and home mascot are showing.
+  // The mood-appropriate speech bubble fires in every case.
   handleTapPet() {
     if (this.data.mode !== 'view') return
-    // Dev test entry (V1-PET-ANIMATION-SPEC §10): tapping any pet walks
-    // through every state in its species sequence. The bubble fires alongside
-    // for the speech-line product behavior.
-    if (hasAnimRig(this.data.pet)) this._cyclePetAnimForDev()
-
-    const baseState = deriveAnimState(this.data.pet)
-    const line = pickLine(baseState)
+    const mood = deriveAnimState(this.data.pet)
+    const unwell = mood === 'sick' || mood === 'hungry' || mood === 'dirty' || mood === 'sad'
+    if (!unwell && hasAnimRig(this.data.pet)) {
+      const big = mood === 'happy' && Math.random() < 0.35
+      this.queueAnim(big ? 'celebrating' : 'happy')
+    }
+    const line = pickLine(mood)
     this.setData({ showBubble: true, bubbleText: line })
     if (this._bubbleTimer) clearTimeout(this._bubbleTimer)
     this._bubbleTimer = setTimeout(() => {
       this.setData({ showBubble: false })
       this._bubbleTimer = null
     }, 2200)
-  },
-
-  // Manual cycle through the current species' animation set. Each tap advances
-  // one step in PET_ANIM_SEQUENCES[species] and freezes the auto state machine
-  // for DEV_TAP_PAUSE_MS so the user can actually look at the chosen animation
-  // before idle resumes. Species without a particular action (e.g. rabbit has
-  // no 'flying') just don't see it in their cycle.
-  _cyclePetAnimForDev() {
-    const seq = petSequence(this.data.pet)
-    const cur = this.data.currentAnim || 'idle'
-    let i = seq.indexOf(cur)
-    if (i < 0) i = -1   // current state isn't in this species' list — start from 0
-    const next = seq[(i + 1) % seq.length]
-
-    this._devOverrideUntil = Date.now() + DEV_TAP_PAUSE_MS
-
-    // Take over the stage: cancel any in-flight auto tick AND any one-shot
-    // currently running, otherwise the user-picked state would be overwritten.
-    if (this._cycleTimer)   { clearTimeout(this._cycleTimer);   this._cycleTimer = null }
-    if (this._oneShotTimer) { clearTimeout(this._oneShotTimer); this._oneShotTimer = null }
-    this._oneShotActive = false
-    this._queuedOneShot = null
-
-    // Remount the label (toggle off → on) so the fade keyframe restarts even
-    // when a previous label is still on screen from a rapid prior tap.
-    if (this._devLabelTimer) clearTimeout(this._devLabelTimer)
-    this.setData({ currentAnim: next, devAnimLabelVisible: false })
-    setTimeout(() => {
-      this.setData({ devAnimLabel: next, devAnimLabelVisible: true })
-    }, 16)
-    this._devLabelTimer = setTimeout(() => {
-      this.setData({ devAnimLabelVisible: false })
-      this._devLabelTimer = null
-    }, DEV_LABEL_DURATION_MS)
-
-    if (this._devResumeTimer) clearTimeout(this._devResumeTimer)
-    this._devResumeTimer = setTimeout(() => {
-      this._devResumeTimer = null
-      this._devOverrideUntil = 0
-      if (!hasAnimRig(this.data.pet)) return
-      this.setData({ currentAnim: 'idle' })
-      this._scheduleNextAuto(ANIM_RECIPES.idle.duration)
-    }, DEV_TAP_PAUSE_MS)
   },
 
   handleBuyItem(event) {

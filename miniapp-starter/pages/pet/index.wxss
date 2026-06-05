@@ -442,31 +442,6 @@
   50%      { transform: rotate(28deg) translateY(8rpx); }
 }
 
-/* === Dev test-entry label (V1-PET-ANIMATION-SPEC §10).
-   Tap the parrot to cycle animations; this label fades in/out
-   above the stage so you can identify the current state at a glance. */
-.dev-anim-label {
-  position: absolute;
-  top: 18rpx;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(31, 35, 41, 0.78);
-  color: #ffffff;
-  font-size: 22rpx;
-  letter-spacing: 1rpx;
-  padding: 6rpx 18rpx;
-  border-radius: 999rpx;
-  z-index: 5;
-  pointer-events: none;
-  animation: dev-label-fade 1.5s ease-out forwards;
-}
-@keyframes dev-label-fade {
-  0%   { opacity: 0; transform: translateX(-50%) translateY(-6rpx); }
-  20%  { opacity: 1; transform: translateX(-50%) translateY(0); }
-  80%  { opacity: 1; transform: translateX(-50%) translateY(0); }
-  100% { opacity: 0; transform: translateX(-50%) translateY(-6rpx); }
-}
-
 /* === stats === */
 .pet-meta {
   margin-top: 18rpx;

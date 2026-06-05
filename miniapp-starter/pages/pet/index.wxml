@@ -81,7 +81,6 @@
           <text wx:if="{{animState === 'happy'}}"   class="state-icon happy-icon">💖</text>
         </view>
         <view wx:if="{{showBubble}}" class="speech-bubble">{{bubbleText}}</view>
-        <view wx:if="{{devAnimLabelVisible}}" class="dev-anim-label">{{devAnimLabel}}</view>
       </view>
 
       <view class="pet-meta">
