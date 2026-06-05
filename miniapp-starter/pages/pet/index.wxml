@@ -58,9 +58,8 @@
         <text wx:if="{{animState === 'sick'}}"    class="state-icon sick-icon">🤒</text>
         <text wx:if="{{animState === 'sad'}}"     class="state-icon sad-icon">💧</text>
         <text wx:if="{{animState === 'happy'}}"   class="state-icon happy-icon">💖</text>
+        <view wx:if="{{showBubble}}" class="speech-bubble">{{bubbleText}}</view>
       </view>
-
-      <view wx:if="{{showBubble}}" class="speech-bubble">{{bubbleText}}</view>
     </view>
 
     <!-- 固定顶栏:名字 + 等级徽章 + 金币 -->

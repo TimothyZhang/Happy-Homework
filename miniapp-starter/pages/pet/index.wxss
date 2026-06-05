@@ -281,21 +281,36 @@
 .sad-icon    { top: 28rpx;  right: -14rpx; animation: drip 2.2s ease-in infinite; }
 .happy-icon  { top: -6rpx;  right: -20rpx; animation: pop-heart 1.2s ease-out infinite; }
 
+/* 说话气泡:挂在宠物头顶(.pet-actor 的子元素,随宠物移动 + 跟深度缩放;在
+   actor-facing 之外,朝左时文字不会被镜像)。偏向脸朝的那侧 = 头部上方,
+   下方小三角指向宠物。 */
 .speech-bubble {
   position: absolute;
-  top: 300rpx;
   left: 50%;
+  bottom: 100%;
+  margin-bottom: 12rpx;
   transform: translateX(-50%);
-  max-width: 420rpx;
+  transform-origin: 50% 100%;
+  max-width: 320rpx;
   background: rgba(255, 255, 255, 0.97);
   color: #1f2329;
   font-size: 26rpx;
-  line-height: 1.4;
-  padding: 12rpx 24rpx;
-  border-radius: 22rpx 22rpx 22rpx 6rpx;
-  box-shadow: 0 6rpx 18rpx rgba(0, 0, 0, 0.14);
-  z-index: 300;
+  line-height: 1.35;
+  padding: 12rpx 22rpx;
+  border-radius: 22rpx;
+  box-shadow: 0 6rpx 18rpx rgba(0, 0, 0, 0.16);
+  z-index: 10;
   animation: bubble-pop 0.25s ease-out;
+}
+.pet-actor.face-right .speech-bubble { left: 64%; }
+.pet-actor.face-left  .speech-bubble { left: 36%; }
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%; bottom: -12rpx; margin-left: -9rpx;
+  border-left: 9rpx solid transparent;
+  border-right: 9rpx solid transparent;
+  border-top: 14rpx solid rgba(255, 255, 255, 0.97);
 }
 @keyframes shadow-pulse {
   0%, 100% { transform: scaleX(1);    opacity: 0.18; }
@@ -325,8 +340,8 @@
   100% { transform: scale(0.9); opacity: 0; }
 }
 @keyframes bubble-pop {
-  0%   { transform: scale(0.6); opacity: 0; }
-  100% { transform: scale(1);   opacity: 1; }
+  0%   { transform: translateX(-50%) scale(0.6); opacity: 0; }
+  100% { transform: translateX(-50%) scale(1);   opacity: 1; }
 }
 
 /* ============================================================
