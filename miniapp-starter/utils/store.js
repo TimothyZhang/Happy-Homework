@@ -528,6 +528,91 @@ function applyReciteSession(results) {
   return { knowledgeGained }
 }
 
+// === 单词库管理(增减单词本/单词、目标本、每次数量) === //
+const WORD_BOOK_NAME_MAX = 16
+const WORD_TEXT_MAX = 40
+const WORD_BOOKS_MAX = 40
+const WORD_PER_BOOK_MAX = 800
+
+function uidBook() { return 'wb_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7) }
+function uidWord() { return 'w_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7) }
+
+function addWordBook(name) {
+  let book = null
+  updateState((state) => {
+    if (!Array.isArray(state.wordBooks)) state.wordBooks = []
+    if (state.wordBooks.length >= WORD_BOOKS_MAX) return state
+    const nm = (name || '').trim().slice(0, WORD_BOOK_NAME_MAX) || '新单词本'
+    book = { id: uidBook(), name: nm, builtin: false, createdAt: Date.now(), words: [] }
+    state.wordBooks.push(book)
+    return state
+  })
+  return book
+}
+
+function removeWordBook(bookId) {
+  updateState((state) => {
+    state.wordBooks = (state.wordBooks || []).filter((b) => b.id !== bookId)
+    if (state.wordConfig && Array.isArray(state.wordConfig.targetBookIds)) {
+      state.wordConfig.targetBookIds = state.wordConfig.targetBookIds.filter((id) => id !== bookId)
+    }
+    return state
+  })
+}
+
+function renameWordBook(bookId, name) {
+  updateState((state) => {
+    const b = (state.wordBooks || []).find((x) => x.id === bookId)
+    if (b) b.name = (name || '').trim().slice(0, WORD_BOOK_NAME_MAX) || b.name
+    return state
+  })
+}
+
+// 给单词本加一个词。返回新词(失败返 null)。不同本可重复 —— 不去重。
+function addWord(bookId, cn, en) {
+  let word = null
+  updateState((state) => {
+    const b = (state.wordBooks || []).find((x) => x.id === bookId)
+    if (!b) return state
+    if (!Array.isArray(b.words)) b.words = []
+    if (b.words.length >= WORD_PER_BOOK_MAX) return state
+    const c = (cn || '').trim().slice(0, WORD_TEXT_MAX)
+    const e = (en || '').trim().slice(0, WORD_TEXT_MAX)
+    if (!c || !e) return state
+    word = freshWord(c, e, uidWord())
+    b.words.push(word)
+    return state
+  })
+  return word
+}
+
+function removeWord(bookId, wordId) {
+  updateState((state) => {
+    const b = (state.wordBooks || []).find((x) => x.id === bookId)
+    if (b && Array.isArray(b.words)) b.words = b.words.filter((w) => w.id !== wordId)
+    return state
+  })
+}
+
+// 设置近期目标单词本(一个或多个)。只保留存在的 id。
+function setReciteTargets(bookIds) {
+  updateState((state) => {
+    if (!state.wordConfig) state.wordConfig = defaultWordConfig()
+    const valid = (state.wordBooks || []).map((b) => b.id)
+    state.wordConfig.targetBookIds = (Array.isArray(bookIds) ? bookIds : []).filter((id) => valid.indexOf(id) !== -1)
+    return state
+  })
+}
+
+function setReciteSessionSize(n) {
+  updateState((state) => {
+    if (!state.wordConfig) state.wordConfig = defaultWordConfig()
+    const v = Math.max(RECITE_SESSION_MIN, Math.min(RECITE_SESSION_MAX, Math.round(n) || RECITE_DEFAULT_SIZE))
+    state.wordConfig.sessionSize = v
+    return state
+  })
+}
+
 const defaultState = {
   schemaVersion: SCHEMA_VERSION,
   // ms timestamp of last sync-relevant local mutation. 0 = never written, so
@@ -3001,6 +3086,16 @@ module.exports = {
   RECITE_MIN_NEW,
   RECITE_SESSION_MIN,
   RECITE_SESSION_MAX,
+  // 单词库管理
+  addWordBook,
+  removeWordBook,
+  renameWordBook,
+  addWord,
+  removeWord,
+  setReciteTargets,
+  setReciteSessionSize,
+  WORD_BOOK_NAME_MAX,
+  WORD_TEXT_MAX,
   // misc
   getCurrentTime
 }

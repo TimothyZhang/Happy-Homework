@@ -1,0 +1,62 @@
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx 24rpx calc(40rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+}
+
+.card {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 24rpx;
+  box-shadow: 0 12rpx 36rpx rgba(31, 35, 41, 0.06);
+}
+.row { display: flex; align-items: center; justify-content: space-between; }
+.row-main { display: flex; flex-direction: column; }
+.row-title { font-size: 30rpx; font-weight: 700; color: #1f2329; }
+.row-sub { margin-top: 6rpx; font-size: 23rpx; color: #8a94a0; }
+
+.stepper { display: flex; align-items: center; }
+.step-btn {
+  width: 64rpx; height: 64rpx; border-radius: 16rpx;
+  display: flex; align-items: center; justify-content: center;
+  background: #eef2f8; color: #245bdb; font-size: 40rpx; font-weight: 700;
+}
+.step-btn.off { color: #c2c8d0; }
+.step-hover { background: #e0e6f0; }
+.step-val { min-width: 72rpx; text-align: center; font-size: 34rpx; font-weight: 800; color: #1f2329; }
+
+.section-hd { margin: 30rpx 6rpx 14rpx; display: flex; flex-direction: column; }
+.section-title { font-size: 28rpx; font-weight: 800; color: #44505e; }
+.section-sub { margin-top: 4rpx; font-size: 22rpx; color: #9aa3ad; }
+
+.book {
+  display: flex; align-items: center;
+  background: #ffffff; border-radius: 22rpx; padding: 22rpx 20rpx;
+  margin-bottom: 14rpx; box-shadow: 0 8rpx 24rpx rgba(31, 35, 41, 0.05);
+}
+.book-hover { background: #f5f8ff; }
+.star {
+  width: 60rpx; height: 60rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 38rpx; color: #d4d9e0; background: #f4f6fa; margin-right: 16rpx; flex-shrink: 0;
+}
+.star.on { color: #ffae2e; background: #fff5e0; }
+.book-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.book-name { font-size: 30rpx; font-weight: 700; color: #1f2329; }
+.book-meta { margin-top: 6rpx; font-size: 23rpx; color: #8a94a0; }
+.book-del {
+  width: 56rpx; height: 56rpx; border-radius: 14rpx; margin-left: 10rpx; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #fdecec; color: #e15c5c; font-size: 26rpx; font-weight: 700;
+}
+.del-hover { background: #f9d9d9; }
+.book-chev { margin-left: 8rpx; color: #c7cdd6; font-size: 36rpx; flex-shrink: 0; }
+
+.new-book {
+  margin-top: 8rpx; height: 92rpx; border-radius: 22rpx;
+  display: flex; align-items: center; justify-content: center;
+  background: #245bdb; color: #ffffff; font-size: 30rpx; font-weight: 700;
+}
+.new-hover { background: #1e4fc0; }
+.hint-line { margin: 24rpx 8rpx 0; font-size: 22rpx; color: #aab3bd; line-height: 1.6; }

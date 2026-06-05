@@ -1,0 +1,27 @@
+<view class="page">
+  <!-- 录入:中文 + 英文(可短语) -->
+  <view class="add-card">
+    <view class="add-row">
+      <input class="add-input cn" placeholder="中文(如:苹果)" maxlength="{{textMax}}" value="{{cnInput}}" bindinput="onCn" confirm-type="next" />
+      <input class="add-input en" placeholder="英文(可短语)" maxlength="{{textMax}}" value="{{enInput}}" bindinput="onEn" confirm-type="done" bindconfirm="addWord" />
+      <view class="add-btn" bindtap="addWord" hover-class="add-btn-hover">添加</view>
+    </view>
+  </view>
+
+  <view class="count-line">共 {{words.length}} 个</view>
+
+  <view wx:if="{{words.length === 0}}" class="empty">还没有单词,上面加一个吧~</view>
+
+  <view wx:for="{{words}}" wx:key="id" class="word">
+    <view class="word-main">
+      <text class="word-cn">{{item.cn}}</text>
+      <text class="word-en">{{item.en}}</text>
+    </view>
+    <view class="badge badge-{{item.state}}">
+      <text wx:if="{{item.state === 'mastered'}}">✓ 掌握</text>
+      <text wx:elif="{{item.state === 'learning'}}">{{item.everWrong ? '需加强' : '复习中'}}</text>
+      <text wx:else>未学</text>
+    </view>
+    <view class="word-del" catchtap="removeWord" data-id="{{item.id}}" hover-class="del-hover">删</view>
+  </view>
+</view>

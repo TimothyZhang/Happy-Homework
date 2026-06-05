@@ -378,6 +378,12 @@ Page({
     wx.navigateTo({ url: '/pkg-notebook/word-recite/index' })
   },
 
+  // 菜单·我的单词本:进单词库管理页(增减单词本/单词、设目标、设每次数量)。
+  menuWordBooks() {
+    this.setData({ showPetMenu: false })
+    wx.navigateTo({ url: '/pkg-notebook/word-books/index' })
+  },
+
   // 点空地板 → 宠物走过去(四方向)。点宠物本身走的是 catchtap=handleTapPet
   // (停止冒泡),不会落到这里。实时量一次 scene 矩形(避免页面滚动后坐标错位),
   // 用 viewport 坐标 changedTouches.client* 对齐 boundingClientRect。
