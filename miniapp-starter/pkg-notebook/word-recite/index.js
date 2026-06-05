@@ -33,11 +33,17 @@ const WORD_LIST = [
   { cn: '朋友', en: 'friend' },
   { cn: '快乐', en: 'happy' }
 ]
-// 自制键盘:QWERTY 三行字母 + 一行功能键。
-const KB_ROWS = [
+// 自制键盘:布局对齐 iPhone 默认英文键盘 —— 三行字母(第二行缩进,shift / delete
+// 在第三行两端),底排 123 / 空格 / 确定;123 切到数字符号页。
+const ROWS_ABC = [
   ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
   ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
   ['z', 'x', 'c', 'v', 'b', 'n', 'm']
+]
+const ROWS_NUM = [
+  ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+  ['-', '/', ':', ';', '(', ')', '$', '&', '@', '"'],
+  ['.', ',', '?', '!', "'"]
 ]
 const SESSION_N = 12   // 每组题量
 const INPUT_MAX = 18
@@ -55,7 +61,10 @@ Page({
   data: {
     species: 'cat',
     petName: '宝贝',
-    kbRows: KB_ROWS,
+    rowsAbc: ROWS_ABC,
+    rowsNum: ROWS_NUM,
+    kbMode: 'abc',         // 'abc' | 'num'
+    shiftActive: false,
     word: {},
     input: '',
     index: 0,
@@ -93,7 +102,19 @@ Page({
     if (this.data.feedback === 'right') return
     const k = e.currentTarget.dataset.k
     if (!k) return
-    this.setData({ input: (this.data.input + k).slice(0, INPUT_MAX), feedback: '' })
+    const ch = (this.data.kbMode === 'abc' && this.data.shiftActive) ? k.toUpperCase() : k
+    const patch = { input: (this.data.input + ch).slice(0, INPUT_MAX), feedback: '' }
+    if (this.data.shiftActive) patch.shiftActive = false   // 单击 shift 只大写一个字母(同 iPhone)
+    this.setData(patch)
+  },
+
+  kbShift() {
+    if (this.data.feedback === 'right') return
+    this.setData({ shiftActive: !this.data.shiftActive })
+  },
+
+  kbToggleMode() {
+    this.setData({ kbMode: this.data.kbMode === 'abc' ? 'num' : 'abc', shiftActive: false })
   },
 
   kbDelete() {

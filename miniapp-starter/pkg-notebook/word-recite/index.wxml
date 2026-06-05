@@ -22,16 +22,43 @@
       <view wx:if="{{feedback === 'right'}}" class="bravo">答对啦!🎉</view>
     </view>
 
-    <!-- 自制大键盘(不用系统输入法) -->
-    <view class="keyboard">
-      <view class="kb-row" wx:for="{{kbRows}}" wx:for-item="row" wx:for-index="ri" wx:key="ri">
-        <view class="kb-key" wx:for="{{row}}" wx:for-item="k" wx:key="*this"
-              data-k="{{k}}" bindtap="kbInput" hover-class="kb-key-hover" hover-stay-time="60">{{k}}</view>
-      </view>
-      <view class="kb-row kb-fn">
-        <view class="kb-key kb-del" bindtap="kbDelete" hover-class="kb-key-hover" hover-stay-time="60">⌫ 删除</view>
-        <view class="kb-key kb-space" bindtap="kbSpace" hover-class="kb-key-hover" hover-stay-time="60">空格</view>
-        <view class="kb-key kb-submit" bindtap="kbSubmit" hover-class="kb-submit-hover" hover-stay-time="60">确定</view>
+    <!-- 自制键盘(不用系统输入法),布局对齐 iPhone 默认英文键盘 -->
+    <view class="keyboard {{shiftActive ? 'caps' : ''}}">
+      <block wx:if="{{kbMode === 'abc'}}">
+        <view class="kb-row">
+          <view class="kb-key" wx:for="{{rowsAbc[0]}}" wx:for-item="k" wx:key="*this"
+                data-k="{{k}}" bindtap="kbInput" hover-class="kb-key-hover" hover-stay-time="40">{{k}}</view>
+        </view>
+        <view class="kb-row">
+          <view class="kb-key" wx:for="{{rowsAbc[1]}}" wx:for-item="k" wx:key="*this"
+                data-k="{{k}}" bindtap="kbInput" hover-class="kb-key-hover" hover-stay-time="40">{{k}}</view>
+        </view>
+        <view class="kb-row">
+          <view class="kb-key kb-fnk kb-shift {{shiftActive ? 'on' : ''}}" bindtap="kbShift" hover-class="kb-fnk-hover">⇧</view>
+          <view class="kb-key" wx:for="{{rowsAbc[2]}}" wx:for-item="k" wx:key="*this"
+                data-k="{{k}}" bindtap="kbInput" hover-class="kb-key-hover" hover-stay-time="40">{{k}}</view>
+          <view class="kb-key kb-fnk kb-del" bindtap="kbDelete" hover-class="kb-fnk-hover">⌫</view>
+        </view>
+      </block>
+      <block wx:else>
+        <view class="kb-row">
+          <view class="kb-key" wx:for="{{rowsNum[0]}}" wx:for-item="k" wx:key="*this"
+                data-k="{{k}}" bindtap="kbInput" hover-class="kb-key-hover" hover-stay-time="40">{{k}}</view>
+        </view>
+        <view class="kb-row">
+          <view class="kb-key" wx:for="{{rowsNum[1]}}" wx:for-item="k" wx:key="*this"
+                data-k="{{k}}" bindtap="kbInput" hover-class="kb-key-hover" hover-stay-time="40">{{k}}</view>
+        </view>
+        <view class="kb-row">
+          <view class="kb-key kb-sym" wx:for="{{rowsNum[2]}}" wx:for-item="k" wx:key="*this"
+                data-k="{{k}}" bindtap="kbInput" hover-class="kb-key-hover" hover-stay-time="40">{{k}}</view>
+          <view class="kb-key kb-fnk kb-del" bindtap="kbDelete" hover-class="kb-fnk-hover">⌫</view>
+        </view>
+      </block>
+      <view class="kb-row kb-row-bottom">
+        <view class="kb-key kb-fnk kb-mode" bindtap="kbToggleMode" hover-class="kb-fnk-hover">{{kbMode === 'abc' ? '123' : 'ABC'}}</view>
+        <view class="kb-key kb-space" bindtap="kbSpace" hover-class="kb-key-hover" hover-stay-time="40">空格</view>
+        <view class="kb-key kb-submit" bindtap="kbSubmit" hover-class="kb-submit-hover" hover-stay-time="40">确定</view>
       </view>
     </view>
   </block>
