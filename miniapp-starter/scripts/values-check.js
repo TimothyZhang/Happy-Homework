@@ -160,7 +160,13 @@ const after2of3 = store.getStateWithComputed()
 check('revert non-perfect-day task → coins = 10', after2of3.coins, 10)
 check('streakDays untouched', after2of3.streakDays, 0)
 
-// === Test 3f: clip-to-zero — refund larger than current balance ===
+// === Test 3f: over-clawback drives balance negative (debt), NOT clipped ===
+// By design (store.js applyCoinDelta「允许把余额拍负」, commit 1060289
+// 2026-05-17): reverting a task whose reward was already spent puts the user
+// in debt — a later task_reward pays the debt down before accumulating again.
+// So a refund larger than the current balance must go BELOW zero, not clip to
+// 0. Here finish pays +20 (10 task + 10 daily-perfect; 22:00 → no early-bird),
+// balance is forced to 3, then revert claws back the full 20 → 3 − 20 = −17.
 seedNTasksToday(1)
 store = freshStore()
 store.finishTask('t1', today)
@@ -169,7 +175,7 @@ fix.coins = 3  // user spent most of it; only 3 left
 storage['homework-pet-v1'] = JSON.stringify(fix)
 store = freshStore()
 store.revertTask('t1', today)
-check('refund > balance → coins clipped to 0', store.getStateWithComputed().coins, 0)
+check('refund > balance → coins go negative (debt, not clipped)', store.getStateWithComputed().coins, -17)
 
 // === Test 4: 12-task day matches design's 12 × 20 = 240 ===
 console.log('\n[reward] 12-task perfect day = 240:')
@@ -558,15 +564,17 @@ s = store.getStateWithComputed()
 check('2 future all-done → coins = 60 (30 + 30)', s.coins, 60)
 check('  → lastReward.dailyBonus = 30',  s.lastReward.dailyBonus, 30)
 
-// Overdue perfect-day: 2 yesterday tasks finished today.
-// Per-task: 2×5=10. Daily-perfect base = 10. Total = 20.
+// Overdue all-done: 2 yesterday tasks finished today. Per-task: 2×5=10.
+// 补做(overdue)不补发归属日的 perfect-day 奖(store.js commit b26a735
+// 2026-05-26,反拖延:1 号的题拖到 2 号才做,不该事后补 1 号的全完成奖)。
+// 所以没有 daily-perfect bonus —— 只有 2×5 单题奖,dailyBonus = 0,总额 = 10。
 seedTasksOnDate(2, yesterday)
 store = freshStore()
 store.finishTask('t1', yesterday)
 store.finishTask('t2', yesterday)
 s = store.getStateWithComputed()
-check('2 overdue all-done → coins = 20 (10 + 10)', s.coins, 20)
-check('  → lastReward.dailyBonus = 10',  s.lastReward.dailyBonus, 10)
+check('2 overdue all-done → coins = 10 (5 + 5, overdue 不补 perfect)', s.coins, 10)
+check('  → lastReward.dailyBonus = 0 (overdue 不补发 perfect 奖)',  s.lastReward.dailyBonus, 0)
 
 // 25-task cap recap: same coin total (400) as before but verified the path
 // goes through sum(rewardPaid) instead of min(N,20)×10 — confirmed by the
