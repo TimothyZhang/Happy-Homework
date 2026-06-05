@@ -38,31 +38,20 @@
         </view>
       </view>
 
-      <view class="pet-stage" bindtap="handleTapPet">
-        <view class="pet-shadow"></view>
-        <!-- Parrot uses a layered SVG rig so each part can animate independently.
-             Other species keep the single-image render below. -->
-        <view wx:if="{{pet.species === 'parrot'}}"
-              class="pet-figure parrot-figure parrot-anim-{{currentAnim}}">
-          <view class="parrot-stage">
-            <!-- Front rig: idle / sleeping / celebrating -->
-            <image class="part rig-front part-body"       src="/assets/pets/parrot-body.svg"       mode="aspectFit" />
-            <image class="part rig-front part-wing-left"  src="/assets/pets/parrot-wing-left.svg"  mode="aspectFit" />
-            <image class="part rig-front part-wing-right" src="/assets/pets/parrot-wing-right.svg" mode="aspectFit" />
-            <image class="part rig-front part-head"       src="/assets/pets/parrot-head.svg"       mode="aspectFit" />
-            <image class="part rig-front part-eyes"       src="/assets/pets/parrot-eyes.svg"       mode="aspectFit" />
-            <!-- Side rig: walking / flying / eating. side-flip wraps so the
-                 walking direction can mirror via scaleX without fighting the
-                 per-part transforms. -->
-            <view class="rig-side">
-              <view class="side-flip">
-                <image class="part part-side-leg-back"  src="/assets/pets/parrot-side-leg-back.svg"  mode="aspectFit" />
-                <image class="part part-side-body"      src="/assets/pets/parrot-side-body.svg"      mode="aspectFit" />
-                <image class="part part-side-wing"      src="/assets/pets/parrot-side-wing.svg"      mode="aspectFit" />
-                <image class="part part-side-leg-front" src="/assets/pets/parrot-side-leg-front.svg" mode="aspectFit" />
-                <image class="part part-side-head"      src="/assets/pets/parrot-side-head.svg"      mode="aspectFit" />
-                <image class="part part-side-eye"       src="/assets/pets/parrot-side-eye.svg"       mode="aspectFit" />
-              </view>
+      <!-- 2.5D 房间:天空/背墙 + 透视地板。点空地板宠物走过去,点宠物本身互动。 -->
+      <view class="pet-scene" bindtap="handleSceneTap">
+        <view class="scene-sky"></view>
+        <view class="scene-floor"></view>
+        <view class="scene-grid"></view>
+
+        <view wx:if="{{pet.species}}"
+              class="pet-actor face-{{actorDir}} {{actorMoving ? 'moving' : (spriteAnim ? '' : 'still')}} anim-{{animState}} {{spriteAnim ? 'do-' + spriteAnim : ''}}"
+              style="left: {{actorX}}%; top: {{actorY}}%; transform: translate(-50%, -100%) scale({{actorScale}}); z-index: {{actorZ}}; transition-duration: {{moveDurMs}}ms"
+              catchtap="handleTapPet">
+          <view class="actor-shadow"></view>
+          <view class="actor-facing">
+            <view class="actor-sprite">
+              <image class="pet-art" src="/assets/pets/{{pet.species}}.svg" mode="aspectFit" />
             </view>
           </view>
           <text wx:if="{{animState === 'hungry'}}"  class="state-icon hungry-icon">🍖</text>
@@ -71,15 +60,7 @@
           <text wx:if="{{animState === 'sad'}}"     class="state-icon sad-icon">💧</text>
           <text wx:if="{{animState === 'happy'}}"   class="state-icon happy-icon">💖</text>
         </view>
-        <view wx:elif="{{pet.species}}"
-              class="pet-figure species-{{pet.species}} pet-anim-{{currentAnim}} anim-{{animState}}">
-          <image class="pet-art" src="/assets/pets/{{pet.species}}.svg" mode="aspectFit" />
-          <text wx:if="{{animState === 'hungry'}}"  class="state-icon hungry-icon">🍖</text>
-          <text wx:if="{{animState === 'dirty'}}"   class="state-icon dirty-icon">💨</text>
-          <text wx:if="{{animState === 'sick'}}"    class="state-icon sick-icon">🤒</text>
-          <text wx:if="{{animState === 'sad'}}"     class="state-icon sad-icon">💧</text>
-          <text wx:if="{{animState === 'happy'}}"   class="state-icon happy-icon">💖</text>
-        </view>
+
         <view wx:if="{{showBubble}}" class="speech-bubble">{{bubbleText}}</view>
       </view>
 

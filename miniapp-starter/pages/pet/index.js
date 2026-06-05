@@ -27,66 +27,39 @@ function levelBadge(level) {
   return '👑'
 }
 
-// === Pet animation state machine (V1-PET-ANIMATION-SPEC §1.5 + §3) ===
-// Per-state durations (ms). Match the WXSS keyframes — happy/eating/
-// celebrating/flying are "one-shot" recipes that play once and return to
-// idle; idle/walking/sleeping are loopable recipes the auto-cycler picks
-// between. Standard-tier species reuse the same names; species-specific
-// keyframes are CSS overrides keyed on .species-<id>.
-const ANIM_RECIPES = {
-  idle:        { duration: 2800, oneShot: false },
-  walking:     { duration: 9000, oneShot: false },
-  sleeping:    { duration: 5000, oneShot: false },
-  flying:      { duration: 3500, oneShot: true  },
-  eating:      { duration: 1800, oneShot: true  },
-  celebrating: { duration: 2000, oneShot: true  },
-  happy:       { duration: 1200, oneShot: true  }
-}
-const FLY_MIN_GAP_MS = 25000
-const FLY_MAX_GAP_MS = 40000
+// === 2.5D 场景宠物引擎 ===
+// 宠物在一个伪 3D 房间(scene)里自动漫游 + 可点地板走到指定点。坐标用 scene
+// 百分比,脚底为锚点(actorX/actorY);深度(actorY 越大越近)推出身体缩放
+// (actorScale)和前后遮挡(actorZ)。行走方向取位移主轴 → 上/下/左/右四向,
+// 左右用镜像翻转,上/下沿用正面图(朝镜头)。eating/celebrating/happy 是原地
+// 一次性动作,会暂停漫游、播完恢复。
+const ONESHOT_MS = { eating: 1800, celebrating: 2000, happy: 1200 }
 
-// Per-species action sequence — the full list each species supports
-// (V1-PET-ANIMATION-SPEC §1.5 / §10). Used both as the source of truth for
-// "can this species fly?" auto-scheduling AND as the dev tap-to-cycle order.
-// Species-specific feel comes from CSS overrides on the canonical state name
-// (rabbit walking renders as hop, cow eating as chew, etc.) — JS stays neutral.
-const PET_ANIM_SEQUENCES = {
-  parrot:  ['idle', 'walking', 'flying', 'eating', 'celebrating', 'sleeping', 'happy'],
-  cat:     ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
-  dog:     ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
-  chicken: ['idle', 'walking', 'flying', 'eating', 'celebrating', 'sleeping', 'happy'],
-  rabbit:  ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
-  cow:     ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
-  pig:     ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
-  sheep:   ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy'],
-  alpaca:  ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy']
-}
-const DEFAULT_ANIM_SEQUENCE = ['idle', 'walking', 'eating', 'celebrating', 'sleeping', 'happy']
+// 地板可行走带(scene 百分比)。上沿(yMin)= 远处,下沿(yMax)= 近处。
+const FLOOR = { xMin: 12, xMax: 88, yMin: 52, yMax: 92 }
+const DEPTH_FAR = 0.66      // 脚底在 yMin(最远)时的身体缩放
+const DEPTH_NEAR = 1.06     // 脚底在 yMax(最近)时的身体缩放
+const WALK_SPEED_PCT_PER_S = 26   // 行走速度(scene% / 秒)→ 每段 transition 时长
+const WALK_MIN_MS = 600, WALK_MAX_MS = 2600
+const IDLE_MIN_MS = 700, IDLE_MAX_MS = 2400
 
-function petSequence(pet) {
-  if (!pet || !pet.species) return DEFAULT_ANIM_SEQUENCE
-  return PET_ANIM_SEQUENCES[pet.species] || DEFAULT_ANIM_SEQUENCE
-}
+function clampNum(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
 
-function speciesCanFly(pet) {
-  return petSequence(pet).indexOf('flying') !== -1
+// 深度缩放:actorY 在 [yMin,yMax] 线性映射到 [DEPTH_FAR,DEPTH_NEAR]。
+function depthForY(y) {
+  const t = clampNum((y - FLOOR.yMin) / (FLOOR.yMax - FLOOR.yMin), 0, 1)
+  return Math.round((DEPTH_FAR + (DEPTH_NEAR - DEPTH_FAR) * t) * 1000) / 1000
+}
+// 近的盖远的:y 越大 z 越高。
+function zForY(y) { return 10 + Math.round(y) }
+
+// 位移主轴 → 四方向之一(上/下/左/右)。
+function dirFromDelta(dx, dy) {
+  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? 'right' : 'left'
+  return dy >= 0 ? 'down' : 'up'
 }
 
 function hasAnimRig(pet) { return !!(pet && pet.species) }
-
-// What auto-cycle states are available given current pet vitals.
-// Per spec §3: when health/cleanliness are low, calm states only.
-function pickAutoState(pet) {
-  if (!pet) return 'idle'
-  const unwell = (pet.health || 0) < 30 || (pet.cleanliness || 0) < 30
-  if (unwell) {
-    return Math.random() < 0.65 ? 'idle' : 'sleeping'
-  }
-  const r = Math.random()
-  if (r < 0.55) return 'idle'
-  if (r < 0.90) return 'walking'
-  return 'sleeping'
-}
 
 Page({
   data: {
@@ -104,13 +77,20 @@ Page({
     setupName: '',
     // Vital "mood" state — drives the .anim-{state} class for filter overlays
     // (grayscale on sad, hue-rotate on sick, brightness drop on dirty) and the
-    // small state-icon emojis (🍖 / 💨 / 🤒 / 💧 / 💖). Body animations are no
-    // longer driven from this — they all live on `currentAnim` now.
+    // small state-icon emojis (🍖 / 💨 / 🤒 / 💧 / 💖).
     animState: 'idle',
-    // Canonical animation channel — every species' .pet-anim-{currentAnim}
-    // (Standard) or .parrot-anim-{currentAnim} (Premium) class binds here.
-    // See V1-PET-ANIMATION-SPEC §1.5 for the canonical action set.
-    currentAnim: 'idle',
+    // 2.5D 场景 actor:脚底锚点 (actorX,actorY) 为 scene 百分比;actorScale 由
+    // 深度推出;actorZ 控前后遮挡;actorDir 决定朝向(left 翻转);actorMoving
+    // 决定走/站姿;moveDurMs 是这一段位移的 transition 时长;spriteAnim 是原地
+    // 一次性动作名(eating/celebrating/happy)。
+    actorX: 50,
+    actorY: 80,
+    actorScale: 1,
+    actorZ: 90,
+    actorDir: 'down',
+    actorMoving: false,
+    moveDurMs: 0,
+    spriteAnim: '',
     showBubble: false,
     bubbleText: '',
     ageDays: 0,
@@ -160,7 +140,7 @@ Page({
       this._levelAnimTimer = null
       this.setData({ showLevelUpAnim: false })
     }
-    this._stopAnimEngine()
+    this._stopSceneEngine()
   },
 
   onUnload() {
@@ -168,7 +148,7 @@ Page({
       clearTimeout(this._levelAnimTimer)
       this._levelAnimTimer = null
     }
-    this._stopAnimEngine()
+    this._stopSceneEngine()
   },
 
   refreshState(perfStamp) {
@@ -208,113 +188,111 @@ Page({
       showBubble: false,
       bubbleText: ''
     }, perfStamp ? () => perf.markPaint(perfStamp) : undefined)
-    // Start/stop the pet animation engine alongside refreshState. Idempotent:
-    // _startAnimEngine is a no-op if timers are already armed. Runs for every
-    // species — Premium (parrot) uses .parrot-anim-* CSS, Standard species
-    // share .pet-anim-* (V1-PET-ANIMATION-SPEC §1.6).
+    // Start/stop the 2.5D scene engine alongside refreshState. Idempotent —
+    // _startSceneEngine is a no-op if already running. First setup drops the
+    // pet at a sensible spot and measures the scene rect (for tap-to-walk).
     if (isSetup && hasAnimRig(pet)) {
-      this._startAnimEngine()
+      if (!this._actorReady) { this._initActor(); this._actorReady = true }
+      this._startSceneEngine()
     } else {
-      this._stopAnimEngine()
+      this._stopSceneEngine()
     }
   },
 
-  // === Pet animation engine === //
-  // The engine runs two independent timers:
-  //   _cycleTimer — picks the next loopable state (idle/walking/sleeping)
-  //                 from pickAutoState() each tick. Driven by the previous
-  //                 state's duration so transitions feel paced, not random.
-  //   _flyTimer   — separate cadence for the rare "short flight" event.
-  //                 Only armed for species whose sequence includes 'flying'
-  //                 (parrot + chicken). Skipped silently while the pet is
-  //                 unwell or while a one-shot is playing.
-  // queueAnim() (eating / celebrating / happy) is the highest-priority lane:
-  // it interrupts the auto cycle, plays once, and resumes idle.
-  _startAnimEngine() {
-    if (this._cycleTimer || this._flyTimer || this._oneShotTimer) return
-    if (!this.data.currentAnim) this.setData({ currentAnim: 'idle' })
-    this._scheduleNextAuto(ANIM_RECIPES.idle.duration)
-    if (speciesCanFly(this.data.pet)) this._scheduleFlying()
+  // === 2.5D scene engine === //
+  // 自动漫游:挑一个地板上的随机目标点 → 走过去(setData 目标 + transition 时长,
+  // CSS 负责平滑滑行)→ 到点歇一下 → 再挑下一个。生病/脏时多半原地歇着。
+  // queueAnim(eating/celebrating/happy)是最高优先级的原地动作,暂停漫游。
+  _initActor() {
+    const y = (FLOOR.yMin + FLOOR.yMax) / 2
+    this.setData({
+      actorX: 50, actorY: y,
+      actorScale: depthForY(y), actorZ: zForY(y),
+      actorDir: 'down', actorMoving: false, moveDurMs: 0
+    })
   },
 
-  _stopAnimEngine() {
-    if (this._cycleTimer)     { clearTimeout(this._cycleTimer);     this._cycleTimer = null }
-    if (this._flyTimer)       { clearTimeout(this._flyTimer);       this._flyTimer = null }
-    if (this._oneShotTimer)   { clearTimeout(this._oneShotTimer);   this._oneShotTimer = null }
+  _startSceneEngine() {
+    if (this._engineOn) return
+    this._engineOn = true
+    this._scheduleWander(500 + Math.random() * 700)
+  },
+
+  _stopSceneEngine() {
+    this._engineOn = false
+    if (this._wanderTimer)  { clearTimeout(this._wanderTimer);  this._wanderTimer = null }
+    if (this._arriveTimer)  { clearTimeout(this._arriveTimer);  this._arriveTimer = null }
+    if (this._oneShotTimer) { clearTimeout(this._oneShotTimer); this._oneShotTimer = null }
     this._oneShotActive = false
-    this._queuedOneShot = null
   },
 
-  _scheduleNextAuto(delay) {
-    if (this._cycleTimer) clearTimeout(this._cycleTimer)
-    this._cycleTimer = setTimeout(() => {
-      this._cycleTimer = null
-      if (!hasAnimRig(this.data.pet)) return
-      // Defer if a one-shot owns the stage — re-check shortly.
-      if (this._oneShotActive) {
-        this._scheduleNextAuto(500)
+  _scheduleWander(delay) {
+    if (this._wanderTimer) clearTimeout(this._wanderTimer)
+    this._wanderTimer = setTimeout(() => {
+      this._wanderTimer = null
+      if (!this._engineOn || !hasAnimRig(this.data.pet)) return
+      if (this._oneShotActive) { this._scheduleWander(500); return }
+      const pet = this.data.pet
+      const unwell = (pet.health || 0) < 30 || (pet.cleanliness || 0) < 30
+      // 不舒服 → 多半原地歇着,偶尔挪一小步。
+      if (unwell && Math.random() < 0.7) {
+        this._scheduleWander(IDLE_MIN_MS + Math.random() * (IDLE_MAX_MS - IDLE_MIN_MS))
         return
       }
-      const next = pickAutoState(this.data.pet)
-      this.setData({ currentAnim: next })
-      this._scheduleNextAuto(ANIM_RECIPES[next].duration)
+      const tx = FLOOR.xMin + Math.random() * (FLOOR.xMax - FLOOR.xMin)
+      const ty = FLOOR.yMin + Math.random() * (FLOOR.yMax - FLOOR.yMin)
+      this._moveActorTo(tx, ty, () => {
+        this._scheduleWander(IDLE_MIN_MS + Math.random() * (IDLE_MAX_MS - IDLE_MIN_MS))
+      })
     }, Math.max(0, delay))
   },
 
-  _scheduleFlying() {
-    if (this._flyTimer) clearTimeout(this._flyTimer)
-    const wait = FLY_MIN_GAP_MS + Math.floor(Math.random() * (FLY_MAX_GAP_MS - FLY_MIN_GAP_MS))
-    this._flyTimer = setTimeout(() => {
-      this._flyTimer = null
-      if (!speciesCanFly(this.data.pet)) return
-      const pet = this.data.pet
-      const unwell = (pet.health || 0) < 30 || (pet.cleanliness || 0) < 30
-      // Don't fly while sick/dirty (per spec §3) or during a user-triggered
-      // one-shot.
-      if (unwell || this._oneShotActive) {
-        this._scheduleFlying()
-        return
-      }
-      this._playOneShot('flying', () => this._scheduleFlying())
-    }, wait)
+  // 走到 (tx,ty)(scene %)。算方向 + 距离 → transition 时长,到点回调。
+  _moveActorTo(tx, ty, after) {
+    tx = clampNum(tx, FLOOR.xMin, FLOOR.xMax)
+    ty = clampNum(ty, FLOOR.yMin, FLOOR.yMax)
+    const dx = tx - this.data.actorX
+    const dy = ty - this.data.actorY
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    if (dist < 1.5) { if (typeof after === 'function') after(); return }
+    const dur = Math.round(clampNum(dist / WALK_SPEED_PCT_PER_S * 1000, WALK_MIN_MS, WALK_MAX_MS))
+    this.setData({
+      actorX: Math.round(tx * 10) / 10,
+      actorY: Math.round(ty * 10) / 10,
+      actorScale: depthForY(ty),
+      actorZ: zForY(ty),
+      actorDir: dirFromDelta(dx, dy),
+      actorMoving: true,
+      moveDurMs: dur
+    })
+    if (this._arriveTimer) clearTimeout(this._arriveTimer)
+    this._arriveTimer = setTimeout(() => {
+      this._arriveTimer = null
+      this.setData({ actorMoving: false, moveDurMs: 0 })
+      if (typeof after === 'function') after()
+    }, dur)
   },
 
-  // Public: external triggers (eating from shop, celebrating from home,
-  // happy from tap). Highest priority — interrupts the auto cycle. Multiple
-  // back-to-back calls queue (one slot — only the latest is kept).
+  // Public: 原地一次性动作(eating from shop / celebrating from home+升级 /
+  // happy from tap)。暂停漫游,停下脚步,播完恢复。
   queueAnim(name) {
     if (!hasAnimRig(this.data.pet)) return
-    const recipe = ANIM_RECIPES[name]
-    if (!recipe || !recipe.oneShot) return
-    // Skip species-restricted oneShots (e.g. flying for non-flyers).
-    if (name === 'flying' && !speciesCanFly(this.data.pet)) return
-    if (this._oneShotActive) {
-      this._queuedOneShot = name
-      return
-    }
+    if (!ONESHOT_MS[name]) return
     this._playOneShot(name)
   },
 
-  _playOneShot(name, after) {
-    const recipe = ANIM_RECIPES[name]
-    if (!recipe) return
+  _playOneShot(name) {
     this._oneShotActive = true
-    if (this._cycleTimer) { clearTimeout(this._cycleTimer); this._cycleTimer = null }
-    this.setData({ currentAnim: name })
+    if (this._wanderTimer) { clearTimeout(this._wanderTimer); this._wanderTimer = null }
+    if (this._arriveTimer) { clearTimeout(this._arriveTimer); this._arriveTimer = null }
+    this.setData({ actorMoving: false, moveDurMs: 0, spriteAnim: name })
     if (this._oneShotTimer) clearTimeout(this._oneShotTimer)
     this._oneShotTimer = setTimeout(() => {
       this._oneShotTimer = null
       this._oneShotActive = false
-      if (typeof after === 'function') after()
-      if (this._queuedOneShot) {
-        const next = this._queuedOneShot
-        this._queuedOneShot = null
-        this._playOneShot(next)
-      } else {
-        this.setData({ currentAnim: 'idle' })
-        this._scheduleNextAuto(ANIM_RECIPES.idle.duration)
-      }
-    }, recipe.duration)
+      this.setData({ spriteAnim: '' })
+      if (this._engineOn) this._scheduleWander(400 + Math.random() * 600)
+    }, ONESHOT_MS[name])
   },
 
   // === Setup flow === //
@@ -365,6 +343,27 @@ Page({
       this.setData({ showBubble: false })
       this._bubbleTimer = null
     }, 2200)
+  },
+
+  // 点空地板 → 宠物走过去(四方向)。点宠物本身走的是 catchtap=handleTapPet
+  // (停止冒泡),不会落到这里。实时量一次 scene 矩形(避免页面滚动后坐标错位),
+  // 用 viewport 坐标 changedTouches.client* 对齐 boundingClientRect。
+  handleSceneTap(e) {
+    if (this.data.mode !== 'view' || !hasAnimRig(this.data.pet)) return
+    if (this._oneShotActive) return
+    const t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0])
+    const cx = t && t.clientX != null ? t.clientX : (e.detail && e.detail.x)
+    const cy = t && t.clientY != null ? t.clientY : (e.detail && e.detail.y)
+    if (cx == null) return
+    wx.createSelectorQuery().select('.pet-scene').boundingClientRect((rect) => {
+      if (!rect || !rect.width) return
+      const xPct = (cx - rect.left) / rect.width * 100
+      const yPct = (cy - rect.top) / rect.height * 100
+      if (this._wanderTimer) { clearTimeout(this._wanderTimer); this._wanderTimer = null }
+      this._moveActorTo(xPct, yPct, () => {
+        if (this._engineOn) this._scheduleWander(IDLE_MIN_MS + Math.random() * (IDLE_MAX_MS - IDLE_MIN_MS))
+      })
+    }).exec()
   },
 
   handleBuyItem(event) {

@@ -83,73 +83,145 @@
   box-sizing: border-box;
 }
 
-/* === pet stage === */
-.pet-stage {
+/* === 2.5D pet scene ===
+   一个伪 3D 房间:上半截天空/背墙,下半截透视地板。宠物(.pet-actor)以脚底
+   为锚点用 scene 百分比定位(left/top 由 JS 设),深度缩放 + transition 时长
+   也走内联 style;CSS 只管房间外观、朝向翻转、走/站/动作的姿态动画。 */
+.pet-scene {
   position: relative;
   margin-top: 22rpx;
-  height: 340rpx;
+  height: 480rpx;
   border-radius: 24rpx;
-  background: linear-gradient(180deg, #fff7e0 0%, #ffe1a8 60%, #ffce85 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
+  background: #e9f7ef;
 }
-.pet-shadow {
+.scene-sky {
   position: absolute;
-  bottom: 36rpx;
+  left: 0; right: 0; top: 0;
+  height: 44%;
+  background: linear-gradient(180deg, #cdeafe 0%, #e6f4ff 70%, #eef9f1 100%);
+}
+.scene-floor {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 56%;
+  background: linear-gradient(180deg, #d4efdc 0%, #bfe7cb 45%, #a6dcb6 100%);
+  box-shadow: inset 0 8rpx 16rpx rgba(76, 130, 95, 0.18);
+}
+/* 受远向近渐密的地板格,纯 CSS 渐变伪造纵深;上沿用 mask 淡出接到地平线。 */
+.scene-grid {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 56%;
+  background-image:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.34) 0, rgba(255, 255, 255, 0.34) 2rpx, transparent 2rpx, transparent 52rpx),
+    repeating-linear-gradient(90deg,  rgba(255, 255, 255, 0.20) 0, rgba(255, 255, 255, 0.20) 2rpx, transparent 2rpx, transparent 84rpx);
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 34%, #000 100%);
+          mask-image: linear-gradient(180deg, transparent 0, #000 34%, #000 100%);
+  opacity: 0.7;
+}
+
+/* the walking pet — feet anchored at (left,top); JS sets translate+scale(depth)
+   and the per-move transition-duration inline so it glides between points. */
+.pet-actor {
+  position: absolute;
+  width: 230rpx;
+  height: 230rpx;
+  transform-origin: 50% 100%;
+  transition-property: left, top, transform;
+  transition-timing-function: linear;
+  transition-duration: 0ms;
+  will-change: left, top, transform;
+}
+.actor-shadow {
+  position: absolute;
   left: 50%;
-  width: 220rpx;
-  height: 22rpx;
-  margin-left: -110rpx;
+  bottom: 2rpx;
+  width: 150rpx;
+  height: 26rpx;
+  margin-left: -75rpx;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.18);
+  background: rgba(40, 70, 50, 0.22);
   filter: blur(4rpx);
-  animation: shadow-pulse 2.4s ease-in-out infinite;
 }
-.pet-figure {
-  position: relative;
-  z-index: 1;
-}
+/* facing: left mirrors the sprite; right/up/down keep it facing camera. The
+   flip lives on its own wrapper so it never fights the posture animation. */
+.actor-facing { transform: scaleX(1); }
+.pet-actor.face-left .actor-facing { transform: scaleX(-1); }
+.actor-sprite { display: block; }
 .pet-art {
-  width: 280rpx;
-  height: 280rpx;
+  width: 230rpx;
+  height: 230rpx;
   display: block;
-  transform-origin: center bottom;
+  transform-origin: 50% 90%;
 }
+
+/* posture — kept off the actor's translate so locomotion never fights it. */
+.pet-actor.still .pet-art       { animation: actor-breath 2.8s ease-in-out infinite; }
+.pet-actor.moving .pet-art      { animation: actor-step 0.46s ease-in-out infinite; }
+.pet-actor.do-eating .pet-art      { animation: actor-eat 0.42s ease-in-out 4; }
+.pet-actor.do-happy .pet-art       { animation: actor-pop 1.2s ease-out 1; }
+.pet-actor.do-celebrating .pet-art { animation: actor-spin 1s ease-in-out 2; }
+
+/* mood tint overlays (unwell) */
+.pet-actor.anim-sad .pet-art   { filter: grayscale(0.3); }
+.pet-actor.anim-dirty .pet-art { filter: brightness(0.9); }
+.pet-actor.anim-sick .pet-art  { filter: hue-rotate(-30deg) brightness(0.92); }
+
+@keyframes actor-breath {
+  0%, 100% { transform: scale(1)    translateY(0); }
+  50%      { transform: scale(1.03) translateY(-5rpx); }
+}
+@keyframes actor-step {
+  0%, 100% { transform: translateY(0)     rotate(0deg); }
+  25%      { transform: translateY(-9rpx) rotate(-3deg); }
+  75%      { transform: translateY(-9rpx) rotate(3deg); }
+}
+@keyframes actor-eat {
+  0%, 100% { transform: rotate(0deg)   translateY(0); }
+  50%      { transform: rotate(-10deg) translateY(7rpx); }
+}
+@keyframes actor-pop {
+  0%   { transform: scale(1)    translateY(0); }
+  25%  { transform: scale(1.12) translateY(-26rpx); }
+  50%  { transform: scale(0.96) translateY(0); }
+  70%  { transform: scale(1.05) translateY(-10rpx); }
+  100% { transform: scale(1)    translateY(0); }
+}
+@keyframes actor-spin {
+  0%   { transform: perspective(600px) rotateY(0deg); }
+  100% { transform: perspective(600px) rotateY(360deg); }
+}
+
+/* mood-emoji floating above the actor */
 .state-icon {
   position: absolute;
-  font-size: 56rpx;
+  font-size: 46rpx;
   line-height: 1;
+  z-index: 2;
 }
-.hungry-icon { top: -16rpx; right: -64rpx; animation: float-up 1.6s ease-in-out infinite; }
-.dirty-icon  { top: -10rpx; right: -56rpx; animation: drift 2s ease-in-out infinite; }
-.sick-icon   { top: -10rpx; right: -56rpx; animation: tremble 0.5s ease-in-out infinite; }
-.sad-icon    {  top: 24rpx; right: -42rpx; animation: drip 2.2s ease-in infinite; }
-.happy-icon  { top: -16rpx; right: -56rpx; animation: pop-heart 1.2s ease-out infinite; }
+.hungry-icon { top: -6rpx;  right: -24rpx; animation: float-up 1.6s ease-in-out infinite; }
+.dirty-icon  { top: -2rpx;  right: -20rpx; animation: drift 2s ease-in-out infinite; }
+.sick-icon   { top: -2rpx;  right: -20rpx; animation: tremble 0.5s ease-in-out infinite; }
+.sad-icon    { top: 28rpx;  right: -14rpx; animation: drip 2.2s ease-in infinite; }
+.happy-icon  { top: -6rpx;  right: -20rpx; animation: pop-heart 1.2s ease-out infinite; }
 
 .speech-bubble {
   position: absolute;
-  top: 18rpx;
-  right: 24rpx;
-  max-width: 360rpx;
-  background: #ffffff;
+  top: 16rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 400rpx;
+  background: rgba(255, 255, 255, 0.96);
   color: #1f2329;
   font-size: 26rpx;
   line-height: 1.4;
-  padding: 14rpx 22rpx;
-  border-radius: 22rpx 22rpx 6rpx 22rpx;
+  padding: 12rpx 24rpx;
+  border-radius: 22rpx 22rpx 22rpx 6rpx;
   box-shadow: 0 6rpx 18rpx rgba(0, 0, 0, 0.12);
+  z-index: 3;
   animation: bubble-pop 0.25s ease-out;
 }
-
-/* === vital-state filters ===
-   Body animations now live in pet-anim.wxss (Standard) / parrot-anim-* (Premium);
-   these `.anim-*` rules only carry the color/filter "mood" tint that overlays
-   the canonical action set. See V1-PET-ANIMATION-SPEC §5.5. */
-.anim-sad   .pet-art { filter: grayscale(0.3); }
-.anim-dirty .pet-art { filter: brightness(0.9); }
-.anim-sick  .pet-art { filter: hue-rotate(-30deg) brightness(0.92); }
 @keyframes shadow-pulse {
   0%, 100% { transform: scaleX(1);    opacity: 0.18; }
   50%      { transform: scaleX(0.85); opacity: 0.12; }
