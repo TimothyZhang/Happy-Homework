@@ -517,6 +517,8 @@ function applyReciteSession(results) {
     })
     if (state.pet && state.pet.species) {
       state.pet.knowledge = (state.pet.knowledge || 0) + knowledgeGained
+      // 每答对一个单词,除了 +1 知识,也给宠物 +1 经验(喂等级)。
+      state.pet.xp = (state.pet.xp || 0) + knowledgeGained
     }
     const today = todayStr()
     if (!state.reciteByDay || typeof state.reciteByDay !== 'object') state.reciteByDay = {}

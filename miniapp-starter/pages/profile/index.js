@@ -96,6 +96,10 @@ Page({
 
   // === Avatar === //
 
+  goWordBooks() {
+    wx.navigateTo({ url: '/pkg-notebook/word-books/index' })
+  },
+
   handleEditAvatar() {
     if (this.data.uploadingAvatar) return
     wx.showActionSheet({

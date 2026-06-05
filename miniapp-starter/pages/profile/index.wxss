@@ -337,3 +337,12 @@
   color: #b4bdc9;
   font-size: 20rpx;
 }
+
+/* 我的单词本入口卡片 */
+.wb-entry-card { display: flex; align-items: center; }
+.wb-entry-hover { background: #f5f8ff; }
+.wb-entry-emoji { font-size: 48rpx; margin-right: 18rpx; }
+.wb-entry-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.wb-entry-title { font-size: 30rpx; font-weight: 700; color: #1f2329; }
+.wb-entry-sub { margin-top: 6rpx; font-size: 22rpx; color: #8a94a0; }
+.wb-entry-chev { color: #c7cdd6; font-size: 36rpx; flex-shrink: 0; }
