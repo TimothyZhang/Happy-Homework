@@ -216,19 +216,18 @@
     </view>
   </view>
 
-  <!-- 点宠物弹出的菜单 -->
-  <view wx:if="{{showPetMenu}}" class="pet-menu-mask" bindtap="closePetMenu" catchtouchmove="noop">
-    <view class="pet-menu" catchtap="" catchtouchmove="noop">
-      <view class="pet-menu-title">和 {{pet.name}} 一起玩</view>
-      <view class="pet-menu-item" bindtap="menuStartRecite" hover-class="pet-menu-item-hover">
+  <!-- 点宠物弹出的气泡菜单(非模态):透明层只接收外部点击关闭,气泡浮在宠物头顶 -->
+  <view wx:if="{{showPetMenu}}" class="popover-catch" bindtap="closePetMenu" catchtouchmove="noop">
+    <view class="pet-popover" style="left: {{actorX}}%; top: {{actorY}}%" catchtap="" catchtouchmove="noop">
+      <view class="pet-popover-item" bindtap="menuStartRecite" hover-class="pet-popover-item-hover">
         <text class="pmi-emoji">📖</text>
         <text>一起来背单词吧</text>
       </view>
-      <view class="pet-menu-item" bindtap="menuTouchPet" hover-class="pet-menu-item-hover">
+      <view class="pet-popover-divider"></view>
+      <view class="pet-popover-item" bindtap="menuTouchPet" hover-class="pet-popover-item-hover">
         <text class="pmi-emoji">🐾</text>
         <text>摸摸它</text>
       </view>
-      <view class="pet-menu-cancel" bindtap="closePetMenu" hover-class="pet-menu-item-hover">取消</view>
     </view>
   </view>
 </view>

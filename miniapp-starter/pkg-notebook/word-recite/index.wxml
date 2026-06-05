@@ -2,7 +2,8 @@
   <view class="topbar">
     <view class="exit-btn" bindtap="exit" hover-class="exit-hover">‹ 返回</view>
     <text wx:if="{{!done}}" class="progress">{{index + 1}} / {{total}}</text>
-    <view class="topbar-spacer"></view>
+    <view wx:if="{{!done}}" class="skip-btn" bindtap="skip" hover-class="exit-hover">跳过 ›</view>
+    <view wx:else class="topbar-spacer"></view>
   </view>
 
   <block wx:if="{{!done}}">
@@ -29,7 +30,7 @@
       </view>
       <view class="kb-row kb-fn">
         <view class="kb-key kb-del" bindtap="kbDelete" hover-class="kb-key-hover" hover-stay-time="60">⌫ 删除</view>
-        <view class="kb-key kb-skip" bindtap="skip" hover-class="kb-key-hover" hover-stay-time="60">跳过</view>
+        <view class="kb-key kb-space" bindtap="kbSpace" hover-class="kb-key-hover" hover-stay-time="60">空格</view>
         <view class="kb-key kb-submit" bindtap="kbSubmit" hover-class="kb-submit-hover" hover-stay-time="60">确定</view>
       </view>
     </view>

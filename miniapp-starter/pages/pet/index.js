@@ -338,17 +338,21 @@ Page({
   // never contradicts the mood the stat bars and home mascot are showing.
   // The mood-appropriate speech bubble fires in every case.
   handleTapPet() {
-    if (this.data.mode !== 'view') return
-    this.setData({ showPetMenu: true })
+    if (this.data.mode !== 'view' || this.data.showPetMenu) return
+    // 弹气泡菜单前先把宠物停在原地,气泡才不会跟着它跑。
+    this._stopSceneEngine()
+    this.setData({ actorMoving: false, moveDurMs: 0, showPetMenu: true })
   },
 
   closePetMenu() {
     this.setData({ showPetMenu: false })
+    if (this.data.mode === 'view' && hasAnimRig(this.data.pet)) this._startSceneEngine()
   },
 
   // 菜单·摸摸它:旧的按心情互动(蹦跳 + 说话气泡)。
   menuTouchPet() {
     this.setData({ showPetMenu: false })
+    if (this.data.mode === 'view' && hasAnimRig(this.data.pet)) this._startSceneEngine()
     const mood = deriveAnimState(this.data.pet)
     const unwell = mood === 'sick' || mood === 'hungry' || mood === 'dirty' || mood === 'sad'
     if (!unwell && hasAnimRig(this.data.pet)) {
@@ -375,6 +379,7 @@ Page({
   // 用 viewport 坐标 changedTouches.client* 对齐 boundingClientRect。
   handleSceneTap(e) {
     if (this.data.mode !== 'view' || !hasAnimRig(this.data.pet)) return
+    if (this.data.showPetMenu) { this.closePetMenu(); return }
     if (this._oneShotActive) return
     const t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0])
     const cx = t && t.clientX != null ? t.clientX : (e.detail && e.detail.x)

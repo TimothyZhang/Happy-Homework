@@ -102,6 +102,13 @@ Page({
     this.setData({ input: this.data.input.slice(0, -1), feedback: '' })
   },
 
+  kbSpace() {
+    if (this.data.feedback === 'right') return
+    // 不让以空格开头,也不连续两个空格
+    if (!this.data.input || this.data.input.slice(-1) === ' ') return
+    this.setData({ input: (this.data.input + ' ').slice(0, INPUT_MAX), feedback: '' })
+  },
+
   kbSubmit() {
     if (this.data.feedback === 'right') return
     const ans = (this.data.input || '').trim().toLowerCase()

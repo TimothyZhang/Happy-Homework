@@ -13,6 +13,7 @@
   height: 84rpx; padding: 0 24rpx;
 }
 .exit-btn { font-size: 32rpx; color: #8a6a45; font-weight: 700; padding: 8rpx 6rpx; }
+.skip-btn { font-size: 30rpx; color: #8a6a45; font-weight: 700; padding: 8rpx 6rpx; }
 .exit-hover { opacity: 0.5; }
 .topbar-spacer { width: 110rpx; }
 .progress { font-size: 30rpx; color: #b08a5f; font-weight: 800; }
@@ -65,10 +66,10 @@
 }
 .kb-fn { margin-top: 4rpx; }
 .kb-fn .kb-key { font-size: 30rpx; font-weight: 700; }
-.kb-del { flex: 1.7; color: #b06a3a; }
-.kb-skip { flex: 1.2; color: #8a94a0; }
+.kb-del { flex: 1.5; color: #b06a3a; }
+.kb-space { flex: 3.4; color: #6a6a6e; letter-spacing: 6rpx; }
 .kb-submit {
-  flex: 2.3; background: #245bdb; color: #ffffff; font-size: 34rpx;
+  flex: 2.2; background: #245bdb; color: #ffffff; font-size: 34rpx;
   box-shadow: 0 6rpx 0 #1546b5;
 }
 .kb-submit-hover {
