@@ -37,11 +37,14 @@ const ONESHOT_MS = { eating: 1800, celebrating: 2000, happy: 1200 }
 
 // 地板可行走带(全屏 room 的百分比)。上沿(yMin)= 远处,下沿(yMax)= 近处。
 // 带子落在房间地板的可见区(被下方控制卡盖住之前),侧面行走以横向为主。
-const FLOOR = { xMin: 8, xMax: 92, yMin: 50, yMax: 72 }
+const FLOOR = { xMin: 8, xMax: 92, yMin: 46, yMax: 76 }
 const DEPTH_FAR = 0.72      // 脚底在 yMin(最远)时的身体缩放
 const DEPTH_NEAR = 1.12     // 脚底在 yMax(最近)时的身体缩放
 const WALK_SPEED_PCT_PER_S = 24   // 行走速度(room% / 秒)→ 每段 transition 时长
-const WALK_MIN_MS = 600, WALK_MAX_MS = 2800
+// 竖屏里纵向 1% 跨的像素远多于横向(屏高≈屏宽×2.2),给 dy 加权,
+// 让纵向移动 duration 变长 → 纵向走得没那么快(横向不变)。
+const VERTICAL_WEIGHT = 2.2
+const WALK_MIN_MS = 600, WALK_MAX_MS = 3000
 const IDLE_MIN_MS = 700, IDLE_MAX_MS = 2400
 
 function clampNum(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
@@ -256,8 +259,10 @@ Page({
     ty = clampNum(ty, FLOOR.yMin, FLOOR.yMax)
     const dx = tx - this.data.actorX
     const dy = ty - this.data.actorY
-    const dist = Math.sqrt(dx * dx + dy * dy)
-    if (dist < 1.5) { if (typeof after === 'function') after(); return }
+    if (Math.abs(dx) < 1.5 && Math.abs(dy) < 1.5) { if (typeof after === 'function') after(); return }
+    // dy 加权:纵向位移按竖屏比例放大,duration 变长 → 纵向速度慢下来。
+    const dyW = dy * VERTICAL_WEIGHT
+    const dist = Math.sqrt(dx * dx + dyW * dyW)
     const dur = Math.round(clampNum(dist / WALK_SPEED_PCT_PER_S * 1000, WALK_MIN_MS, WALK_MAX_MS))
     this.setData({
       actorX: Math.round(tx * 10) / 10,

@@ -96,40 +96,66 @@
   background: #f3e2cb;
 }
 .room-wall {
-  position: absolute; left: 0; right: 0; top: 0; height: 52%;
+  position: absolute; left: 0; right: 0; top: 0; height: 42%;
   background:
     repeating-linear-gradient(90deg, rgba(255,255,255,0) 0, rgba(255,255,255,0) 58rpx, rgba(255,255,255,0.10) 58rpx, rgba(255,255,255,0.10) 60rpx),
     linear-gradient(180deg, #fce8d2 0%, #f1d6b4 100%);
 }
-/* 窗:框 + 蓝天 + 十字窗棂 */
+/* 窗:框 + 蓝天 + 十字窗棂;overflow:hidden 让白云被裁在窗内 */
 .room-window {
-  position: absolute; top: 9%; left: 9%; width: 30%; height: 30%;
+  position: absolute; top: 6%; right: 6%; width: 28%; height: 25%;
   box-sizing: border-box;
+  overflow: hidden;
   border: 9rpx solid #fff7ec;
   border-radius: 10rpx;
   background: linear-gradient(180deg, #a8defb 0%, #d3eeff 58%, #ecf8e8 100%);
   box-shadow: 0 8rpx 18rpx rgba(120,90,50,0.14);
 }
+/* 偶尔飘过的白云:从窗左飘到窗右,有一段在窗外(留间隔) */
+.room-cloud {
+  position: absolute; top: 24%; left: 0;
+  width: 52%; height: 28%;
+  background: #ffffff;
+  border-radius: 999rpx;
+  box-shadow: 16rpx 6rpx 0 -4rpx #ffffff, -14rpx 8rpx 0 -6rpx #ffffff;
+  opacity: 0;
+  animation: cloud-drift 22s linear infinite;
+}
+@keyframes cloud-drift {
+  0%   { transform: translateX(-170%); opacity: 0; }
+  14%  { opacity: 0.96; }
+  50%  { transform: translateX(120%);  opacity: 0.96; }
+  64%  { opacity: 0; }
+  100% { transform: translateX(240%);  opacity: 0; }
+}
 .room-window-bar { position: absolute; background: #fff7ec; }
 .room-window-bar-v { top: 0; bottom: 0; left: 50%; width: 8rpx; margin-left: -4rpx; }
 .room-window-bar-h { left: 0; right: 0; top: 50%; height: 8rpx; margin-top: -4rpx; }
-/* 挂画 */
+/* 墙上标语海报:好好学习,天天向上 */
 .room-picture {
-  position: absolute; top: 11%; right: 11%; width: 17%; height: 21%;
+  position: absolute; top: 9%; left: 45%; width: 19%; height: 22%;
   box-sizing: border-box;
-  border: 9rpx solid #fff7ec;
-  border-radius: 6rpx;
-  background: linear-gradient(135deg, #ffd58a 0%, #ff9d6b 45%, #7fc9ff 100%);
+  border: 8rpx solid #fff7ec;
+  border-radius: 8rpx;
   box-shadow: 0 6rpx 14rpx rgba(120,90,50,0.14);
+}
+.room-poster {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: linear-gradient(180deg, #fffaf0 0%, #fff1d8 100%);
+}
+.poster-line {
+  font-size: 26rpx; font-weight: 800; letter-spacing: 6rpx;
+  color: #d8442f; line-height: 1.55;
+  text-shadow: 0 1rpx 0 rgba(255,255,255,0.7);
 }
 /* 踢脚线:墙地分界 */
 .room-baseboard {
-  position: absolute; left: 0; right: 0; top: 52%; height: 20rpx; margin-top: -20rpx;
+  position: absolute; left: 0; right: 0; top: 42%; height: 20rpx; margin-top: -20rpx;
   background: linear-gradient(180deg, #d3ab7c 0%, #c2965f 100%);
 }
 /* 木地板:竖向木缝 + 由远向近的暖色渐变 */
 .room-floor {
-  position: absolute; left: 0; right: 0; top: 52%; bottom: 0;
+  position: absolute; left: 0; right: 0; top: 42%; bottom: 0;
   background:
     repeating-linear-gradient(90deg, rgba(120,80,40,0.12) 0, rgba(120,80,40,0.12) 2rpx, transparent 2rpx, transparent 96rpx),
     linear-gradient(180deg, #e9c89c 0%, #d9b07c 55%, #cca06b 100%);
@@ -137,7 +163,7 @@
 }
 /* 地毯 */
 .room-rug {
-  position: absolute; left: 50%; top: 66%; width: 66%; height: 30%; margin-left: -33%;
+  position: absolute; left: 50%; top: 58%; width: 70%; height: 30%; margin-left: -35%;
   border-radius: 50%;
   background: radial-gradient(ellipse at 50% 50%, #ffdcc6 0%, #ffc4a2 52%, #f0a886 100%);
   box-shadow: inset 0 0 0 8rpx rgba(255,255,255,0.45);
@@ -197,7 +223,7 @@
 /* === 控制卡片层(盖在房间上,可滚) === */
 .sheet { position: relative; z-index: 10; }
 /* 顶部留空看房间;往上滚,卡片盖住下半截房间。 */
-.sheet .sheet-first { margin-top: 72vh; }
+.sheet .sheet-first { margin-top: 76vh; }
 .sheet .card { background: rgba(255, 255, 255, 0.96); }
 
 /* === 透明状态浮窗(紧凑 4 条状态条,半透明浮在房间上)=== */
@@ -268,18 +294,22 @@
   100% { transform: perspective(600px) rotateY(360deg); }
 }
 
-/* mood-emoji floating above the actor */
+/* mood-emoji 浮在宠物「头部」一侧:头在脸朝的那边(face-right→右上 / face-left→
+   左上),所以这里按朝向把图标摆到头那侧,转向后会跟着换边。 */
 .state-icon {
   position: absolute;
-  font-size: 46rpx;
+  top: -8rpx;
+  font-size: 42rpx;
   line-height: 1;
-  z-index: 2;
+  z-index: 3;
 }
-.hungry-icon { top: -6rpx;  right: -24rpx; animation: float-up 1.6s ease-in-out infinite; }
-.dirty-icon  { top: -2rpx;  right: -20rpx; animation: drift 2s ease-in-out infinite; }
-.sick-icon   { top: -2rpx;  right: -20rpx; animation: tremble 0.5s ease-in-out infinite; }
-.sad-icon    { top: 28rpx;  right: -14rpx; animation: drip 2.2s ease-in infinite; }
-.happy-icon  { top: -6rpx;  right: -20rpx; animation: pop-heart 1.2s ease-out infinite; }
+.pet-actor.face-right .state-icon { right: 2rpx; left: auto; }
+.pet-actor.face-left  .state-icon { left: 2rpx;  right: auto; }
+.hungry-icon { animation: float-up 1.6s ease-in-out infinite; }
+.dirty-icon  { animation: drift 2s ease-in-out infinite; }
+.sick-icon   { animation: tremble 0.5s ease-in-out infinite; }
+.sad-icon    { animation: drip 2.2s ease-in infinite; }
+.happy-icon  { animation: pop-heart 1.2s ease-out infinite; }
 
 /* 说话气泡:挂在宠物头顶(.pet-actor 的子元素,随宠物移动 + 跟深度缩放;在
    actor-facing 之外,朝左时文字不会被镜像)。偏向脸朝的那侧 = 头部上方,

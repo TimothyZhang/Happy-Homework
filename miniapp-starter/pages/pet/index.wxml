@@ -35,10 +35,14 @@
     <view class="room" bindtap="handleSceneTap">
       <view class="room-wall"></view>
       <view class="room-window">
+        <view class="room-cloud"></view>
         <view class="room-window-bar room-window-bar-v"></view>
         <view class="room-window-bar room-window-bar-h"></view>
       </view>
-      <view class="room-picture"></view>
+      <view class="room-picture room-poster">
+        <text class="poster-line">好好学习</text>
+        <text class="poster-line">天天向上</text>
+      </view>
       <view class="room-baseboard"></view>
       <view class="room-floor"></view>
       <view class="room-rug"></view>
