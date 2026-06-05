@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="rabbitSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e8e8ee"/>
+    </linearGradient>
+  </defs>
+  <!-- fluffy tail -->
+  <circle cx="48" cy="116" r="15" fill="#ffffff"/>
+  <!-- far legs -->
+  <rect x="84" y="142" width="14" height="31" rx="7" fill="#d7d7df"/>
+  <rect x="118" y="142" width="14" height="31" rx="7" fill="#d7d7df"/>
+  <!-- haunch -->
+  <ellipse cx="78" cy="126" rx="30" ry="32" fill="url(#rabbitSide)"/>
+  <!-- body -->
+  <ellipse cx="108" cy="120" rx="52" ry="38" fill="url(#rabbitSide)"/>
+  <!-- near legs -->
+  <rect x="74" y="144" width="15" height="30" rx="7.5" fill="url(#rabbitSide)"/>
+  <rect x="128" y="144" width="15" height="30" rx="7.5" fill="url(#rabbitSide)"/>
+  <!-- head -->
+  <circle cx="152" cy="98" r="29" fill="url(#rabbitSide)"/>
+  <!-- long ears -->
+  <path d="M150 74 Q146 30 156 26 Q166 30 160 74 Z" fill="url(#rabbitSide)"/>
+  <path d="M152 70 Q150 38 156 34 Q162 38 158 70 Z" fill="#ffc4d2"/>
+  <path d="M164 76 Q166 40 176 40 Q184 46 174 80 Z" fill="url(#rabbitSide)"/>
+  <!-- nose -->
+  <path d="M178 100 l8 3 l-8 4 z" fill="#ff7a96"/>
+  <!-- eye -->
+  <ellipse cx="160" cy="95" rx="4.6" ry="6.2" fill="#1f2329"/>
+  <circle cx="158.7" cy="92" r="1.6" fill="#fff"/>
+  <!-- cheek -->
+  <ellipse cx="166" cy="108" rx="6" ry="3.5" fill="#ff8fa5" opacity="0.5"/>
+</svg>

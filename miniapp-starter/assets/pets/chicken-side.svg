@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="chickenSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff2a0"/>
+      <stop offset="100%" stop-color="#f5cd2f"/>
+    </linearGradient>
+  </defs>
+  <!-- tail feathers -->
+  <path d="M52 118 Q26 96 34 70 Q46 80 56 104 Z" fill="#e8b81a"/>
+  <path d="M52 120 Q30 112 26 92 Q44 96 60 112 Z" fill="#f5cd2f"/>
+  <!-- legs -->
+  <path d="M92 158 L92 178 M92 178 L82 184 M92 178 L96 186" stroke="#e8901a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <path d="M118 158 L118 178 M118 178 L108 184 M118 178 L122 186" stroke="#e8901a" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <!-- body -->
+  <ellipse cx="100" cy="120" rx="50" ry="46" fill="url(#chickenSide)"/>
+  <!-- wing -->
+  <path d="M86 110 Q120 104 132 126 Q108 138 86 128 Z" fill="#f0c81e"/>
+  <!-- head -->
+  <circle cx="142" cy="80" r="26" fill="url(#chickenSide)"/>
+  <!-- comb -->
+  <path d="M130 56 Q134 44 140 54 Q146 42 152 54 Q158 46 160 58 Q150 54 142 58 Q136 56 130 58 Z" fill="#ff5f6d"/>
+  <!-- beak -->
+  <path d="M166 78 l16 4 l-16 6 z" fill="#f0901e"/>
+  <!-- wattle -->
+  <path d="M163 90 q4 12 -2 16 q-8 -2 -6 -14 z" fill="#ff5f6d"/>
+  <!-- eye -->
+  <ellipse cx="150" cy="76" rx="4.4" ry="5.8" fill="#1f2329"/>
+  <circle cx="148.8" cy="73.4" r="1.6" fill="#fff"/>
+</svg>

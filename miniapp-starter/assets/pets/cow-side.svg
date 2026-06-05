@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="cowSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#ebeff5"/>
+    </linearGradient>
+  </defs>
+  <!-- tail -->
+  <path d="M48 112 Q34 130 40 150" stroke="#cfd6df" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M40 150 q-4 12 4 16 q8 -4 4 -16 z" fill="#1f2329"/>
+  <!-- far legs -->
+  <rect x="82" y="138" width="14" height="35" rx="6" fill="#cfd6df"/>
+  <rect x="120" y="138" width="14" height="35" rx="6" fill="#cfd6df"/>
+  <!-- hooves -->
+  <rect x="82" y="166" width="14" height="7" rx="3" fill="#1f2329"/>
+  <rect x="120" y="166" width="14" height="7" rx="3" fill="#1f2329"/>
+  <!-- body -->
+  <ellipse cx="104" cy="116" rx="60" ry="41" fill="url(#cowSide)"/>
+  <!-- spots -->
+  <ellipse cx="86" cy="108" rx="16" ry="13" fill="#1f2329"/>
+  <ellipse cx="120" cy="126" rx="13" ry="10" fill="#1f2329"/>
+  <!-- near legs -->
+  <rect x="72" y="140" width="15" height="33" rx="6.5" fill="url(#cowSide)"/>
+  <rect x="130" y="140" width="15" height="33" rx="6.5" fill="url(#cowSide)"/>
+  <rect x="72" y="166" width="15" height="8" rx="3" fill="#1f2329"/>
+  <rect x="130" y="166" width="15" height="8" rx="3" fill="#1f2329"/>
+  <!-- head -->
+  <circle cx="151" cy="94" r="31" fill="url(#cowSide)"/>
+  <!-- horn + ear -->
+  <path d="M148 66 Q150 52 142 50 Q150 50 154 66 Z" fill="#d8b98a"/>
+  <path d="M162 74 L178 64 L170 84 Z" fill="#ebeff5"/>
+  <!-- muzzle -->
+  <ellipse cx="180" cy="102" rx="14" ry="11" fill="#ffd6dc"/>
+  <ellipse cx="183" cy="100" rx="2.6" ry="3.4" fill="#c98b9a"/>
+  <ellipse cx="183" cy="107" rx="2.6" ry="3.4" fill="#c98b9a"/>
+  <!-- eye -->
+  <ellipse cx="160" cy="90" rx="4.6" ry="6.2" fill="#1f2329"/>
+  <circle cx="158.7" cy="87" r="1.6" fill="#fff"/>
+</svg>

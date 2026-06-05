@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="parrotSideBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5fdf78"/>
+      <stop offset="100%" stop-color="#26a64a"/>
+    </linearGradient>
+    <linearGradient id="parrotSideHead" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ff7a7a"/>
+      <stop offset="100%" stop-color="#e0444a"/>
+    </linearGradient>
+    <linearGradient id="parrotSideWing" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#3da7ff"/>
+      <stop offset="100%" stop-color="#1f74cc"/>
+    </linearGradient>
+  </defs>
+  <!-- long tail feathers -->
+  <path d="M58 128 Q20 132 8 122 Q30 116 60 118 Z" fill="#3da7ff"/>
+  <path d="M58 120 Q22 116 14 100 Q40 100 62 112 Z" fill="#ffd84a"/>
+  <!-- legs -->
+  <path d="M98 168 L98 182 M98 182 L90 187 M98 182 L103 188" stroke="#ffae2e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <path d="M118 168 L118 182 M118 182 L110 187 M118 182 L123 188" stroke="#ffae2e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <!-- body -->
+  <ellipse cx="104" cy="118" rx="46" ry="52" fill="url(#parrotSideBody)"/>
+  <!-- yellow belly -->
+  <path d="M104 70 Q140 92 132 150 Q116 168 104 168 Z" fill="#ffe06a" opacity="0.85"/>
+  <!-- folded wing -->
+  <path d="M96 86 Q66 104 74 150 Q90 160 106 138 Q104 104 96 86 Z" fill="url(#parrotSideWing)"/>
+  <path d="M88 104 Q80 124 84 144 M98 102 Q92 124 96 146" stroke="#1f74cc" stroke-width="2" fill="none" stroke-linecap="round" opacity="0.6"/>
+  <!-- head -->
+  <circle cx="146" cy="76" r="30" fill="url(#parrotSideHead)"/>
+  <!-- crest -->
+  <path d="M136 48 Q140 32 146 46 Q152 32 158 48" stroke="#ffd84a" stroke-width="4" fill="none" stroke-linecap="round"/>
+  <!-- hooked beak -->
+  <path d="M170 76 Q189 74 186 89 Q180 98 171 91 Q176 85 169 82 Z" fill="#ffae2e"/>
+  <!-- eye -->
+  <ellipse cx="154" cy="72" rx="4.8" ry="6.2" fill="#1f2329"/>
+  <circle cx="152.6" cy="69" r="1.7" fill="#fff"/>
+  <!-- cheek -->
+  <ellipse cx="142" cy="86" rx="5" ry="3" fill="#ffd2d2" opacity="0.7"/>
+</svg>

@@ -35,12 +35,13 @@ function levelBadge(level) {
 // 一次性动作,会暂停漫游、播完恢复。
 const ONESHOT_MS = { eating: 1800, celebrating: 2000, happy: 1200 }
 
-// 地板可行走带(scene 百分比)。上沿(yMin)= 远处,下沿(yMax)= 近处。
-const FLOOR = { xMin: 12, xMax: 88, yMin: 52, yMax: 92 }
-const DEPTH_FAR = 0.66      // 脚底在 yMin(最远)时的身体缩放
-const DEPTH_NEAR = 1.06     // 脚底在 yMax(最近)时的身体缩放
-const WALK_SPEED_PCT_PER_S = 26   // 行走速度(scene% / 秒)→ 每段 transition 时长
-const WALK_MIN_MS = 600, WALK_MAX_MS = 2600
+// 地板可行走带(全屏 room 的百分比)。上沿(yMin)= 远处,下沿(yMax)= 近处。
+// 带子落在房间地板的可见区(被下方控制卡盖住之前),侧面行走以横向为主。
+const FLOOR = { xMin: 8, xMax: 92, yMin: 50, yMax: 72 }
+const DEPTH_FAR = 0.72      // 脚底在 yMin(最远)时的身体缩放
+const DEPTH_NEAR = 1.12     // 脚底在 yMax(最近)时的身体缩放
+const WALK_SPEED_PCT_PER_S = 24   // 行走速度(room% / 秒)→ 每段 transition 时长
+const WALK_MIN_MS = 600, WALK_MAX_MS = 2800
 const IDLE_MIN_MS = 700, IDLE_MAX_MS = 2400
 
 function clampNum(v, lo, hi) { return Math.max(lo, Math.min(hi, v)) }
@@ -53,10 +54,12 @@ function depthForY(y) {
 // 近的盖远的:y 越大 z 越高。
 function zForY(y) { return 10 + Math.round(y) }
 
-// 位移主轴 → 四方向之一(上/下/左/右)。
-function dirFromDelta(dx, dy) {
-  if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? 'right' : 'left'
-  return dy >= 0 ? 'down' : 'up'
+// 侧面行走:朝向只看水平位移方向(left 镜像 / right 原图);纯竖直移动保持原朝向。
+// 四个方向走起来看到的都是侧面,只是左右镜像 + 远近缩放不同。
+function faceFromDelta(dx, prevFace) {
+  if (dx < -2) return 'left'
+  if (dx > 2) return 'right'
+  return prevFace || 'right'
 }
 
 function hasAnimRig(pet) { return !!(pet && pet.species) }
@@ -79,15 +82,15 @@ Page({
     // (grayscale on sad, hue-rotate on sick, brightness drop on dirty) and the
     // small state-icon emojis (🍖 / 💨 / 🤒 / 💧 / 💖).
     animState: 'idle',
-    // 2.5D 场景 actor:脚底锚点 (actorX,actorY) 为 scene 百分比;actorScale 由
-    // 深度推出;actorZ 控前后遮挡;actorDir 决定朝向(left 翻转);actorMoving
-    // 决定走/站姿;moveDurMs 是这一段位移的 transition 时长;spriteAnim 是原地
-    // 一次性动作名(eating/celebrating/happy)。
+    // 2.5D 场景 actor:脚底锚点 (actorX,actorY) 为 room 百分比;actorScale 由
+    // 深度推出;actorZ 控前后遮挡;actorFace(left/right)决定侧面朝向(left 镜像);
+    // actorMoving 决定走/站姿;moveDurMs 是这一段位移的 transition 时长;spriteAnim
+    // 是原地一次性动作名(eating/celebrating/happy)。
     actorX: 50,
-    actorY: 80,
+    actorY: 62,
     actorScale: 1,
-    actorZ: 90,
-    actorDir: 'down',
+    actorZ: 72,
+    actorFace: 'right',
     actorMoving: false,
     moveDurMs: 0,
     spriteAnim: '',
@@ -208,7 +211,7 @@ Page({
     this.setData({
       actorX: 50, actorY: y,
       actorScale: depthForY(y), actorZ: zForY(y),
-      actorDir: 'down', actorMoving: false, moveDurMs: 0
+      actorFace: 'right', actorMoving: false, moveDurMs: 0
     })
   },
 
@@ -261,7 +264,7 @@ Page({
       actorY: Math.round(ty * 10) / 10,
       actorScale: depthForY(ty),
       actorZ: zForY(ty),
-      actorDir: dirFromDelta(dx, dy),
+      actorFace: faceFromDelta(dx, this.data.actorFace),
       actorMoving: true,
       moveDurMs: dur
     })
@@ -355,7 +358,7 @@ Page({
     const cx = t && t.clientX != null ? t.clientX : (e.detail && e.detail.x)
     const cy = t && t.clientY != null ? t.clientY : (e.detail && e.detail.y)
     if (cx == null) return
-    wx.createSelectorQuery().select('.pet-scene').boundingClientRect((rect) => {
+    wx.createSelectorQuery().select('.room').boundingClientRect((rect) => {
       if (!rect || !rect.width) return
       const xPct = (cx - rect.left) / rect.width * 100
       const yPct = (cy - rect.top) / rect.height * 100

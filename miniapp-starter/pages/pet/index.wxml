@@ -29,40 +29,52 @@
   </block>
 
   <block wx:else>
-    <view class="card">
-      <view class="section-header">
-        <text class="section-title">{{pet.name}} {{levelBadge}}</text>
-        <view class="coin-link" bindtap="handleOpenCoinHistory">
-          <text class="coin-balance">金币 {{coins}}</text>
-          <text class="coin-chev">›</text>
-        </view>
+    <!-- 全屏室内房间(fixed 背景):宠物在地板上以侧面朝向四向行走。点空地板
+         宠物走过去,点宠物本身按心情互动。控制卡片在下面的 .sheet 里,往上滚
+         盖住下半截房间。 -->
+    <view class="room" bindtap="handleSceneTap">
+      <view class="room-wall"></view>
+      <view class="room-window">
+        <view class="room-window-bar room-window-bar-v"></view>
+        <view class="room-window-bar room-window-bar-h"></view>
       </view>
+      <view class="room-picture"></view>
+      <view class="room-baseboard"></view>
+      <view class="room-floor"></view>
+      <view class="room-rug"></view>
 
-      <!-- 2.5D 房间:天空/背墙 + 透视地板。点空地板宠物走过去,点宠物本身互动。 -->
-      <view class="pet-scene" bindtap="handleSceneTap">
-        <view class="scene-sky"></view>
-        <view class="scene-floor"></view>
-        <view class="scene-grid"></view>
-
-        <view wx:if="{{pet.species}}"
-              class="pet-actor face-{{actorDir}} {{actorMoving ? 'moving' : (spriteAnim ? '' : 'still')}} anim-{{animState}} {{spriteAnim ? 'do-' + spriteAnim : ''}}"
-              style="left: {{actorX}}%; top: {{actorY}}%; transform: translate(-50%, -100%) scale({{actorScale}}); z-index: {{actorZ}}; transition-duration: {{moveDurMs}}ms"
-              catchtap="handleTapPet">
-          <view class="actor-shadow"></view>
-          <view class="actor-facing">
-            <view class="actor-sprite">
-              <image class="pet-art" src="/assets/pets/{{pet.species}}.svg" mode="aspectFit" />
-            </view>
+      <view wx:if="{{pet.species}}"
+            class="pet-actor face-{{actorFace}} {{actorMoving ? 'moving' : (spriteAnim ? '' : 'still')}} anim-{{animState}} {{spriteAnim ? 'do-' + spriteAnim : ''}}"
+            style="left: {{actorX}}%; top: {{actorY}}%; transform: translate(-50%, -100%) scale({{actorScale}}); z-index: {{actorZ}}; transition-duration: {{moveDurMs}}ms"
+            catchtap="handleTapPet">
+        <view class="actor-shadow"></view>
+        <view class="actor-facing">
+          <view class="actor-sprite">
+            <image class="pet-art" src="/assets/pets/{{pet.species}}-side.svg" mode="aspectFit" />
           </view>
-          <text wx:if="{{animState === 'hungry'}}"  class="state-icon hungry-icon">🍖</text>
-          <text wx:if="{{animState === 'dirty'}}"   class="state-icon dirty-icon">💨</text>
-          <text wx:if="{{animState === 'sick'}}"    class="state-icon sick-icon">🤒</text>
-          <text wx:if="{{animState === 'sad'}}"     class="state-icon sad-icon">💧</text>
-          <text wx:if="{{animState === 'happy'}}"   class="state-icon happy-icon">💖</text>
         </view>
-
-        <view wx:if="{{showBubble}}" class="speech-bubble">{{bubbleText}}</view>
+        <text wx:if="{{animState === 'hungry'}}"  class="state-icon hungry-icon">🍖</text>
+        <text wx:if="{{animState === 'dirty'}}"   class="state-icon dirty-icon">💨</text>
+        <text wx:if="{{animState === 'sick'}}"    class="state-icon sick-icon">🤒</text>
+        <text wx:if="{{animState === 'sad'}}"     class="state-icon sad-icon">💧</text>
+        <text wx:if="{{animState === 'happy'}}"   class="state-icon happy-icon">💖</text>
       </view>
+
+      <view wx:if="{{showBubble}}" class="speech-bubble">{{bubbleText}}</view>
+    </view>
+
+    <!-- 固定顶栏:名字 + 等级徽章 + 金币 -->
+    <view class="top-hud">
+      <text class="hud-name">{{pet.name}} {{levelBadge}}</text>
+      <view class="hud-coin" catchtap="handleOpenCoinHistory">
+        <text class="hud-coin-text">金币 {{coins}}</text>
+        <text class="coin-chev">›</text>
+      </view>
+    </view>
+
+    <!-- 控制层:顶部留空看房间,往上滚把卡片盖上来 -->
+    <view class="sheet">
+      <view class="card sheet-first">
 
       <view class="pet-meta">
         <text>Lv.{{pet.level}}</text>
@@ -169,6 +181,7 @@
         </view>
         <text class="switch-chev">›</text>
       </view>
+    </view>
     </view>
   </block>
 

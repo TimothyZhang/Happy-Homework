@@ -83,50 +83,72 @@
   box-sizing: border-box;
 }
 
-/* === 2.5D pet scene ===
-   一个伪 3D 房间:上半截天空/背墙,下半截透视地板。宠物(.pet-actor)以脚底
-   为锚点用 scene 百分比定位(left/top 由 JS 设),深度缩放 + transition 时长
-   也走内联 style;CSS 只管房间外观、朝向翻转、走/站/动作的姿态动画。 */
-.pet-scene {
-  position: relative;
-  margin-top: 22rpx;
-  height: 480rpx;
-  border-radius: 24rpx;
+/* === 全屏 2.5D 室内房间 ===
+   .room 是 fixed 全屏背景:上半截墙(壁纸 + 窗 + 挂画),下半截木地板 + 地毯。
+   宠物(.pet-actor)以脚底为锚点用 room 百分比定位(left/top 由 JS 设),深度
+   缩放 + transition 时长走内联 style;CSS 管房间外观、侧面朝向翻转与姿态动画。
+   控制卡片在 .sheet 里,顶部留 72vh 空当看房间,往上滚盖住下半截。 */
+.room {
+  position: fixed;
+  left: 0; right: 0; top: 0; bottom: 0;
   overflow: hidden;
-  background: #e9f7ef;
+  z-index: 0;
+  background: #f3e2cb;
 }
-.scene-sky {
-  position: absolute;
-  left: 0; right: 0; top: 0;
-  height: 44%;
-  background: linear-gradient(180deg, #cdeafe 0%, #e6f4ff 70%, #eef9f1 100%);
+.room-wall {
+  position: absolute; left: 0; right: 0; top: 0; height: 52%;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,0) 0, rgba(255,255,255,0) 58rpx, rgba(255,255,255,0.10) 58rpx, rgba(255,255,255,0.10) 60rpx),
+    linear-gradient(180deg, #fce8d2 0%, #f1d6b4 100%);
 }
-.scene-floor {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 56%;
-  background: linear-gradient(180deg, #d4efdc 0%, #bfe7cb 45%, #a6dcb6 100%);
-  box-shadow: inset 0 8rpx 16rpx rgba(76, 130, 95, 0.18);
+/* 窗:框 + 蓝天 + 十字窗棂 */
+.room-window {
+  position: absolute; top: 9%; left: 9%; width: 30%; height: 30%;
+  box-sizing: border-box;
+  border: 9rpx solid #fff7ec;
+  border-radius: 10rpx;
+  background: linear-gradient(180deg, #a8defb 0%, #d3eeff 58%, #ecf8e8 100%);
+  box-shadow: 0 8rpx 18rpx rgba(120,90,50,0.14);
 }
-/* 受远向近渐密的地板格,纯 CSS 渐变伪造纵深;上沿用 mask 淡出接到地平线。 */
-.scene-grid {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 56%;
-  background-image:
-    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.34) 0, rgba(255, 255, 255, 0.34) 2rpx, transparent 2rpx, transparent 52rpx),
-    repeating-linear-gradient(90deg,  rgba(255, 255, 255, 0.20) 0, rgba(255, 255, 255, 0.20) 2rpx, transparent 2rpx, transparent 84rpx);
-  -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 34%, #000 100%);
-          mask-image: linear-gradient(180deg, transparent 0, #000 34%, #000 100%);
-  opacity: 0.7;
+.room-window-bar { position: absolute; background: #fff7ec; }
+.room-window-bar-v { top: 0; bottom: 0; left: 50%; width: 8rpx; margin-left: -4rpx; }
+.room-window-bar-h { left: 0; right: 0; top: 50%; height: 8rpx; margin-top: -4rpx; }
+/* 挂画 */
+.room-picture {
+  position: absolute; top: 11%; right: 11%; width: 17%; height: 21%;
+  box-sizing: border-box;
+  border: 9rpx solid #fff7ec;
+  border-radius: 6rpx;
+  background: linear-gradient(135deg, #ffd58a 0%, #ff9d6b 45%, #7fc9ff 100%);
+  box-shadow: 0 6rpx 14rpx rgba(120,90,50,0.14);
+}
+/* 踢脚线:墙地分界 */
+.room-baseboard {
+  position: absolute; left: 0; right: 0; top: 52%; height: 20rpx; margin-top: -20rpx;
+  background: linear-gradient(180deg, #d3ab7c 0%, #c2965f 100%);
+}
+/* 木地板:竖向木缝 + 由远向近的暖色渐变 */
+.room-floor {
+  position: absolute; left: 0; right: 0; top: 52%; bottom: 0;
+  background:
+    repeating-linear-gradient(90deg, rgba(120,80,40,0.12) 0, rgba(120,80,40,0.12) 2rpx, transparent 2rpx, transparent 96rpx),
+    linear-gradient(180deg, #e9c89c 0%, #d9b07c 55%, #cca06b 100%);
+  box-shadow: inset 0 12rpx 24rpx rgba(120,80,40,0.20);
+}
+/* 地毯 */
+.room-rug {
+  position: absolute; left: 50%; top: 66%; width: 66%; height: 30%; margin-left: -33%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 50%, #ffdcc6 0%, #ffc4a2 52%, #f0a886 100%);
+  box-shadow: inset 0 0 0 8rpx rgba(255,255,255,0.45);
+  opacity: 0.95;
 }
 
 /* the walking pet — feet anchored at (left,top); JS sets translate+scale(depth)
-   and the per-move transition-duration inline so it glides between points. */
+   + per-move transition-duration inline so it glides between points. */
 .pet-actor {
   position: absolute;
-  width: 230rpx;
-  height: 230rpx;
+  width: 240rpx; height: 240rpx;
   transform-origin: 50% 100%;
   transition-property: left, top, transform;
   transition-timing-function: linear;
@@ -134,27 +156,49 @@
   will-change: left, top, transform;
 }
 .actor-shadow {
-  position: absolute;
-  left: 50%;
-  bottom: 2rpx;
-  width: 150rpx;
-  height: 26rpx;
-  margin-left: -75rpx;
+  position: absolute; left: 50%; bottom: 4rpx;
+  width: 150rpx; height: 26rpx; margin-left: -75rpx;
   border-radius: 50%;
-  background: rgba(40, 70, 50, 0.22);
-  filter: blur(4rpx);
+  background: rgba(60, 45, 25, 0.26);
+  filter: blur(5rpx);
 }
-/* facing: left mirrors the sprite; right/up/down keep it facing camera. The
-   flip lives on its own wrapper so it never fights the posture animation. */
+/* side-view facing: left mirrors the sprite; right keeps原图。Flip on its own
+   wrapper so it never fights the posture animation. */
 .actor-facing { transform: scaleX(1); }
 .pet-actor.face-left .actor-facing { transform: scaleX(-1); }
 .actor-sprite { display: block; }
 .pet-art {
-  width: 230rpx;
-  height: 230rpx;
+  width: 240rpx; height: 240rpx;
   display: block;
   transform-origin: 50% 90%;
 }
+
+/* === 固定顶栏 HUD === */
+.top-hud {
+  position: fixed; left: 0; right: 0; top: 0;
+  z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + 14rpx) 28rpx 16rpx;
+  background: linear-gradient(180deg, rgba(252,232,210,0.94) 0%, rgba(252,232,210,0) 100%);
+}
+.hud-name {
+  font-size: 34rpx; font-weight: 800; color: #5a3d1e;
+  text-shadow: 0 1rpx 0 rgba(255,255,255,0.6);
+}
+.hud-coin {
+  display: flex; align-items: center;
+  background: rgba(255,255,255,0.9);
+  border-radius: 999rpx; padding: 8rpx 20rpx;
+  box-shadow: 0 4rpx 12rpx rgba(120,90,50,0.16);
+}
+.hud-coin-text { font-size: 26rpx; color: #c8862a; font-weight: 700; }
+.hud-coin .coin-chev { color: #d9b48a; margin-left: 4rpx; }
+
+/* === 控制卡片层(盖在房间上,可滚) === */
+.sheet { position: relative; z-index: 10; }
+/* 顶部留空看房间;往上滚,卡片盖住下半截房间。 */
+.sheet .sheet-first { margin-top: 72vh; }
+.sheet .card { background: rgba(255, 255, 255, 0.96); }
 
 /* posture — kept off the actor's translate so locomotion never fights it. */
 .pet-actor.still .pet-art       { animation: actor-breath 2.8s ease-in-out infinite; }
@@ -208,18 +252,18 @@
 
 .speech-bubble {
   position: absolute;
-  top: 16rpx;
+  top: 150rpx;
   left: 50%;
   transform: translateX(-50%);
-  max-width: 400rpx;
-  background: rgba(255, 255, 255, 0.96);
+  max-width: 420rpx;
+  background: rgba(255, 255, 255, 0.97);
   color: #1f2329;
   font-size: 26rpx;
   line-height: 1.4;
   padding: 12rpx 24rpx;
   border-radius: 22rpx 22rpx 22rpx 6rpx;
-  box-shadow: 0 6rpx 18rpx rgba(0, 0, 0, 0.12);
-  z-index: 3;
+  box-shadow: 0 6rpx 18rpx rgba(0, 0, 0, 0.14);
+  z-index: 300;
   animation: bubble-pop 0.25s ease-out;
 }
 @keyframes shadow-pulse {
