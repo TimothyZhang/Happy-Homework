@@ -1,0 +1,29 @@
+<view class="page">
+  <block wx:if="{{ok}}">
+    <view class="hero">
+      <text class="hero-emoji">📚</text>
+      <view class="hero-title">同学分享了一本单词本</view>
+      <view class="hero-name">「{{name}}」· 共 {{count}} 个词</view>
+    </view>
+
+    <scroll-view scroll-y class="preview">
+      <view wx:for="{{pairs}}" wx:key="index" class="pv-row">
+        <text class="pv-cn">{{item.cn}}</text>
+        <text class="pv-en">{{item.en}}</text>
+      </view>
+      <view wx:if="{{count > pairs.length}}" class="pv-more">…等共 {{count}} 个</view>
+    </scroll-view>
+
+    <view class="actions">
+      <view class="btn primary {{imported ? 'off' : ''}}" bindtap="doImport" hover-class="btn-hover">导入到我的单词库</view>
+      <view class="btn ghost" bindtap="goPet" hover-class="btn-hover">先看看我的宠物</view>
+    </view>
+  </block>
+
+  <view wx:else class="bad">
+    <text class="hero-emoji">😶</text>
+    <view class="hero-title">这个分享打不开了</view>
+    <view class="bad-sub">链接可能不完整或已失效~</view>
+    <view class="btn ghost" bindtap="goPet" hover-class="btn-hover">去看看我的宠物</view>
+  </view>
+</view>

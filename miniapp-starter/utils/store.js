@@ -613,6 +613,42 @@ function setReciteSessionSize(n) {
   })
 }
 
+// 分享:把单词本打包成紧凑 payload(只带 名字 + 中英对,不带掌握度),编码进
+// 分享链接;接收方走 importSharedWordBook 建一个全新的本(掌握度从头开始)。
+function serializeWordBookForShare(bookId) {
+  const state = loadState()
+  const b = (state.wordBooks || []).find((x) => x.id === bookId)
+  if (!b) return null
+  const w = (b.words || []).map((x) => [x.cn, x.en]).filter((p) => p[0] && p[1])
+  return { k: 'wb', n: (b.name || '单词本').slice(0, WORD_BOOK_NAME_MAX), w }
+}
+
+function importSharedWordBook(payload) {
+  if (!payload || payload.k !== 'wb' || !Array.isArray(payload.w)) return null
+  let book = null
+  updateState((state) => {
+    if (!Array.isArray(state.wordBooks)) state.wordBooks = []
+    if (state.wordBooks.length >= WORD_BOOKS_MAX) return state
+    const name = (payload.n || '分享单词本').toString().trim().slice(0, WORD_BOOK_NAME_MAX) || '分享单词本'
+    const seen = {}
+    const words = []
+    payload.w.forEach((p) => {
+      if (!Array.isArray(p)) return
+      const cn = (p[0] || '').toString().trim().slice(0, WORD_TEXT_MAX)
+      const en = (p[1] || '').toString().trim().slice(0, WORD_TEXT_MAX)
+      if (!cn || !en) return
+      const key = cn + '|' + en.toLowerCase()
+      if (seen[key]) return
+      seen[key] = 1
+      if (words.length < WORD_PER_BOOK_MAX) words.push(freshWord(cn, en, uidWord()))
+    })
+    book = { id: uidBook(), name, builtin: false, createdAt: Date.now(), words }
+    state.wordBooks.push(book)
+    return state
+  })
+  return book
+}
+
 const defaultState = {
   schemaVersion: SCHEMA_VERSION,
   // ms timestamp of last sync-relevant local mutation. 0 = never written, so
@@ -3094,6 +3130,8 @@ module.exports = {
   removeWord,
   setReciteTargets,
   setReciteSessionSize,
+  serializeWordBookForShare,
+  importSharedWordBook,
   WORD_BOOK_NAME_MAX,
   WORD_TEXT_MAX,
   // misc

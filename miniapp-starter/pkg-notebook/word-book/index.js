@@ -132,6 +132,19 @@ Page({
 
   noop() {},
 
+  // 分享单词本:把本子打包进分享链接,同学点开走 word-book-import 一键导入。
+  onShareAppMessage() {
+    const payload = store.serializeWordBookForShare(this._id)
+    if (!payload || !payload.w.length) {
+      return { title: '一起来背单词', path: '/pages/pet/index' }
+    }
+    const encoded = encodeURIComponent(JSON.stringify(payload))
+    return {
+      title: '「' + (this.data.name || '单词本') + '」单词本 · 一起来背单词',
+      path: '/pkg-notebook/word-book-import/index?d=' + encoded
+    }
+  },
+
   importOcr() {
     const pairs = this.data.ocrPairs || []
     pairs.forEach((p) => store.addWord(this._id, p.cn, p.en))

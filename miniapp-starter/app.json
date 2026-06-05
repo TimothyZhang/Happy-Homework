@@ -23,7 +23,8 @@
         "task-focus/index",
         "word-recite/index",
         "word-books/index",
-        "word-book/index"
+        "word-book/index",
+        "word-book-import/index"
       ]
     }
   ],
