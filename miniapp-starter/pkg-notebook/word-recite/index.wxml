@@ -26,7 +26,7 @@
       <block wx:if="{{mode === 'dictation'}}">
         <view class="dict-play" bindtap="replay" hover-class="dict-play-hover">🔊</view>
         <text class="hint">🎧 听写 · 拼出听到的单词</text>
-        <view class="dict-cn">{{word.cn}}</view>
+        <!-- 听写不显示中文(显示了就等于给答案);只听发音拼写 -->
         <!-- 没语音兜底才亮英文;有语音时新词只提示"仔细听",不剧透原文 -->
         <view wx:if="{{!ttsOn}}" class="newword">🔇 语音未开通,先照着拼:<text class="newword-en">{{word.en}}</text></view>
         <view wx:elif="{{word.isNew}}" class="newword">📖 新词 · 仔细听,试着拼出来</view>
