@@ -29,7 +29,30 @@
 .progress { font-size: 30rpx; color: #b08a5f; font-weight: 800; }
 
 /* 宠物 + 说的中文 */
-.stage { display: flex; flex-direction: column; align-items: center; padding: 4rpx 0 2rpx; }
+.stage { position: relative; display: flex; flex-direction: column; align-items: center; padding: 4rpx 0 2rpx; }
+
+/* 答对瞬间从宠物右侧往上飘的奖励气泡 */
+.reward-fly {
+  position: absolute;
+  top: 56rpx; left: 58%;
+  z-index: 6;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8rpx;
+  pointer-events: none;
+  animation: reward-fly-up 1s ease-out forwards;
+}
+.rf-chip {
+  font-size: 28rpx; font-weight: 800; color: #ffffff;
+  padding: 6rpx 18rpx; border-radius: 999rpx; white-space: nowrap;
+  box-shadow: 0 6rpx 16rpx rgba(0, 0, 0, 0.16);
+}
+.rf-xp { background: linear-gradient(135deg, #ffb74d, #ff8a3d); }
+.rf-kn { background: linear-gradient(135deg, #4db6ac, #00897b); }
+@keyframes reward-fly-up {
+  0%   { opacity: 0; transform: translateY(24rpx) scale(0.7); }
+  20%  { opacity: 1; transform: translateY(0) scale(1.08); }
+  45%  { opacity: 1; transform: translateY(-36rpx) scale(1); }
+  100% { opacity: 0; transform: translateY(-150rpx) scale(0.96); }
+}
 .pet { width: 210rpx; height: 210rpx; }
 .pet.right { animation: rec-pop 0.7s ease-out; }
 .pet.wrong { animation: rec-shake 0.42s ease-in-out 2; }
@@ -112,7 +135,18 @@
 /* 完成页 */
 .done { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .done-title { margin-top: 22rpx; font-size: 46rpx; font-weight: 800; color: #5a3d1e; }
-.done-sub { margin-top: 12rpx; font-size: 28rpx; color: #a07a4f; }
+/* 结算:经验 / 知识 两张奖励卡 */
+.reward-tally { display: flex; gap: 26rpx; margin-top: 28rpx; }
+.rt-item {
+  display: flex; flex-direction: column; align-items: center;
+  background: #ffffff; border-radius: 24rpx; padding: 20rpx 40rpx;
+  box-shadow: 0 8rpx 22rpx rgba(150, 110, 60, 0.16);
+}
+.rt-num { font-size: 56rpx; font-weight: 900; line-height: 1.1; }
+.rt-xp .rt-num { color: #ff8a3d; }
+.rt-kn .rt-num { color: #00897b; }
+.rt-label { margin-top: 6rpx; font-size: 26rpx; font-weight: 700; color: #8a6a45; }
+.done-sub { margin-top: 18rpx; font-size: 28rpx; color: #a07a4f; }
 .done-btns { display: flex; margin-top: 46rpx; }
 .done-btn {
   margin: 0 14rpx; padding: 22rpx 44rpx; border-radius: 999rpx;

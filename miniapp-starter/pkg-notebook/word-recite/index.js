@@ -38,9 +38,11 @@ Page({
     index: 0,
     total: 0,
     feedback: '',      // '' | 'right' | 'wrong'
+    rewardFly: false,  // 答对瞬间从宠物旁边往上飘 +1经验 +1知识
     done: false,
     correctCount: 0,
     knowledgeGained: 0,
+    xpGained: 0,
     canMore: false
   },
 
@@ -95,7 +97,8 @@ Page({
     this.setData(Object.assign({}, base, {
       blocked: false, blockedReason: '',
       done: false, index: 0, total: session.length,
-      word: session[0], input: '', feedback: '', correctCount: 0, knowledgeGained: 0,
+      word: session[0], input: '', feedback: '', rewardFly: false,
+      correctCount: 0, knowledgeGained: 0, xpGained: 0,
       kbMode: 'abc', shiftActive: false
     }))
     this._speakCurrent(session[0])
@@ -140,7 +143,8 @@ Page({
     }
     if (this._t) clearTimeout(this._t)
     if (correct) {
-      this.setData({ feedback: 'right' })
+      // 答对:亮绿 + 从宠物旁边飘出 +1经验 +1知识(1s 后进入下一题)
+      this.setData({ feedback: 'right', rewardFly: true })
       this._t = setTimeout(() => this._next(), 1000)
     } else {
       this.setData({ feedback: 'wrong' })
@@ -157,7 +161,7 @@ Page({
     const ni = this.data.index + 1
     if (ni >= this._session.length) { this._finish(); return }
     this._answered = false
-    this.setData({ index: ni, word: this._session[ni], input: '', feedback: '' })
+    this.setData({ index: ni, word: this._session[ni], input: '', feedback: '', rewardFly: false })
     this._speakCurrent(this._session[ni])
   },
 
@@ -168,7 +172,9 @@ Page({
     this.setData({
       done: true,
       feedback: '',
+      rewardFly: false,
       knowledgeGained: (r && r.knowledgeGained) || 0,
+      xpGained: (r && r.xpGained) || 0,
       knowledge: (state.pet && state.pet.knowledge) || 0,
       canMore: remaining > 0
     })

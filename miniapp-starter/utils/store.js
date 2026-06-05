@@ -527,7 +527,9 @@ function applyReciteSession(results) {
     Object.keys(state.reciteByDay).forEach((k) => { if (k < cutoff) delete state.reciteByDay[k] })
     return state
   })
-  return { knowledgeGained }
+  // 每答对一个词同时 +1 知识 +1 经验,所以 xpGained === knowledgeGained,
+  // 分开回传是为了结算页能各显示一行。
+  return { knowledgeGained, xpGained: knowledgeGained }
 }
 
 // === 单词库管理(增减单词本/单词、目标本、每次数量) === //
