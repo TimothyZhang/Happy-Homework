@@ -98,6 +98,8 @@ Page({
     moveDurMs: 0,
     spriteAnim: '',
     showPetMenu: false,
+    reciteLeft: 0,         // 今天还能背几次(0 则菜单里不显示「背单词」)
+    knowledge: 0,          // 宠物知识属性(背单词积累)
     showBubble: false,
     bubbleText: '',
     ageDays: 0,
@@ -184,6 +186,8 @@ Page({
       mode: isSetup ? 'view' : 'setup',
       animState: isSetup ? deriveAnimState(pet) : 'idle',
       ageDays: isSetup ? store.petAgeDays(pet) : 0,
+      knowledge: pet.knowledge || 0,
+      reciteLeft: store.reciteRemaining(state),
       xp,
       xpNeeded,
       xpPercent,

@@ -1,25 +1,32 @@
 <view class="page" style="padding-top: {{statusBarH}}px;">
   <view class="topbar">
     <view class="exit-btn" bindtap="exit" hover-class="exit-hover">‹ 返回</view>
-    <text wx:if="{{!done}}" class="progress">{{index + 1}} / {{total}}</text>
-    <view wx:if="{{!done}}" class="skip-btn" bindtap="skip" hover-class="exit-hover">跳过 ›</view>
+    <text wx:if="{{!done && !blocked}}" class="progress">{{index + 1}} / {{total}}</text>
+    <view wx:if="{{!done && !blocked}}" class="skip-btn" bindtap="skip" hover-class="exit-hover">跳过 ›</view>
     <view wx:else class="topbar-spacer"></view>
   </view>
 
-  <block wx:if="{{!done}}">
-    <!-- 宠物在上方,"说"中文 -->
+  <!-- 今天背完 3 次 / 没有要背的词 -->
+  <view wx:if="{{blocked}}" class="centered">
+    <image class="pet" src="/assets/pets/{{species}}.svg" mode="aspectFit" />
+    <view class="blocked-text">{{blockedReason}}</view>
+    <view class="done-btn ghost" bindtap="exit" hover-class="done-btn-hover">回去找 {{petName}}</view>
+  </view>
+
+  <block wx:elif="{{!done}}">
+    <!-- 宠物在上方"说"中文;新词亮出英文跟着拼 -->
     <view class="stage">
       <image class="pet {{feedback}}" src="/assets/pets/{{species}}.svg" mode="aspectFit" />
       <view class="say-bubble">{{word.cn}}</view>
-      <text class="hint">用英语怎么说?</text>
+      <text wx:if="{{!word.isNew}}" class="hint">用英语怎么说?</text>
+      <view wx:else class="newword">📖 新词 · 跟着拼:<text class="newword-en">{{word.en}}</text></view>
     </view>
 
-    <!-- 答案显示区 -->
     <view class="answer">
       <text wx:if="{{input}}" class="ans {{feedback}}">{{input}}</text>
       <text wx:else class="ans-ph">下面拼出英文…</text>
       <view wx:if="{{feedback === 'wrong'}}" class="correct">正确答案:{{word.en}}</view>
-      <view wx:if="{{feedback === 'right'}}" class="bravo">答对啦!🎉</view>
+      <view wx:if="{{feedback === 'right'}}" class="bravo">答对啦!📚 +1</view>
     </view>
 
     <!-- 自制键盘(不用系统输入法),布局对齐 iPhone 默认英文键盘 -->
@@ -63,14 +70,15 @@
     </view>
   </block>
 
-  <!-- 全部背完 -->
-  <view wx:else class="done">
+  <!-- 背完结算 -->
+  <view wx:else class="centered done">
     <image class="pet bravo-pet" src="/assets/pets/{{species}}.svg" mode="aspectFit" />
-    <view class="done-title">全部背完啦!🎉</view>
-    <view class="done-sub">答对 {{correctCount}} / {{total}} 个,{{petName}} 给你点赞~</view>
+    <view class="done-title">背完啦!📚 +{{knowledgeGained}} 知识</view>
+    <view class="done-sub">一次答对 {{correctCount}} / {{total}} 个 · {{petName}} 现在共 {{knowledge}} 知识</view>
     <view class="done-btns">
-      <view class="done-btn" bindtap="restart" hover-class="done-btn-hover">再来一组</view>
+      <view wx:if="{{canMore}}" class="done-btn" bindtap="restart" hover-class="done-btn-hover">再来一组</view>
       <view class="done-btn ghost" bindtap="exit" hover-class="done-btn-hover">回去找 {{petName}}</view>
     </view>
+    <view wx:if="{{!canMore}}" class="done-note">今天 3 次都背完啦,明天再来~</view>
   </view>
 </view>

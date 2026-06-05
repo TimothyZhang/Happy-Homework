@@ -78,7 +78,7 @@
     <!-- 透明状态浮窗:紧凑 4 条状态条,半透明浮在房间上 -->
     <view class="status-hud">
       <view class="status-meta">
-        <text>Lv.{{pet.level}}</text><text class="dot">·</text><text>{{ageDays}} 天大</text>
+        <text>Lv.{{pet.level}}</text><text class="dot">·</text><text>{{ageDays}} 天大</text><text class="dot">·</text><text class="status-know">📚 {{knowledge}}</text>
       </view>
       <view class="svrow">
         <text class="svlabel">开心</text>
@@ -219,11 +219,13 @@
   <!-- 点宠物弹出的气泡菜单(非模态):透明层只接收外部点击关闭,气泡浮在宠物头顶 -->
   <view wx:if="{{showPetMenu}}" class="popover-catch" bindtap="closePetMenu" catchtouchmove="noop">
     <view class="pet-popover" style="left: {{actorX}}%; top: {{actorY}}%" catchtap="" catchtouchmove="noop">
-      <view class="pet-popover-item" bindtap="menuStartRecite" hover-class="pet-popover-item-hover">
-        <text class="pmi-emoji">📖</text>
-        <text>一起来背单词吧</text>
-      </view>
-      <view class="pet-popover-divider"></view>
+      <block wx:if="{{reciteLeft > 0}}">
+        <view class="pet-popover-item" bindtap="menuStartRecite" hover-class="pet-popover-item-hover">
+          <text class="pmi-emoji">📖</text>
+          <text>一起来背单词吧</text>
+        </view>
+        <view class="pet-popover-divider"></view>
+      </block>
       <view class="pet-popover-item" bindtap="menuTouchPet" hover-class="pet-popover-item-hover">
         <text class="pmi-emoji">🐾</text>
         <text>摸摸它</text>

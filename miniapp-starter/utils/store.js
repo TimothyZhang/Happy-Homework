@@ -58,7 +58,9 @@ const SYNC_FIELDS = [
   'pet', 'lastReward',
   'profile',
   // 用户自定义的「组织」标签列表(在我 Tab 编辑)。
-  'organizations'
+  'organizations',
+  // 单词库 / 背单词 SRS:单词本、配置(每次数量 + 目标本)、每日背诵次数。
+  'wordBooks', 'wordConfig', 'reciteByDay'
 ]
 
 // === Date helpers (local timezone, YYYY-MM-DD) === //
@@ -390,6 +392,142 @@ function deriveAnimState(pet) {
   return 'idle'
 }
 
+// === 背单词 / 单词库 SRS === //
+// 宠物的「知识」属性靠背单词积累(每答对一个 +1,背完结算);知识不能用金币/道具买。
+// 掌握度走遗忘曲线:连对 4 次(间隔递增)= 完全掌握,之后不再出现;答错回退两格 +
+// 标记错过,需要重新连对。组卷:目标单词本里「到期旧词 + 新词」,保证至少 3 个新词,
+// 凑够设定数量(默认 20)。每天最多背 RECITE_DAILY_MAX 次。
+const RECITE_DAY_MS = 86400000
+const RECITE_INTERVAL_DAYS = [0, 1, 2, 4, 7]   // 下标 = 答对后的连对数(0..4);到 4 即掌握
+const RECITE_MASTER_STREAK = 4
+const RECITE_WRONG_BACK = 2                     // 答错回退几格
+const RECITE_WRONG_DELAY_MS = Math.round(0.25 * 86400000)  // 答错后约 6 小时再来
+const RECITE_DEFAULT_SIZE = 20
+const RECITE_MIN_NEW = 3
+const RECITE_DAILY_MAX = 3
+const RECITE_SESSION_MIN = 3
+const RECITE_SESSION_MAX = 50
+
+const DEFAULT_RECITE_WORDS = [
+  ['苹果', 'apple'], ['香蕉', 'banana'], ['猫', 'cat'], ['狗', 'dog'], ['书', 'book'],
+  ['笔', 'pen'], ['水', 'water'], ['牛奶', 'milk'], ['红色', 'red'], ['蓝色', 'blue'],
+  ['绿色', 'green'], ['鱼', 'fish'], ['鸟', 'bird'], ['树', 'tree'], ['花', 'flower'],
+  ['太阳', 'sun'], ['月亮', 'moon'], ['手', 'hand'], ['脚', 'foot'], ['米饭', 'rice'],
+  ['蛋', 'egg'], ['门', 'door'], ['车', 'car'], ['家', 'home'], ['学校', 'school'],
+  ['老师', 'teacher'], ['朋友', 'friend'], ['快乐', 'happy']
+]
+
+function freshWord(cn, en, id) {
+  return { id, cn, en, streak: 0, everWrong: false, mastered: false, dueAt: 0, seen: false, lastAt: 0 }
+}
+
+function seedDefaultWordBook() {
+  return {
+    id: 'wb_default',
+    name: '基础词',
+    builtin: true,
+    createdAt: 0,
+    words: DEFAULT_RECITE_WORDS.map(([cn, en], i) => freshWord(cn, en, 'w_def_' + i))
+  }
+}
+
+function defaultWordConfig() {
+  return { sessionSize: RECITE_DEFAULT_SIZE, targetBookIds: ['wb_default'] }
+}
+
+function reciteShuffle(arr) {
+  const a = arr.slice()
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const t = a[i]; a[i] = a[j]; a[j] = t
+  }
+  return a
+}
+
+function reciteIntervalMs(streak) {
+  const s = Math.max(0, Math.min(RECITE_MASTER_STREAK, streak))
+  return (RECITE_INTERVAL_DAYS[s] || 0) * RECITE_DAY_MS
+}
+
+function reciteCountToday(state) {
+  const m = (state && state.reciteByDay) || {}
+  return m[todayStr()] || 0
+}
+function reciteRemaining(state) {
+  return Math.max(0, RECITE_DAILY_MAX - reciteCountToday(state))
+}
+
+// 组卷:目标本里未掌握的「到期旧词 + 新词」,保证 ≥ RECITE_MIN_NEW 新词,凑够 size。
+// 返回 [{ bookId, wordId, cn, en, isNew }]。
+function buildReciteSession(state) {
+  const books = (state && state.wordBooks) || []
+  const cfg = (state && state.wordConfig) || {}
+  const size = Math.max(RECITE_SESSION_MIN, Math.min(RECITE_SESSION_MAX, cfg.sessionSize || RECITE_DEFAULT_SIZE))
+  const targetIds = Array.isArray(cfg.targetBookIds) && cfg.targetBookIds.length
+    ? cfg.targetBookIds : books.map((b) => b.id)
+  const now = Date.now()
+  const due = []
+  const fresh = []
+  books.forEach((book) => {
+    if (targetIds.indexOf(book.id) === -1) return
+    ;(book.words || []).forEach((w) => {
+      if (w.mastered) return
+      const item = { bookId: book.id, wordId: w.id, cn: w.cn, en: w.en, isNew: !w.seen, _due: w.dueAt || 0 }
+      if (!w.seen) fresh.push(item)
+      else if ((w.dueAt || 0) <= now) due.push(item)
+    })
+  })
+  due.sort((a, b) => (a._due || 0) - (b._due || 0))   // 最早到期(最该复习)的优先
+  const freshShuf = reciteShuffle(fresh)
+  const picked = []
+  const minNew = Math.min(RECITE_MIN_NEW, freshShuf.length)
+  for (let i = 0; i < minNew; i++) picked.push(freshShuf[i])
+  let di = 0
+  while (picked.length < size && di < due.length) picked.push(due[di++])
+  let fi = minNew
+  while (picked.length < size && fi < freshShuf.length) picked.push(freshShuf[fi++])
+  return reciteShuffle(picked).map((it) => ({ bookId: it.bookId, wordId: it.wordId, cn: it.cn, en: it.en, isNew: it.isNew }))
+}
+
+// 结算一组背诵:results = [{ bookId, wordId, firstTryCorrect }]。更新每个词的 SRS 状态
+// + 给宠物加知识(每个 firstTryCorrect +1)+ 记一次每日次数。返回获得的知识点。
+function applyReciteSession(results) {
+  let knowledgeGained = 0
+  updateState((state) => {
+    const now = Date.now()
+    const books = state.wordBooks || []
+    ;(results || []).forEach((r) => {
+      const book = books.find((b) => b.id === r.bookId)
+      if (!book) return
+      const w = (book.words || []).find((x) => x.id === r.wordId)
+      if (!w) return
+      w.seen = true
+      w.lastAt = now
+      if (r.firstTryCorrect) {
+        w.streak = Math.min(RECITE_MASTER_STREAK, (w.streak || 0) + 1)
+        w.dueAt = now + reciteIntervalMs(w.streak)
+        if (w.streak >= RECITE_MASTER_STREAK) w.mastered = true
+        knowledgeGained += 1
+      } else {
+        w.streak = Math.max(0, (w.streak || 0) - RECITE_WRONG_BACK)
+        w.everWrong = true
+        w.mastered = false
+        w.dueAt = now + RECITE_WRONG_DELAY_MS
+      }
+    })
+    if (state.pet && state.pet.species) {
+      state.pet.knowledge = (state.pet.knowledge || 0) + knowledgeGained
+    }
+    const today = todayStr()
+    if (!state.reciteByDay || typeof state.reciteByDay !== 'object') state.reciteByDay = {}
+    state.reciteByDay[today] = (state.reciteByDay[today] || 0) + 1
+    const cutoff = addDays(today, -7)
+    Object.keys(state.reciteByDay).forEach((k) => { if (k < cutoff) delete state.reciteByDay[k] })
+    return state
+  })
+  return { knowledgeGained }
+}
+
 const defaultState = {
   schemaVersion: SCHEMA_VERSION,
   // ms timestamp of last sync-relevant local mutation. 0 = never written, so
@@ -439,7 +577,12 @@ const defaultState = {
   profile: { nickname: '', avatar: '' },
   // 用户自定义的组织标签列表(我 Tab 可编辑)。task.organization 存的是字符串,
   // 删除某个标签不会改动已有 task —— 仅影响 task-edit 下拉。
-  organizations: DEFAULT_ORGANIZATIONS.slice()
+  organizations: DEFAULT_ORGANIZATIONS.slice(),
+  // 单词库:多个单词本(每词带遗忘曲线 SRS 状态)+ 配置(每次数量 + 目标本)+
+  // 每日背诵次数。新用户内置一个「基础词」本。
+  wordBooks: [seedDefaultWordBook()],
+  wordConfig: defaultWordConfig(),
+  reciteByDay: {}
 }
 
 // === Storage / migration === //
@@ -643,6 +786,8 @@ function migrateState(raw) {
       if (raw.pet.health == null)           raw.pet.health           = 95
       // xp: 新引入字段(经验值升级模型)。老用户从 0 开始攒,不影响 level。
       if (raw.pet.xp == null)               raw.pet.xp               = 0
+      // knowledge: 知识属性,靠背单词积累(不能用金币/道具买)。老用户从 0 起。
+      if (raw.pet.knowledge == null)        raw.pet.knowledge        = 0
       // 老 exp/growth/freeze 模型已废弃 — strip 历史字段。
       // 注意:xp 是新字段,不在 strip 列表里。
       if ('exp' in raw.pet)                   delete raw.pet.exp
@@ -651,6 +796,25 @@ function migrateState(raw) {
       if ('nextLevelGrowth' in raw.pet)       delete raw.pet.nextLevelGrowth
       if (raw.pet.lastLeveledAt === undefined) raw.pet.lastLeveledAt = null
     }
+    // 单词库:确保字段存在;空则种一个默认「基础词」本。每词补齐 SRS 字段。
+    if (!Array.isArray(raw.wordBooks)) raw.wordBooks = []
+    if (raw.wordBooks.length === 0) raw.wordBooks = [seedDefaultWordBook()]
+    raw.wordBooks.forEach((book) => {
+      if (!Array.isArray(book.words)) book.words = []
+      book.words.forEach((w) => {
+        if (typeof w.streak !== 'number') w.streak = 0
+        if (typeof w.everWrong !== 'boolean') w.everWrong = false
+        if (typeof w.mastered !== 'boolean') w.mastered = false
+        if (typeof w.dueAt !== 'number') w.dueAt = 0
+        if (typeof w.seen !== 'boolean') w.seen = false
+      })
+    })
+    if (!raw.wordConfig || typeof raw.wordConfig !== 'object') raw.wordConfig = defaultWordConfig()
+    if (typeof raw.wordConfig.sessionSize !== 'number') raw.wordConfig.sessionSize = RECITE_DEFAULT_SIZE
+    if (!Array.isArray(raw.wordConfig.targetBookIds) || raw.wordConfig.targetBookIds.length === 0) {
+      raw.wordConfig.targetBookIds = raw.wordBooks.map((b) => b.id)
+    }
+    if (!raw.reciteByDay || typeof raw.reciteByDay !== 'object') raw.reciteByDay = {}
     // Pre-cloud-sync data: stamp current time so this device's data wins on
     // first cloud sync (over a fresh empty cloud doc with updatedAt=0).
     if (typeof raw.updatedAt !== 'number') raw.updatedAt = Date.now()
@@ -2025,6 +2189,7 @@ function setupPet({ species, name }) {
       lastDecayAt: now,
       level: 1,
       xp: 0,
+      knowledge: 0,
       happiness: 100,
       fullness: 100,
       cleanliness: 100,
@@ -2826,6 +2991,16 @@ module.exports = {
   perTaskReward,
   projectedReward,
   coinsEarnedOn,
+  // 背单词 / 单词库 SRS
+  buildReciteSession,
+  applyReciteSession,
+  reciteCountToday,
+  reciteRemaining,
+  RECITE_DAILY_MAX,
+  RECITE_DEFAULT_SIZE,
+  RECITE_MIN_NEW,
+  RECITE_SESSION_MIN,
+  RECITE_SESSION_MAX,
   // misc
   getCurrentTime
 }

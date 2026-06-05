@@ -246,6 +246,7 @@
   margin-bottom: 8rpx;
 }
 .status-meta .dot { margin: 0 8rpx; color: #b79a72; }
+.status-know { color: #7a5af0; font-weight: 700; }
 .svrow { display: flex; align-items: center; margin-top: 9rpx; }
 .svlabel { width: 52rpx; flex-shrink: 0; font-size: 20rpx; color: #5a3d1e; }
 .sbar {
