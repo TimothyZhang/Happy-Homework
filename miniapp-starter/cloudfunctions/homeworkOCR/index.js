@@ -769,7 +769,8 @@ async function callOpenAiVision(apiKey, options) {
   // 默认使用 Responses API(Azure 上是 /openai/responses,新模型如 gpt-5.x 系列只走这个);
   // 老的 Chat Completions 路径(/chat/completions 或 Azure 的 /openai/deployments/{dep}/chat/completions)
   // 仍然保留,用 OPENAI_USE_CHAT_COMPLETIONS=true 可强制切回。
-  const client = getOpenAiClient(apiKey)
+  // options.client 可传入绑定到别的 deployment 的客户端(单词表识别用快模型走这条)。
+  const client = options.client || getOpenAiClient(apiKey)
 
   if (shouldUseChatCompletions()) {
     return callOpenAiChatCompletion(client, options)
@@ -1168,6 +1169,34 @@ async function handleWordPairsRequest(event) {
   return response
 }
 
+// 单词表识别用「快模型」:默认 gpt-5.5 是推理模型,密集词表生成慢,容易撞 callFunction
+// 60s 网关硬超时 → "ocr超时"。单词表本质是转写,不需要推理,gpt-4.1(非推理)几秒搞定。
+// env OPENAI_WORDPAIRS_MODEL 可覆盖。
+const DEFAULT_WORDPAIRS_MODEL = 'gpt-4.1'
+function getWordPairsModel() {
+  return getFirstEnv(['OPENAI_WORDPAIRS_MODEL']) || DEFAULT_WORDPAIRS_MODEL
+}
+
+// 单独建一个绑定到快模型 deployment 的视觉客户端 —— 不能复用 getOpenAiClient(它锁死
+// gpt-5.5 deployment + 缓存)。Azure 下 deployment 决定实际调用的模型,光改 model 字段没用。
+let wordPairsClientCache = null
+function getWordPairsClient(apiKey) {
+  const deployment = getWordPairsModel()
+  if (wordPairsClientCache && wordPairsClientCache.model === deployment) return wordPairsClientCache
+  const { OpenAi, AzureOpenAi } = loadOpenAiSdk()
+  if (isAzureOpenAi()) {
+    if (!AzureOpenAi) throw createError('OPENAI_SDK_MISSING', '缺少 openai SDK(Azure)')
+    const endpoint = getAzureOpenAiEndpoint()
+    if (!endpoint) throw createError('AZURE_OPENAI_ENDPOINT_MISSING', '未配置 AZURE_OPENAI_ENDPOINT')
+    // timeout 50s:留在 60s 网关上限内,SDK 先于网关失败拿到干净报错。
+    wordPairsClientCache = { client: new AzureOpenAi({ apiKey, endpoint, apiVersion: getAzureOpenAiApiVersion(), deployment, maxRetries: 0, timeout: 50000 }), model: deployment }
+    return wordPairsClientCache
+  }
+  if (!OpenAi) throw createError('OPENAI_SDK_MISSING', '缺少 openai SDK')
+  wordPairsClientCache = { client: new OpenAi({ apiKey, baseURL: getOpenAiBaseUrl(), maxRetries: 0, timeout: 50000 }), model: deployment }
+  return wordPairsClientCache
+}
+
 async function recognizeWordPairs(imageFileID) {
   const apiKey = getOpenAiApiKey()
   if (!apiKey) {
@@ -1201,8 +1230,10 @@ async function recognizeWordPairs(imageFileID) {
     '7. 看不清的字按最可能的原文识别,但不要编造图里没有的词;整张图都不是单词表时 pairs 返回空数组。'
   ].join('\n')
 
+  const { client, model } = getWordPairsClient(apiKey)
   const response = await callOpenAiVision(apiKey, {
-    model: getOpenAiModel(),
+    model,
+    client,
     systemInstructions,
     userPromptText,
     imageDataUrl: dataUrl
