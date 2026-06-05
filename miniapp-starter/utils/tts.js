@@ -26,23 +26,20 @@ function safeKey(text) {
   return 'en_' + String(text).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 48)
 }
 
-function getAudio() {
-  if (!_audio) {
-    _audio = wx.createInnerAudioContext()
-    _audio.obeyMuteSwitch = false   // 静音键下也出声(背单词需要听见)
-    // 播放失败(文件损坏 / 编码不支持等)用 toast 兜底暴露,免得"没声音又没提示"。
-    _audio.onError((err) => {
-      console.warn('[tts] audio error', err)
-      try { wx.showToast({ title: '播放失败:' + ((err && err.errMsg) || '未知'), icon: 'none', duration: 2200 }) } catch (e) {}
-    })
-  }
-  return _audio
-}
+// 每次播放都重建 InnerAudioContext —— 复用同一个实例(stop→换 src→play)在部分真机上
+// 会"既无声也无报错"(本次没声音的根因)。重建最稳;再用 onCanplay 兜一次 play,
+// 防止 src 还没就绪就 play 丢音。
 function playFile(path) {
-  const a = getAudio()
-  try { a.stop() } catch (e) {}
-  a.src = path
-  a.play()
+  try { if (_audio) { _audio.stop(); _audio.destroy() } } catch (e) {}
+  _audio = wx.createInnerAudioContext()
+  _audio.obeyMuteSwitch = false   // 静音键下也出声(背单词需要听见)
+  _audio.onError((err) => {
+    console.warn('[tts] audio error', err)
+    try { wx.showToast({ title: '播放失败:' + ((err && err.errMsg) || '未知'), icon: 'none', duration: 2200 }) } catch (e) {}
+  })
+  _audio.src = path
+  _audio.onCanplay(() => { try { _audio.play() } catch (e) {} })
+  try { _audio.play() } catch (e) {}
 }
 
 // 合成 / 取缓存 / 播放。cb(ok, reason)。
@@ -80,6 +77,6 @@ function speak(text, lang, cb) {
 // 云可用就认为"可用"(真正能不能发声,首次 speak 失败时调用方再降级)。
 function ttsAvailable() { return !!(wx.cloud && wx.cloud.callFunction) }
 
-function stop() { if (_audio) { try { _audio.stop() } catch (e) {} } }
+function stop() { if (_audio) { try { _audio.stop(); _audio.destroy() } catch (e) {} _audio = null } }
 
 module.exports = { speak, ttsAvailable, stop }

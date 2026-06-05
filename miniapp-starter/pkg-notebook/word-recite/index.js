@@ -75,8 +75,10 @@ Page({
     if (this.data.mode !== 'dictation' || !this.data.word || !this.data.word.en) return
     // 重听不受 ttsOn 影响:即使首词降级过,手动点也再试一次(并刷新 ttsOn)。
     tts.speak(this.data.word.en, 'en_US', (ok, reason) => {
-      if (ok) { if (!this.data.ttsOn) this.setData({ ttsOn: true }) }
-      else wx.showToast({ title: '语音暂不可用:' + (reason || ''), icon: 'none', duration: 2400 })
+      if (ok) { if (!this.data.ttsOn) this.setData({ ttsOn: true }); return }
+      // inflight = 自动播放那次还在加载,稍等它就出声,别误报"不可用"。
+      if (reason === 'inflight') { wx.showToast({ title: '加载中,稍等再点~', icon: 'none', duration: 1400 }); return }
+      wx.showToast({ title: '语音暂不可用:' + (reason || ''), icon: 'none', duration: 2400 })
     })
   },
 
