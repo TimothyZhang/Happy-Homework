@@ -1,6 +1,7 @@
 // 跟宠物一起背单词(遗忘曲线 SRS)。题目来自 store 的单词库,按掌握度组卷;
 // 宠物在上方"说"中文,用自制大键盘拼英文。每答对一个给宠物 +1 知识,背完结算。
 const store = require('../../utils/store')
+const tts = require('../../utils/tts')
 
 // 自制键盘:布局对齐 iPhone 默认英文键盘。
 const ROWS_ABC = [
@@ -22,6 +23,8 @@ Page({
     species: 'cat',
     petName: '宝贝',
     knowledge: 0,
+    mode: 'recite',        // 'recite'(看中文拼英文) | 'dictation'(听写)
+    ttsOn: false,          // 听写模式能不能发声(同声传译插件是否可用)
     rowsAbc: ROWS_ABC,
     rowsNum: ROWS_NUM,
     kbMode: 'abc',
@@ -41,16 +44,29 @@ Page({
     canMore: false
   },
 
-  onLoad() {
+  onLoad(q) {
     let statusBarH = 20
     try { statusBarH = (wx.getSystemInfoSync().statusBarHeight) || 20 } catch (e) {}
-    this.setData({ statusBarH })
+    const mode = (q && q.mode === 'dictation') ? 'dictation' : 'recite'
+    this.setData({ statusBarH, mode, ttsOn: tts.ttsAvailable() })
     this._answered = false
     this._results = []
     this._startSession()
   },
 
-  onUnload() { if (this._t) { clearTimeout(this._t); this._t = null } },
+  onUnload() { if (this._t) { clearTimeout(this._t); this._t = null } try { tts.stop() } catch (e) {} },
+
+  // 听写模式:读出当前词的英文(看中文模式不读)。
+  _speakCurrent(word) {
+    if (this.data.mode !== 'dictation' || !this.data.ttsOn) return
+    if (word && word.en) tts.speak(word.en, 'en_US')
+  },
+
+  replay() {
+    if (this.data.mode !== 'dictation') return
+    if (!this.data.ttsOn) { wx.showToast({ title: '语音未开通', icon: 'none' }); return }
+    if (this.data.word && this.data.word.en) tts.speak(this.data.word.en, 'en_US')
+  },
 
   _startSession() {
     const state = store.getStateWithComputed()
@@ -74,6 +90,7 @@ Page({
       word: session[0], input: '', feedback: '', correctCount: 0, knowledgeGained: 0,
       kbMode: 'abc', shiftActive: false
     }))
+    this._speakCurrent(session[0])
   },
 
   // === 自制键盘 ===
@@ -133,6 +150,7 @@ Page({
     if (ni >= this._session.length) { this._finish(); return }
     this._answered = false
     this.setData({ index: ni, word: this._session[ni], input: '', feedback: '' })
+    this._speakCurrent(this._session[ni])
   },
 
   _finish() {

@@ -225,6 +225,11 @@
           <text>一起来背单词吧</text>
         </view>
         <view class="pet-popover-divider"></view>
+        <view class="pet-popover-item" bindtap="menuStartDictation" hover-class="pet-popover-item-hover">
+          <text class="pmi-emoji">🎧</text>
+          <text>听写单词</text>
+        </view>
+        <view class="pet-popover-divider"></view>
       </block>
       <view class="pet-popover-item" bindtap="menuWordBooks" hover-class="pet-popover-item-hover">
         <text class="pmi-emoji">📚</text>

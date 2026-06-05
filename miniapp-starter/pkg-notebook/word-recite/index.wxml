@@ -14,12 +14,24 @@
   </view>
 
   <block wx:elif="{{!done}}">
-    <!-- 宠物在上方"说"中文;新词亮出英文跟着拼 -->
+    <!-- recite:宠物说中文;dictation:听语音拼写 -->
     <view class="stage">
       <image class="pet {{feedback}}" src="/assets/pets/{{species}}.svg" mode="aspectFit" />
-      <view class="say-bubble">{{word.cn}}</view>
-      <text wx:if="{{!word.isNew}}" class="hint">用英语怎么说?</text>
-      <view wx:else class="newword">📖 新词 · 跟着拼:<text class="newword-en">{{word.en}}</text></view>
+
+      <block wx:if="{{mode === 'dictation'}}">
+        <view class="dict-play" bindtap="replay" hover-class="dict-play-hover">🔊</view>
+        <text class="hint">🎧 听写 · 拼出听到的单词</text>
+        <view class="dict-cn">{{word.cn}}</view>
+        <view wx:if="{{word.isNew}}" class="newword">📖 新词:<text class="newword-en">{{word.en}}</text></view>
+        <view wx:elif="{{!ttsOn}}" class="newword">🔇 语音未开通,先照着拼:<text class="newword-en">{{word.en}}</text></view>
+        <view class="replay-btn" bindtap="replay" hover-class="exit-hover">🔁 重听</view>
+      </block>
+
+      <block wx:else>
+        <view class="say-bubble">{{word.cn}}</view>
+        <text wx:if="{{!word.isNew}}" class="hint">用英语怎么说?</text>
+        <view wx:else class="newword">📖 新词 · 跟着拼:<text class="newword-en">{{word.en}}</text></view>
+      </block>
     </view>
 
     <view class="answer">

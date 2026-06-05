@@ -48,6 +48,21 @@
 }
 .hint { margin-top: 18rpx; font-size: 28rpx; color: #a07a4f; }
 
+/* 听写模式 */
+.dict-play {
+  margin-top: 6rpx; width: 144rpx; height: 144rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: #245bdb; color: #ffffff; font-size: 68rpx;
+  box-shadow: 0 10rpx 26rpx rgba(36, 91, 219, 0.32);
+}
+.dict-play-hover { background: #1e4fc0; }
+.dict-cn { margin-top: 16rpx; font-size: 34rpx; font-weight: 700; color: #8a6a45; }
+.replay-btn {
+  margin-top: 16rpx; padding: 12rpx 38rpx; border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.9); color: #245bdb; font-size: 28rpx; font-weight: 700;
+  box-shadow: 0 4rpx 12rpx rgba(150, 110, 60, 0.14);
+}
+
 /* 答案显示 */
 .answer {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;

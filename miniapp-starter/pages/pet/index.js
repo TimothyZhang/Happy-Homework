@@ -378,6 +378,12 @@ Page({
     wx.navigateTo({ url: '/pkg-notebook/word-recite/index' })
   },
 
+  // 菜单·听写单词:进背单词页的听写模式(TTS 读音 + 拼写)。
+  menuStartDictation() {
+    this.setData({ showPetMenu: false })
+    wx.navigateTo({ url: '/pkg-notebook/word-recite/index?mode=dictation' })
+  },
+
   // 菜单·我的单词本:进单词库管理页(增减单词本/单词、设目标、设每次数量)。
   menuWordBooks() {
     this.setData({ showPetMenu: false })
