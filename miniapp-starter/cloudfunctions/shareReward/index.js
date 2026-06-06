@@ -24,10 +24,19 @@ cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const COLLECTION = 'share_rewards_inbox'
 const USER_COLLECTION = 'user_state'
 const LEDGER_COLLECTION = 'coin_ledger'   // 和 coinLedger 云函数共用
+const DAILY_COLLECTION = 'share_reward_daily'  // 每人每天分享奖励累计(做 100/天 上限)
 const REWARD_PER_SAVE = 3
+const DAILY_REWARD_CAP = 100      // 每人每天最多领 100 金分享奖励
 const HISTORY_KEEP = 200          // 单方向最多保留多少条记录
 const NOTEBOOK_ID_MAX_LEN = 100
 const NOTEBOOK_NAME_MAX_LEN = 60
+
+// 服务端「当天」按 UTC+8(中国)算,跟客户端 todayStr 口径一致 —— SCF 默认
+// UTC,直接 toISOString 会把晚上 8 点后的记录算到第二天,跨天对不上。
+function serverDayStr() {
+  const shifted = new Date(Date.now() + 8 * 3600 * 1000)
+  return shifted.toISOString().slice(0, 10)   // "YYYY-MM-DD"
+}
 
 // 接收方在 credit 时可能塞控制字符 / 零宽 / bidi 标记,污染分享方的奖励
 // toast 文案和 admin 审计日志。统一从输入字段里剥掉。
@@ -179,20 +188,72 @@ async function creditShare({ callerOpenid, sharerOpenid, notebookId, notebookNam
     return { ok: false, reason: 'already_credited' }
   }
 
+  // 每人每天最多 100 金分享奖励:读分享方「今天」已累计的额度,算这次还能发多少。
+  // 计数落在独立的 DAILY_COLLECTION,跟 inbox 的领取/删除解耦 —— 领过之后当天上限
+  // 仍然有效(不会因为 inbox 被清空而重置)。
+  const dayStr = serverDayStr()
+  const dailyId = `${sharerOpenid}__${dayStr}`
+  await ensureDailyCollection()
+  let dailyTotal = 0
+  try {
+    const dailyRes = await db.collection(DAILY_COLLECTION).where({ _id: dailyId }).limit(1).get()
+    dailyTotal = (dailyRes.data && dailyRes.data[0] && Number(dailyRes.data[0].total)) || 0
+  } catch (e) { /* 还没有今天的计数 → 0 */ }
+  const remaining = DAILY_REWARD_CAP - dailyTotal
+  if (remaining <= 0) {
+    return { ok: false, reason: 'daily_cap', credited: 0, dailyTotal, dailyCap: DAILY_REWARD_CAP }
+  }
+  const grant = Math.min(REWARD_PER_SAVE, remaining)   // 末尾可能只剩 < 3,给到刚好 100 封顶
+
   await db.collection(COLLECTION).add({
     data: {
       _openid: sharerOpenid,             // 这条收件人是分享方
       importerOpenid: callerOpenid,
       notebookId,
       notebookName: safeNotebookName,
-      amount: REWARD_PER_SAVE,
+      amount: grant,
       dedupKey,
       claimed: false,
       createdAt: Date.now()
     }
   })
 
-  return { ok: true, credited: REWARD_PER_SAVE }
+  // 累加当天额度(doc 不存在则建;并发竞态下退化为再 inc 一次,粗略即可)。
+  await bumpDailyTotal(db, dailyId, sharerOpenid, dayStr, grant)
+
+  return { ok: true, credited: grant, dailyTotal: dailyTotal + grant, dailyCap: DAILY_REWARD_CAP }
+}
+
+// 把分享方当天的分享奖励累计 +grant。best-effort:计数偶尔少算只会让上限稍微宽松,
+// 不会卡死正常奖励。
+async function bumpDailyTotal(db, dailyId, sharerOpenid, dayStr, grant) {
+  try {
+    await db.collection(DAILY_COLLECTION).doc(dailyId).update({
+      data: { total: db.command.inc(grant), updatedAt: Date.now() }
+    })
+  } catch (e) {
+    try {
+      await db.collection(DAILY_COLLECTION).add({
+        data: { _id: dailyId, _openid: sharerOpenid, dayStr, total: grant, updatedAt: Date.now() }
+      })
+    } catch (e2) {
+      // 竞态:刚被别的请求建好 → 再 inc 一次
+      try {
+        await db.collection(DAILY_COLLECTION).doc(dailyId).update({
+          data: { total: db.command.inc(grant), updatedAt: Date.now() }
+        })
+      } catch (e3) { /* 放弃,计数 best-effort */ }
+    }
+  }
+}
+
+async function ensureDailyCollection() {
+  const db = cloud.database()
+  try {
+    await db.createCollection(DAILY_COLLECTION)
+  } catch (e) {
+    // 已存在 / 权限问题:后续 where/add 自然反馈
+  }
 }
 
 async function claimRewards(callerOpenid) {
