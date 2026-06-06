@@ -51,9 +51,11 @@ const RIG_PIVOTS = {
 
 // 地板可行走带(全屏 room 的百分比)。上沿(yMin)= 远处,下沿(yMax)= 近处。
 // 带子落在房间地板的可见区(被下方控制卡盖住之前),侧面行走以横向为主。
-const FLOOR = { xMin: 8, xMax: 92, yMin: 46, yMax: 76 }
-const DEPTH_FAR = 0.72      // 脚底在 yMin(最远)时的身体缩放
-const DEPTH_NEAR = 1.12     // 脚底在 yMax(最近)时的身体缩放
+// 房间扩大 ~2 倍:墙降到 34% → 地板更大;可行走带拉宽拉深;宠物整体缩小,
+// 这样同一屏里地板/空间显得是原来的约两倍。
+const FLOOR = { xMin: 5, xMax: 95, yMin: 40, yMax: 86 }
+const DEPTH_FAR = 0.56      // 脚底在 yMin(最远)时的身体缩放(原 0.72,缩小约 22%)
+const DEPTH_NEAR = 0.86     // 脚底在 yMax(最近)时的身体缩放(原 1.12)
 const WALK_SPEED_PCT_PER_S = 24   // 行走速度(room% / 秒)→ 每段 transition 时长
 // 竖屏里纵向 1% 跨的像素远多于横向(屏高≈屏宽×2.2),给 dy 加权,
 // 让纵向移动 duration 变长 → 纵向走得没那么快(横向不变)。
@@ -114,6 +116,8 @@ Page({
     rigPivot: RIG_PIVOTS.cat,   // 当前物种 rig 各关节 pivot(refreshState 按 species 覆盖)
     showPetMenu: false,
     showDeskMenu: false,   // 点书桌弹出的学习菜单(单词挑战/听写/单词本)
+    roomTheme: 'cozy',     // 房间背景主题:cozy 温馨小屋 / castle 城堡
+    showRoomPicker: false, // 选房间背景的弹窗
     reciteLeft: 0,         // 今天还能背几次(0 则菜单里不显示「背单词」)
     vocab: 0,              // 词汇量 = 已掌握单词数(浮窗展示)
     showBubble: false,
@@ -207,6 +211,7 @@ Page({
       mode: isSetup ? 'view' : 'setup',
       animState: isSetup ? deriveAnimState(pet) : 'idle',
       rigPivot: RIG_PIVOTS[pet.species] || RIG_PIVOTS.cat,
+      roomTheme: pet.roomTheme || 'cozy',
       ageDays: isSetup ? store.petAgeDays(pet) : 0,
       vocab: store.getWordStats(state).mastered,
       reciteLeft: store.reciteRemaining(state),
@@ -404,6 +409,19 @@ Page({
   },
   closeDeskMenu() {
     this.setData({ showDeskMenu: false })
+  },
+
+  // === 房间背景主题 === //
+  openRoomPicker() {
+    this.setData({ showRoomPicker: true })
+  },
+  closeRoomPicker() {
+    this.setData({ showRoomPicker: false })
+  },
+  pickRoom(e) {
+    const theme = store.setRoomTheme(e.currentTarget.dataset.theme)
+    this.setData({ roomTheme: theme, showRoomPicker: false })
+    wx.showToast({ title: theme === 'castle' ? '已换成城堡' : '已换成温馨小屋', icon: 'none' })
   },
 
   // 摸摸它:按心情互动(挤一下 + 飘爱心 + 说话气泡)。现在由点宠物直接触发。

@@ -96,7 +96,7 @@
   background: #f3e2cb;
 }
 .room-wall {
-  position: absolute; left: 0; right: 0; top: 0; height: 42%;
+  position: absolute; left: 0; right: 0; top: 0; height: 34%;
   background:
     repeating-linear-gradient(90deg, rgba(255,255,255,0) 0, rgba(255,255,255,0) 58rpx, rgba(255,255,255,0.10) 58rpx, rgba(255,255,255,0.10) 60rpx),
     linear-gradient(180deg, #fce8d2 0%, #f1d6b4 100%);
@@ -150,12 +150,12 @@
 }
 /* 踢脚线:墙地分界 */
 .room-baseboard {
-  position: absolute; left: 0; right: 0; top: 42%; height: 20rpx; margin-top: -20rpx;
+  position: absolute; left: 0; right: 0; top: 34%; height: 20rpx; margin-top: -20rpx;
   background: linear-gradient(180deg, #d3ab7c 0%, #c2965f 100%);
 }
 /* 木地板:竖向木缝 + 由远向近的暖色渐变 */
 .room-floor {
-  position: absolute; left: 0; right: 0; top: 42%; bottom: 0;
+  position: absolute; left: 0; right: 0; top: 34%; bottom: 0;
   background:
     repeating-linear-gradient(90deg, rgba(120,80,40,0.12) 0, rgba(120,80,40,0.12) 2rpx, transparent 2rpx, transparent 96rpx),
     linear-gradient(180deg, #e9c89c 0%, #d9b07c 55%, #cca06b 100%);
@@ -168,6 +168,123 @@
   background: radial-gradient(ellipse at 50% 50%, #ffdcc6 0%, #ffc4a2 52%, #f0a886 100%);
   box-shadow: inset 0 0 0 8rpx rgba(255,255,255,0.45);
   opacity: 0.95;
+}
+
+/* ============================================================
+   城堡房间主题(.theme-castle 覆盖温馨小屋)+ 换背景弹窗
+   ============================================================ */
+.room.theme-castle { background: #2b2740; }
+/* 石砖墙(灰紫砌石 + 砖缝网格) */
+.theme-castle .room-wall {
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0, rgba(0,0,0,0.18) 3rpx, transparent 3rpx, transparent 54rpx),
+    repeating-linear-gradient(90deg, rgba(0,0,0,0.18) 0, rgba(0,0,0,0.18) 3rpx, transparent 3rpx, transparent 92rpx),
+    linear-gradient(180deg, #6f6886 0%, #565072 100%);
+}
+/* 拱形石窗 + 夜空 */
+.theme-castle .room-window {
+  border-color: #9089a6; border-width: 11rpx;
+  border-radius: 50% 50% 10rpx 10rpx;
+  background: linear-gradient(180deg, #161d44 0%, #283360 60%, #36417a 100%);
+  box-shadow: 0 8rpx 18rpx rgba(0,0,0,0.32), inset 0 0 26rpx rgba(0,0,0,0.4);
+}
+.theme-castle .room-cloud { display: none; }
+.theme-castle .room-window-bar { background: #9089a6; }
+.theme-castle .room-window-bar-h { display: none; }
+.castle-moon {
+  position: absolute; top: 14%; left: 20%;
+  width: 44%; height: 44%; border-radius: 50%;
+  background: radial-gradient(circle at 38% 36%, #fff8e0 0%, #ffe9a8 58%, #efcd78 100%);
+  box-shadow: 0 0 26rpx 7rpx rgba(255, 228, 150, 0.55);
+}
+/* 海报 → 城堡挂旗(深红 + 金边,保留标语) */
+.theme-castle .room-picture { border-color: #c9a24e; box-shadow: 0 6rpx 14rpx rgba(0,0,0,0.28); }
+.theme-castle .room-poster {
+  background: linear-gradient(180deg, #7c2433 0%, #5a1622 100%);
+  box-shadow: inset 0 0 0 4rpx rgba(201, 162, 78, 0.7);
+}
+.theme-castle .poster-line { color: #ffe6b0; text-shadow: 0 1rpx 0 rgba(0,0,0,0.35); }
+/* 踢脚线 → 石基 */
+.theme-castle .room-baseboard { background: linear-gradient(180deg, #4a4663 0%, #393552 100%); }
+/* 石板地 */
+.theme-castle .room-floor {
+  background:
+    repeating-linear-gradient(90deg, rgba(0,0,0,0.16) 0, rgba(0,0,0,0.16) 3rpx, transparent 3rpx, transparent 112rpx),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.10) 0, rgba(0,0,0,0.10) 3rpx, transparent 3rpx, transparent 70rpx),
+    linear-gradient(180deg, #8b8498 0%, #6f6a83 55%, #5b5772 100%);
+  box-shadow: inset 0 12rpx 26rpx rgba(0,0,0,0.3);
+}
+/* 红毯(中间一条) */
+.theme-castle .room-rug {
+  left: 50%; top: 50%; width: 44%; height: 46%; margin-left: -22%;
+  border-radius: 14rpx;
+  background: linear-gradient(180deg, #b23042 0%, #891f30 100%);
+  box-shadow: inset 0 0 0 8rpx rgba(214, 176, 90, 0.8);
+  opacity: 0.95;
+}
+/* 墙上火把(火苗会跳) */
+.castle-torch { position: absolute; top: 15%; width: 28rpx; height: 86rpx; z-index: 4; }
+.castle-torch-l { left: 2%; }
+.castle-torch-r { right: 2%; }   /* 贴右边沿,避开右上角的拱窗(right:6%) */
+.castle-torch::after {
+  content: ''; position: absolute; left: 50%; bottom: 0; margin-left: -6rpx;
+  width: 12rpx; height: 46rpx; border-radius: 0 0 5rpx 5rpx;
+  background: linear-gradient(180deg, #6b5a3a 0%, #463922 100%);
+}
+.torch-flame {
+  position: absolute; left: 50%; top: 0; margin-left: -14rpx;
+  width: 28rpx; height: 42rpx;
+  border-radius: 50% 50% 50% 50% / 64% 64% 38% 38%;
+  background: radial-gradient(circle at 50% 72%, #fff3a0 0%, #ffb030 46%, #ff6a2a 82%);
+  box-shadow: 0 0 24rpx 7rpx rgba(255, 150, 60, 0.5);
+  transform-origin: 50% 100%;
+  animation: torch-flicker 0.46s ease-in-out infinite alternate;
+}
+@keyframes torch-flicker {
+  0%   { transform: scaleY(1) scaleX(1);      opacity: 0.9; }
+  100% { transform: scaleY(1.14) scaleX(0.9); opacity: 1; }
+}
+
+/* === 换房间背景弹窗 === */
+.room-picker-mask {
+  position: fixed; inset: 0; z-index: 140;
+  background: rgba(20, 16, 28, 0.5);
+  display: flex; align-items: center; justify-content: center;
+}
+.room-picker {
+  width: 600rpx; background: #ffffff; border-radius: 28rpx;
+  padding: 32rpx 28rpx 24rpx;
+  box-shadow: 0 18rpx 50rpx rgba(0,0,0,0.3);
+}
+.room-picker-title { font-size: 32rpx; font-weight: 800; color: #1f2329; text-align: center; }
+.room-picker-grid { display: flex; gap: 20rpx; margin-top: 24rpx; }
+.rp-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 14rpx 12rpx 18rpx; border-radius: 18rpx;
+  box-shadow: inset 0 0 0 3rpx #eef1f5;
+}
+.rp-item.on { box-shadow: inset 0 0 0 4rpx #245bdb; background: #f5f8ff; }
+.rp-hover { background: #f0f3f8; }
+.rp-thumb { width: 100%; height: 150rpx; border-radius: 12rpx; }
+.rp-thumb-cozy {
+  background:
+    linear-gradient(180deg, #fce8d2 0%, #f1d6b4 46%, transparent 46%),
+    linear-gradient(180deg, transparent 46%, #e9c89c 46%, #cca06b 100%);
+}
+.rp-thumb-castle {
+  background:
+    linear-gradient(180deg, #6f6886 0%, #565072 40%, transparent 40%),
+    linear-gradient(180deg, transparent 40%, #8b8498 40%, #5b5772 100%);
+}
+.rp-name { margin-top: 12rpx; font-size: 28rpx; font-weight: 700; color: #1f2329; }
+.rp-tag {
+  margin-top: 8rpx; font-size: 22rpx; font-weight: 700;
+  color: #ffffff; background: #245bdb; border-radius: 999rpx; padding: 4rpx 18rpx;
+}
+.rp-tag.ghost { color: #245bdb; background: #eef4ff; }
+.room-picker-close {
+  margin-top: 26rpx; text-align: center; height: 80rpx; line-height: 80rpx;
+  border-radius: 999rpx; background: #f1f3f6; color: #5a6573; font-size: 30rpx; font-weight: 700;
 }
 
 /* the walking pet — feet anchored at (left,top); JS sets translate+scale(depth)

@@ -32,10 +32,11 @@
     <!-- 全屏室内房间(fixed 背景):宠物在地板上以侧面朝向四向行走。点空地板
          宠物走过去,点宠物本身按心情互动。控制卡片在下面的 .sheet 里,往上滚
          盖住下半截房间。 -->
-    <view class="room" bindtap="handleSceneTap">
+    <view class="room theme-{{roomTheme}}" bindtap="handleSceneTap">
       <view class="room-wall"></view>
       <view class="room-window">
         <view class="room-cloud"></view>
+        <view wx:if="{{roomTheme === 'castle'}}" class="castle-moon"></view>
         <view class="room-window-bar room-window-bar-v"></view>
         <view class="room-window-bar room-window-bar-h"></view>
       </view>
@@ -52,6 +53,12 @@
         <view class="desk-hint">📖 背单词</view>
         <image class="room-desk-art" src="/assets/room/desk.svg" mode="aspectFit" />
       </view>
+
+      <!-- 城堡专属装饰(只在 castle 主题):墙上两支火把(会跳动的火苗) -->
+      <block wx:if="{{roomTheme === 'castle'}}">
+        <view class="castle-torch castle-torch-l"><view class="torch-flame"></view></view>
+        <view class="castle-torch castle-torch-r"><view class="torch-flame"></view></view>
+      </block>
 
       <view wx:if="{{pet.species}}"
             class="pet-actor face-{{actorFace}} {{actorMoving ? 'moving' : (spriteAnim ? '' : 'still')}} anim-{{animState}} {{spriteAnim ? 'do-' + spriteAnim : ''}}"
@@ -201,6 +208,17 @@
         <text class="switch-chev">›</text>
       </view>
     </view>
+
+    <view class="card switch-card" bindtap="openRoomPicker">
+      <view class="switch-row">
+        <text class="switch-emoji">🏰</text>
+        <view class="switch-text">
+          <text class="switch-title">换房间背景</text>
+          <text class="switch-sub">{{roomTheme === 'castle' ? '当前:城堡' : '当前:温馨小屋'}} · 免费切换</text>
+        </view>
+        <text class="switch-chev">›</text>
+      </view>
+    </view>
     </view>
   </block>
 
@@ -261,6 +279,26 @@
         <text class="pmi-emoji">📚</text>
         <text>我的单词本</text>
       </view>
+    </view>
+  </view>
+
+  <!-- 选房间背景 -->
+  <view wx:if="{{showRoomPicker}}" class="room-picker-mask" bindtap="closeRoomPicker" catchtouchmove="noop">
+    <view class="room-picker" catchtap="" catchtouchmove="noop">
+      <view class="room-picker-title">选个房间背景</view>
+      <view class="room-picker-grid">
+        <view class="rp-item {{roomTheme === 'cozy' ? 'on' : ''}}" data-theme="cozy" bindtap="pickRoom" hover-class="rp-hover">
+          <view class="rp-thumb rp-thumb-cozy"></view>
+          <text class="rp-name">温馨小屋</text>
+          <text class="rp-tag {{roomTheme === 'cozy' ? '' : 'ghost'}}">{{roomTheme === 'cozy' ? '当前' : '选它'}}</text>
+        </view>
+        <view class="rp-item {{roomTheme === 'castle' ? 'on' : ''}}" data-theme="castle" bindtap="pickRoom" hover-class="rp-hover">
+          <view class="rp-thumb rp-thumb-castle"></view>
+          <text class="rp-name">城堡</text>
+          <text class="rp-tag {{roomTheme === 'castle' ? '' : 'ghost'}}">{{roomTheme === 'castle' ? '当前' : '选它'}}</text>
+        </view>
+      </view>
+      <view class="room-picker-close" bindtap="closeRoomPicker">关闭</view>
     </view>
   </view>
 </view>

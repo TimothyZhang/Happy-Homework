@@ -3143,8 +3143,21 @@ function importSharedTasks(payload, options) {
   return newIds
 }
 
+// 房间背景主题(可选)。存在 pet.roomTheme,随宠物一起持久化 + 云同步。
+const ROOM_THEMES = ['cozy', 'castle']
+function setRoomTheme(theme) {
+  const t = ROOM_THEMES.indexOf(theme) >= 0 ? theme : 'cozy'
+  updateState((state) => {
+    if (state.pet) state.pet.roomTheme = t
+    return state
+  })
+  return t
+}
+
 module.exports = {
   defaultState,
+  ROOM_THEMES,
+  setRoomTheme,
   // state
   getStateWithComputed,
   // dates
