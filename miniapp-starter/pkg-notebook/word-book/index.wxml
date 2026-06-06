@@ -17,6 +17,14 @@
     <view class="tool-btn del" bindtap="deleteBook" hover-class="del-hover">🗑 删除单词本</view>
   </view>
 
+  <view class="public-row">
+    <view class="public-l">
+      <text class="public-label">🌐 公开到单词库</text>
+      <text class="public-sub">{{isPublic ? '别人能搜到并复制,但改不了你的' : '打开后:别人可搜索 + 复制(只读)'}}</text>
+    </view>
+    <switch checked="{{isPublic}}" color="#245bdb" disabled="{{publicBusy}}" bindchange="togglePublic" />
+  </view>
+
   <view class="count-line">共 {{words.length}} 个</view>
 
   <view wx:if="{{words.length === 0}}" class="empty">还没有单词,上面加一个吧~</view>
@@ -31,7 +39,21 @@
       <text wx:elif="{{item.state === 'learning'}}">{{item.everWrong ? '需加强' : '复习中'}}</text>
       <text wx:else>未学</text>
     </view>
+    <view class="word-edit" catchtap="editWord" data-id="{{item.id}}" hover-class="edit-hover">改</view>
     <view class="word-del" catchtap="removeWord" data-id="{{item.id}}" hover-class="del-hover">删</view>
+  </view>
+
+  <!-- 修改单词 -->
+  <view wx:if="{{editing}}" class="edit-mask" bindtap="cancelEdit" catchtouchmove="noop">
+    <view class="edit-sheet" catchtap="noop" catchtouchmove="noop">
+      <view class="edit-title">修改单词</view>
+      <input class="edit-input" placeholder="中文" maxlength="{{textMax}}" value="{{editCn}}" bindinput="onEditCn" />
+      <input class="edit-input" placeholder="英文(可短语)" maxlength="{{textMax}}" value="{{editEn}}" bindinput="onEditEn" />
+      <view class="edit-actions">
+        <view class="edit-cancel" catchtap="cancelEdit" hover-class="add-btn-hover">取消</view>
+        <view class="edit-save" catchtap="saveEdit" hover-class="add-btn-hover">保存</view>
+      </view>
+    </view>
   </view>
 
   <!-- OCR 识别结果预览 -->

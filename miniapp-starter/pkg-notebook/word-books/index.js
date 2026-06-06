@@ -52,6 +52,10 @@ Page({
     wx.navigateTo({ url: '/pkg-notebook/word-book/index?id=' + e.currentTarget.dataset.id })
   },
 
+  goDiscover() {
+    wx.navigateTo({ url: '/pkg-notebook/word-discover/index' })
+  },
+
   newBook() {
     wx.showModal({
       title: '新建单词本', editable: true, placeholderText: '给单词本起个名字',

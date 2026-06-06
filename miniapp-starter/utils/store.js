@@ -432,6 +432,7 @@ function seedDefaultWordBook() {
     id: 'wb_default',
     name: '基础词',
     builtin: true,
+    public: false,
     createdAt: 0,
     words: DEFAULT_RECITE_WORDS.map(([cn, en], i) => freshWord(cn, en, 'w_def_' + i))
   }
@@ -556,7 +557,7 @@ function addWordBook(name) {
     if (!Array.isArray(state.wordBooks)) state.wordBooks = []
     if (state.wordBooks.length >= WORD_BOOKS_MAX) return state
     const nm = (name || '').trim().slice(0, WORD_BOOK_NAME_MAX) || '新单词本'
-    book = { id: uidBook(), name: nm, builtin: false, createdAt: Date.now(), words: [] }
+    book = { id: uidBook(), name: nm, builtin: false, public: false, createdAt: Date.now(), words: [] }
     state.wordBooks.push(book)
     return state
   })
@@ -635,6 +636,25 @@ function removeWord(bookId, wordId) {
   })
 }
 
+// 修改一个单词的中文 / 英文(去编号 + 限长)。保留 SRS 掌握状态(只是改写法)。
+function updateWord(bookId, wordId, cn, en) {
+  let ok = false
+  updateState((state) => {
+    const b = (state.wordBooks || []).find((x) => x.id === bookId)
+    if (!b) return state
+    const w = (b.words || []).find((x) => x.id === wordId)
+    if (!w) return state
+    const c = stripWordNum(cn).slice(0, WORD_TEXT_MAX)
+    const e = stripWordNum(en).slice(0, WORD_TEXT_MAX)
+    if (!c || !e) return state
+    w.cn = c
+    w.en = e
+    ok = true
+    return state
+  })
+  return ok
+}
+
 // 设置近期目标单词本(一个或多个)。只保留存在的 id。
 function setReciteTargets(bookIds) {
   updateState((state) => {
@@ -683,11 +703,20 @@ function importSharedWordBook(payload) {
       seen[key] = 1
       if (words.length < WORD_PER_BOOK_MAX) words.push(freshWord(cn, en, uidWord()))
     })
-    book = { id: uidBook(), name, builtin: false, createdAt: Date.now(), words }
+    book = { id: uidBook(), name, builtin: false, public: false, createdAt: Date.now(), words }
     state.wordBooks.push(book)
     return state
   })
   return book
+}
+
+// 设置单词本是否公开(本地标记;真正发布/撤销到云库由页面调云函数完成)。
+function setWordBookPublic(bookId, isPublic) {
+  updateState((state) => {
+    const b = (state.wordBooks || []).find((x) => x.id === bookId)
+    if (b) b.public = !!isPublic
+    return state
+  })
 }
 
 const defaultState = {
@@ -966,6 +995,7 @@ function migrateState(raw) {
     // 用户主动删光(包括删掉「基础词」)→ 保持空,不再硬塞回来。
     if (!Array.isArray(raw.wordBooks)) raw.wordBooks = [seedDefaultWordBook()]
     raw.wordBooks.forEach((book) => {
+      if (typeof book.public !== 'boolean') book.public = false
       if (!Array.isArray(book.words)) book.words = []
       book.words.forEach((w) => {
         if (typeof w.streak !== 'number') w.streak = 0
@@ -3176,8 +3206,10 @@ module.exports = {
   removeWordBook,
   renameWordBook,
   getWordStats,
+  setWordBookPublic,
   addWord,
   removeWord,
+  updateWord,
   stripWordNum,
   setReciteTargets,
   setReciteSessionSize,

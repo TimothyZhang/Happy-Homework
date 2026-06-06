@@ -102,12 +102,12 @@ Page({
     const pet = (state && state.pet) || {}
     const base = { species: pet.species || 'cat', petName: pet.name || '宝贝', knowledge: pet.knowledge || 0 }
     if (store.reciteRemaining(state) <= 0) {
-      this.setData(Object.assign({}, base, { blocked: true, blockedReason: '今天已经背完 3 次啦,明天再来陪它背~' }))
+      this.setData(Object.assign({}, base, { blocked: true, blockedReason: '今天 3 次单词挑战都完成啦,明天再来~' }))
       return
     }
     const session = store.buildReciteSession(state)
     if (!session.length) {
-      this.setData(Object.assign({}, base, { blocked: true, blockedReason: '目标单词本里暂时没有要背的词啦~' }))
+      this.setData(Object.assign({}, base, { blocked: true, blockedReason: '目标单词本里暂时没有要挑战的词啦~' }))
       return
     }
     this._session = session

@@ -40,6 +40,12 @@
 .lib-stat-n { font-size: 30rpx; font-weight: 800; color: #245bdb; }
 .lib-stat-n.ok { color: #07a050; }
 
+.discover-entry {
+  margin-bottom: 14rpx; padding: 18rpx 22rpx; border-radius: 18rpx;
+  background: #eef4ff; color: #245bdb; font-size: 26rpx; font-weight: 700; text-align: center;
+}
+.discover-hover { background: #dde8ff; }
+
 .book {
   display: flex; align-items: center;
   background: #ffffff; border-radius: 22rpx; padding: 22rpx 20rpx;

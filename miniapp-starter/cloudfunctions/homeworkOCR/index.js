@@ -141,6 +141,12 @@ async function main(event = {}) {
     return await handleTtsRequest(event)
   }
 
+  // === 公开单词库:发布 / 取消发布 / 搜索。云函数当网关 —— 公开本谁都能搜 + 复制,
+  // 但只有 owner(openid)能发布/改/撤(权限在下面代码里 enforced,别人改不了) ===
+  if (event && event.action === 'publishBook')   return await handlePublishBook(event, callerOpenid)
+  if (event && event.action === 'unpublishBook') return await handleUnpublishBook(event, callerOpenid)
+  if (event && event.action === 'searchBooks')   return await handleSearchBooks(event, callerOpenid)
+
   // mockRawText 旁路在生产环境直接关掉。
   if (event && event.mockRawText && !MOCK_RAW_TEXT_ALLOWED) {
     return {
@@ -1273,6 +1279,101 @@ function extractWordPairs(response) {
     out.push({ en, cn })
   })
   return out
+}
+
+// === 公开单词库:发布 / 撤销 / 搜索 === //
+const PUBLIC_WB_COLLECTION = 'public_word_books'
+let hasEnsuredPublicWb = false
+async function ensurePublicWbCollection() {
+  if (!cloud || hasEnsuredPublicWb) return
+  hasEnsuredPublicWb = true
+  try { await cloud.database().createCollection(PUBLIC_WB_COLLECTION) } catch (e) {}
+}
+function normPublicWords(arr) {
+  const seen = {}
+  const out = []
+  ;(Array.isArray(arr) ? arr : []).forEach((w) => {
+    if (!w) return
+    const cn = String(w.cn == null ? '' : w.cn).trim().slice(0, 40)
+    const en = String(w.en == null ? '' : w.en).trim().replace(/\s+/g, ' ').slice(0, 40)
+    if (!cn || !en) return
+    const key = en.toLowerCase() + '|' + cn
+    if (seen[key]) return
+    seen[key] = 1
+    if (out.length < 1000) out.push({ cn, en })
+  })
+  return out
+}
+function escapeRegExp(s) { return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') }
+
+// 发布 / 更新公开本(upsert,按 owner+bookKey 去重)。只能动自己 openid 的本。
+async function handlePublishBook(event, openid) {
+  if (!cloud || !openid) return { ok: false, error: '未登录' }
+  const name = String((event && event.name) || '').trim().slice(0, 40)
+  const bookKey = String((event && event.bookKey) || '').trim().slice(0, 64)
+  const words = normPublicWords(event && event.words)
+  if (!name || !bookKey) return { ok: false, error: '缺少单词本名称' }
+  if (!words.length) return { ok: false, error: '空单词本不能公开' }
+  try {
+    await ensurePublicWbCollection()
+    const db = cloud.database()
+    const existing = await db.collection(PUBLIC_WB_COLLECTION).where({ owner: openid, bookKey }).limit(1).get()
+    const data = { owner: openid, bookKey, name, words, wordCount: words.length, updatedAt: Date.now() }
+    if (existing.data && existing.data[0]) {
+      await db.collection(PUBLIC_WB_COLLECTION).doc(existing.data[0]._id).update({ data })
+      return { ok: true, id: existing.data[0]._id, count: words.length }
+    }
+    const r = await db.collection(PUBLIC_WB_COLLECTION).add({ data })
+    return { ok: true, id: r._id, count: words.length }
+  } catch (e) {
+    console.error('publishBook failed', { message: e && e.message })
+    return { ok: false, error: (e && e.message) || '发布失败' }
+  }
+}
+
+async function handleUnpublishBook(event, openid) {
+  if (!cloud || !openid) return { ok: false, error: '未登录' }
+  const bookKey = String((event && event.bookKey) || '').trim().slice(0, 64)
+  if (!bookKey) return { ok: false, error: '缺少 bookKey' }
+  try {
+    const db = cloud.database()
+    const existing = await db.collection(PUBLIC_WB_COLLECTION).where({ owner: openid, bookKey }).get()
+    for (const d of (existing.data || [])) {
+      await db.collection(PUBLIC_WB_COLLECTION).doc(d._id).remove()
+    }
+    return { ok: true }
+  } catch (e) {
+    console.error('unpublishBook failed', { message: e && e.message })
+    return { ok: false, error: (e && e.message) || '撤销失败' }
+  }
+}
+
+// 搜索公开本(谁都能搜)。q 空则按最近更新浏览。返回含 words,客户端直接复制。
+async function handleSearchBooks(event, openid) {
+  if (!cloud) return { ok: false, error: 'no cloud' }
+  const q = String((event && event.q) || '').trim().slice(0, 40)
+  try {
+    await ensurePublicWbCollection()
+    const db = cloud.database()
+    let query
+    if (q) {
+      query = db.collection(PUBLIC_WB_COLLECTION).where({ name: db.RegExp({ regexp: escapeRegExp(q), options: 'i' }) })
+    } else {
+      query = db.collection(PUBLIC_WB_COLLECTION).orderBy('updatedAt', 'desc')
+    }
+    const r = await query.limit(20).get()
+    const books = (r.data || []).map((d) => ({
+      id: d._id,
+      name: d.name,
+      wordCount: d.wordCount || (d.words || []).length,
+      words: (d.words || []).slice(0, 1000),
+      mine: d.owner === openid
+    }))
+    return { ok: true, books }
+  } catch (e) {
+    console.error('searchBooks failed', { message: e && e.message })
+    return { ok: false, error: (e && e.message) || '搜索失败' }
+  }
 }
 
 function getAzureOpenAiApiVersion() {

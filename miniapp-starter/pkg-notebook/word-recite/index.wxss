@@ -85,6 +85,14 @@
   background: rgba(255, 255, 255, 0.9); color: #245bdb; font-size: 28rpx; font-weight: 700;
   box-shadow: 0 4rpx 12rpx rgba(150, 110, 60, 0.14);
 }
+/* 听写·重听:贴在键盘右上角 */
+.kb-replay-row { display: flex; justify-content: flex-end; padding: 0 18rpx 10rpx; }
+.kb-replay {
+  padding: 12rpx 30rpx; border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.95); color: #245bdb; font-size: 27rpx; font-weight: 700;
+  box-shadow: 0 4rpx 14rpx rgba(150, 110, 60, 0.18);
+}
+.kb-replay-hover { background: #e6eefc; }
 
 /* 答案显示 */
 .answer {
@@ -93,7 +101,7 @@
 }
 .ans-line { display: flex; align-items: center; justify-content: center; min-height: 86rpx; }
 /* white-space: pre-wrap 保留空格 —— 否则结尾的空格被吃掉,光标贴着最后一个字母看不出空格 */
-.ans { font-size: 76rpx; letter-spacing: 8rpx; font-weight: 800; color: #1f2329; white-space: pre-wrap; }
+.ans { font-size: 76rpx; letter-spacing: 4rpx; font-weight: 800; color: #1f2329; white-space: pre-wrap; }
 .ans.right { color: #07a050; }
 .ans.wrong { color: #e15c5c; }
 /* 自制键盘没有系统光标,加一个闪烁竖线模拟输入光标 */

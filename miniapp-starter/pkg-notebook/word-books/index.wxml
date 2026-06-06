@@ -22,6 +22,8 @@
 
   <view class="lib-stat">全部单词 <text class="lib-stat-n">{{totalWords}}</text> 个(去重),已掌握 <text class="lib-stat-n ok">{{masteredWords}}</text> 个</view>
 
+  <view class="discover-entry" bindtap="goDiscover" hover-class="discover-hover">🔍 发现 · 搜索别人公开的单词本一键复制 ›</view>
+
   <view wx:for="{{books}}" wx:key="id" class="book" bindtap="openBook" data-id="{{item.id}}" hover-class="book-hover">
     <view class="star {{item.isTarget ? 'on' : ''}}" catchtap="toggleTarget" data-id="{{item.id}}">★</view>
     <view class="book-main">

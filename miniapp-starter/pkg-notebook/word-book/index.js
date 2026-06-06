@@ -51,7 +51,13 @@ Page({
     enInput: '',
     textMax: 40,
     showOcr: false,
-    ocrPairs: []
+    ocrPairs: [],
+    isPublic: false,
+    publicBusy: false,
+    editing: false,
+    editId: '',
+    editCn: '',
+    editEn: ''
   },
 
   onLoad(q) {
@@ -69,12 +75,71 @@ Page({
       bookId: b.id,
       name: b.name,
       builtin: !!b.builtin,
+      isPublic: !!b.public,
       words: (b.words || []).map((w) => ({
         id: w.id, cn: w.cn, en: w.en,
         state: w.mastered ? 'mastered' : (w.seen ? 'learning' : 'new'),
         everWrong: !!w.everWrong
       }))
     })
+  },
+
+  // === 公开到单词库 / 撤销(调云函数;别人只能搜+复制,改不了你的)===
+  togglePublic(e) {
+    if (this.data.publicBusy) return
+    if (e.detail.value) this._publishBook()
+    else this._unpublishBook()
+  },
+
+  _publishBook() {
+    if (!wx.cloud || !wx.cloud.callFunction) {
+      wx.showToast({ title: '当前环境用不了公开', icon: 'none' }); this.setData({ isPublic: false }); return
+    }
+    const words = (this.data.words || []).map((w) => ({ cn: w.cn, en: w.en }))
+    if (!words.length) { wx.showToast({ title: '空单词本不能公开', icon: 'none' }); this.setData({ isPublic: false }); return }
+    this.setData({ publicBusy: true })
+    wx.showLoading({ title: '发布中…', mask: true })
+    wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 20000, data: { action: 'publishBook', bookKey: this._id, name: this.data.name, words } })
+      .then((res) => {
+        const r = (res && res.result) || {}
+        wx.hideLoading(); this.setData({ publicBusy: false })
+        if (!r.ok) { this.setData({ isPublic: false }); wx.showToast({ title: r.error || '发布失败', icon: 'none' }); return }
+        store.setWordBookPublic(this._id, true)
+        this.setData({ isPublic: true })
+        wx.showToast({ title: '已公开 ' + (r.count || words.length) + ' 词', icon: 'success' })
+      })
+      .catch(() => { wx.hideLoading(); this.setData({ publicBusy: false, isPublic: false }); wx.showToast({ title: '发布失败,稍后再试', icon: 'none' }) })
+  },
+
+  _unpublishBook() {
+    this.setData({ publicBusy: true })
+    wx.showLoading({ title: '撤销中…', mask: true })
+    const done = () => { wx.hideLoading(); store.setWordBookPublic(this._id, false); this.setData({ publicBusy: false, isPublic: false }) }
+    if (!wx.cloud || !wx.cloud.callFunction) { done(); return }
+    wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 20000, data: { action: 'unpublishBook', bookKey: this._id } })
+      .then(() => { done(); wx.showToast({ title: '已撤销公开', icon: 'none' }) })
+      .catch(() => { done() })   // 撤销失败也按本地撤销,避免卡在公开态
+  },
+
+  // === 修改单词 ===
+  editWord(e) {
+    const id = e.currentTarget.dataset.id
+    const w = (this.data.words || []).find((x) => x.id === id)
+    if (!w) return
+    this.setData({ editing: true, editId: id, editCn: w.cn, editEn: w.en })
+  },
+  onEditCn(e) { this.setData({ editCn: e.detail.value }) },
+  onEditEn(e) { this.setData({ editEn: e.detail.value }) },
+  cancelEdit() { this.setData({ editing: false, editId: '', editCn: '', editEn: '' }) },
+  saveEdit() {
+    const cn = (this.data.editCn || '').trim()
+    const en = (this.data.editEn || '').trim()
+    if (!cn || !en) { wx.showToast({ title: '中文和英文都要填', icon: 'none' }); return }
+    const ok = store.updateWord(this._id, this.data.editId, cn, en)
+    if (!ok) { wx.showToast({ title: '保存失败', icon: 'none' }); return }
+    this.setData({ editing: false, editId: '', editCn: '', editEn: '' })
+    this._refresh()
+    wx.showToast({ title: '已保存', icon: 'success' })
   },
 
   onCn(e) { this.setData({ cnInput: e.detail.value }) },
@@ -184,11 +249,11 @@ Page({
   onShareAppMessage() {
     const payload = store.serializeWordBookForShare(this._id)
     if (!payload || !payload.w.length) {
-      return { title: '一起来背单词', path: '/pages/pet/index' }
+      return { title: '一起来单词挑战', path: '/pages/pet/index' }
     }
     const encoded = encodeURIComponent(JSON.stringify(payload))
     return {
-      title: '「' + (this.data.name || '单词本') + '」单词本 · 一起来背单词',
+      title: '「' + (this.data.name || '单词本') + '」单词本 · 来场单词挑战',
       path: '/pkg-notebook/word-book-import/index?d=' + encoded
     }
   },

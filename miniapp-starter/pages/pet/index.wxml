@@ -227,8 +227,8 @@
     <view class="pet-popover" style="left: {{actorX}}%; top: {{actorY}}%" catchtap="" catchtouchmove="noop">
       <block wx:if="{{reciteLeft > 0}}">
         <view class="pet-popover-item" bindtap="menuStartRecite" hover-class="pet-popover-item-hover">
-          <text class="pmi-emoji">📖</text>
-          <text>一起来背单词吧</text>
+          <text class="pmi-emoji">🎯</text>
+          <text>单词挑战</text>
         </view>
         <view class="pet-popover-divider"></view>
         <view class="pet-popover-item" bindtap="menuStartDictation" hover-class="pet-popover-item-hover">

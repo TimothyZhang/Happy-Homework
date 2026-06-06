@@ -30,7 +30,6 @@
         <!-- 没语音兜底才亮英文;有语音时新词只提示"仔细听",不剧透原文 -->
         <view wx:if="{{!ttsOn}}" class="newword">🔇 语音未开通,先照着拼:<text class="newword-en">{{word.en}}</text></view>
         <view wx:elif="{{word.isNew}}" class="newword">📖 新词 · 仔细听,试着拼出来</view>
-        <view class="replay-btn" bindtap="replay" hover-class="exit-hover">🔁 重听</view>
       </block>
 
       <block wx:else>
@@ -49,6 +48,11 @@
       <view wx:if="{{feedback === 'wrong'}}" class="correct">正确答案:{{word.en}}</view>
       <view wx:if="{{feedback === 'wrong'}}" class="next-btn" bindtap="goNext" hover-class="next-btn-hover">下一个 ›</view>
       <view wx:if="{{feedback === 'right'}}" class="bravo">答对啦!📚 +1</view>
+    </view>
+
+    <!-- 听写:重听按钮放在键盘右上角,拼写时大拇指顺手就能点 -->
+    <view wx:if="{{mode === 'dictation'}}" class="kb-replay-row">
+      <view class="kb-replay" bindtap="replay" hover-class="kb-replay-hover">🔁 重听</view>
     </view>
 
     <!-- 自制键盘(不用系统输入法),布局对齐 iPhone 默认英文键盘 -->
@@ -95,7 +99,7 @@
   <!-- 背完结算 -->
   <view wx:else class="centered done">
     <image class="pet bravo-pet" src="/assets/pets/{{species}}.svg" mode="aspectFit" />
-    <view class="done-title">背完啦!🎉</view>
+    <view class="done-title">挑战完成!🎉</view>
     <view class="reward-tally">
       <view class="rt-item rt-xp">
         <text class="rt-num">+{{xpGained}}</text>
@@ -111,6 +115,6 @@
       <view wx:if="{{canMore}}" class="done-btn" bindtap="restart" hover-class="done-btn-hover">再来一组</view>
       <view class="done-btn ghost" bindtap="exit" hover-class="done-btn-hover">回去找 {{petName}}</view>
     </view>
-    <view wx:if="{{!canMore}}" class="done-note">今天 3 次都背完啦,明天再来~</view>
+    <view wx:if="{{!canMore}}" class="done-note">今天 3 次挑战都完成啦,明天再来~</view>
   </view>
 </view>

@@ -24,7 +24,8 @@
         "word-recite/index",
         "word-books/index",
         "word-book/index",
-        "word-book-import/index"
+        "word-book-import/index",
+        "word-discover/index"
       ]
     }
   ],
