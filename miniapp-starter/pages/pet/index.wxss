@@ -171,78 +171,76 @@
 }
 
 /* ============================================================
-   城堡房间主题(.theme-castle 覆盖温馨小屋)+ 换背景弹窗
+   城堡房间主题(白天·金碧辉煌,.theme-castle 覆盖温馨小屋)
    ============================================================ */
-.room.theme-castle { background: #2b2740; }
-/* 石砖墙(灰紫砌石 + 砖缝网格) */
+.room.theme-castle { background: #efdcb0; }
+/* 奶金大理石墙 + 竖向金壁柱条 */
 .theme-castle .room-wall {
   background:
-    repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0, rgba(0,0,0,0.18) 3rpx, transparent 3rpx, transparent 54rpx),
-    repeating-linear-gradient(90deg, rgba(0,0,0,0.18) 0, rgba(0,0,0,0.18) 3rpx, transparent 3rpx, transparent 92rpx),
-    linear-gradient(180deg, #6f6886 0%, #565072 100%);
+    repeating-linear-gradient(90deg, transparent 0, transparent 146rpx, rgba(201,158,62,0.28) 146rpx, rgba(201,158,62,0.28) 152rpx, transparent 152rpx, transparent 158rpx),
+    linear-gradient(180deg, #fff7e6 0%, #f4e3bd 68%, #ecd6a6 100%);
 }
-/* 拱形石窗 + 夜空 */
+/* 拱形金框窗 + 白天蓝天(保留飘云) */
 .theme-castle .room-window {
-  border-color: #9089a6; border-width: 11rpx;
-  border-radius: 50% 50% 10rpx 10rpx;
-  background: linear-gradient(180deg, #161d44 0%, #283360 60%, #36417a 100%);
-  box-shadow: 0 8rpx 18rpx rgba(0,0,0,0.32), inset 0 0 26rpx rgba(0,0,0,0.4);
+  border-color: #dcb24e; border-width: 12rpx;
+  border-radius: 50% 50% 8rpx 8rpx;
+  background: linear-gradient(180deg, #74c4f4 0%, #aee0ff 52%, #e9f7ff 100%);
+  box-shadow: 0 8rpx 18rpx rgba(120,90,30,0.22), inset 0 0 0 3rpx rgba(255,240,190,0.6);
 }
-.theme-castle .room-cloud { display: none; }
-.theme-castle .room-window-bar { background: #9089a6; }
-.theme-castle .room-window-bar-h { display: none; }
-.castle-moon {
-  position: absolute; top: 14%; left: 20%;
-  width: 44%; height: 44%; border-radius: 50%;
-  background: radial-gradient(circle at 38% 36%, #fff8e0 0%, #ffe9a8 58%, #efcd78 100%);
-  box-shadow: 0 0 26rpx 7rpx rgba(255, 228, 150, 0.55);
+.theme-castle .room-window-bar { background: #dcb24e; }
+.castle-sun {
+  position: absolute; top: 12%; right: 12%;
+  width: 34%; height: 34%; border-radius: 50%;
+  background: radial-gradient(circle at 42% 40%, #fffceb 0%, #ffe680 56%, #ffcf3a 100%);
+  box-shadow: 0 0 30rpx 10rpx rgba(255,210,90,0.6);
 }
-/* 海报 → 城堡挂旗(深红 + 金边,保留标语) */
-.theme-castle .room-picture { border-color: #c9a24e; box-shadow: 0 6rpx 14rpx rgba(0,0,0,0.28); }
+/* 海报 → 金框红底挂旗(保留标语);左移让出顶部中央给吊灯 */
+.theme-castle .room-picture { left: 7%; border-color: #d9b24e; border-width: 9rpx; box-shadow: 0 6rpx 16rpx rgba(150,110,30,0.28); }
 .theme-castle .room-poster {
-  background: linear-gradient(180deg, #7c2433 0%, #5a1622 100%);
-  box-shadow: inset 0 0 0 4rpx rgba(201, 162, 78, 0.7);
+  background: linear-gradient(180deg, #c23046 0%, #97203a 100%);
+  box-shadow: inset 0 0 0 4rpx rgba(255,236,176,0.7);
 }
-.theme-castle .poster-line { color: #ffe6b0; text-shadow: 0 1rpx 0 rgba(0,0,0,0.35); }
-/* 踢脚线 → 石基 */
-.theme-castle .room-baseboard { background: linear-gradient(180deg, #4a4663 0%, #393552 100%); }
-/* 石板地 */
+.theme-castle .poster-line { color: #ffe9b8; text-shadow: 0 1rpx 0 rgba(0,0,0,0.3); }
+/* 踢脚线 → 金线 */
+.theme-castle .room-baseboard { background: linear-gradient(180deg, #f0d27a 0%, #cba23a 100%); }
+/* 抛光奶金大理石地 */
 .theme-castle .room-floor {
   background:
-    repeating-linear-gradient(90deg, rgba(0,0,0,0.16) 0, rgba(0,0,0,0.16) 3rpx, transparent 3rpx, transparent 112rpx),
-    repeating-linear-gradient(0deg, rgba(0,0,0,0.10) 0, rgba(0,0,0,0.10) 3rpx, transparent 3rpx, transparent 70rpx),
-    linear-gradient(180deg, #8b8498 0%, #6f6a83 55%, #5b5772 100%);
-  box-shadow: inset 0 12rpx 26rpx rgba(0,0,0,0.3);
+    repeating-linear-gradient(90deg, rgba(170,130,50,0.10) 0, rgba(170,130,50,0.10) 2rpx, transparent 2rpx, transparent 118rpx),
+    linear-gradient(180deg, #f7ecd0 0%, #ecd9ad 55%, #ddc492 100%);
+  box-shadow: inset 0 12rpx 26rpx rgba(150,110,40,0.20);
 }
-/* 红毯(中间一条) */
+/* 红毯(中间一条,金边) */
 .theme-castle .room-rug {
   left: 50%; top: 50%; width: 44%; height: 46%; margin-left: -22%;
-  border-radius: 14rpx;
-  background: linear-gradient(180deg, #b23042 0%, #891f30 100%);
-  box-shadow: inset 0 0 0 8rpx rgba(214, 176, 90, 0.8);
-  opacity: 0.95;
+  border-radius: 10rpx;
+  background: linear-gradient(180deg, #c23046 0%, #97203a 100%);
+  box-shadow: inset 0 0 0 8rpx rgba(232,196,92,0.9);
+  opacity: 0.96;
 }
-/* 墙上火把(火苗会跳) */
-.castle-torch { position: absolute; top: 15%; width: 28rpx; height: 86rpx; z-index: 4; }
-.castle-torch-l { left: 2%; }
-.castle-torch-r { right: 2%; }   /* 贴右边沿,避开右上角的拱窗(right:6%) */
-.castle-torch::after {
-  content: ''; position: absolute; left: 50%; bottom: 0; margin-left: -6rpx;
-  width: 12rpx; height: 46rpx; border-radius: 0 0 5rpx 5rpx;
-  background: linear-gradient(180deg, #6b5a3a 0%, #463922 100%);
+/* 两侧金柱(撑起殿堂感) */
+.castle-pillar {
+  position: absolute; top: 0; bottom: 0; width: 48rpx; z-index: 3;
+  background: linear-gradient(90deg, #c99a3a 0%, #fff0c0 34%, #e8c873 56%, #c0922f 100%);
+  box-shadow: 0 0 14rpx rgba(120,80,20,0.25);
 }
-.torch-flame {
-  position: absolute; left: 50%; top: 0; margin-left: -14rpx;
-  width: 28rpx; height: 42rpx;
-  border-radius: 50% 50% 50% 50% / 64% 64% 38% 38%;
-  background: radial-gradient(circle at 50% 72%, #fff3a0 0%, #ffb030 46%, #ff6a2a 82%);
-  box-shadow: 0 0 24rpx 7rpx rgba(255, 150, 60, 0.5);
-  transform-origin: 50% 100%;
-  animation: torch-flicker 0.46s ease-in-out infinite alternate;
+.castle-pillar-l { left: 0; }
+.castle-pillar-r { right: 0; }
+.castle-pillar::before {  /* 柱头 */
+  content: ''; position: absolute; left: -6rpx; right: -6rpx; top: 30%; height: 22rpx;
+  background: linear-gradient(180deg, #fff0c0 0%, #d9b657 100%);
+  border-radius: 4rpx; box-shadow: 0 2rpx 6rpx rgba(120,80,20,0.25);
 }
-@keyframes torch-flicker {
-  0%   { transform: scaleY(1) scaleX(1);      opacity: 0.9; }
-  100% { transform: scaleY(1.14) scaleX(0.9); opacity: 1; }
+/* 金吊灯(顶部中央,轻轻摇) */
+.castle-chandelier {
+  position: absolute; top: -1%; left: 50%; margin-left: -92rpx;
+  width: 184rpx; height: 164rpx; z-index: 5;
+  transform-origin: 50% 4%;
+  animation: chandelier-sway 4.2s ease-in-out infinite;
+}
+@keyframes chandelier-sway {
+  0%, 100% { transform: rotate(-1.6deg); }
+  50%      { transform: rotate(1.6deg); }
 }
 
 /* === 换房间背景弹窗 === */
@@ -273,8 +271,9 @@
 }
 .rp-thumb-castle {
   background:
-    linear-gradient(180deg, #6f6886 0%, #565072 40%, transparent 40%),
-    linear-gradient(180deg, transparent 40%, #8b8498 40%, #5b5772 100%);
+    linear-gradient(180deg, #fff7e6 0%, #ecd6a6 40%, transparent 40%),
+    linear-gradient(180deg, transparent 40%, #f7ecd0 40%, #ddc492 100%);
+  box-shadow: inset 0 0 0 3rpx rgba(217,178,78,0.6);
 }
 .rp-name { margin-top: 12rpx; font-size: 28rpx; font-weight: 700; color: #1f2329; }
 .rp-tag {
