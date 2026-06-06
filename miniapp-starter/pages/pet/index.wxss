@@ -88,20 +88,23 @@
    宠物(.pet-actor)以脚底为锚点用 room 百分比定位(left/top 由 JS 设),深度
    缩放 + transition 时长走内联 style;CSS 管房间外观、侧面朝向翻转与姿态动画。
    控制卡片在 .sheet 里,顶部留 72vh 空当看房间,往上滚盖住下半截。 */
-/* 场景横向滚动容器(占满屏);里面的 .room 宽 2 倍,可左右滑动看全貌 */
-.scene-scroll {
+/* 场景裁剪容器(占满屏,裁掉超出的 2 倍宽房间) */
+.scene-clip {
   position: fixed;
   left: 0; right: 0; top: 0; bottom: 0;
   z-index: 0;
-  white-space: nowrap;
+  overflow: hidden;
 }
 .room {
   position: relative;
-  display: inline-block;
-  vertical-align: top;
   width: 200vw; height: 100vh;
   overflow: hidden;
   background: #f3e2cb;
+  /* 相机:整间房 translateX 平滑跟随宠物。时长 = 宠物走这段的时长(camDurMs,与宠物同步,
+     屏幕不会比宠物快);ease-in-out 让镜头慢慢加速、慢慢减速,不再「唰」地一下。 */
+  transition-property: transform;
+  transition-timing-function: cubic-bezier(0.45, 0, 0.55, 1);
+  will-change: transform;
 }
 .room-wall {
   position: absolute; left: 0; right: 0; top: 0; height: 34%;

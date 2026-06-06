@@ -113,7 +113,7 @@ Page({
     actorFace: 'right',
     actorMoving: false,
     moveDurMs: 0,
-    sceneScroll: 0,        // 场景横向滚动位置(px):自动跟随宠物保持其大致居中(scroll-with-animation 平滑)
+    cameraTx: 0,           // 相机:整间房的 translateX(px,负值=房间左移):平滑跟随宠物保持其大致居中
     spriteAnim: '',
     rigPivot: RIG_PIVOTS.cat,   // 当前物种 rig 各关节 pivot(refreshState 按 species 覆盖)
     showPetMenu: false,
@@ -250,20 +250,20 @@ Page({
       actorX: 25, actorY: y,
       actorScale: depthForY(y), actorZ: zForY(y),
       actorFace: 'right', actorMoving: false, moveDurMs: 0,
-      sceneScroll: this._centerScroll(25)
+      cameraTx: this._cameraTx(25)
     })
   },
 
-  // 把横向滚动算到「让宠物(xPct% 处)大致居中」。房间宽 2W,scrollLeft 夹在 [0, W]。
-  // 配合 scroll-view 的 scroll-with-animation → 平滑跟随。
-  _centerScroll(xPct) {
+  // 相机 translateX:让宠物(xPct% 处)大致落在屏幕中央。房间宽 2W,平移夹在 [-W, 0]。
+  // translateX = W/2 - 宠物px;通过 .room 的 transition(时长=moveDurMs、ease-in-out)平滑过渡。
+  _cameraTx(xPct) {
     if (!this._winW) {
       let w = 375
       try { const i = (wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()) || {}; w = i.windowWidth || i.screenWidth || 375 } catch (e) {}
       this._winW = w
     }
     const W = this._winW
-    return Math.round(clampNum(xPct / 100 * 2 * W - W / 2, 0, W))
+    return Math.round(clampNum(W / 2 - xPct / 100 * 2 * W, -W, 0))
   },
 
   _startSceneEngine() {
@@ -320,7 +320,7 @@ Page({
       actorFace: faceFromDelta(dx, this.data.actorFace),
       actorMoving: true,
       moveDurMs: dur,
-      sceneScroll: this._centerScroll(tx)   // 相机平滑跟到目标点,宠物大致保持居中
+      cameraTx: this._cameraTx(tx)   // 相机用同样的时长(dur)平滑跟到目标,屏幕不会比宠物快
     })
     if (this._arriveTimer) clearTimeout(this._arriveTimer)
     this._arriveTimer = setTimeout(() => {
