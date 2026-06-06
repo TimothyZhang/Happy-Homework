@@ -306,6 +306,101 @@
   100% { transform: perspective(600px) rotateY(360deg); }
 }
 
+/* ============================================================
+   猫·骨骼分层 rig —— DragonBones 那种「骨骼 articulation」,这里用分层 SVG +
+   关键帧原生实现(零依赖、可被 face-left 整体镜像、跟深度缩放)。每层都是 240rpx
+   同框、绕各自关节 transform-origin 转;头+眼包一层一起点头,眼再单独眨。
+   仅 cat 启用;其他物种仍走扁平 .pet-art。
+   ============================================================ */
+.cat-rig { position: relative; width: 240rpx; height: 240rpx; transform-origin: 50% 96%; }
+.cat-rig .cr-layer,
+.cat-rig .cr-head-grp {
+  position: absolute; left: 0; top: 0; width: 240rpx; height: 240rpx; display: block;
+}
+/* 关节 pivot(百分比对应每个分层 SVG 的 200 视口) */
+.cr-tail      { transform-origin: 30% 57%; }
+.cr-leg-back  { transform-origin: 54% 69%; }
+.cr-body      { transform-origin: 52% 75%; }
+.cr-leg-front { transform-origin: 54% 70%; }
+.cr-head-grp  { transform-origin: 65% 56%; }
+.cr-eye       { transform-origin: 79% 45%; }
+
+/* 用 rig 时关掉父层 actor-sprite 的待机小跳(rig 自带更丰富的待机) */
+.pet-actor.still .actor-sprite.has-rig { animation: none; }
+
+/* 不适时给整只 rig 上色调滤镜,跟扁平 .pet-art 同款 */
+.pet-actor.anim-sad .cat-rig   { filter: grayscale(0.3); }
+.pet-actor.anim-dirty .cat-rig { filter: brightness(0.9); }
+.pet-actor.anim-sick .cat-rig  { filter: hue-rotate(-30deg) brightness(0.92); }
+
+/* —— 待机 —— 呼吸 + 慢点头 + 尾巴轻摆 + 偶尔眨眼 */
+.cat-rig.idle .cr-body     { animation: cat-breath 2.8s ease-in-out infinite; }
+.cat-rig.idle .cr-head-grp { animation: cat-head-idle 2.8s ease-in-out infinite; }
+.cat-rig.idle .cr-tail     { animation: cat-tail 2.6s ease-in-out infinite; }
+.cat-rig.idle .cr-eye      { animation: cat-blink 4.4s ease-in-out infinite; }
+
+/* —— 走路 —— 四腿交替 + 身体上下颠 + 头点 + 尾巴快摆 */
+.cat-rig.walking .cr-leg-front { animation: cat-leg-a 0.5s ease-in-out infinite; }
+.cat-rig.walking .cr-leg-back  { animation: cat-leg-b 0.5s ease-in-out infinite; }
+.cat-rig.walking .cr-body      { animation: cat-walk-bob 0.5s ease-in-out infinite; }
+.cat-rig.walking .cr-head-grp  { animation: cat-head-walk 0.5s ease-in-out infinite; }
+.cat-rig.walking .cr-tail      { animation: cat-tail 0.8s ease-in-out infinite; }
+.cat-rig.walking .cr-eye       { animation: cat-blink 4.4s ease-in-out infinite; }
+
+/* —— 一次性动作 —— 摸摸它=整只挤一下;开心=蹦两下;吃=低头啃 */
+.cat-rig.do-happy        { animation: cat-squish 0.7s ease-out 1; }
+.cat-rig.do-celebrating  { animation: cat-hop 0.6s ease-in-out 2; }
+.cat-rig.do-eating .cr-head-grp { animation: cat-peck 0.42s ease-in-out 4; }
+
+@keyframes cat-breath {
+  0%, 100% { transform: scaleY(1) translateY(0); }
+  50%      { transform: scaleY(1.035) translateY(-2rpx); }
+}
+@keyframes cat-head-idle {
+  0%, 100% { transform: rotate(0deg) translateY(0); }
+  50%      { transform: rotate(-1.5deg) translateY(-1rpx); }
+}
+@keyframes cat-tail {
+  0%, 100% { transform: rotate(0deg); }
+  50%      { transform: rotate(-10deg); }
+}
+@keyframes cat-blink {
+  0%, 90%, 100% { transform: scaleY(1); }
+  95%           { transform: scaleY(0.08); }
+}
+@keyframes cat-leg-a {
+  0%, 100% { transform: translateY(0)     rotate(0deg); }
+  50%      { transform: translateY(-5rpx) rotate(7deg); }
+}
+@keyframes cat-leg-b {
+  0%, 100% { transform: translateY(-5rpx) rotate(-7deg); }
+  50%      { transform: translateY(0)     rotate(0deg); }
+}
+@keyframes cat-walk-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4rpx); }
+}
+@keyframes cat-head-walk {
+  0%, 100% { transform: translateY(0)     rotate(0deg); }
+  50%      { transform: translateY(-3rpx) rotate(-3deg); }
+}
+@keyframes cat-squish {
+  0%   { transform: scaleX(1)    scaleY(1)    translateY(0); }
+  22%  { transform: scaleX(1.14) scaleY(0.82) translateY(8rpx); }
+  52%  { transform: scaleX(0.93) scaleY(1.12) translateY(-16rpx); }
+  76%  { transform: scaleX(1.03) scaleY(0.98) translateY(0); }
+  100% { transform: scaleX(1)    scaleY(1)    translateY(0); }
+}
+@keyframes cat-hop {
+  0%, 100% { transform: translateY(0)     scaleY(1); }
+  35%      { transform: translateY(-22rpx) scaleY(1.06); }
+  70%      { transform: translateY(0)     scaleY(0.95); }
+}
+@keyframes cat-peck {
+  0%, 100% { transform: translateY(0)    rotate(0deg); }
+  50%      { transform: translateY(6rpx) rotate(7deg); }
+}
+
 /* mood-emoji 浮在宠物「头部」一侧:头在脸朝的那边(face-right→右上 / face-left→
    左上),所以这里按朝向把图标摆到头那侧,转向后会跟着换边。 */
 .state-icon {

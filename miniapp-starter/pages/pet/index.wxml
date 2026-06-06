@@ -53,8 +53,19 @@
             catchtap="handleTapPet">
         <view class="actor-shadow"></view>
         <view class="actor-facing">
-          <view class="actor-sprite">
-            <image class="pet-art" src="/assets/pets/{{pet.species}}-side.svg" mode="aspectFit" />
+          <view class="actor-sprite {{pet.species === 'cat' ? 'has-rig' : ''}}">
+            <!-- 猫:骨骼分层 rig(头/耳/尾/腿/眼分层,各自绕关节动);其他物种:扁平侧身图 -->
+            <view wx:if="{{pet.species === 'cat'}}" class="cat-rig {{actorMoving ? 'walking' : 'idle'}} {{spriteAnim ? 'do-' + spriteAnim : ''}}">
+              <image class="cr-layer cr-tail" src="/assets/pets/cat-rig-tail.svg" mode="aspectFit" />
+              <image class="cr-layer cr-leg-back" src="/assets/pets/cat-rig-leg-back.svg" mode="aspectFit" />
+              <image class="cr-layer cr-body" src="/assets/pets/cat-rig-body.svg" mode="aspectFit" />
+              <image class="cr-layer cr-leg-front" src="/assets/pets/cat-rig-leg-front.svg" mode="aspectFit" />
+              <view class="cr-head-grp">
+                <image class="cr-layer cr-head" src="/assets/pets/cat-rig-head.svg" mode="aspectFit" />
+                <image class="cr-layer cr-eye" src="/assets/pets/cat-rig-eye.svg" mode="aspectFit" />
+              </view>
+            </view>
+            <image wx:else class="pet-art" src="/assets/pets/{{pet.species}}-side.svg" mode="aspectFit" />
           </view>
         </view>
         <text wx:if="{{animState === 'hungry'}}"  class="state-icon hungry-icon">🍖</text>
