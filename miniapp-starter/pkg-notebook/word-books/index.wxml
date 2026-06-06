@@ -26,10 +26,11 @@
       <text class="book-name">{{item.name}}</text>
       <text class="book-meta">{{item.count}} 词 · 已掌握 {{item.mastered}}{{item.builtin ? ' · 内置' : ''}}</text>
     </view>
+    <view class="book-rename" catchtap="renameBook" data-id="{{item.id}}" data-name="{{item.name}}" hover-class="rename-hover">改名</view>
     <view wx:if="{{!item.builtin}}" class="book-del" catchtap="removeBook" data-id="{{item.id}}" data-name="{{item.name}}" hover-class="del-hover">删</view>
     <text class="book-chev">›</text>
   </view>
 
   <view class="new-book" bindtap="newBook" hover-class="new-hover">＋ 新建单词本</view>
-  <view class="hint-line">提示:点单词本进去可以加 / 删单词,也支持短语。拍照导入、分享 正在做~</view>
+  <view class="hint-line">提示:点单词本进去可以加 / 删单词、拍照导入、分享给同学,也支持短语。</view>
 </view>

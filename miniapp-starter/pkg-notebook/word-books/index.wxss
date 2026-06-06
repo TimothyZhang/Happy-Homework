@@ -45,6 +45,12 @@
 .book-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .book-name { font-size: 30rpx; font-weight: 700; color: #1f2329; }
 .book-meta { margin-top: 6rpx; font-size: 23rpx; color: #8a94a0; }
+.book-rename {
+  height: 56rpx; padding: 0 16rpx; border-radius: 14rpx; margin-left: 10rpx; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #eef4ff; color: #245bdb; font-size: 24rpx; font-weight: 700;
+}
+.rename-hover { background: #dde8ff; }
 .book-del {
   width: 56rpx; height: 56rpx; border-radius: 14rpx; margin-left: 10rpx; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
