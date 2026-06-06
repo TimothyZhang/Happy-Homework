@@ -91,12 +91,18 @@
       </view>
     </view>
 
-    <!-- 固定顶栏:名字 + 等级徽章 + 金币 -->
+    <!-- 固定顶栏:名字 + 等级徽章 + 金币;金币下面是 商店 + (可升级时)升级 按钮 -->
     <view class="top-hud">
       <text class="hud-name">{{pet.name}} {{levelBadge}}</text>
-      <view class="hud-coin" catchtap="handleOpenCoinHistory">
-        <text class="hud-coin-text">金币 {{coins}}</text>
-        <text class="coin-chev">›</text>
+      <view class="hud-right">
+        <view class="hud-coin" catchtap="handleOpenCoinHistory">
+          <text class="hud-coin-text">金币 {{coins}}</text>
+          <text class="coin-chev">›</text>
+        </view>
+        <view class="hud-btns">
+          <view class="hud-btn shop-btn" catchtap="openShopPanel">🛒 商店</view>
+          <view wx:if="{{canLevelUp}}" class="hud-btn levelup-btn" catchtap="handleLevelUp">⬆️ 可升级</view>
+        </view>
       </view>
     </view>
 
@@ -133,61 +139,10 @@
       </view>
     </view>
 
-    <!-- 控制层:顶部留空看房间,往上滚把卡片盖上来 -->
+    <!-- 控制层:顶部留空看房间,往上滚把卡片盖上来。
+         经验值「一大坨」已隐藏(可升级时顶栏出现「⬆️可升级」);商店挪到金币下的「🛒商店」按钮(点开弹窗)。 -->
     <view class="sheet">
-      <view class="card sheet-first">
-
-      <view class="level-block">
-        <block wx:if="{{isMaxLevel}}">
-          <view class="level-row">
-            <text class="level-label">已满级 Lv.{{levelMax}}</text>
-            <text class="level-cost">MAX</text>
-          </view>
-          <view class="xp-bar xp-bar-max">
-            <view class="xp-bar-fill" style="width: 100%"></view>
-          </view>
-          <text class="level-hint">恭喜达到最高等级,继续每天陪它吧～</text>
-        </block>
-        <block wx:else>
-          <view class="level-row">
-            <text class="level-label">经验值 · {{xpPerHour}} 点/小时</text>
-            <text class="level-cost">{{xp}} / {{xpNeeded}} XP</text>
-          </view>
-          <!-- xp-bar 主条 + 右侧浅蓝 preview 段:由短变长动画,最长 = 下一小时
-               能获得的 XP(currentXpPerHour),整体提示"下一小时即将获得 X XP"。
-               width 用 style 写动态值;动画由 .xp-bar-preview 的 keyframe 驱动。 -->
-          <view class="xp-bar {{canLevelUp ? 'xp-bar-ready' : ''}}">
-            <view class="xp-bar-fill" style="width: {{xpPercent}}%"></view>
-            <!-- left 往左挪 9rpx (= 主条 height 18rpx / 2 = 圆角半径) 盖住主条
-                 右端的圆弧,消除"圆角外背景透出"的断层;width 补 +9rpx 保持
-                 视觉上的 preview 长度跟下一小时实发 XP 一致。 -->
-            <view wx:if="{{xpPreviewWidth > 0 && !canLevelUp}}"
-                  class="xp-bar-preview"
-                  style="left: calc({{xpPercent}}% - 9rpx); --preview-width: {{xpPreviewWidth}}%"></view>
-          </view>
-          <button class="level-up-btn {{canLevelUp ? '' : 'disabled'}}" bindtap="handleLevelUp">
-            升到 Lv.{{pet.level + 1}}
-          </button>
-        </block>
-      </view>
-    </view>
-
-    <view class="card section-card">
-      <view class="section-header">
-        <text class="section-title">宠物商店</text>
-        <text class="subtle">用金币照顾它</text>
-      </view>
-
-      <view wx:for="{{shopItems}}" wx:key="id" class="shop-item-card">
-        <view class="shop-item-text">
-          <text class="shop-name">{{item.emoji}} {{item.name}}</text>
-          <text class="shop-effect">{{item.effect}}</text>
-        </view>
-        <button class="mini-btn buy-btn" size="mini" data-id="{{item.id}}" bindtap="handleBuyItem">{{item.price}} 金币</button>
-      </view>
-    </view>
-
-    <view class="card switch-card" bindtap="handleOpenRename">
+      <view class="card switch-card sheet-first" bindtap="handleOpenRename">
       <view class="switch-row">
         <text class="switch-emoji">✏️</text>
         <view class="switch-text">
@@ -279,6 +234,26 @@
         <text class="pmi-emoji">📚</text>
         <text>我的单词本</text>
       </view>
+    </view>
+  </view>
+
+  <!-- 商店弹窗(点金币下的「🛒商店」按钮弹出) -->
+  <view wx:if="{{showShopPanel}}" class="shop-panel-mask" bindtap="closeShopPanel" catchtouchmove="noop">
+    <view class="shop-panel" catchtap="" catchtouchmove="noop">
+      <view class="shop-panel-head">
+        <text class="shop-panel-title">🛒 宠物商店</text>
+        <text class="shop-panel-coin">金币 {{coins}}</text>
+      </view>
+      <scroll-view scroll-y class="shop-panel-list">
+        <view wx:for="{{shopItems}}" wx:key="id" class="shop-item-card">
+          <view class="shop-item-text">
+            <text class="shop-name">{{item.emoji}} {{item.name}}</text>
+            <text class="shop-effect">{{item.effect}}</text>
+          </view>
+          <button class="mini-btn buy-btn" size="mini" data-id="{{item.id}}" bindtap="handleBuyItem">{{item.price}} 金币</button>
+        </view>
+      </scroll-view>
+      <view class="shop-panel-close" bindtap="closeShopPanel">关闭</view>
     </view>
   </view>
 

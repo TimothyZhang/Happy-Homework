@@ -118,6 +118,7 @@ Page({
     showDeskMenu: false,   // 点书桌弹出的学习菜单(单词挑战/听写/单词本)
     roomTheme: 'cozy',     // 房间背景主题:cozy 温馨小屋 / castle 城堡
     showRoomPicker: false, // 选房间背景的弹窗
+    showShopPanel: false,  // 商店弹窗(经验一大坨隐藏后,商店挪到金币下按钮)
     reciteLeft: 0,         // 今天还能背几次(0 则菜单里不显示「背单词」)
     vocab: 0,              // 词汇量 = 已掌握单词数(浮窗展示)
     showBubble: false,
@@ -409,6 +410,14 @@ Page({
   },
   closeDeskMenu() {
     this.setData({ showDeskMenu: false })
+  },
+
+  // === 商店弹窗 === //
+  openShopPanel() {
+    this.setData({ showShopPanel: true })
+  },
+  closeShopPanel() {
+    this.setData({ showShopPanel: false })
   },
 
   // === 房间背景主题 === //

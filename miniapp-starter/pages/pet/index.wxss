@@ -280,6 +280,27 @@
   border-radius: 999rpx; background: #f1f3f6; color: #5a6573; font-size: 30rpx; font-weight: 700;
 }
 
+/* === 商店弹窗(底部抽屉) === */
+.shop-panel-mask {
+  position: fixed; inset: 0; z-index: 140;
+  background: rgba(20,16,10,0.5);
+  display: flex; align-items: flex-end;
+}
+.shop-panel {
+  width: 100%; box-sizing: border-box;
+  background: #ffffff; border-radius: 28rpx 28rpx 0 0;
+  padding: 28rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  max-height: 80vh; display: flex; flex-direction: column;
+}
+.shop-panel-head { display: flex; align-items: center; justify-content: space-between; }
+.shop-panel-title { font-size: 32rpx; font-weight: 800; color: #1f2329; }
+.shop-panel-coin { font-size: 26rpx; font-weight: 700; color: #c8862a; background: #fff5e0; padding: 6rpx 18rpx; border-radius: 999rpx; }
+.shop-panel-list { margin: 18rpx 0 14rpx; max-height: 56vh; }
+.shop-panel-close {
+  height: 88rpx; line-height: 88rpx; text-align: center;
+  border-radius: 999rpx; background: #f1f3f6; color: #5a6573; font-size: 30rpx; font-weight: 700;
+}
+
 /* the walking pet — feet anchored at (left,top); JS sets translate+scale(depth)
    + per-move transition-duration inline so it glides between points. */
 .pet-actor {
@@ -313,13 +334,34 @@
 .top-hud {
   position: fixed; left: 0; right: 0; top: 0;
   z-index: 50;
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: flex-start; justify-content: space-between;
   padding: calc(env(safe-area-inset-top) + 14rpx) 28rpx 16rpx;
   background: linear-gradient(180deg, rgba(252,232,210,0.94) 0%, rgba(252,232,210,0) 100%);
 }
 .hud-name {
+  margin-top: 8rpx;
   font-size: 34rpx; font-weight: 800; color: #5a3d1e;
   text-shadow: 0 1rpx 0 rgba(255,255,255,0.6);
+}
+/* 右侧:金币在上,商店/升级按钮在下 */
+.hud-right { display: flex; flex-direction: column; align-items: flex-end; }
+.hud-btns { display: flex; gap: 10rpx; margin-top: 10rpx; }
+.hud-btn {
+  display: flex; align-items: center;
+  height: 52rpx; padding: 0 22rpx; border-radius: 999rpx;
+  font-size: 24rpx; font-weight: 700; line-height: 1;
+  background: rgba(255,255,255,0.92); color: #5a3d1e;
+  box-shadow: 0 4rpx 12rpx rgba(120,90,50,0.16);
+}
+.hud-btn.shop-btn { color: #245bdb; }
+.hud-btn.levelup-btn {
+  color: #ffffff;
+  background: linear-gradient(135deg, #ffb648 0%, #f0902a 100%);
+  animation: levelup-pulse 1.2s ease-in-out infinite;
+}
+@keyframes levelup-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 4rpx 12rpx rgba(240,144,42,0.4); }
+  50%      { transform: scale(1.06); box-shadow: 0 6rpx 18rpx rgba(240,144,42,0.6); }
 }
 .hud-coin {
   display: flex; align-items: center;
