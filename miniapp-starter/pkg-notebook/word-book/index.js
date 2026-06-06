@@ -169,7 +169,11 @@ Page({
       .then((res) => {
         const r = (res && res.result) || {}
         wx.hideLoading(); this.setData({ refBusy: false })
-        if (!r.ok || !r.book) { wx.showToast({ title: r.error || '更新失败', icon: 'none' }); return }
+        if (!r.ok || !r.book) {
+          // 源被作者撤回 / 删除:这本仍可继续用,只是没法再同步新内容。说清楚、不报错脸。
+          wx.showModal({ title: '原作者已不再公开', content: '这个单词本的来源已被撤回或删除,无法再同步更新。你现在这本仍然可以正常使用。', showCancel: false, confirmText: '知道了' })
+          return
+        }
         const n = store.syncReferencedBook(this._id, r.book.words || [])
         this._refresh()
         wx.showToast({ title: '已更新 · ' + n + ' 词', icon: 'success' })
@@ -255,6 +259,11 @@ Page({
       confirmText: '删除', confirmColor: '#e15c5c',
       success: (r) => {
         if (!r.confirm) return
+        // 自己的公开本被删:顺手把云端公开副本也撤掉,这样别人「引用」的本以后
+        // 不再同步到新内容(但他们已引用的快照不受影响,仍可继续用)。best-effort。
+        if (this.data.isPublic && !this.data.isRef && wx.cloud && wx.cloud.callFunction) {
+          wx.cloud.callFunction({ name: 'homeworkOCR', data: { action: 'unpublishBook', bookKey: this._id } }).catch(() => {})
+        }
         store.removeWordBook(this._id)
         wx.navigateBack({ delta: 1, fail: () => wx.switchTab && wx.navigateBack() })
       }

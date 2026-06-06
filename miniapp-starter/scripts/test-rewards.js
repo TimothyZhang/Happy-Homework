@@ -1165,6 +1165,25 @@ assert('wb: 复制本计入自定义数(回到 5)', s.getCustomBookCount() === 5
 assert('wb: 复制本默认设为近期目标(#2)', copied && st().wordConfig.targetBookIds.indexOf(copied.id) !== -1)
 assert('wb: 复制本是可编辑的(非 ref)', copied && !copied.ref)
 
+// --- P.10 引用本:源撤回/清空不影响本地(syncReferencedBook 空更新 no-op) ---
+seed()
+const refBk = s.addReferencedBook('引用本', [{ cn: '猫', en: 'cat' }, { cn: '狗', en: 'dog' }], 'pub1', { name: '张老师' })
+const refWords0 = st().wordBooks.find((b) => b.id === refBk.id).words.length
+assert('ref: 初始 2 词', refWords0 === 2)
+// 源返回空(撤回/网络异常)→ 不能清空本地
+const rn1 = s.syncReferencedBook(refBk.id, [])
+assert('ref: 空更新返回当前词数 2', rn1 === 2)
+assert('ref: 空更新后本地词不被清空(仍 2)', st().wordBooks.find((b) => b.id === refBk.id).words.length === 2)
+const rn2 = s.syncReferencedBook(refBk.id, null)
+assert('ref: null 更新也 no-op(仍 2)', st().wordBooks.find((b) => b.id === refBk.id).words.length === 2 && rn2 === 2)
+// 正常同步:cat 保留、bird 新增、dog 删除 → 2 词
+s.syncReferencedBook(refBk.id, [{ cn: '猫', en: 'cat' }, { cn: '鸟', en: 'bird' }])
+const after = st().wordBooks.find((b) => b.id === refBk.id).words
+assert('ref: 正常同步后 2 词(cat 留 + bird 增 + dog 删)', after.length === 2)
+assert('ref: 正常同步保留 cat', after.some((w) => w.en === 'cat'))
+assert('ref: 正常同步加入 bird', after.some((w) => w.en === 'bird'))
+assert('ref: 正常同步删掉 dog', !after.some((w) => w.en === 'dog'))
+
 // ===== Summary =====
 console.log(`\n=== ${passed} passed, ${failed} failed ===`)
 process.exit(failed === 0 ? 0 : 1)

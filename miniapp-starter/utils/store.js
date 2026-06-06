@@ -758,6 +758,12 @@ function addReferencedBook(name, wordPairs, ref, creator) {
 // 同步引用本到源的最新内容:按 key(cn|en)保留旧词的 SRS 状态,加新词、去掉删掉的。
 function syncReferencedBook(bookId, wordPairs) {
   let result = 0
+  // 源返回空(被撤回 / 清空 / 网络异常拿到空数组)时不要把引用方本地的词清掉 ——
+  // 「之前引用的不受影响」。空更新直接当 no-op,返回当前词数。
+  if (!Array.isArray(wordPairs) || wordPairs.length === 0) {
+    const cur = (loadState().wordBooks || []).find((x) => x.id === bookId)
+    return (cur && (cur.words || []).length) || 0
+  }
   updateState((state) => {
     const b = (state.wordBooks || []).find((x) => x.id === bookId)
     if (!b) return state

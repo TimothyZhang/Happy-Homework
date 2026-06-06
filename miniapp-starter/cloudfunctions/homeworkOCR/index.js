@@ -56,12 +56,19 @@ let hasEnsuredOcrJobCollection = false
 // 走完打卡链路。
 const MOCK_RAW_TEXT_ALLOWED = !!process.env.OCR_ALLOW_MOCK_RAW_TEXT
 
+// 跟 adminPanel 保持完全一致:硬编码白名单 + env ADMIN_OPENIDS(两者并集)。
+// 之前这里只读 env,导致 adminPanel 认 Tim 是管理员(whoami=true,标星按钮出现)、
+// 但 homeworkOCR 不认(setFeatured 报"仅管理员可标星")。
+const ADMIN_OPENIDS_HARDCODED = [
+  'ouEU23X1jzDKNgAiWKpO9kQukUm8'  // Tim (蛋仔) — 第 17 位是大写 O 不是 0
+]
 function getAdminOpenids() {
-  // 跟 adminPanel 共用同一个 env 白名单。这里只用 env 不读硬编码列表,
-  // 避免两个云函数行为不一致。
+  const set = new Set(ADMIN_OPENIDS_HARDCODED.map((s) => (s || '').trim()).filter(Boolean))
   const raw = (process.env.ADMIN_OPENIDS || '').trim()
-  if (!raw) return new Set()
-  return new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))
+  if (raw) {
+    for (const id of raw.split(',').map((s) => s.trim()).filter(Boolean)) set.add(id)
+  }
+  return set
 }
 
 function isOcrAdmin(openid) {
@@ -1354,6 +1361,41 @@ async function handleUnpublishBook(event, openid) {
   }
 }
 
+// 给一批公开本补「原作者」昵称/头像:优先用发布时存的 ownerName/ownerAvatar,
+// 缺了(v48 之前发布的老本没存这俩字段)再按 owner openid 去 user_state 现查 profile。
+// 这样老本也能显示作者名,不再统一「匿名」。一次 in 查询批量取,不按本逐个查。
+async function loadOwnerProfiles(db, docs) {
+  const owners = Array.from(new Set(
+    (docs || [])
+      .filter((d) => d && d.owner && (!d.ownerName || !d.ownerAvatar))
+      .map((d) => d.owner)
+  ))
+  const map = {}
+  if (!owners.length) return map
+  try {
+    const _ = db.command
+    const res = await db.collection('user_state')
+      .where({ _openid: _.in(owners) })
+      .field({ _openid: true, 'state.profile': true })
+      .get()
+    for (const u of (res.data || [])) {
+      const p = (u.state && u.state.profile) || {}
+      map[u._openid] = { nickname: p.nickname || '', avatar: p.avatar || '' }
+    }
+  } catch (e) {
+    console.warn('loadOwnerProfiles failed', e && e.message)
+  }
+  return map
+}
+
+function resolveCreator(d, profMap) {
+  const fb = (profMap && profMap[d.owner]) || {}
+  return {
+    creatorName: d.ownerName || fb.nickname || '',
+    creatorAvatar: d.ownerAvatar || fb.avatar || ''
+  }
+}
+
 // 搜索公开本(谁都能搜)。q 空则按最近更新浏览。返回含 words,客户端直接复制。
 async function handleSearchBooks(event, openid) {
   if (!cloud) return { ok: false, error: 'no cloud' }
@@ -1367,17 +1409,17 @@ async function handleSearchBooks(event, openid) {
     // orderBy 缺字段把老文档漏掉)。自己公开的也照常显示(带 mine 标记)。
     const r = await base.orderBy('updatedAt', 'desc').limit(40).get()
     const sorted = (r.data || []).slice().sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0))
-    const books = sorted.slice(0, 20).map((d) => ({
+    const top = sorted.slice(0, 20)
+    const profMap = await loadOwnerProfiles(db, top)
+    const books = top.map((d) => Object.assign({
       id: d._id,
       name: d.name,
       wordCount: d.wordCount || (d.words || []).length,
       words: (d.words || []).slice(0, 1000),
-      creatorName: d.ownerName || '',
-      creatorAvatar: d.ownerAvatar || '',
       refCount: d.refCount || 0,
       featured: !!d.featured,
       mine: d.owner === openid
-    }))
+    }, resolveCreator(d, profMap)))
     return { ok: true, books }
   } catch (e) {
     console.error('searchBooks failed', { message: e && e.message })
@@ -1395,7 +1437,8 @@ async function handleGetBook(event, openid) {
     const r = await db.collection(PUBLIC_WB_COLLECTION).doc(id).get().catch(() => null)
     const d = r && r.data
     if (!d) return { ok: false, error: '这个公开单词本不存在了(可能被作者撤回)' }
-    return { ok: true, book: { id: d._id, name: d.name, words: d.words || [], wordCount: d.wordCount || (d.words || []).length, creatorName: d.ownerName || '', creatorAvatar: d.ownerAvatar || '', refCount: d.refCount || 0, featured: !!d.featured, mine: d.owner === openid } }
+    const profMap = await loadOwnerProfiles(db, [d])
+    return { ok: true, book: Object.assign({ id: d._id, name: d.name, words: d.words || [], wordCount: d.wordCount || (d.words || []).length, refCount: d.refCount || 0, featured: !!d.featured, mine: d.owner === openid }, resolveCreator(d, profMap)) }
   } catch (e) {
     console.error('getBook failed', { message: e && e.message })
     return { ok: false, error: (e && e.message) || '获取失败' }
