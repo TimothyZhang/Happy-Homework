@@ -1,6 +1,6 @@
 // 自动生成 —— 由 scripts/write-build-info.js 写入,不要手改。
 module.exports = {
-  version: '1.0.0.26060621',
-  commitId: '891c92f',
-  builtAt: 1780761600508
+  version: '1.0.0.26060622',
+  commitId: '08bc5e4',
+  builtAt: 1780762186451
 }
