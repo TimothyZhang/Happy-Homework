@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="alpacaSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fce8c2"/>
+      <stop offset="100%" stop-color="#dcb27a"/>
+    </linearGradient>
+  </defs>
+  <!-- body -->
+  <ellipse cx="98" cy="126" rx="52" ry="34" fill="url(#alpacaSide)"/>
+</svg>

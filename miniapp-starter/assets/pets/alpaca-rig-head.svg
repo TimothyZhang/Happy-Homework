@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="alpacaSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fce8c2"/>
+      <stop offset="100%" stop-color="#dcb27a"/>
+    </linearGradient>
+  </defs>
+  <!-- long neck -->
+  <path d="M126 116 Q132 70 150 58 L166 64 Q150 78 148 118 Z" fill="url(#alpacaSide)"/>
+  <!-- head -->
+  <ellipse cx="158" cy="56" rx="18" ry="20" fill="url(#alpacaSide)"/>
+  <!-- ears -->
+  <path d="M150 40 L148 24 L158 36 Z" fill="url(#alpacaSide)"/>
+  <path d="M166 38 L170 22 L176 38 Z" fill="url(#alpacaSide)"/>
+  <!-- muzzle -->
+  <ellipse cx="170" cy="64" rx="11" ry="9" fill="#ffd6c0"/>
+  <!-- nostril + cheek -->
+  <ellipse cx="176" cy="62" rx="2" ry="2.6" fill="#cda08a"/>
+  <ellipse cx="166" cy="70" rx="5" ry="3" fill="#ff8fa5" opacity="0.4"/>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 96">
+  <!-- legs -->
+  <rect x="18" y="60" width="9" height="32" rx="2" fill="#b08e5e"/>
+  <rect x="93" y="60" width="9" height="32" rx="2" fill="#b08e5e"/>
+  <!-- desk top -->
+  <rect x="8" y="52" width="104" height="13" rx="3.5" fill="#c79e68"/>
+  <rect x="8" y="52" width="104" height="5" rx="2.5" fill="#e0c193"/>
+  <!-- book stack (bottom → top) -->
+  <rect x="20" y="44" width="38" height="8" rx="2" fill="#3bbe7a"/>
+  <rect x="23" y="37" width="32" height="7" rx="2" fill="#f0894e"/>
+  <rect x="26" y="30" width="28" height="7" rx="2" fill="#5b8def"/>
+  <!-- desk lamp -->
+  <rect x="84" y="32" width="5" height="22" rx="2.5" fill="#9aa3b2"/>
+  <path d="M86 33 L99 24" stroke="#9aa3b2" stroke-width="4" stroke-linecap="round"/>
+  <path d="M99 23 l9 5 l-11 6 z" fill="#ffce47"/>
+  <circle cx="101" cy="30" r="2.2" fill="#fff6c8"/>
+</svg>

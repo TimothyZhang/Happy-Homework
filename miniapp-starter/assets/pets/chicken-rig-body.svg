@@ -1,0 +1,1 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><linearGradient id="chickenSide" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fff2a0"/><stop offset="100%" stop-color="#f5cd2f"/></linearGradient></defs><ellipse cx="100" cy="120" rx="50" ry="46" fill="url(#chickenSide)"/><path d="M86 110 Q120 104 132 126 Q108 138 86 128 Z" fill="#f0c81e"/></svg>

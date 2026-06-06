@@ -47,25 +47,31 @@
       <view class="room-floor"></view>
       <view class="room-rug"></view>
 
+      <!-- 学习小书桌(房间角落):点它弹「背单词」菜单 -->
+      <view class="room-desk" catchtap="openDeskMenu" hover-class="room-desk-hover">
+        <view class="desk-hint">📖 背单词</view>
+        <image class="room-desk-art" src="/assets/room/desk.svg" mode="aspectFit" />
+      </view>
+
       <view wx:if="{{pet.species}}"
             class="pet-actor face-{{actorFace}} {{actorMoving ? 'moving' : (spriteAnim ? '' : 'still')}} anim-{{animState}} {{spriteAnim ? 'do-' + spriteAnim : ''}}"
             style="left: {{actorX}}%; top: {{actorY}}%; transform: translate(-50%, -100%) scale({{actorScale}}); z-index: {{actorZ}}; transition-duration: {{moveDurMs}}ms"
             catchtap="handleTapPet">
         <view class="actor-shadow"></view>
         <view class="actor-facing">
-          <view class="actor-sprite {{pet.species === 'cat' ? 'has-rig' : ''}}">
-            <!-- 猫:骨骼分层 rig(头/耳/尾/腿/眼分层,各自绕关节动);其他物种:扁平侧身图 -->
-            <view wx:if="{{pet.species === 'cat'}}" class="cat-rig {{actorMoving ? 'walking' : 'idle'}} {{spriteAnim ? 'do-' + spriteAnim : ''}}">
-              <image class="cr-layer cr-tail" src="/assets/pets/cat-rig-tail.svg" mode="aspectFit" />
-              <image class="cr-layer cr-leg-back" src="/assets/pets/cat-rig-leg-back.svg" mode="aspectFit" />
-              <image class="cr-layer cr-body" src="/assets/pets/cat-rig-body.svg" mode="aspectFit" />
-              <image class="cr-layer cr-leg-front" src="/assets/pets/cat-rig-leg-front.svg" mode="aspectFit" />
-              <view class="cr-head-grp">
-                <image class="cr-layer cr-head" src="/assets/pets/cat-rig-head.svg" mode="aspectFit" />
-                <image class="cr-layer cr-eye" src="/assets/pets/cat-rig-eye.svg" mode="aspectFit" />
+          <view class="actor-sprite has-rig">
+            <!-- 全物种骨骼分层 rig:头/耳/尾/腿/眼各一层,绕自己的关节(rigPivot)动;
+                 果冻缓动(挤压/过冲/眨眼/摆尾/迈腿)见 wxss .pet-rig.* -->
+            <view class="pet-rig {{actorMoving ? 'walking' : 'idle'}} {{spriteAnim ? 'do-' + spriteAnim : ''}}">
+              <image class="cr-layer cr-tail" style="transform-origin: {{rigPivot.tail}}" src="/assets/pets/{{pet.species}}-rig-tail.svg" mode="aspectFit" />
+              <image class="cr-layer cr-leg-back" style="transform-origin: {{rigPivot.legBack}}" src="/assets/pets/{{pet.species}}-rig-leg-back.svg" mode="aspectFit" />
+              <image class="cr-layer cr-body" style="transform-origin: {{rigPivot.body}}" src="/assets/pets/{{pet.species}}-rig-body.svg" mode="aspectFit" />
+              <image class="cr-layer cr-leg-front" style="transform-origin: {{rigPivot.legFront}}" src="/assets/pets/{{pet.species}}-rig-leg-front.svg" mode="aspectFit" />
+              <view class="cr-head-grp" style="transform-origin: {{rigPivot.head}}">
+                <image class="cr-layer cr-head" src="/assets/pets/{{pet.species}}-rig-head.svg" mode="aspectFit" />
+                <image class="cr-layer cr-eye" style="transform-origin: {{rigPivot.eye}}" src="/assets/pets/{{pet.species}}-rig-eye.svg" mode="aspectFit" />
               </view>
             </view>
-            <image wx:else class="pet-art" src="/assets/pets/{{pet.species}}-side.svg" mode="aspectFit" />
           </view>
         </view>
         <text wx:if="{{animState === 'hungry'}}"  class="state-icon hungry-icon">🍖</text>
@@ -234,9 +240,10 @@
     </view>
   </view>
 
-  <!-- 点宠物弹出的气泡菜单(非模态):透明层只接收外部点击关闭,气泡浮在宠物头顶 -->
-  <view wx:if="{{showPetMenu}}" class="popover-catch" bindtap="closePetMenu" catchtouchmove="noop">
-    <view class="pet-popover" style="left: {{actorX}}%; top: {{actorY}}%" catchtap="" catchtouchmove="noop">
+  <!-- 点书桌弹出的「学习角」菜单(非模态):透明层接收外部点击关闭。点宠物本身=直接摸摸它 -->
+  <view wx:if="{{showDeskMenu}}" class="popover-catch" bindtap="closeDeskMenu" catchtouchmove="noop">
+    <view class="desk-popover" catchtap="" catchtouchmove="noop">
+      <view class="desk-popover-title">📚 学习角</view>
       <block wx:if="{{reciteLeft > 0}}">
         <view class="pet-popover-item" bindtap="menuStartRecite" hover-class="pet-popover-item-hover">
           <text class="pmi-emoji">🎯</text>
@@ -249,14 +256,10 @@
         </view>
         <view class="pet-popover-divider"></view>
       </block>
+      <view wx:else class="desk-popover-note">今天挑战 / 听写次数用完啦,明天再来~</view>
       <view class="pet-popover-item" bindtap="menuWordBooks" hover-class="pet-popover-item-hover">
         <text class="pmi-emoji">📚</text>
         <text>我的单词本</text>
-      </view>
-      <view class="pet-popover-divider"></view>
-      <view class="pet-popover-item" bindtap="menuTouchPet" hover-class="pet-popover-item-hover">
-        <text class="pmi-emoji">🐾</text>
-        <text>摸摸它</text>
       </view>
     </view>
   </view>

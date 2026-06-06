@@ -312,9 +312,9 @@
    同框、绕各自关节 transform-origin 转;头+眼包一层一起点头,眼再单独眨。
    仅 cat 启用;其他物种仍走扁平 .pet-art。
    ============================================================ */
-.cat-rig { position: relative; width: 240rpx; height: 240rpx; transform-origin: 50% 96%; }
-.cat-rig .cr-layer,
-.cat-rig .cr-head-grp {
+.pet-rig { position: relative; width: 240rpx; height: 240rpx; transform-origin: 50% 96%; }
+.pet-rig .cr-layer,
+.pet-rig .cr-head-grp {
   position: absolute; left: 0; top: 0; width: 240rpx; height: 240rpx; display: block;
 }
 /* 关节 pivot(百分比对应每个分层 SVG 的 200 视口) */
@@ -329,28 +329,28 @@
 .pet-actor.still .actor-sprite.has-rig { animation: none; }
 
 /* 不适时给整只 rig 上色调滤镜,跟扁平 .pet-art 同款 */
-.pet-actor.anim-sad .cat-rig   { filter: grayscale(0.3); }
-.pet-actor.anim-dirty .cat-rig { filter: brightness(0.9); }
-.pet-actor.anim-sick .cat-rig  { filter: hue-rotate(-30deg) brightness(0.92); }
+.pet-actor.anim-sad .pet-rig   { filter: grayscale(0.3); }
+.pet-actor.anim-dirty .pet-rig { filter: brightness(0.9); }
+.pet-actor.anim-sick .pet-rig  { filter: hue-rotate(-30deg) brightness(0.92); }
 
 /* —— 待机 —— 呼吸 + 慢点头 + 尾巴轻摆 + 偶尔眨眼 */
-.cat-rig.idle .cr-body     { animation: cat-breath 2.8s ease-in-out infinite; }
-.cat-rig.idle .cr-head-grp { animation: cat-head-idle 2.8s ease-in-out infinite; }
-.cat-rig.idle .cr-tail     { animation: cat-tail 2.6s ease-in-out infinite; }
-.cat-rig.idle .cr-eye      { animation: cat-blink 4.4s ease-in-out infinite; }
+.pet-rig.idle .cr-body     { animation: cat-breath 2.8s ease-in-out infinite; }
+.pet-rig.idle .cr-head-grp { animation: cat-head-idle 2.8s ease-in-out infinite; }
+.pet-rig.idle .cr-tail     { animation: cat-tail 2.6s ease-in-out infinite; }
+.pet-rig.idle .cr-eye      { animation: cat-blink 4.4s ease-in-out infinite; }
 
 /* —— 走路 —— 四腿交替 + 身体上下颠 + 头点 + 尾巴快摆 */
-.cat-rig.walking .cr-leg-front { animation: cat-leg-a 0.5s ease-in-out infinite; }
-.cat-rig.walking .cr-leg-back  { animation: cat-leg-b 0.5s ease-in-out infinite; }
-.cat-rig.walking .cr-body      { animation: cat-walk-bob 0.5s ease-in-out infinite; }
-.cat-rig.walking .cr-head-grp  { animation: cat-head-walk 0.5s ease-in-out infinite; }
-.cat-rig.walking .cr-tail      { animation: cat-tail 0.8s ease-in-out infinite; }
-.cat-rig.walking .cr-eye       { animation: cat-blink 4.4s ease-in-out infinite; }
+.pet-rig.walking .cr-leg-front { animation: cat-leg-a 0.5s ease-in-out infinite; }
+.pet-rig.walking .cr-leg-back  { animation: cat-leg-b 0.5s ease-in-out infinite; }
+.pet-rig.walking .cr-body      { animation: cat-walk-bob 0.5s ease-in-out infinite; }
+.pet-rig.walking .cr-head-grp  { animation: cat-head-walk 0.5s ease-in-out infinite; }
+.pet-rig.walking .cr-tail      { animation: cat-tail 0.8s ease-in-out infinite; }
+.pet-rig.walking .cr-eye       { animation: cat-blink 4.4s ease-in-out infinite; }
 
 /* —— 一次性动作 —— 摸摸它=整只挤一下;开心=蹦两下;吃=低头啃 */
-.cat-rig.do-happy        { animation: cat-squish 0.85s ease-in-out 1; }
-.cat-rig.do-celebrating  { animation: cat-hop 0.6s ease-in-out 2; }
-.cat-rig.do-eating .cr-head-grp { animation: cat-peck 0.42s ease-in-out 4; }
+.pet-rig.do-happy        { animation: cat-squish 0.85s ease-in-out 1; }
+.pet-rig.do-celebrating  { animation: cat-hop 0.6s ease-in-out 2; }
+.pet-rig.do-eating .cr-head-grp { animation: cat-peck 0.42s ease-in-out 4; }
 
 @keyframes cat-breath {
   0%, 100% { transform: scaleX(1)     scaleY(1); }
@@ -517,6 +517,50 @@
 @keyframes popover-pop {
   0%   { opacity: 0; transform: translate(-50%, calc(-100% - 210rpx)) scale(0.7); }
   100% { opacity: 1; transform: translate(-50%, calc(-100% - 210rpx)) scale(1); }
+}
+
+/* === 房间小书桌(角落)+ 学习角菜单 === */
+.room-desk {
+  position: absolute; left: 1.5%; top: 40%;
+  width: 168rpx;
+  display: flex; flex-direction: column; align-items: center;
+  /* z-index 跟深度挂钩(actorZ = 10 + y%):书桌底座 ≈ y49 → 58,宠物走到更近(y>49)
+     时 actorZ>58 盖住书桌,走到更远时被书桌挡 —— 符合 2.5D 前后关系。 */
+  z-index: 58;
+}
+.room-desk-art { width: 168rpx; height: 124rpx; display: block; }
+.room-desk-hover { opacity: 0.82; }
+.desk-hint {
+  margin-bottom: 2rpx;
+  font-size: 19rpx; color: #6b4f2a; font-weight: 700;
+  background: rgba(255, 245, 224, 0.94); border-radius: 999rpx;
+  padding: 3rpx 14rpx; line-height: 1.5;
+  box-shadow: 0 2rpx 8rpx rgba(120, 90, 50, 0.18);
+  animation: desk-hint-bob 2.2s ease-in-out infinite;
+}
+@keyframes desk-hint-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-4rpx); }
+}
+.desk-popover {
+  position: fixed; left: 24rpx; top: 26%;
+  min-width: 300rpx; max-width: 70%;
+  background: #ffffff; border-radius: 24rpx; padding: 10rpx 6rpx;
+  box-shadow: 0 14rpx 36rpx rgba(60, 40, 15, 0.26);
+  transform-origin: 18% 100%;
+  animation: desk-pop 0.18s ease-out;
+}
+@keyframes desk-pop {
+  0%   { opacity: 0; transform: scale(0.7); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.desk-popover-title {
+  font-size: 23rpx; color: #8a94a4; font-weight: 700;
+  padding: 10rpx 24rpx 8rpx;
+}
+.desk-popover-note {
+  font-size: 23rpx; color: #9aa3ad;
+  padding: 12rpx 24rpx; line-height: 1.5; white-space: normal;
 }
 @keyframes shadow-pulse {
   0%, 100% { transform: scaleX(1);    opacity: 0.18; }

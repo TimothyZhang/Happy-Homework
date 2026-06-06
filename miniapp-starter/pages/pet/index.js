@@ -35,6 +35,20 @@ function levelBadge(level) {
 // 一次性动作,会暂停漫游、播完恢复。
 const ONESHOT_MS = { eating: 1800, celebrating: 2000, happy: 1200 }
 
+// 每个物种侧身 rig 的关节 pivot(% 对应分层 SVG 的 200 视口,从各自侧身图量出)。
+// 以 inline transform-origin 绑到各分层,让 眨眼/点头/摆尾/迈腿 都绕正确关节转。
+const RIG_PIVOTS = {
+  cat:     { tail: '30% 57%', legBack: '54% 69%', body: '52% 75%', legFront: '54% 70%', head: '65% 56%', eye: '79% 45%' },
+  dog:     { tail: '31% 55%', legBack: '54% 69%', body: '52% 78%', legFront: '54% 70%', head: '59% 47%', eye: '80% 45%' },
+  rabbit:  { tail: '31% 58%', legBack: '54% 71%', body: '54% 79%', legFront: '54% 72%', head: '61% 55%', eye: '80% 48%' },
+  pig:     { tail: '24% 55%', legBack: '54% 70%', body: '52% 80%', legFront: '54% 71%', head: '59% 47%', eye: '80% 45%' },
+  chicken: { tail: '26% 59%', legBack: '59% 79%', body: '50% 83%', legFront: '46% 79%', head: '59% 50%', eye: '75% 38%' },
+  cow:     { tail: '24% 56%', legBack: '54% 69%', body: '52% 78%', legFront: '54% 70%', head: '60% 47%', eye: '80% 45%' },
+  sheep:   { tail: '30% 57%', legBack: '54% 70%', body: '51% 79%', legFront: '54% 71%', head: '65% 49%', eye: '81% 48%' },
+  alpaca:  { tail: '25% 62%', legBack: '52% 73%', body: '49% 80%', legFront: '52% 74%', head: '68% 58%', eye: '80% 26%' },
+  parrot:  { tail: '29% 62%', legBack: '59% 84%', body: '52% 85%', legFront: '49% 84%', head: '58% 38%', eye: '77% 36%' }
+}
+
 // 地板可行走带(全屏 room 的百分比)。上沿(yMin)= 远处,下沿(yMax)= 近处。
 // 带子落在房间地板的可见区(被下方控制卡盖住之前),侧面行走以横向为主。
 const FLOOR = { xMin: 8, xMax: 92, yMin: 46, yMax: 76 }
@@ -97,7 +111,9 @@ Page({
     actorMoving: false,
     moveDurMs: 0,
     spriteAnim: '',
+    rigPivot: RIG_PIVOTS.cat,   // 当前物种 rig 各关节 pivot(refreshState 按 species 覆盖)
     showPetMenu: false,
+    showDeskMenu: false,   // 点书桌弹出的学习菜单(单词挑战/听写/单词本)
     reciteLeft: 0,         // 今天还能背几次(0 则菜单里不显示「背单词」)
     vocab: 0,              // 词汇量 = 已掌握单词数(浮窗展示)
     showBubble: false,
@@ -190,6 +206,7 @@ Page({
       shopItems: state.shopItems,
       mode: isSetup ? 'view' : 'setup',
       animState: isSetup ? deriveAnimState(pet) : 'idle',
+      rigPivot: RIG_PIVOTS[pet.species] || RIG_PIVOTS.cat,
       ageDays: isSetup ? store.petAgeDays(pet) : 0,
       vocab: store.getWordStats(state).mastered,
       reciteLeft: store.reciteRemaining(state),
@@ -370,11 +387,9 @@ Page({
   },
 
   handleTapPet() {
-    if (this.data.mode !== 'view' || this.data.showPetMenu) return
-    // 弹气泡菜单前先把宠物停在原地,气泡才不会跟着它跑。
-    // (爱心放在「摸摸它」里飘,那时菜单已关、看得清。)
-    this._stopSceneEngine()
-    this.setData({ actorMoving: false, moveDurMs: 0, showPetMenu: true })
+    if (this.data.mode !== 'view') return
+    // 点宠物 = 直接摸摸它(挤一下 + 飘爱心 + 说句话)。学习菜单已挪到书桌,不再弹宠物菜单。
+    this.menuTouchPet()
   },
 
   closePetMenu() {
@@ -382,7 +397,16 @@ Page({
     if (this.data.mode === 'view' && hasAnimRig(this.data.pet)) this._startSceneEngine()
   },
 
-  // 菜单·摸摸它:旧的按心情互动(蹦跳 + 说话气泡)。
+  // === 书桌·学习菜单 === //
+  openDeskMenu() {
+    if (this.data.mode !== 'view') return
+    this.setData({ showDeskMenu: true })
+  },
+  closeDeskMenu() {
+    this.setData({ showDeskMenu: false })
+  },
+
+  // 摸摸它:按心情互动(挤一下 + 飘爱心 + 说话气泡)。现在由点宠物直接触发。
   menuTouchPet() {
     this.setData({ showPetMenu: false })
     if (this.data.mode === 'view' && hasAnimRig(this.data.pet)) this._startSceneEngine()
@@ -405,19 +429,19 @@ Page({
 
   // 菜单·一起来背单词吧:进背单词页(独立 navigateTo 页,天然全屏 + 无 tabBar)。
   menuStartRecite() {
-    this.setData({ showPetMenu: false })
+    this.setData({ showDeskMenu: false })
     wx.navigateTo({ url: '/pkg-notebook/word-recite/index' })
   },
 
   // 菜单·听写单词:进背单词页的听写模式(TTS 读音 + 拼写)。
   menuStartDictation() {
-    this.setData({ showPetMenu: false })
+    this.setData({ showDeskMenu: false })
     wx.navigateTo({ url: '/pkg-notebook/word-recite/index?mode=dictation' })
   },
 
   // 菜单·我的单词本:进单词库管理页(增减单词本/单词、设目标、设每次数量)。
   menuWordBooks() {
-    this.setData({ showPetMenu: false })
+    this.setData({ showDeskMenu: false })
     wx.navigateTo({ url: '/pkg-notebook/word-books/index' })
   },
 
