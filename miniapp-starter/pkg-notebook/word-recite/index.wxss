@@ -105,6 +105,12 @@
 @keyframes caret-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 .ans-ph { margin-top: 6rpx; font-size: 30rpx; color: #c7ad8c; }
 .correct { margin-top: 16rpx; font-size: 38rpx; color: #e15c5c; font-weight: 800; }
+.next-btn {
+  margin-top: 24rpx; padding: 18rpx 60rpx; border-radius: 999rpx;
+  background: #245bdb; color: #ffffff; font-size: 32rpx; font-weight: 800;
+  box-shadow: 0 6rpx 16rpx rgba(36, 91, 219, 0.28);
+}
+.next-btn-hover { background: #1e4fc0; }
 .bravo { margin-top: 16rpx; font-size: 38rpx; color: #07a050; font-weight: 800; }
 
 /* 自制键盘 —— 布局对齐 iPhone:字母键等宽,第二行缩进,shift / delete 在第三行

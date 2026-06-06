@@ -47,6 +47,7 @@
       </view>
       <text wx:if="{{!input && !feedback}}" class="ans-ph">下面拼出英文…</text>
       <view wx:if="{{feedback === 'wrong'}}" class="correct">正确答案:{{word.en}}</view>
+      <view wx:if="{{feedback === 'wrong'}}" class="next-btn" bindtap="goNext" hover-class="next-btn-hover">下一个 ›</view>
       <view wx:if="{{feedback === 'right'}}" class="bravo">答对啦!📚 +1</view>
     </view>
 

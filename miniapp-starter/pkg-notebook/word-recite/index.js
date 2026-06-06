@@ -167,9 +167,15 @@ Page({
       this.setData({ feedback: 'right', rewardFly: true })
       this._t = setTimeout(() => this._next(), 1000)
     } else {
+      // 打错不自动跳:亮出正确答案,等用户点「下一个」再走(留时间看清、记住)。
       this.setData({ feedback: 'wrong' })
-      this._t = setTimeout(() => this._next(), 1900)  // 亮出正确答案一会儿再下一个
     }
+  },
+
+  // 打错后手动进入下一题(答对是自动跳的)。
+  goNext() {
+    if (this._t) clearTimeout(this._t)
+    this._next()
   },
 
   skip() {
