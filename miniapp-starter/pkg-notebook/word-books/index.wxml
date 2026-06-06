@@ -26,8 +26,6 @@
       <text class="book-name">{{item.name}}</text>
       <text class="book-meta">{{item.count}} 词 · 已掌握 {{item.mastered}}{{item.builtin ? ' · 内置' : ''}}</text>
     </view>
-    <view class="book-rename" catchtap="renameBook" data-id="{{item.id}}" data-name="{{item.name}}" hover-class="rename-hover">改名</view>
-    <view wx:if="{{!item.builtin}}" class="book-del" catchtap="removeBook" data-id="{{item.id}}" data-name="{{item.name}}" hover-class="del-hover">删</view>
     <text class="book-chev">›</text>
   </view>
 

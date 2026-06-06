@@ -33,6 +33,9 @@
 .tool-btn.share { margin-left: 12rpx; color: #07a050; box-shadow: inset 0 0 0 2rpx #b7e6c8; }
 .tool-btn.share::after { border: none; }
 .tool-hover { background: #f2f6ff; }
+.tools-2 { margin-top: 12rpx; }
+.tool-btn.del { margin-left: 12rpx; color: #e15c5c; box-shadow: inset 0 0 0 2rpx #f3c2c2; }
+.del-hover { background: #fbe9e9; }
 
 .count-line { margin: 24rpx 8rpx 12rpx; font-size: 24rpx; color: #8a94a0; }
 

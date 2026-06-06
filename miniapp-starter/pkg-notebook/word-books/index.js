@@ -59,32 +59,6 @@ Page({
     })
   },
 
-  removeBook(e) {
-    const id = e.currentTarget.dataset.id
-    const name = e.currentTarget.dataset.name
-    wx.showModal({
-      title: '删除单词本',
-      content: '确定删除「' + name + '」?里面的单词会一起删掉,无法恢复。',
-      confirmText: '删除', confirmColor: '#e15c5c',
-      success: (r) => { if (r.confirm) { store.removeWordBook(id); this._refresh() } }
-    })
-  },
-
-  renameBook(e) {
-    const id = e.currentTarget.dataset.id
-    const name = e.currentTarget.dataset.name
-    wx.showModal({
-      title: '单词本改名', editable: true, content: name, placeholderText: '新名字',
-      success: (r) => {
-        if (!r.confirm) return
-        const next = (r.content || '').trim()
-        if (!next || next === name) return
-        store.renameWordBook(id, next)
-        this._refresh()
-      }
-    })
-  },
-
   decSize() { store.setReciteSessionSize(this.data.sessionSize - 1); this._refresh() },
   incSize() { store.setReciteSessionSize(this.data.sessionSize + 1); this._refresh() }
 })

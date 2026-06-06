@@ -95,6 +95,35 @@ Page({
     this._refresh()
   },
 
+  // 单词本本身的改名 / 删除(从本子里面操作,基础词本也能删)
+  renameBook() {
+    const cur = this.data.name || ''
+    wx.showModal({
+      title: '单词本改名', editable: true, content: cur, placeholderText: '新名字',
+      success: (r) => {
+        if (!r.confirm) return
+        const next = (r.content || '').trim()
+        if (!next || next === cur) return
+        store.renameWordBook(this._id, next)
+        this._refresh()
+      }
+    })
+  },
+
+  deleteBook() {
+    const name = this.data.name || '这个单词本'
+    wx.showModal({
+      title: '删除单词本',
+      content: '确定删除「' + name + '」?里面的单词会一起删掉,无法恢复。',
+      confirmText: '删除', confirmColor: '#e15c5c',
+      success: (r) => {
+        if (!r.confirm) return
+        store.removeWordBook(this._id)
+        wx.navigateBack({ delta: 1, fail: () => wx.switchTab && wx.navigateBack() })
+      }
+    })
+  },
+
   // === 拍照 / 选图 OCR 导入 ===
   ocrImport() {
     if (this._ocrBusy) return

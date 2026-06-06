@@ -12,6 +12,10 @@
     <view class="tool-btn" bindtap="ocrImport" hover-class="tool-hover">📷 拍照导入</view>
     <button class="tool-btn share" open-type="share" hover-class="tool-hover">🔗 分享给同学</button>
   </view>
+  <view class="tools tools-2">
+    <view class="tool-btn" bindtap="renameBook" hover-class="tool-hover">✏️ 改名</view>
+    <view class="tool-btn del" bindtap="deleteBook" hover-class="del-hover">🗑 删除单词本</view>
+  </view>
 
   <view class="count-line">共 {{words.length}} 个</view>
 

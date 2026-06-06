@@ -932,9 +932,10 @@ function migrateState(raw) {
       if ('nextLevelGrowth' in raw.pet)       delete raw.pet.nextLevelGrowth
       if (raw.pet.lastLeveledAt === undefined) raw.pet.lastLeveledAt = null
     }
-    // 单词库:确保字段存在;空则种一个默认「基础词」本。每词补齐 SRS 字段。
-    if (!Array.isArray(raw.wordBooks)) raw.wordBooks = []
-    if (raw.wordBooks.length === 0) raw.wordBooks = [seedDefaultWordBook()]
+    // 单词库:确保字段存在;每词补齐 SRS 字段。
+    // 只在"从来没有 wordBooks 字段"(首次用单词功能)时种默认「基础词」本;
+    // 用户主动删光(包括删掉「基础词」)→ 保持空,不再硬塞回来。
+    if (!Array.isArray(raw.wordBooks)) raw.wordBooks = [seedDefaultWordBook()]
     raw.wordBooks.forEach((book) => {
       if (!Array.isArray(book.words)) book.words = []
       book.words.forEach((w) => {
