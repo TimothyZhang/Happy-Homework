@@ -998,8 +998,9 @@ function getAzureOpenAiDeployment() {
 // Tim 要求用腾讯云。Azure 路径保留(pbs-0 没建 TTS 部署),设 env TTS_PROVIDER=azure 可切回。
 const DEFAULT_TTS_MODEL = 'gpt-4o-mini-tts'   // Azure 上对应同名 deployment;OPENAI_TTS_MODEL 可覆盖
 const DEFAULT_TTS_VOICE = 'alloy'
-// 腾讯云默认音色:1051 = WeRose 英文女声(读英文单词清楚);自测确认账号可用后再定。
-const DEFAULT_TENCENT_TTS_VOICE = 1051
+// 腾讯云默认音色:1050 = WeJack 英文男声。1051 = WeRose 英文女声(反馈发音不够标准,换男声)。
+// 腾讯云基础英文音色就这俩;env TENCENT_TTS_VOICE 可覆盖。想要更自然要上"大模型音色"或回 Azure。
+const DEFAULT_TENCENT_TTS_VOICE = 1050
 
 function getTtsProvider() {
   return String(getFirstEnv(['TTS_PROVIDER']) || 'tencent').toLowerCase()

@@ -2,7 +2,8 @@
 // 调云函数 homeworkOCR(action:'tts')用 Azure OpenAI 合成,拿回 base64 mp3,
 // 写到 USER_DATA_PATH 持久缓存:重听 / 再遇同一个词,直接播缓存,不重复合成。
 
-const CACHE_KEY = 'tts_cache_v1'
+// v2: 换了 TTS 音色(WeRose→WeJack),bump 一下让旧音色缓存失效、重新合成。
+const CACHE_KEY = 'tts_cache_v2'
 // 直接写到 USER_DATA_PATH 根目录(扁平命名,不建子目录)。真机上建子目录 mkdir 偶发
 // 失败会让 writeFile 找不到父目录 → 听写一直"语音暂不可用"(本次根因)。扁平写最稳。
 const USER_DIR = (wx.env && wx.env.USER_DATA_PATH ? wx.env.USER_DATA_PATH : '')
