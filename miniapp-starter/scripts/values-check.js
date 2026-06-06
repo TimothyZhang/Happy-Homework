@@ -201,12 +201,13 @@ check('getXpForLevel(99)  = 3354', store.getXpForLevel(99),  3354)
 check('getXpForLevel(100) = 0 (max level)', store.getXpForLevel(100), 0)
 check('getXpForLevel(101) = 0 (above max)', store.getXpForLevel(101), 0)
 
-// === Test 5b: attrMultiplier — 四属性平均 / 100,clip [0,1] ===
+// === Test 5b: attrMultiplier — 五属性(四照料 + 努力)平均 / 100,clip [0,1] ===
+// (commit 7ccb2ec 起努力值计入 XP 速率 → 倍率改五项均值)
 console.log('\n[level] attrMultiplier + currentXpPerHour:')
-const fullPet  = { species: 'cat', happiness: 100, fullness: 100, cleanliness: 100, health: 100 }
-const halfPet  = { species: 'cat', happiness: 50,  fullness: 50,  cleanliness: 50,  health: 50  }
-const emptyPet = { species: 'cat', happiness: 0,   fullness: 0,   cleanliness: 0,   health: 0   }
-const skewPet  = { species: 'cat', happiness: 80,  fullness: 40,  cleanliness: 60,  health: 20  } // avg=50
+const fullPet  = { species: 'cat', happiness: 100, fullness: 100, cleanliness: 100, health: 100, effort: 100 }
+const halfPet  = { species: 'cat', happiness: 50,  fullness: 50,  cleanliness: 50,  health: 50,  effort: 50  }
+const emptyPet = { species: 'cat', happiness: 0,   fullness: 0,   cleanliness: 0,   health: 0,   effort: 0   }
+const skewPet  = { species: 'cat', happiness: 80,  fullness: 40,  cleanliness: 60,  health: 20,  effort: 50  } // avg=50
 const noPet    = {}
 check('full 100/100/100/100 → 1.0',   store.attrMultiplier(fullPet),  1)
 check('half 50/50/50/50 → 0.5',       store.attrMultiplier(halfPet),  0.5)
@@ -252,18 +253,18 @@ xpRaw.pet = {
   species: 'cat', emoji: '🐱', name: 'p',
   bornAt: TWENTY_FOUR_HOURS_AGO, lastDecayAt: TWENTY_FOUR_HOURS_AGO,
   level: 1, xp: 0,
-  happiness: 100, fullness: 100, cleanliness: 100, health: 100
+  happiness: 100, fullness: 100, cleanliness: 100, health: 100, effort: 100
 }
 storage['homework-pet-v1'] = JSON.stringify(xpRaw)
 store = freshStore()
 const xpAccrued = store.getStateWithComputed().pet
-// 24h 衰减后属性: fullness 100-4×24=4(round)→clip 0 实际算 100-96=4;但 rate 4×24=96,100-96=4
-// 各属性 24h 后:fullness=4, cleanliness=100-3×24=28, happiness=28, health=100-2.5×24=40
-// avg_start = (100+100+100+100)/4=100 → mult_start=1.0
-// avg_end = (4+28+28+40)/4=25 → mult_end=0.25
-// avg_mult=(1.0+0.25)/2=0.625
-// xp_gained = floor(24 × 10 × 0.625) = 150
-check('24h 挂机(初始全满,衰减到 avg=25)→ pet.xp ≈ 150',
+// 五属性 24h 后:fullness=100-4×24=4, cleanliness=100-3×24=28, happiness=28,
+//   health=100-2.5×24=40, effort=100-3×24=28
+// avg_start = (100×5)/5=100 → mult_start=1.0
+// avg_end = (4+28+28+40+28)/5=25.6 → mult_end=0.256
+// avg_mult=(1.0+0.256)/2=0.628
+// xp_gained = floor(24 × 10 × 0.628) = 150
+check('24h 挂机(初始全满,衰减到 avg≈25.6)→ pet.xp ≈ 150',
   xpAccrued.xp, 150)
 check('24h 挂机 → fullness 衰减到 4', xpAccrued.fullness, 4)
 check('24h 挂机 → cleanliness 衰减到 28', xpAccrued.cleanliness, 28)
@@ -290,13 +291,13 @@ halfRaw.pet = {
   species: 'cat', emoji: '🐱', name: 'p',
   bornAt: ONE_HOUR_AGO, lastDecayAt: ONE_HOUR_AGO,
   level: 1, xp: 0,
-  happiness: 50, fullness: 50, cleanliness: 50, health: 50
+  happiness: 50, fullness: 50, cleanliness: 50, health: 50, effort: 50
 }
 storage['homework-pet-v1'] = JSON.stringify(halfRaw)
 store = freshStore()
 const halfXp = store.getStateWithComputed().pet.xp
-// 1h:start mult=0.5,end mult=(50-3+50-4+50-3+50-2.5)/4/100 ≈ 0.47
-// trapezoid = (0.5+0.47)/2=0.485,xp = floor(1×10×0.485)=4
+// 五属性 1h:start mult=0.5,end ≈ (46+47+47+47/48+47)/5/100 ≈ 0.47
+// trapezoid ≈ (0.5+0.47)/2=0.485,xp = floor(1×10×0.485)=4
 check('1h 挂机 半属性(avg≈0.485) → pet.xp = 4', halfXp, 4)
 
 // === Test 6: levelUpPet — 扣 getXpForLevel(level) XP 升级,溢出留作下一级 ===

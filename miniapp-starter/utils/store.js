@@ -295,7 +295,7 @@ function petAgeDays(pet) {
 // medicine). See V1-VALUES-DESIGN.md §3 for the rationale.
 const PET_DECAY_PER_HOUR = { fullness: 4, cleanliness: 3, happiness: 3, health: 2.5, effort: 3 }
 // 努力:背单词攒起来、随时间衰减的进度条(0-100)。每答对一词 +EFFORT_PER_WORD,封顶 100。
-// 不计入 attrMultiplier(不影响 XP 速率),也不影响 mood —— 纯激励展示。
+// 计入 attrMultiplier(五项均值之一 → 努力越高 XP 越快;commit 7ccb2ec),但不影响 mood。
 const EFFORT_PER_WORD = 5
 
 // 升级:XP 满 → 用户手动点按钮升级。levelUpPet() 检查 pet.xp >= getXpForLevel(level),
