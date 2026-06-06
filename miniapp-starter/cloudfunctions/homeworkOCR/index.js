@@ -147,6 +147,9 @@ async function main(event = {}) {
   if (event && event.action === 'unpublishBook') return await handleUnpublishBook(event, callerOpenid)
   if (event && event.action === 'searchBooks')   return await handleSearchBooks(event, callerOpenid)
   if (event && event.action === 'getBook')       return await handleGetBook(event, callerOpenid)
+  if (event && event.action === 'incrementRef')  return await handleIncrementRef(event, callerOpenid)
+  if (event && event.action === 'setFeatured')   return await handleSetFeatured(event, callerOpenid)
+  if (event && event.action === 'myBookStat')    return await handleMyBookStat(event, callerOpenid)
 
   // mockRawText 旁路在生产环境直接关掉。
   if (event && event.mockRawText && !MOCK_RAW_TEXT_ALLOWED) {
@@ -1319,12 +1322,14 @@ async function handlePublishBook(event, openid) {
     await ensurePublicWbCollection()
     const db = cloud.database()
     const existing = await db.collection(PUBLIC_WB_COLLECTION).where({ owner: openid, bookKey }).limit(1).get()
-    const data = { owner: openid, bookKey, name, words, wordCount: words.length, updatedAt: Date.now() }
+    const ownerName = String((event && event.ownerName) || '').slice(0, 40)
+    const ownerAvatar = String((event && event.ownerAvatar) || '').slice(0, 400)
+    const data = { owner: openid, ownerName, ownerAvatar, bookKey, name, words, wordCount: words.length, updatedAt: Date.now() }
     if (existing.data && existing.data[0]) {
       await db.collection(PUBLIC_WB_COLLECTION).doc(existing.data[0]._id).update({ data })
       return { ok: true, id: existing.data[0]._id, count: words.length }
     }
-    const r = await db.collection(PUBLIC_WB_COLLECTION).add({ data })
+    const r = await db.collection(PUBLIC_WB_COLLECTION).add({ data: Object.assign({ refCount: 0, featured: false }, data) })
     return { ok: true, id: r._id, count: words.length }
   } catch (e) {
     console.error('publishBook failed', { message: e && e.message })
@@ -1356,18 +1361,21 @@ async function handleSearchBooks(event, openid) {
   try {
     await ensurePublicWbCollection()
     const db = cloud.database()
-    let query
-    if (q) {
-      query = db.collection(PUBLIC_WB_COLLECTION).where({ name: db.RegExp({ regexp: escapeRegExp(q), options: 'i' }) })
-    } else {
-      query = db.collection(PUBLIC_WB_COLLECTION).orderBy('updatedAt', 'desc')
-    }
-    const r = await query.limit(20).get()
-    const books = (r.data || []).map((d) => ({
+    let base = db.collection(PUBLIC_WB_COLLECTION)
+    if (q) base = base.where({ name: db.RegExp({ regexp: escapeRegExp(q), options: 'i' }) })
+    // 按 updatedAt 取一批,再在内存里把管理员标星(featured)的稳定排到最前(避免
+    // orderBy 缺字段把老文档漏掉)。自己公开的也照常显示(带 mine 标记)。
+    const r = await base.orderBy('updatedAt', 'desc').limit(40).get()
+    const sorted = (r.data || []).slice().sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0))
+    const books = sorted.slice(0, 20).map((d) => ({
       id: d._id,
       name: d.name,
       wordCount: d.wordCount || (d.words || []).length,
       words: (d.words || []).slice(0, 1000),
+      creatorName: d.ownerName || '',
+      creatorAvatar: d.ownerAvatar || '',
+      refCount: d.refCount || 0,
+      featured: !!d.featured,
       mine: d.owner === openid
     }))
     return { ok: true, books }
@@ -1387,11 +1395,51 @@ async function handleGetBook(event, openid) {
     const r = await db.collection(PUBLIC_WB_COLLECTION).doc(id).get().catch(() => null)
     const d = r && r.data
     if (!d) return { ok: false, error: '这个公开单词本不存在了(可能被作者撤回)' }
-    return { ok: true, book: { id: d._id, name: d.name, words: d.words || [], wordCount: d.wordCount || (d.words || []).length, mine: d.owner === openid } }
+    return { ok: true, book: { id: d._id, name: d.name, words: d.words || [], wordCount: d.wordCount || (d.words || []).length, creatorName: d.ownerName || '', creatorAvatar: d.ownerAvatar || '', refCount: d.refCount || 0, featured: !!d.featured, mine: d.owner === openid } }
   } catch (e) {
     console.error('getBook failed', { message: e && e.message })
     return { ok: false, error: (e && e.message) || '获取失败' }
   }
+}
+
+// 引用计数 +1(有人「添加」了这个公开本)。粗略热度,不去重。
+async function handleIncrementRef(event, openid) {
+  if (!cloud) return { ok: false }
+  const id = String((event && event.id) || '').trim()
+  if (!id) return { ok: false }
+  try {
+    const db = cloud.database()
+    await db.collection(PUBLIC_WB_COLLECTION).doc(id).update({ data: { refCount: db.command.inc(1) } })
+    return { ok: true }
+  } catch (e) { return { ok: false } }
+}
+
+// 管理员给公开本标星 / 取消(标星的排搜索结果最前)。
+async function handleSetFeatured(event, openid) {
+  if (!cloud) return { ok: false, error: 'no cloud' }
+  if (!isOcrAdmin(openid)) return { ok: false, error: '仅管理员可标星' }
+  const id = String((event && event.id) || '').trim()
+  if (!id) return { ok: false, error: '缺少 id' }
+  const featured = !!(event && event.featured)
+  try {
+    const db = cloud.database()
+    await db.collection(PUBLIC_WB_COLLECTION).doc(id).update({ data: { featured } })
+    return { ok: true, featured }
+  } catch (e) { return { ok: false, error: (e && e.message) || '操作失败' } }
+}
+
+// 创建者看自己公开本的被引用次数(按 owner+bookKey 查)。
+async function handleMyBookStat(event, openid) {
+  if (!cloud || !openid) return { ok: false }
+  const bookKey = String((event && event.bookKey) || '').trim()
+  if (!bookKey) return { ok: false }
+  try {
+    const db = cloud.database()
+    const r = await db.collection(PUBLIC_WB_COLLECTION).where({ owner: openid, bookKey }).limit(1).get()
+    const d = r.data && r.data[0]
+    if (!d) return { ok: true, published: false, refCount: 0 }
+    return { ok: true, published: true, refCount: d.refCount || 0, featured: !!d.featured }
+  } catch (e) { return { ok: false } }
 }
 
 function getAzureOpenAiApiVersion() {

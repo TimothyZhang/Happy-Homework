@@ -547,6 +547,21 @@ const WORD_BOOK_NAME_MAX = 16
 const WORD_TEXT_MAX = 40
 const WORD_BOOKS_MAX = 40
 const WORD_PER_BOOK_MAX = 800
+const CUSTOM_WORD_BOOKS_MAX = 5   // 自定义单词本(非内置、非引用)上限;引用本不计、不限
+
+// 自定义单词本数量 = 非 builtin、非 ref 的本(用于 5 个上限判断)。
+function customBookCount(books) {
+  return (books || []).filter((b) => !b.builtin && !b.ref).length
+}
+function getCustomBookCount() {
+  return customBookCount(loadState().wordBooks)
+}
+// 把新建/导入/复制/引用的本默认设为近期目标(加进 targetBookIds)。
+function _markBookAsTarget(state, bookId) {
+  if (!state.wordConfig) state.wordConfig = defaultWordConfig()
+  if (!Array.isArray(state.wordConfig.targetBookIds)) state.wordConfig.targetBookIds = []
+  if (state.wordConfig.targetBookIds.indexOf(bookId) === -1) state.wordConfig.targetBookIds.push(bookId)
+}
 
 function uidBook() { return 'wb_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7) }
 function uidWord() { return 'w_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7) }
@@ -555,10 +570,11 @@ function addWordBook(name) {
   let book = null
   updateState((state) => {
     if (!Array.isArray(state.wordBooks)) state.wordBooks = []
-    if (state.wordBooks.length >= WORD_BOOKS_MAX) return state
+    if (customBookCount(state.wordBooks) >= CUSTOM_WORD_BOOKS_MAX) return state   // 自定义上限 5
     const nm = (name || '').trim().slice(0, WORD_BOOK_NAME_MAX) || '新单词本'
     book = { id: uidBook(), name: nm, builtin: false, public: false, createdAt: Date.now(), words: [] }
     state.wordBooks.push(book)
+    _markBookAsTarget(state, book.id)   // 默认设为近期目标
     return state
   })
   return book
@@ -577,7 +593,7 @@ function removeWordBook(bookId) {
 function renameWordBook(bookId, name) {
   updateState((state) => {
     const b = (state.wordBooks || []).find((x) => x.id === bookId)
-    if (b) b.name = (name || '').trim().slice(0, WORD_BOOK_NAME_MAX) || b.name
+    if (b && !b.ref) b.name = (name || '').trim().slice(0, WORD_BOOK_NAME_MAX) || b.name   // 引用本不可改名
     return state
   })
 }
@@ -689,7 +705,7 @@ function importSharedWordBook(payload) {
   let book = null
   updateState((state) => {
     if (!Array.isArray(state.wordBooks)) state.wordBooks = []
-    if (state.wordBooks.length >= WORD_BOOKS_MAX) return state
+    if (customBookCount(state.wordBooks) >= CUSTOM_WORD_BOOKS_MAX) return state   // 复制=自定义,占 5 个名额
     const name = (payload.n || '分享单词本').toString().trim().slice(0, WORD_BOOK_NAME_MAX) || '分享单词本'
     const seen = {}
     const words = []
@@ -705,6 +721,7 @@ function importSharedWordBook(payload) {
     })
     book = { id: uidBook(), name, builtin: false, public: false, createdAt: Date.now(), words }
     state.wordBooks.push(book)
+    _markBookAsTarget(state, book.id)   // 默认设为近期目标
     return state
   })
   return book
@@ -712,11 +729,11 @@ function importSharedWordBook(payload) {
 
 // 「引用」一个公开本:本地建一个带 ref(公开本 id)的本,内容是快照,可后续同步。
 // 跟「复制」的区别:ref 让它能从源更新,且页面里只读(不让改作者的内容)。
-function addReferencedBook(name, wordPairs, ref) {
+function addReferencedBook(name, wordPairs, ref, creator) {
   let book = null
   updateState((state) => {
     if (!Array.isArray(state.wordBooks)) state.wordBooks = []
-    if (state.wordBooks.length >= WORD_BOOKS_MAX) return state
+    if (state.wordBooks.length >= WORD_BOOKS_MAX) return state   // 引用本不占自定义 5 名额,仅总量安全上限
     const nm = (name || '引用单词本').toString().trim().slice(0, WORD_BOOK_NAME_MAX) || '引用单词本'
     const seen = {}
     const words = []
@@ -729,8 +746,10 @@ function addReferencedBook(name, wordPairs, ref) {
       seen[key] = 1
       if (words.length < WORD_PER_BOOK_MAX) words.push(freshWord(cn, en, uidWord()))
     })
-    book = { id: uidBook(), name: nm, builtin: false, public: false, ref: String(ref || ''), refAt: Date.now(), createdAt: Date.now(), words }
+    book = { id: uidBook(), name: nm, builtin: false, public: false, ref: String(ref || ''), refAt: Date.now(), createdAt: Date.now(),
+      creatorName: (creator && creator.name) || '', creatorAvatar: (creator && creator.avatar) || '', words }
     state.wordBooks.push(book)
+    _markBookAsTarget(state, book.id)   // 引用本默认设为近期目标
     return state
   })
   return book
@@ -3268,6 +3287,8 @@ module.exports = {
   RECITE_SESSION_MIN,
   RECITE_SESSION_MAX,
   // 单词库管理
+  CUSTOM_WORD_BOOKS_MAX,
+  getCustomBookCount,
   addWordBook,
   removeWordBook,
   renameWordBook,

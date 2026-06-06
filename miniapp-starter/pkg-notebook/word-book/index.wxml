@@ -1,9 +1,14 @@
 <view class="page">
-  <!-- 引用本:只读,顶部给同步按钮 -->
+  <!-- 引用本:只读,顶部给同步按钮 + 原作者 + 被引用次数 -->
   <view wx:if="{{isRef}}" class="ref-banner">
     <view class="ref-l">
-      <text class="ref-title">🔗 引用自公开库</text>
-      <text class="ref-sub">只读 · 点更新拉作者最新内容,改不到原作者</text>
+      <view class="ref-creator">
+        <image wx:if="{{creatorAvatar}}" class="ref-avatar" src="{{creatorAvatar}}" mode="aspectFill" />
+        <view wx:else class="ref-avatar ref-avatar-ph">👤</view>
+        <text class="ref-creator-name">{{creatorName || '匿名'}}</text>
+        <text class="ref-refcount">· 被引用 {{refCount}} 次</text>
+      </view>
+      <text class="ref-sub">🔗 引用自公开库 · 只读,点更新拉作者最新内容</text>
     </view>
     <view class="ref-update" bindtap="updateRef" hover-class="ref-update-hover">🔄 更新</view>
   </view>
@@ -22,14 +27,15 @@
     <button class="tool-btn share" open-type="share" hover-class="tool-hover">🔗 分享给同学</button>
   </view>
   <view class="tools tools-2">
-    <view class="tool-btn" bindtap="renameBook" hover-class="tool-hover">✏️ 改名</view>
+    <view wx:if="{{!isRef}}" class="tool-btn" bindtap="renameBook" hover-class="tool-hover">✏️ 改名</view>
+    <view wx:if="{{isRef}}" class="tool-btn" bindtap="copyBook" hover-class="tool-hover">📋 复制为可编辑</view>
     <view class="tool-btn del" bindtap="deleteBook" hover-class="del-hover">🗑 删除单词本</view>
   </view>
 
   <view wx:if="{{!isRef}}" class="public-row">
     <view class="public-l">
       <text class="public-label">🌐 公开到单词库</text>
-      <text class="public-sub">{{isPublic ? '别人能搜到并复制,但改不了你的' : '打开后:别人可搜索 + 复制(只读)'}}</text>
+      <text class="public-sub">{{isPublic ? ('别人能搜到 · 已被引用 ' + refCount + ' 次') : '打开后别人可搜索并添加(只读,改不到你的)'}}</text>
     </view>
     <switch checked="{{isPublic}}" color="#245bdb" disabled="{{publicBusy}}" bindchange="togglePublic" />
   </view>

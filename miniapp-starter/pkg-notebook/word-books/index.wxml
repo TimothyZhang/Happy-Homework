@@ -25,13 +25,21 @@
   <view wx:for="{{books}}" wx:key="id" class="book" bindtap="openBook" data-id="{{item.id}}" hover-class="book-hover">
     <view class="star {{item.isTarget ? 'on' : ''}}" catchtap="toggleTarget" data-id="{{item.id}}">★</view>
     <view class="book-main">
-      <text class="book-name">{{item.name}}</text>
+      <view class="book-name-row">
+        <text class="book-name">{{item.name}}</text>
+        <text wx:if="{{item.isRef}}" class="book-ref-tag">引用</text>
+      </view>
+      <view wx:if="{{item.isRef}}" class="book-creator">
+        <image wx:if="{{item.creatorAvatar}}" class="book-creator-avatar" src="{{item.creatorAvatar}}" mode="aspectFill" />
+        <view wx:else class="book-creator-avatar book-creator-ph">👤</view>
+        <text class="book-creator-name">{{item.creatorName || '匿名'}}</text>
+      </view>
       <text class="book-meta">{{item.count}} 词 · 已掌握 {{item.mastered}}{{item.builtin ? ' · 内置' : ''}}</text>
     </view>
     <text class="book-chev">›</text>
   </view>
 
-  <view class="new-book" bindtap="newBook" hover-class="new-hover">＋ 新建单词本</view>
+  <view class="new-book {{customCount >= customMax ? 'full' : ''}}" bindtap="newBook" hover-class="new-hover">＋ 新建单词本 · {{customCount}}/{{customMax}}</view>
   <view class="new-book discover" bindtap="goDiscover" hover-class="discover-hover">🔍 发现 · 搜别人公开的单词本</view>
   <view class="hint-line">提示:点单词本进去可以加 / 删 / 改单词、拍照导入、分享、公开,也支持短语。</view>
 </view>

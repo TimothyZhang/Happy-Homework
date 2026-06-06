@@ -1119,6 +1119,52 @@ const sane3 = s.sanitizeSharePayload({
 })
 assert('sanitize: 缺 title 字段 → 默认空串', sane3 && sane3.title === '')
 
+// --- P.9 单词本配额:自定义上限 5 / 引用不计 / 默认设为近期目标 / 引用不可改名 ---
+seed()
+assert('wb: CUSTOM_WORD_BOOKS_MAX = 5', s.CUSTOM_WORD_BOOKS_MAX === 5)
+assert('wb: 初始自定义数 = 0(只有内置本)', s.getCustomBookCount() === 0)
+
+const wbMade = []
+for (let i = 0; i < 7; i++) { const b = s.addWordBook('本' + i); if (b) wbMade.push(b.id) }
+assert('wb: 连建 7 个,只成功 5 个(命中上限)', wbMade.length === 5, `made=${wbMade.length}`)
+assert('wb: getCustomBookCount 封顶在 5', s.getCustomBookCount() === 5)
+assert('wb: 第 6 次 addWordBook 返回 null', s.addWordBook('超额') === null)
+
+// #2 新建的本默认进 targetBookIds(近期目标)
+const tgt1 = st().wordConfig.targetBookIds
+assert('wb: 新建本默认设为近期目标', wbMade.every((id) => tgt1.indexOf(id) !== -1))
+
+// #3 引用本不占自定义 5 名额(已满仍能加引用)
+const refB = s.addReferencedBook('引用本', [{ cn: '猫', en: 'cat' }], 'pub123', { name: '张老师', avatar: 'http://x/a.png' })
+assert('wb: 自定义满了仍能加引用本', !!refB)
+assert('wb: 引用本不计入自定义数(仍是 5)', s.getCustomBookCount() === 5)
+assert('wb: 引用本带原作者名(#5)', refB && refB.creatorName === '张老师')
+assert('wb: 引用本带原作者头像(#5)', refB && refB.creatorAvatar === 'http://x/a.png')
+assert('wb: 引用本默认设为近期目标(#2)', st().wordConfig.targetBookIds.indexOf(refB.id) !== -1)
+
+// #6 引用本不可改名
+s.renameWordBook(refB.id, '我偏要改名')
+const refAfter = st().wordBooks.find((b) => b.id === refB.id)
+assert('wb: 引用本改名被拒(名字不变,#6)', refAfter && refAfter.name === '引用本')
+
+// 自定义本可以正常改名(对照)
+const ownAfter0 = st().wordBooks.find((b) => b.id === wbMade[0])
+s.renameWordBook(wbMade[0], '改好了')
+const ownAfter1 = st().wordBooks.find((b) => b.id === wbMade[0])
+assert('wb: 自定义本可正常改名(对照)', ownAfter0 && ownAfter1 && ownAfter1.name === '改好了')
+
+// #7 复制(importSharedWordBook)占自定义额度:满了复制失败
+const copyPayload = { k: 'wb', n: '复制来的', w: [['狗', 'dog']] }
+assert('wb: 自定义满时复制失败(占额度,#7)', s.importSharedWordBook(copyPayload) === null)
+// 删一个自定义本后,复制成功且计入自定义数
+s.removeWordBook(wbMade[0])
+assert('wb: 删一个后自定义数回到 4', s.getCustomBookCount() === 4)
+const copied = s.importSharedWordBook(copyPayload)
+assert('wb: 有空位时复制成功(#7)', !!copied)
+assert('wb: 复制本计入自定义数(回到 5)', s.getCustomBookCount() === 5)
+assert('wb: 复制本默认设为近期目标(#2)', copied && st().wordConfig.targetBookIds.indexOf(copied.id) !== -1)
+assert('wb: 复制本是可编辑的(非 ref)', copied && !copied.ref)
+
 // ===== Summary =====
 console.log(`\n=== ${passed} passed, ${failed} failed ===`)
 process.exit(failed === 0 ? 0 : 1)

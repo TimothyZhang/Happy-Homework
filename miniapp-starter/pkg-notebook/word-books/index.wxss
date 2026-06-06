@@ -60,7 +60,16 @@
 }
 .star.on { color: #ffae2e; background: #fff5e0; }
 .book-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.book-name { font-size: 30rpx; font-weight: 700; color: #1f2329; }
+.book-name-row { display: flex; align-items: center; min-width: 0; }
+.book-name { font-size: 30rpx; font-weight: 700; color: #1f2329; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.book-ref-tag {
+  flex-shrink: 0; margin-left: 12rpx; padding: 2rpx 12rpx; border-radius: 999rpx;
+  font-size: 20rpx; font-weight: 600; background: #fff4d6; color: #cf8a16;
+}
+.book-creator { display: flex; align-items: center; margin-top: 6rpx; }
+.book-creator-avatar { width: 30rpx; height: 30rpx; border-radius: 50%; margin-right: 7rpx; flex-shrink: 0; background: #eef2f8; }
+.book-creator-ph { display: flex; align-items: center; justify-content: center; font-size: 18rpx; }
+.book-creator-name { font-size: 21rpx; color: #8a94a0; max-width: 320rpx; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .book-meta { margin-top: 6rpx; font-size: 23rpx; color: #8a94a0; }
 .book-rename {
   height: 56rpx; padding: 0 16rpx; border-radius: 14rpx; margin-left: 10rpx; flex-shrink: 0;
@@ -82,4 +91,5 @@
   background: #245bdb; color: #ffffff; font-size: 30rpx; font-weight: 700;
 }
 .new-hover { background: #1e4fc0; }
+.new-book.full { background: #aeb7c4; }
 .hint-line { margin: 24rpx 8rpx 0; font-size: 22rpx; color: #aab3bd; line-height: 1.6; }

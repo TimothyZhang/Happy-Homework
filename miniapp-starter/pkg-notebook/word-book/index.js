@@ -56,6 +56,10 @@ Page({
     publicBusy: false,
     isRef: false,
     refBusy: false,
+    copyBusy: false,
+    refCount: 0,
+    creatorName: '',
+    creatorAvatar: '',
     editing: false,
     editId: '',
     editCn: '',
@@ -80,12 +84,39 @@ Page({
       isPublic: !!b.public,
       isRef: !!b.ref,
       _ref: b.ref || '',
+      creatorName: b.creatorName || '',
+      creatorAvatar: b.creatorAvatar || '',
       words: (b.words || []).map((w) => ({
         id: w.id, cn: w.cn, en: w.en,
         state: w.mastered ? 'mastered' : (w.seen ? 'learning' : 'new'),
         everWrong: !!w.everWrong
       }))
-    })
+    }, () => this._loadStats())
+  },
+
+  // 拉「被引用次数」:引用本看源公开库的热度;自己的公开本看自己被引用多少次。
+  _loadStats() {
+    if (!wx.cloud || !wx.cloud.callFunction) return
+    if (this.data.isRef) {
+      const ref = this.data._ref
+      if (!ref) return
+      wx.cloud.callFunction({ name: 'homeworkOCR', data: { action: 'getBook', id: ref } })
+        .then((res) => {
+          const bk = (res && res.result && res.result.book) || null
+          if (!bk) return
+          this.setData({
+            refCount: bk.refCount || 0,
+            creatorName: bk.creatorName || this.data.creatorName,
+            creatorAvatar: bk.creatorAvatar || this.data.creatorAvatar
+          })
+        }).catch(() => {})
+    } else if (this.data.isPublic) {
+      wx.cloud.callFunction({ name: 'homeworkOCR', data: { action: 'myBookStat', bookKey: this._id } })
+        .then((res) => {
+          const r = (res && res.result) || {}
+          if (r.ok) this.setData({ refCount: r.refCount || 0 })
+        }).catch(() => {})
+    }
   },
 
   // === 公开到单词库 / 撤销(调云函数;别人只能搜+复制,改不了你的)===
@@ -103,7 +134,8 @@ Page({
     if (!words.length) { wx.showToast({ title: '空单词本不能公开', icon: 'none' }); this.setData({ isPublic: false }); return }
     this.setData({ publicBusy: true })
     wx.showLoading({ title: '发布中…', mask: true })
-    wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 20000, data: { action: 'publishBook', bookKey: this._id, name: this.data.name, words } })
+    const prof = store.getProfile() || {}
+    wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 20000, data: { action: 'publishBook', bookKey: this._id, name: this.data.name, words, ownerName: prof.nickname || '', ownerAvatar: prof.avatar || '' } })
       .then((res) => {
         const r = (res && res.result) || {}
         wx.hideLoading(); this.setData({ publicBusy: false })
@@ -118,7 +150,7 @@ Page({
   _unpublishBook() {
     this.setData({ publicBusy: true })
     wx.showLoading({ title: '撤销中…', mask: true })
-    const done = () => { wx.hideLoading(); store.setWordBookPublic(this._id, false); this.setData({ publicBusy: false, isPublic: false }) }
+    const done = () => { wx.hideLoading(); store.setWordBookPublic(this._id, false); this.setData({ publicBusy: false, isPublic: false, refCount: 0 }) }
     if (!wx.cloud || !wx.cloud.callFunction) { done(); return }
     wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 20000, data: { action: 'unpublishBook', bookKey: this._id } })
       .then(() => { done(); wx.showToast({ title: '已撤销公开', icon: 'none' }) })
@@ -143,6 +175,22 @@ Page({
         wx.showToast({ title: '已更新 · ' + n + ' 词', icon: 'success' })
       })
       .catch(() => { wx.hideLoading(); this.setData({ refBusy: false }); wx.showToast({ title: '更新失败,稍后再试', icon: 'none' }) })
+  },
+
+  // === 复制成「我自己的」可编辑副本(占自定义单词本额度,从掌握度从头开始)===
+  copyBook() {
+    if (this.data.copyBusy) return
+    if (store.getCustomBookCount() >= store.CUSTOM_WORD_BOOKS_MAX) {
+      wx.showToast({ title: '自定义单词本已满(上限 ' + store.CUSTOM_WORD_BOOKS_MAX + ' 个)', icon: 'none' }); return
+    }
+    const payload = store.serializeWordBookForShare(this._id)
+    if (!payload || !payload.w.length) { wx.showToast({ title: '这个单词本是空的', icon: 'none' }); return }
+    this.setData({ copyBusy: true })
+    const book = store.importSharedWordBook(payload)
+    this.setData({ copyBusy: false })
+    if (!book) { wx.showToast({ title: '复制失败(可能已达自定义上限)', icon: 'none' }); return }
+    wx.showToast({ title: '已复制为可编辑的本', icon: 'success' })
+    setTimeout(() => wx.redirectTo({ url: '/pkg-notebook/word-book/index?id=' + book.id }), 650)
   },
 
   // === 修改单词 ===

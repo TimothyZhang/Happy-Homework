@@ -28,23 +28,30 @@
 }
 .pb-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .pb-name { font-size: 30rpx; font-weight: 700; color: #1f2329; }
+.pb-star-mark { margin-right: 6rpx; font-size: 24rpx; }
 .pb-mine {
   margin-left: 12rpx; padding: 2rpx 12rpx; border-radius: 999rpx;
   font-size: 20rpx; font-weight: 600; background: #eef4ff; color: #245bdb;
 }
-.pb-meta { margin-top: 6rpx; font-size: 22rpx; color: #8a94a0; }
+/* 原创建者头像 + 名字 + 词数 + 被引用次数(一行) */
+.pb-creator { display: flex; align-items: center; margin-top: 8rpx; }
+.pb-avatar { width: 34rpx; height: 34rpx; border-radius: 50%; margin-right: 8rpx; flex-shrink: 0; background: #eef2f8; }
+.pb-avatar-ph { display: flex; align-items: center; justify-content: center; font-size: 20rpx; }
+.pb-creator-name { font-size: 22rpx; color: #6b7785; max-width: 180rpx; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; flex-shrink: 0; }
+.pb-meta { font-size: 22rpx; color: #8a94a0; margin-left: 6rpx; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .pb-preview {
   margin-top: 8rpx; font-size: 22rpx; color: #aab2bd; line-height: 1.4;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.pb-acts { flex-shrink: 0; margin-left: 14rpx; display: flex; flex-direction: column; }
+.pb-acts { flex-shrink: 0; margin-left: 14rpx; display: flex; flex-direction: column; align-items: center; }
+.pb-feature {
+  width: 56rpx; height: 56rpx; margin-bottom: 10rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: #f2f4f8; color: #b6bdc7; font-size: 34rpx; line-height: 1;
+}
+.pb-feature.on { background: #fff4d6; color: #f5a623; }
 .pb-ref {
   padding: 12rpx 30rpx; border-radius: 999rpx; text-align: center;
   background: #245bdb; color: #ffffff; font-size: 25rpx; font-weight: 700;
 }
 .pb-ref-hover { background: #1e4fc0; }
-.pb-copy {
-  margin-top: 10rpx; padding: 12rpx 30rpx; border-radius: 999rpx; text-align: center;
-  background: #eef4ff; color: #245bdb; font-size: 25rpx; font-weight: 700;
-}
-.pb-copy-hover { background: #dde8ff; }
