@@ -20,6 +20,8 @@
     <text class="section-sub">勾选 ★ 设为近期目标(可多选)· 已选 {{targetCount}}</text>
   </view>
 
+  <view class="lib-stat">全部单词 <text class="lib-stat-n">{{totalWords}}</text> 个(去重),已掌握 <text class="lib-stat-n ok">{{masteredWords}}</text> 个</view>
+
   <view wx:for="{{books}}" wx:key="id" class="book" bindtap="openBook" data-id="{{item.id}}" hover-class="book-hover">
     <view class="star {{item.isTarget ? 'on' : ''}}" catchtap="toggleTarget" data-id="{{item.id}}">★</view>
     <view class="book-main">

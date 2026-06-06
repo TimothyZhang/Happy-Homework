@@ -140,6 +140,14 @@
           </button>
         </block>
       </view>
+
+      <view class="know-attr">
+        <view class="know-attr-l">
+          <text class="know-attr-label">📚 知识</text>
+          <text class="know-attr-sub">背单词积累 · 不能用金币买</text>
+        </view>
+        <text class="know-attr-val">{{knowledge}}</text>
+      </view>
     </view>
 
     <view class="card section-card">

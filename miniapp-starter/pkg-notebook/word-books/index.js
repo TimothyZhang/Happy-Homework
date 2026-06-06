@@ -7,7 +7,9 @@ Page({
     sessionSize: 20,
     sizeMin: 3,
     sizeMax: 50,
-    targetCount: 0
+    targetCount: 0,
+    totalWords: 0,
+    masteredWords: 0
   },
 
   onShow() { this._refresh() },
@@ -26,10 +28,13 @@ Page({
         isTarget: targets.indexOf(b.id) !== -1
       }
     })
+    const stats = store.getWordStats(s)
     this.setData({
       books,
       sessionSize: (s.wordConfig && s.wordConfig.sessionSize) || store.RECITE_DEFAULT_SIZE,
-      targetCount: books.filter((b) => b.isTarget).length
+      targetCount: books.filter((b) => b.isTarget).length,
+      totalWords: stats.total,
+      masteredWords: stats.mastered
     })
   },
 

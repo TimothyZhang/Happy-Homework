@@ -572,6 +572,23 @@ function renameWordBook(bookId, name) {
   })
 }
 
+// 跨所有单词本统计:去重后的总词数 + 已掌握词数。同一个词(en+cn 相同)在多本里
+// 出现只算一个;任一本里掌握了就算这个词已掌握。
+function getWordStats(state) {
+  const books = (state && state.wordBooks) || []
+  const seen = {}
+  books.forEach((b) => {
+    (b.words || []).forEach((w) => {
+      const key = String(w.en || '').trim().toLowerCase() + '|' + String(w.cn || '').trim()
+      if (key === '|') return
+      if (!(key in seen)) seen[key] = false
+      if (w.mastered) seen[key] = true
+    })
+  })
+  const keys = Object.keys(seen)
+  return { total: keys.length, mastered: keys.filter((k) => seen[k]).length }
+}
+
 // 给单词本加一个词。返回新词(失败返 null)。不同本可重复 —— 不去重。
 // 去掉词条前面的编号/序号(导入残留):"1." "1、" "1)" "(1)" "①" 等。
 // 保守:必须带分隔符(点/顿号/括号/冒号),所以不会误伤 "2.5D"(数字后跟数字不删)
@@ -3145,6 +3162,7 @@ module.exports = {
   addWordBook,
   removeWordBook,
   renameWordBook,
+  getWordStats,
   addWord,
   removeWord,
   stripWordNum,

@@ -30,6 +30,16 @@
 .section-title { font-size: 28rpx; font-weight: 800; color: #44505e; }
 .section-sub { margin-top: 4rpx; font-size: 22rpx; color: #9aa3ad; }
 
+/* 全库统计:去重总词数 + 已掌握 */
+.lib-stat {
+  margin: 0 0 14rpx; padding: 16rpx 20rpx;
+  background: #ffffff; border-radius: 18rpx;
+  font-size: 24rpx; color: #6b7785; font-weight: 600;
+  box-shadow: 0 8rpx 24rpx rgba(31, 35, 41, 0.05);
+}
+.lib-stat-n { font-size: 30rpx; font-weight: 800; color: #245bdb; }
+.lib-stat-n.ok { color: #07a050; }
+
 .book {
   display: flex; align-items: center;
   background: #ffffff; border-radius: 22rpx; padding: 22rpx 20rpx;
