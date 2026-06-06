@@ -116,5 +116,9 @@ Page({
     wx.navigateTo({
       url: `/pages/admin-detail/index?openid=${encodeURIComponent(openid)}`
     })
+  },
+
+  goFeedback() {
+    wx.navigateTo({ url: '/pages/admin-feedback/index' })
   }
 })

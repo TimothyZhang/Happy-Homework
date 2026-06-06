@@ -27,6 +27,7 @@ const MODULES = [
   require('./admindetail'),
   require('./ocrimport'),
   require('./ocrresult'),
+  require('./adminfeedback'),
 ]
 
 const en = {}

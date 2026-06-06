@@ -8,6 +8,10 @@
            placeholder="{{t.admin_searchPlaceholder}}"
            value="{{keyword}}"
            bindinput="handleKeywordInput" />
+    <view class="fb-entry" bindtap="goFeedback" hover-class="fb-entry-hover">
+      <text>💬 {{t.afb_entry}}</text>
+      <text class="fb-entry-chev">›</text>
+    </view>
   </view>
 
   <view wx:if="{{loading}}" class="empty-block">{{t.admin_loading}}</view>

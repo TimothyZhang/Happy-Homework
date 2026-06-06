@@ -1,0 +1,31 @@
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24rpx 24rpx calc(40rpx + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #f7f9fc 0%, #eef4ff 100%);
+}
+
+.empty-block { margin: 80rpx 0; text-align: center; font-size: 27rpx; color: #8a94a0; }
+.count-line { margin: 6rpx 8rpx 16rpx; font-size: 24rpx; color: #8a94a0; }
+
+.card {
+  background: #ffffff; border-radius: 20rpx; padding: 24rpx 22rpx;
+  margin-bottom: 16rpx; box-shadow: 0 8rpx 24rpx rgba(31, 35, 41, 0.05);
+}
+.error-card { border: 2rpx solid #f6caca; }
+.error-text { color: #d94343; font-size: 27rpx; }
+
+.fb-row { display: flex; flex-direction: column; }
+.fb-text { font-size: 30rpx; color: #1f2329; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+.fb-contact { margin-top: 12rpx; font-size: 24rpx; color: #245bdb; word-break: break-all; }
+.fb-meta { margin-top: 14rpx; display: flex; align-items: center; gap: 10rpx; font-size: 22rpx; color: #aab2bd; }
+.fb-name { color: #6b7785; font-weight: 600; max-width: 280rpx; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.fb-ver { flex-shrink: 0; }
+.fb-time { margin-left: auto; flex-shrink: 0; }
+
+.loadmore {
+  margin: 8rpx auto 0; padding: 18rpx 0; text-align: center;
+  font-size: 27rpx; color: #245bdb; font-weight: 600;
+}
+.loadmore-hover { opacity: 0.6; }
+.nomore { margin: 16rpx 0; text-align: center; font-size: 22rpx; color: #c7cdd6; }

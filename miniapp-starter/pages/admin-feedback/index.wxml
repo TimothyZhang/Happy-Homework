@@ -1,0 +1,28 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="empty-block">{{t.afb_loading}}</view>
+
+  <view wx:elif="{{error}}" class="card error-card">
+    <text class="error-text">{{error}}</text>
+  </view>
+
+  <view wx:elif="{{rows.length === 0}}" class="empty-block">{{t.afb_empty}}</view>
+
+  <view wx:else>
+    <view class="count-line">{{totalLabel}}</view>
+
+    <view wx:for="{{rows}}" wx:key="id" class="card fb-row">
+      <view class="fb-text">{{item.text}}</view>
+      <view wx:if="{{item.contactLabel}}" class="fb-contact">{{item.contactLabel}}</view>
+      <view class="fb-meta">
+        <text class="fb-name">{{item.nickname}}</text>
+        <text wx:if="{{item.version}}" class="fb-ver">· {{item.version}}</text>
+        <text class="fb-time">{{item.timeLabel}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{hasMore}}" class="loadmore" bindtap="loadMore" hover-class="loadmore-hover">
+      {{loadingMore ? t.afb_loading : t.afb_loadmore}}
+    </view>
+    <view wx:else class="nomore">{{t.afb_nomore}}</view>
+  </view>
+</view>

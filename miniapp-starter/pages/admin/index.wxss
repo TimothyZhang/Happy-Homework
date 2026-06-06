@@ -116,3 +116,11 @@
   font-size: 26rpx;
   line-height: 1.5;
 }
+
+.fb-entry {
+  margin-top: 18rpx; padding: 18rpx 20rpx; border-radius: 14rpx;
+  display: flex; align-items: center; justify-content: space-between;
+  background: #eef4ff; color: #245bdb; font-size: 27rpx; font-weight: 600;
+}
+.fb-entry-hover { background: #dde8ff; }
+.fb-entry-chev { color: #9bb4ee; font-size: 32rpx; }
