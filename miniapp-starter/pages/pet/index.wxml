@@ -80,7 +80,7 @@
       <view class="status-meta">
         <text>Lv.{{pet.level}}</text><text class="dot">·</text><text>{{ageDays}} 天大</text>
       </view>
-      <view class="status-know-line">📚 知识 {{knowledge}}</view>
+      <view class="status-know-line">📚 词汇量 {{vocab}}</view>
       <view class="svrow">
         <text class="svlabel">开心</text>
         <view class="sbar"><view class="sbar-fill" style="width: {{pet.happiness}}%; background: #ffb648"></view></view>
@@ -100,6 +100,11 @@
         <text class="svlabel">健康</text>
         <view class="sbar"><view class="sbar-fill" style="width: {{pet.health}}%; background: #e15c5c"></view></view>
         <text class="svnum">{{pet.health}}</text>
+      </view>
+      <view class="svrow">
+        <text class="svlabel">努力</text>
+        <view class="sbar"><view class="sbar-fill" style="width: {{pet.effort}}%; background: #7a5af0"></view></view>
+        <text class="svnum">{{pet.effort}}</text>
       </view>
     </view>
 
@@ -139,14 +144,6 @@
             升到 Lv.{{pet.level + 1}}
           </button>
         </block>
-      </view>
-
-      <view class="know-attr">
-        <view class="know-attr-l">
-          <text class="know-attr-label">📚 知识</text>
-          <text class="know-attr-sub">背单词积累 · 不能用金币买</text>
-        </view>
-        <text class="know-attr-val">{{knowledge}}</text>
       </view>
     </view>
 

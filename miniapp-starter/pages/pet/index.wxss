@@ -696,16 +696,6 @@
   background: #f7f8fa;
   border-radius: 18rpx;
 }
-/* 知识属性行(跟经验/等级放一起,紫色区分) */
-.know-attr {
-  display: flex; align-items: center; justify-content: space-between;
-  margin-top: 14rpx; padding: 16rpx 20rpx;
-  background: #f4f1fc; border-radius: 18rpx;
-}
-.know-attr-l { display: flex; flex-direction: column; }
-.know-attr-label { font-size: 28rpx; font-weight: 700; color: #5a3d1e; }
-.know-attr-sub { margin-top: 4rpx; font-size: 21rpx; color: #9a8cc4; }
-.know-attr-val { font-size: 40rpx; font-weight: 900; color: #7a5af0; }
 .level-row {
   display: flex;
   justify-content: space-between;

@@ -289,7 +289,10 @@ function petAgeDays(pet) {
 // 12–20 hours, i.e. by the next day every attribute is asking to be topped up.
 // Fullness is fastest (most-frequent feeding); health is slowest (occasional
 // medicine). See V1-VALUES-DESIGN.md §3 for the rationale.
-const PET_DECAY_PER_HOUR = { fullness: 4, cleanliness: 3, happiness: 3, health: 2.5 }
+const PET_DECAY_PER_HOUR = { fullness: 4, cleanliness: 3, happiness: 3, health: 2.5, effort: 3 }
+// 努力:背单词攒起来、随时间衰减的进度条(0-100)。每答对一词 +EFFORT_PER_WORD,封顶 100。
+// 不计入 attrMultiplier(不影响 XP 速率),也不影响 mood —— 纯激励展示。
+const EFFORT_PER_WORD = 5
 
 // 升级:XP 满 → 用户手动点按钮升级。levelUpPet() 检查 pet.xp >= getXpForLevel(level),
 // 扣掉 cost,level +=1,溢出的 XP 留作下一级的进度。XP 不进金币 ledger
@@ -352,7 +355,9 @@ function petWithDecay(pet) {
     happiness:   drop(pet.happiness,   PET_DECAY_PER_HOUR.happiness),
     fullness:    drop(pet.fullness,    PET_DECAY_PER_HOUR.fullness),
     cleanliness: drop(pet.cleanliness, PET_DECAY_PER_HOUR.cleanliness),
-    health:      drop(pet.health,      PET_DECAY_PER_HOUR.health)
+    health:      drop(pet.health,      PET_DECAY_PER_HOUR.health),
+    // 努力默认 0(不是 100),不能用 drop(它把 null 当 100);从 0 起、有努力才衰减。
+    effort:      Math.max(0, Math.round((pet.effort || 0) - hours * PET_DECAY_PER_HOUR.effort))
   }
   // Trapezoidal XP 积分:用窗口起 + 终的 mult 平均 × 时间 × 满速。
   // 起点用 pre-decay pet(尚未掉点),终点用 post-decay decayed。
@@ -516,9 +521,12 @@ function applyReciteSession(results) {
       }
     })
     if (state.pet && state.pet.species) {
-      state.pet.knowledge = (state.pet.knowledge || 0) + knowledgeGained
-      // 每答对一个单词,除了 +1 知识,也给宠物 +1 经验(喂等级)。
-      state.pet.xp = (state.pet.xp || 0) + knowledgeGained
+      // 先把到此刻的衰减 + 挂机 XP 结算掉并盖时间戳,再在干净基线上加 经验 / 努力。
+      const pet = commitPetDecay(state.pet)
+      pet.knowledge = (pet.knowledge || 0) + knowledgeGained                 // 旧"知识"累计值,保留(不再展示)
+      pet.xp = (pet.xp || 0) + knowledgeGained                               // 每答对一词 +1 经验
+      pet.effort = Math.min(100, (pet.effort || 0) + knowledgeGained * EFFORT_PER_WORD)  // +努力(封顶 100)
+      state.pet = pet
     }
     const today = todayStr()
     if (!state.reciteByDay || typeof state.reciteByDay !== 'object') state.reciteByDay = {}
@@ -939,8 +947,11 @@ function migrateState(raw) {
       if (raw.pet.health == null)           raw.pet.health           = 95
       // xp: 新引入字段(经验值升级模型)。老用户从 0 开始攒,不影响 level。
       if (raw.pet.xp == null)               raw.pet.xp               = 0
-      // knowledge: 知识属性,靠背单词积累(不能用金币/道具买)。老用户从 0 起。
+      // knowledge: 旧"知识"累计值(已不展示,保留兼容)。老用户从 0 起。
       if (raw.pet.knowledge == null)        raw.pet.knowledge        = 0
+      // effort 努力:0-100 进度条,背单词攒、随时间衰减。老用户从 0 起。
+      if (raw.pet.effort == null)           raw.pet.effort           = 0
+      raw.pet.effort = Math.max(0, Math.min(100, raw.pet.effort | 0))
       // 老 exp/growth/freeze 模型已废弃 — strip 历史字段。
       // 注意:xp 是新字段,不在 strip 列表里。
       if ('exp' in raw.pet)                   delete raw.pet.exp
@@ -2347,6 +2358,7 @@ function setupPet({ species, name }) {
       level: 1,
       xp: 0,
       knowledge: 0,
+      effort: 0,
       happiness: 100,
       fullness: 100,
       cleanliness: 100,
