@@ -710,6 +710,59 @@ function importSharedWordBook(payload) {
   return book
 }
 
+// 「引用」一个公开本:本地建一个带 ref(公开本 id)的本,内容是快照,可后续同步。
+// 跟「复制」的区别:ref 让它能从源更新,且页面里只读(不让改作者的内容)。
+function addReferencedBook(name, wordPairs, ref) {
+  let book = null
+  updateState((state) => {
+    if (!Array.isArray(state.wordBooks)) state.wordBooks = []
+    if (state.wordBooks.length >= WORD_BOOKS_MAX) return state
+    const nm = (name || '引用单词本').toString().trim().slice(0, WORD_BOOK_NAME_MAX) || '引用单词本'
+    const seen = {}
+    const words = []
+    ;(Array.isArray(wordPairs) ? wordPairs : []).forEach((p) => {
+      const cn = String((p && p.cn) || '').trim().slice(0, WORD_TEXT_MAX)
+      const en = String((p && p.en) || '').trim().slice(0, WORD_TEXT_MAX)
+      if (!cn || !en) return
+      const key = cn + '|' + en.toLowerCase()
+      if (seen[key]) return
+      seen[key] = 1
+      if (words.length < WORD_PER_BOOK_MAX) words.push(freshWord(cn, en, uidWord()))
+    })
+    book = { id: uidBook(), name: nm, builtin: false, public: false, ref: String(ref || ''), refAt: Date.now(), createdAt: Date.now(), words }
+    state.wordBooks.push(book)
+    return state
+  })
+  return book
+}
+
+// 同步引用本到源的最新内容:按 key(cn|en)保留旧词的 SRS 状态,加新词、去掉删掉的。
+function syncReferencedBook(bookId, wordPairs) {
+  let result = 0
+  updateState((state) => {
+    const b = (state.wordBooks || []).find((x) => x.id === bookId)
+    if (!b) return state
+    const oldByKey = {}
+    ;(b.words || []).forEach((w) => { oldByKey[(w.cn || '') + '|' + (w.en || '').toLowerCase()] = w })
+    const seen = {}
+    const next = []
+    ;(Array.isArray(wordPairs) ? wordPairs : []).forEach((p) => {
+      const cn = String((p && p.cn) || '').trim().slice(0, WORD_TEXT_MAX)
+      const en = String((p && p.en) || '').trim().slice(0, WORD_TEXT_MAX)
+      if (!cn || !en) return
+      const key = cn + '|' + en.toLowerCase()
+      if (seen[key] || next.length >= WORD_PER_BOOK_MAX) return
+      seen[key] = 1
+      next.push(oldByKey[key] || freshWord(cn, en, uidWord()))
+    })
+    result = next.length
+    b.words = next
+    b.refAt = Date.now()
+    return state
+  })
+  return result
+}
+
 // 设置单词本是否公开(本地标记;真正发布/撤销到云库由页面调云函数完成)。
 function setWordBookPublic(bookId, isPublic) {
   updateState((state) => {
@@ -3207,6 +3260,8 @@ module.exports = {
   renameWordBook,
   getWordStats,
   setWordBookPublic,
+  addReferencedBook,
+  syncReferencedBook,
   addWord,
   removeWord,
   updateWord,

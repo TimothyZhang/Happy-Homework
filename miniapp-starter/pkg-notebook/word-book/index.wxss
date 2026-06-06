@@ -117,6 +117,20 @@
 .public-label { font-size: 28rpx; font-weight: 700; color: #1f2329; }
 .public-sub { margin-top: 4rpx; font-size: 21rpx; color: #9aa3ad; }
 
+/* 引用本只读横幅 */
+.ref-banner {
+  margin-bottom: 14rpx; display: flex; align-items: center; justify-content: space-between;
+  background: #fff7ec; border: 2rpx solid #f6e0bf; border-radius: 18rpx; padding: 16rpx 22rpx;
+}
+.ref-l { display: flex; flex-direction: column; min-width: 0; flex: 1; padding-right: 16rpx; }
+.ref-title { font-size: 27rpx; font-weight: 800; color: #a86a1f; }
+.ref-sub { margin-top: 4rpx; font-size: 21rpx; color: #c19a63; }
+.ref-update {
+  flex-shrink: 0; padding: 14rpx 28rpx; border-radius: 999rpx;
+  background: #f0a13a; color: #ffffff; font-size: 26rpx; font-weight: 700;
+}
+.ref-update-hover { background: #dd8e2a; }
+
 /* 修改单词弹窗 */
 .edit-mask {
   position: fixed; inset: 0; z-index: 100; background: rgba(20, 16, 10, 0.5);

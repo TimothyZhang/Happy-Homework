@@ -146,6 +146,7 @@ async function main(event = {}) {
   if (event && event.action === 'publishBook')   return await handlePublishBook(event, callerOpenid)
   if (event && event.action === 'unpublishBook') return await handleUnpublishBook(event, callerOpenid)
   if (event && event.action === 'searchBooks')   return await handleSearchBooks(event, callerOpenid)
+  if (event && event.action === 'getBook')       return await handleGetBook(event, callerOpenid)
 
   // mockRawText 旁路在生产环境直接关掉。
   if (event && event.mockRawText && !MOCK_RAW_TEXT_ALLOWED) {
@@ -1373,6 +1374,23 @@ async function handleSearchBooks(event, openid) {
   } catch (e) {
     console.error('searchBooks failed', { message: e && e.message })
     return { ok: false, error: (e && e.message) || '搜索失败' }
+  }
+}
+
+// 按 id 取一个公开本(供「引用」的本同步最新)。
+async function handleGetBook(event, openid) {
+  if (!cloud) return { ok: false, error: 'no cloud' }
+  const id = String((event && event.id) || '').trim()
+  if (!id) return { ok: false, error: '缺少 id' }
+  try {
+    const db = cloud.database()
+    const r = await db.collection(PUBLIC_WB_COLLECTION).doc(id).get().catch(() => null)
+    const d = r && r.data
+    if (!d) return { ok: false, error: '这个公开单词本不存在了(可能被作者撤回)' }
+    return { ok: true, book: { id: d._id, name: d.name, words: d.words || [], wordCount: d.wordCount || (d.words || []).length, mine: d.owner === openid } }
+  } catch (e) {
+    console.error('getBook failed', { message: e && e.message })
+    return { ok: false, error: (e && e.message) || '获取失败' }
   }
 }
 

@@ -7,7 +7,7 @@
 
   <view wx:if="{{loading}}" class="tip">搜索中…</view>
   <view wx:elif="{{searched && books.length === 0}}" class="tip">没找到公开的单词本,换个词试试~</view>
-  <view wx:else class="hint">公开的单词本任何人都能「复制到我的」,复制后是你自己的副本,改不到原作者。</view>
+  <view wx:else class="hint">引用 = 跟作者保持关联、能同步更新(只读);复制 = 做个独立副本自己改。两种都改不到原作者。</view>
 
   <view wx:for="{{books}}" wx:key="id" class="pb">
     <view class="pb-main">
@@ -15,6 +15,9 @@
       <view class="pb-meta">{{item.wordCount}} 词</view>
       <view wx:if="{{item.preview}}" class="pb-preview">{{item.preview}}…</view>
     </view>
-    <view class="pb-copy" catchtap="copyBook" data-id="{{item.id}}" hover-class="pb-copy-hover">复制</view>
+    <view class="pb-acts">
+      <view class="pb-ref" catchtap="referenceBook" data-id="{{item.id}}" hover-class="pb-ref-hover">引用</view>
+      <view class="pb-copy" catchtap="copyBook" data-id="{{item.id}}" hover-class="pb-copy-hover">复制</view>
+    </view>
   </view>
 </view>

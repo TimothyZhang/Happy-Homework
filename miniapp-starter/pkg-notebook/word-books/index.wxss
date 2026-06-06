@@ -40,11 +40,12 @@
 .lib-stat-n { font-size: 30rpx; font-weight: 800; color: #245bdb; }
 .lib-stat-n.ok { color: #07a050; }
 
-.discover-entry {
-  margin-bottom: 14rpx; padding: 18rpx 22rpx; border-radius: 18rpx;
-  background: #eef4ff; color: #245bdb; font-size: 26rpx; font-weight: 700; text-align: center;
+/* 发现按钮:跟「新建单词本」同样式(ghost 变体,白底蓝字描边) */
+.new-book.discover {
+  margin-top: 14rpx; background: #ffffff; color: #245bdb;
+  box-shadow: inset 0 0 0 2rpx #c7d6f7;
 }
-.discover-hover { background: #dde8ff; }
+.discover-hover { background: #f2f6ff; }
 
 .book {
   display: flex; align-items: center;

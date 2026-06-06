@@ -36,9 +36,19 @@ Page({
       .catch(() => { this.setData({ loading: false, searched: true, books: [] }); wx.showToast({ title: '搜索失败,稍后再试', icon: 'none' }) })
   },
 
+  // 引用:保持和源关联,可同步更新,只读(改不到作者)。
+  referenceBook(e) {
+    const b = (this.data.books || []).find((x) => x.id === e.currentTarget.dataset.id)
+    if (!b || !(b.words || []).length) { wx.showToast({ title: '这个单词本是空的', icon: 'none' }); return }
+    const book = store.addReferencedBook(b.name, b.words, b.id)
+    if (!book) { wx.showToast({ title: '添加失败(可能已达单词本上限)', icon: 'none' }); return }
+    wx.showToast({ title: '已引用到我的', icon: 'success' })
+    setTimeout(() => wx.navigateTo({ url: '/pkg-notebook/word-book/index?id=' + book.id }), 650)
+  },
+
+  // 复制:做一个独立副本,跟源没关系,自己能改。
   copyBook(e) {
-    const id = e.currentTarget.dataset.id
-    const b = (this.data.books || []).find((x) => x.id === id)
+    const b = (this.data.books || []).find((x) => x.id === e.currentTarget.dataset.id)
     if (!b || !(b.words || []).length) { wx.showToast({ title: '这个单词本是空的', icon: 'none' }); return }
     const payload = { k: 'wb', n: b.name, w: b.words.map((w) => [w.cn, w.en]) }
     const book = store.importSharedWordBook(payload)

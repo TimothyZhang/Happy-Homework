@@ -37,8 +37,14 @@
   margin-top: 8rpx; font-size: 22rpx; color: #aab2bd; line-height: 1.4;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.pb-copy {
-  flex-shrink: 0; margin-left: 16rpx; padding: 14rpx 30rpx; border-radius: 999rpx;
-  background: #245bdb; color: #ffffff; font-size: 26rpx; font-weight: 700;
+.pb-acts { flex-shrink: 0; margin-left: 14rpx; display: flex; flex-direction: column; }
+.pb-ref {
+  padding: 12rpx 30rpx; border-radius: 999rpx; text-align: center;
+  background: #245bdb; color: #ffffff; font-size: 25rpx; font-weight: 700;
 }
-.pb-copy-hover { background: #1e4fc0; }
+.pb-ref-hover { background: #1e4fc0; }
+.pb-copy {
+  margin-top: 10rpx; padding: 12rpx 30rpx; border-radius: 999rpx; text-align: center;
+  background: #eef4ff; color: #245bdb; font-size: 25rpx; font-weight: 700;
+}
+.pb-copy-hover { background: #dde8ff; }

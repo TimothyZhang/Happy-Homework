@@ -54,6 +54,8 @@ Page({
     ocrPairs: [],
     isPublic: false,
     publicBusy: false,
+    isRef: false,
+    refBusy: false,
     editing: false,
     editId: '',
     editCn: '',
@@ -76,6 +78,8 @@ Page({
       name: b.name,
       builtin: !!b.builtin,
       isPublic: !!b.public,
+      isRef: !!b.ref,
+      _ref: b.ref || '',
       words: (b.words || []).map((w) => ({
         id: w.id, cn: w.cn, en: w.en,
         state: w.mastered ? 'mastered' : (w.seen ? 'learning' : 'new'),
@@ -119,6 +123,26 @@ Page({
     wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 20000, data: { action: 'unpublishBook', bookKey: this._id } })
       .then(() => { done(); wx.showToast({ title: '已撤销公开', icon: 'none' }) })
       .catch(() => { done() })   // 撤销失败也按本地撤销,避免卡在公开态
+  },
+
+  // === 引用本:从源拉最新内容(保留 SRS)===
+  updateRef() {
+    if (this.data.refBusy) return
+    const ref = this.data._ref
+    if (!ref) { wx.showToast({ title: '这个本没有来源', icon: 'none' }); return }
+    if (!wx.cloud || !wx.cloud.callFunction) { wx.showToast({ title: '当前环境用不了同步', icon: 'none' }); return }
+    this.setData({ refBusy: true })
+    wx.showLoading({ title: '更新中…', mask: true })
+    wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 20000, data: { action: 'getBook', id: ref } })
+      .then((res) => {
+        const r = (res && res.result) || {}
+        wx.hideLoading(); this.setData({ refBusy: false })
+        if (!r.ok || !r.book) { wx.showToast({ title: r.error || '更新失败', icon: 'none' }); return }
+        const n = store.syncReferencedBook(this._id, r.book.words || [])
+        this._refresh()
+        wx.showToast({ title: '已更新 · ' + n + ' 词', icon: 'success' })
+      })
+      .catch(() => { wx.hideLoading(); this.setData({ refBusy: false }); wx.showToast({ title: '更新失败,稍后再试', icon: 'none' }) })
   },
 
   // === 修改单词 ===
