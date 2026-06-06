@@ -156,6 +156,7 @@ Page({
     remainingMinutesDisplay: '—',
     undoneItems: [],
     doneItems: [],
+    showSwipeGuide: false,   // 作业卡片左右滑改日期的一次性新手引导
     pet: { emoji: '🐾' },
     // Mood overlay for the home mascot — same derivation as pet page so the
     // small SVG here never shows a different state than the big one. 'idle'
@@ -192,6 +193,7 @@ Page({
     // home 自己的 handleTaskTap 路径没走过。maybeShowReward 内部有 3s 守卫 +
     // _lastSeenRewardAt dedupe,onShow 反复触发也不会 double-pop。
     this.refreshState({ perfStamp: stamp, maybeCelebrate: true })
+    this._maybeShowSwipeGuide()
     // Background-check cloud (debounced 30s). Repaint if remote was newer.
     cloudSync.hydrateIfStale().then((r) => {
       if (r && r.changed) this.refreshState()
@@ -474,6 +476,21 @@ Page({
   openRewardRules() { this.setData({ rewardRulesOpen: true }) },
   closeRewardRules() { this.setData({ rewardRulesOpen: false }) },
   noop() {},
+
+  // 作业卡片左右滑改日期 —— 一次性新手引导。只在有未完成作业(有卡片可滑)+ 没看过时弹。
+  _maybeShowSwipeGuide() {
+    if (this.data.showSwipeGuide) return
+    if (!this.data.undoneItems || this.data.undoneItems.length === 0) return
+    let seen = false
+    try { seen = !!wx.getStorageSync('guide_swipe_date_v1') } catch (e) {}
+    if (seen) return
+    this.setData({ showSwipeGuide: true })
+  },
+
+  dismissSwipeGuide() {
+    try { wx.setStorageSync('guide_swipe_date_v1', true) } catch (e) {}
+    this.setData({ showSwipeGuide: false })
+  },
 
   handleTasksChanged(e) {
     const finished = e && e.detail && e.detail.finished

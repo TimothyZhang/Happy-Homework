@@ -182,4 +182,26 @@
       <view class="rules-close" bindtap="closeRewardRules">知道了</view>
     </view>
   </view>
+
+  <!-- 作业卡片左右滑改日期:一次性新手引导 -->
+  <view wx:if="{{showSwipeGuide}}" class="sg-mask" bindtap="dismissSwipeGuide" catchtouchmove="noop">
+    <view class="sg-panel" catchtap="noop">
+      <view class="sg-title">作业卡片能左右滑,改日期</view>
+      <view class="sg-stage">
+        <text class="sg-day">前一天</text>
+        <view class="sg-card">
+          <view class="sg-line"></view>
+          <view class="sg-line short"></view>
+          <text class="sg-hand">👆</text>
+        </view>
+        <text class="sg-day">后一天</text>
+      </view>
+      <view class="sg-legend">
+        <text>← 左滑 提前一天</text>
+        <text>右滑 顺延一天 →</text>
+      </view>
+      <view class="sg-note">一次性作业、未完成时可滑</view>
+      <view class="sg-btn" catchtap="dismissSwipeGuide">知道了</view>
+    </view>
+  </view>
 </view>

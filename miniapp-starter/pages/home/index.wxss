@@ -396,3 +396,52 @@ page {
   border-radius: 999rpx;
 }
 
+/* === 作业卡片左右滑改日期:一次性新手引导 === */
+.sg-mask {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(20, 16, 10, 0.62);
+  display: flex; align-items: center; justify-content: center;
+}
+.sg-panel {
+  width: 600rpx; background: #ffffff; border-radius: 30rpx;
+  padding: 42rpx 32rpx 34rpx;
+  display: flex; flex-direction: column; align-items: center;
+  box-shadow: 0 24rpx 64rpx rgba(0, 0, 0, 0.34);
+}
+.sg-title { font-size: 33rpx; font-weight: 800; color: #1f2329; text-align: center; }
+.sg-stage {
+  margin-top: 40rpx; width: 100%; height: 150rpx;
+  display: flex; align-items: center; justify-content: center;
+}
+.sg-day { width: 96rpx; flex-shrink: 0; text-align: center; font-size: 22rpx; color: #aeb4be; font-weight: 700; }
+.sg-card {
+  position: relative; width: 300rpx; height: 116rpx; margin: 0 8rpx;
+  background: #eef4ff; border: 2rpx solid #d4e0fb; border-radius: 18rpx;
+  box-shadow: 0 8rpx 18rpx rgba(36, 91, 219, 0.14);
+  display: flex; flex-direction: column; justify-content: center; padding: 0 26rpx;
+  animation: sg-swipe 2.6s ease-in-out infinite;
+}
+.sg-line { width: 72%; height: 14rpx; border-radius: 999rpx; background: #b9ccf3; }
+.sg-line.short { width: 46%; height: 12rpx; margin-top: 14rpx; background: #d6e1f9; }
+.sg-hand {
+  position: absolute; right: 24rpx; bottom: -18rpx; font-size: 52rpx;
+  animation: sg-swipe 2.6s ease-in-out infinite;
+}
+@keyframes sg-swipe {
+  0%, 8%, 100% { transform: translateX(0); }
+  29% { transform: translateX(66rpx); }    /* 右滑 → 后一天 */
+  50% { transform: translateX(0); }
+  71% { transform: translateX(-66rpx); }    /* 左滑 → 前一天 */
+  92% { transform: translateX(0); }
+}
+.sg-legend {
+  margin-top: 36rpx; width: 100%; display: flex; justify-content: space-between;
+  font-size: 24rpx; color: #5a6573; font-weight: 700;
+}
+.sg-note { margin-top: 16rpx; font-size: 22rpx; color: #aab2bd; }
+.sg-btn {
+  margin-top: 34rpx; padding: 18rpx 96rpx; border-radius: 999rpx;
+  background: #245bdb; color: #ffffff; font-size: 30rpx; font-weight: 800;
+  box-shadow: 0 8rpx 18rpx rgba(36, 91, 219, 0.28);
+}
+
