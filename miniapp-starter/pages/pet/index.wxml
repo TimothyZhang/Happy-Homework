@@ -62,6 +62,15 @@
         <image class="castle-chandelier" src="/assets/room/chandelier.svg" mode="aspectFit" />
       </block>
 
+      <!-- 房间家具(装饰,沿房间宽度铺开;靠墙摆放,宠物走过会在它们前面;
+           点击穿透到地板,不影响「点空地走过去」)。z-index ≈ 10+top% 跟深度挂钩。 -->
+      <view class="furni furni-tv"><text class="furni-ico">📺</text></view>
+      <view class="furni furni-sofa"><text class="furni-ico">🛋️</text></view>
+      <view class="furni furni-bed"><text class="furni-ico">🛏️</text></view>
+      <view class="furni furni-table"><text class="furni-ico">🍽️</text></view>
+      <view class="furni furni-bath"><text class="furni-ico">🛁</text></view>
+      <view class="furni furni-toilet"><text class="furni-ico">🚽</text></view>
+
       <view wx:if="{{pet.species}}"
             class="pet-actor face-{{actorFace}} {{actorMoving ? 'moving' : (spriteAnim ? '' : 'still')}} anim-{{animState}} {{spriteAnim ? 'do-' + spriteAnim : ''}}"
             style="left: {{actorX}}%; top: {{actorY}}%; transform: translate(-50%, -100%) scale({{actorScale}}); z-index: {{actorZ}}; transition-duration: {{moveDurMs}}ms"
