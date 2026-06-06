@@ -13,10 +13,10 @@
   <ellipse cx="108" cy="48" rx="8" ry="6" fill="url(#alpacaWool)"/>
   <path d="M78 60 L74 35 L86 50 Z" fill="url(#alpacaWool)"/>
   <path d="M122 60 L126 35 L114 50 Z" fill="url(#alpacaWool)"/>
-  <ellipse cx="90" cy="80" rx="3" ry="4.5" fill="#1f2329"/>
-  <ellipse cx="110" cy="80" rx="3" ry="4.5" fill="#1f2329"/>
-  <circle cx="89" cy="78" r="1.2" fill="#fff"/>
-  <circle cx="109" cy="78" r="1.2" fill="#fff"/>
+  <ellipse cx="90" cy="81" rx="4.5" ry="6" fill="#1f2329"/>
+  <ellipse cx="110" cy="81" rx="4.5" ry="6" fill="#1f2329"/>
+  <circle cx="88.7" cy="78.4" r="2.1" fill="#fff"/><circle cx="91.6" cy="83.5" r="1" fill="#fff" opacity="0.85"/>
+  <circle cx="108.7" cy="78.4" r="2.1" fill="#fff"/><circle cx="111.6" cy="83.5" r="1" fill="#fff" opacity="0.85"/>
   <ellipse cx="100" cy="92" rx="9" ry="6" fill="#ffd6c0"/>
   <ellipse cx="100" cy="91" rx="2" ry="1.5" fill="#1f2329"/>
   <path d="M97 96 Q100 99 103 96" stroke="#1f2329" stroke-width="1.4" fill="none" stroke-linecap="round"/>

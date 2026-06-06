@@ -102,6 +102,8 @@ Page({
     vocab: 0,              // 词汇量 = 已掌握单词数(浮窗展示)
     showBubble: false,
     bubbleText: '',
+    // 摸摸它 / 点宠物时从身上飘出的爱心粒子(每个 {id,g,x,dur})。
+    hearts: [],
     ageDays: 0,
     // 升级:经验值满 → 用户手动点按钮触发升级动画。
     // xp = 当前已积累的 XP;xpNeeded = 升到下一级需要的 XP;xpPercent = 进度条百分比。
@@ -149,6 +151,8 @@ Page({
       this._levelAnimTimer = null
       this.setData({ showLevelUpAnim: false })
     }
+    if (this._heartTimer) { clearTimeout(this._heartTimer); this._heartTimer = null }
+    if (this.data.hearts && this.data.hearts.length) this.setData({ hearts: [] })
     this._stopSceneEngine()
   },
 
@@ -157,6 +161,7 @@ Page({
       clearTimeout(this._levelAnimTimer)
       this._levelAnimTimer = null
     }
+    if (this._heartTimer) { clearTimeout(this._heartTimer); this._heartTimer = null }
     this._stopSceneEngine()
   },
 
@@ -341,9 +346,33 @@ Page({
   // line — it shouldn't bounce happily while it still needs care, so the tap
   // never contradicts the mood the stat bars and home mascot are showing.
   // The mood-appropriate speech bubble fires in every case.
+  // 飘爱心:从宠物身上往上冒几颗爱心,纯视觉(不依赖动画引擎,任何心情都能飘)。
+  _spawnHearts(n) {
+    const count = n || 3
+    const glyphs = ['❤️', '💗', '💛', '💖']
+    const batch = []
+    for (let i = 0; i < count; i++) {
+      this._heartSeq = (this._heartSeq || 0) + 1
+      batch.push({
+        id: this._heartSeq,
+        g: glyphs[Math.floor(Math.random() * glyphs.length)],
+        x: 30 + Math.floor(Math.random() * 40),       // 起点横向 %,身体宽度内抖动
+        dur: 1100 + Math.floor(Math.random() * 500)   // 飘升时长 ms
+      })
+    }
+    this.setData({ hearts: (this.data.hearts || []).concat(batch) })
+    // 所有爱心动画 ≤1.6s,统一在最后一次飘心后清空(隐形残留不影响观感)。
+    if (this._heartTimer) clearTimeout(this._heartTimer)
+    this._heartTimer = setTimeout(() => {
+      this._heartTimer = null
+      this.setData({ hearts: [] })
+    }, 1900)
+  },
+
   handleTapPet() {
     if (this.data.mode !== 'view' || this.data.showPetMenu) return
     // 弹气泡菜单前先把宠物停在原地,气泡才不会跟着它跑。
+    // (爱心放在「摸摸它」里飘,那时菜单已关、看得清。)
     this._stopSceneEngine()
     this.setData({ actorMoving: false, moveDurMs: 0, showPetMenu: true })
   },
@@ -363,6 +392,8 @@ Page({
       const big = mood === 'happy' && Math.random() < 0.35
       this.queueAnim(big ? 'celebrating' : 'happy')
     }
+    // 摸摸它一定冒一大把爱心(不管心情),这是「被宠爱」的核心反馈。
+    this._spawnHearts(4)
     const line = pickLine(mood)
     this.setData({ showBubble: true, bubbleText: line })
     if (this._bubbleTimer) clearTimeout(this._bubbleTimer)

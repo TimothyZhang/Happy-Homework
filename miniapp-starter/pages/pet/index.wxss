@@ -262,6 +262,10 @@
 /* posture — kept off the actor's translate so locomotion never fights it. */
 .pet-actor.still .pet-art       { animation: actor-breath 2.8s ease-in-out infinite; }
 .pet-actor.moving .pet-art      { animation: actor-step 0.46s ease-in-out infinite; }
+/* 静止时身体每 ~6s「活泼顶一下 + 小歪头」,叠在 .pet-art 的呼吸之上。两个动画挂
+   不同层级元素(sprite / art),transform 各自独立不打架;一次性动作播放期间 actor
+   既非 still 也非 moving,这条不跑,不会和 do-* 抢身体。 */
+.pet-actor.still .actor-sprite  { transform-origin: bottom center; animation: actor-idle 6s ease-in-out infinite; }
 .pet-actor.do-eating .pet-art      { animation: actor-eat 0.42s ease-in-out 4; }
 .pet-actor.do-happy .pet-art       { animation: actor-pop 1.2s ease-out 1; }
 .pet-actor.do-celebrating .pet-art { animation: actor-spin 1s ease-in-out 2; }
@@ -279,6 +283,12 @@
   0%, 100% { transform: translateY(0)     rotate(0deg); }
   25%      { transform: translateY(-9rpx) rotate(-3deg); }
   75%      { transform: translateY(-9rpx) rotate(3deg); }
+}
+@keyframes actor-idle {
+  0%, 60%, 100% { transform: translateY(0)      rotate(0deg); }
+  70%           { transform: translateY(-7rpx)  rotate(-3deg); }
+  80%           { transform: translateY(-13rpx) rotate(2deg); }
+  90%           { transform: translateY(0)      rotate(-1deg); }
 }
 @keyframes actor-eat {
   0%, 100% { transform: rotate(0deg)   translateY(0); }
@@ -312,6 +322,25 @@
 .sick-icon   { animation: tremble 0.5s ease-in-out infinite; }
 .sad-icon    { animation: drip 2.2s ease-in infinite; }
 .happy-icon  { animation: pop-heart 1.2s ease-out infinite; }
+
+/* 摸摸它飘出的爱心粒子:从宠物上半身往上飘、放大再淡出,带点左右摆。每颗的
+   left 起点 / 时长由 JS 抖动;animation-fill:forwards 让它停在淡出末态等 JS 清除。 */
+.love-heart {
+  position: absolute;
+  top: 22%;
+  font-size: 38rpx;
+  line-height: 1;
+  z-index: 5;
+  pointer-events: none;
+  animation: love-heart 1.3s ease-out forwards;
+  will-change: transform, opacity;
+}
+@keyframes love-heart {
+  0%   { opacity: 0;    transform: translate(0, 8rpx)      scale(0.4); }
+  14%  { opacity: 1;    transform: translate(0, -14rpx)    scale(1.18); }
+  55%  { opacity: 0.95; transform: translate(-12rpx, -84rpx)  scale(1); }
+  100% { opacity: 0;    transform: translate(12rpx, -156rpx)  scale(0.82); }
+}
 
 /* 说话气泡:挂在宠物头顶(.pet-actor 的子元素,随宠物移动 + 跟深度缩放;在
    actor-facing 之外,朝左时文字不会被镜像)。偏向脸朝的那侧 = 头部上方,

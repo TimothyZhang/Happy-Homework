@@ -25,8 +25,8 @@
   <!-- muzzle -->
   <ellipse cx="170" cy="64" rx="11" ry="9" fill="#ffd6c0"/>
   <!-- eye -->
-  <ellipse cx="161" cy="52" rx="4.4" ry="6" fill="#1f2329"/>
-  <circle cx="159.7" cy="49.2" r="1.6" fill="#fff"/>
+  <ellipse cx="161" cy="52.5" rx="5.6" ry="7.5" fill="#1f2329"/>
+  <circle cx="158.9" cy="48.8" r="2.4" fill="#fff"/><circle cx="163" cy="55" r="1.1" fill="#fff" opacity="0.85"/>
   <!-- nostril + cheek -->
   <ellipse cx="176" cy="62" rx="2" ry="2.6" fill="#cda08a"/>
   <ellipse cx="166" cy="70" rx="5" ry="3" fill="#ff8fa5" opacity="0.4"/>

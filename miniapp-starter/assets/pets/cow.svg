@@ -16,10 +16,10 @@
   <ellipse cx="100" cy="135" rx="22" ry="16" fill="#ffd6dc"/>
   <ellipse cx="91" cy="132" rx="2" ry="3" fill="#1f2329"/>
   <ellipse cx="109" cy="132" rx="2" ry="3" fill="#1f2329"/>
-  <ellipse cx="82" cy="100" rx="5" ry="7" fill="#1f2329"/>
-  <ellipse cx="118" cy="100" rx="5" ry="7" fill="#1f2329"/>
-  <circle cx="80" cy="97" r="1.7" fill="#fff"/>
-  <circle cx="116" cy="97" r="1.7" fill="#fff"/>
+  <ellipse cx="82" cy="101" rx="6.5" ry="9" fill="#1f2329"/>
+  <ellipse cx="118" cy="101" rx="6.5" ry="9" fill="#1f2329"/>
+  <circle cx="79.6" cy="97" r="2.9" fill="#fff"/><circle cx="84.6" cy="104.5" r="1.4" fill="#fff" opacity="0.85"/>
+  <circle cx="115.6" cy="97" r="2.9" fill="#fff"/><circle cx="120.6" cy="104.5" r="1.4" fill="#fff" opacity="0.85"/>
   <path d="M88 148 Q100 154 112 148" stroke="#1f2329" stroke-width="1.8" fill="none" stroke-linecap="round"/>
   <ellipse cx="70" cy="125" rx="5" ry="3" fill="#ff8fa5" opacity="0.5"/>
   <ellipse cx="130" cy="125" rx="5" ry="3" fill="#ff8fa5" opacity="0.5"/>

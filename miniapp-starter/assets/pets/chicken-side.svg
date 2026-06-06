@@ -24,6 +24,6 @@
   <!-- wattle -->
   <path d="M163 90 q4 12 -2 16 q-8 -2 -6 -14 z" fill="#ff5f6d"/>
   <!-- eye -->
-  <ellipse cx="150" cy="76" rx="4.4" ry="5.8" fill="#1f2329"/>
-  <circle cx="148.8" cy="73.4" r="1.6" fill="#fff"/>
+  <ellipse cx="150" cy="76.5" rx="5.7" ry="7.5" fill="#1f2329"/>
+  <circle cx="148" cy="73" r="2.5" fill="#fff"/><circle cx="152.2" cy="79" r="1.2" fill="#fff" opacity="0.85"/>
 </svg>

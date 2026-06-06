@@ -10,10 +10,10 @@
   <ellipse cx="120" cy="40" rx="9" ry="32" fill="url(#rabbitBody)"/>
   <ellipse cx="120" cy="42" rx="5" ry="26" fill="#ffc4d2"/>
   <ellipse cx="100" cy="125" rx="60" ry="58" fill="url(#rabbitBody)"/>
-  <ellipse cx="82" cy="110" rx="5" ry="7" fill="#1f2329"/>
-  <ellipse cx="118" cy="110" rx="5" ry="7" fill="#1f2329"/>
-  <circle cx="80" cy="107" r="1.7" fill="#fff"/>
-  <circle cx="116" cy="107" r="1.7" fill="#fff"/>
+  <ellipse cx="82" cy="111" rx="6.5" ry="9" fill="#1f2329"/>
+  <ellipse cx="118" cy="111" rx="6.5" ry="9" fill="#1f2329"/>
+  <circle cx="79.6" cy="107" r="2.9" fill="#fff"/><circle cx="84.6" cy="114.5" r="1.4" fill="#fff" opacity="0.85"/>
+  <circle cx="115.6" cy="107" r="2.9" fill="#fff"/><circle cx="120.6" cy="114.5" r="1.4" fill="#fff" opacity="0.85"/>
   <path d="M96 130 Q100 134 104 130 Q102 132 100 132 Q98 132 96 130 Z" fill="#ff7a96"/>
   <path d="M100 132 L100 138 M100 138 Q95 142 91 140 M100 138 Q105 142 109 140" stroke="#1f2329" stroke-width="1.6" fill="none" stroke-linecap="round"/>
   <rect x="97" y="138" width="3" height="5" fill="#fff" stroke="#dadbe0" stroke-width="0.5"/>

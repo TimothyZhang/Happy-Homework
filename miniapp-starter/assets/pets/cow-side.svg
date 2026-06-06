@@ -34,6 +34,6 @@
   <ellipse cx="183" cy="100" rx="2.6" ry="3.4" fill="#c98b9a"/>
   <ellipse cx="183" cy="107" rx="2.6" ry="3.4" fill="#c98b9a"/>
   <!-- eye -->
-  <ellipse cx="160" cy="90" rx="4.6" ry="6.2" fill="#1f2329"/>
-  <circle cx="158.7" cy="87" r="1.6" fill="#fff"/>
+  <ellipse cx="160" cy="90.5" rx="5.9" ry="7.8" fill="#1f2329"/>
+  <circle cx="157.9" cy="86.6" r="2.5" fill="#fff"/><circle cx="162.2" cy="93" r="1.2" fill="#fff" opacity="0.85"/>
 </svg>

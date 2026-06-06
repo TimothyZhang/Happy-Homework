@@ -62,6 +62,7 @@
         <text wx:if="{{animState === 'sick'}}"    class="state-icon sick-icon">🤒</text>
         <text wx:if="{{animState === 'sad'}}"     class="state-icon sad-icon">💧</text>
         <text wx:if="{{animState === 'happy'}}"   class="state-icon happy-icon">💖</text>
+        <text wx:for="{{hearts}}" wx:key="id" class="love-heart" style="left: {{item.x}}%; animation-duration: {{item.dur}}ms">{{item.g}}</text>
         <view wx:if="{{showBubble}}" class="speech-bubble">{{bubbleText}}</view>
       </view>
     </view>

@@ -25,8 +25,8 @@
   <!-- mouth -->
   <path d="M182 112 Q186 118 192 114" stroke="#9a6f37" stroke-width="1.6" fill="none" stroke-linecap="round"/>
   <!-- eye -->
-  <ellipse cx="160" cy="90" rx="4.8" ry="6.4" fill="#1f2329"/>
-  <circle cx="158.6" cy="87.4" r="1.7" fill="#fff"/>
+  <ellipse cx="160" cy="90.5" rx="6" ry="8" fill="#1f2329"/>
+  <circle cx="157.8" cy="87" r="2.6" fill="#fff"/><circle cx="162.2" cy="93" r="1.2" fill="#fff" opacity="0.85"/>
   <!-- cheek -->
   <ellipse cx="167" cy="106" rx="6" ry="3.5" fill="#ff8fa5" opacity="0.45"/>
 </svg>

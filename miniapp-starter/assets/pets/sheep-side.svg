@@ -24,8 +24,8 @@
   <!-- wool tuft on forehead -->
   <circle cx="150" cy="80" r="11" fill="url(#sheepSide)"/>
   <!-- eye -->
-  <ellipse cx="162" cy="96" rx="4.4" ry="6" fill="#1f2329"/>
-  <circle cx="160.8" cy="93.2" r="1.6" fill="#fff"/>
+  <ellipse cx="162" cy="96.5" rx="5.7" ry="7.6" fill="#1f2329"/>
+  <circle cx="160" cy="92.8" r="2.5" fill="#fff"/><circle cx="164.2" cy="99" r="1.2" fill="#fff" opacity="0.85"/>
   <!-- nose -->
   <ellipse cx="174" cy="104" rx="5" ry="4" fill="#2a2327"/>
   <!-- cheek -->

@@ -26,10 +26,11 @@
   <path d="M176 92 q12 5 9 16 q-9 3 -13 -4 z" fill="url(#catSide)"/>
   <path d="M182 101 l7 2 l-7 4 z" fill="#ff7a96"/>
   <!-- eye -->
-  <ellipse cx="159" cy="89" rx="4.8" ry="6.6" fill="#1f2329"/>
-  <circle cx="157.5" cy="86.2" r="1.7" fill="#fff"/>
+  <ellipse cx="159" cy="89.5" rx="6" ry="8" fill="#1f2329"/>
+  <circle cx="156.8" cy="86.2" r="2.6" fill="#fff"/>
+  <circle cx="161.2" cy="92" r="1.2" fill="#fff" opacity="0.85"/>
   <!-- whiskers -->
   <path d="M178 106 L199 102 M178 110 L199 113" stroke="#a76b2e" stroke-width="1.2" stroke-linecap="round"/>
   <!-- cheek -->
-  <ellipse cx="167" cy="105" rx="6" ry="3.5" fill="#ff8fa5" opacity="0.5"/>
+  <ellipse cx="167" cy="105" rx="7.2" ry="4.2" fill="#ff8fa5" opacity="0.58"/>
 </svg>
