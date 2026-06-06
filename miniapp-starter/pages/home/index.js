@@ -7,6 +7,16 @@ const homeTips = require('../../utils/home-tips')
 
 const formatDuration = homeTips.formatDuration
 
+// 紧凑时长(按 Tim 例子 "1h20m"):h/m;不足 1 小时只 "Xm",整点 "Xh",0 返空串。
+function fmtHm(min) {
+  min = Math.round(Number(min) || 0)
+  if (min <= 0) return ''
+  const h = Math.floor(min / 60)
+  const m = min % 60
+  if (h > 0) return m > 0 ? `${h}h${m}m` : `${h}h`
+  return `${m}m`
+}
+
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
   const totalSec = Math.floor(ms / 1000)
@@ -304,6 +314,7 @@ Page({
       calendarLabel,
       overview: { totalCount: total, pendingCount: undoneItems.length, doneCount: doneItems.length },
       remainingMinutesDisplay: formatDuration(remainingMinutes),
+      remainingHm: fmtHm(remainingMinutes),
       undoneItems,
       doneItems,
       pet: (state.pet && state.pet.emoji) ? state.pet : this.data.pet,

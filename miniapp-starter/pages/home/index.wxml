@@ -55,7 +55,7 @@
 
     <view class="card section-card">
       <view class="section-header">
-        <text class="section-title">未完成 ({{undoneItems.length}})</text>
+        <text class="section-title">未完成 ({{undoneItems.length}}项{{remainingHm ? '，预计' + remainingHm : ''}})</text>
         <view class="add-task-btn" bindtap="handleAddTask">+</view>
       </view>
 
