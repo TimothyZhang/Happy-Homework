@@ -1,3 +1,5 @@
+const i18n = require('../../utils/i18n')
+
 Component({
   options: { addGlobalClass: true },
   properties: {
@@ -15,6 +17,13 @@ Component({
     subtitle: { type: String, value: '' },
     // Toggles the overlay.
     visible: { type: Boolean, value: false }
+  },
+  data: { t: {} },
+  lifetimes: {
+    attached() { this.setData({ t: i18n.dict() }) }
+  },
+  pageLifetimes: {
+    show() { this.setData({ t: i18n.dict() }) }
   },
   methods: {
     // Tap-anywhere-to-dismiss. The page also auto-hides on a timer; this just

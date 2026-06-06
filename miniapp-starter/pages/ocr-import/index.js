@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const i18n = require('../../utils/i18n')
 
 const CLOUD_PATH_PREFIX = 'homework-register'
 
@@ -80,7 +81,7 @@ const mockDrafts = [
 ]
 
 function createCloudFunctionError(result) {
-  const error = new Error(result.error || '云函数返回失败')
+  const error = new Error(result.error || 'cloud function returned failure')
   error.code = result.errorCode || 'CLOUD_FUNCTION_FAILED'
   error.requestId = result.requestId || ''
   error.canFallback = Boolean(result.canFallback)
@@ -94,55 +95,55 @@ function getRecognizeFailureMessage(error) {
   const raw = `${code} ${message}`.toLowerCase()
 
   if (code === 'MISSING_IMAGE_FILE_ID') {
-    return '图片上传后没有拿到 fileID，云函数没法继续识别。先回退到演示结果。'
+    return i18n.t('ocrimp_err_missing_fileid')
   }
 
   if (code === 'OCR_SDK_MISSING') {
-    return '云函数还没安装 OCR SDK。需要重新部署 homeworkOCR，再回到手机里测试。'
+    return i18n.t('ocrimp_err_ocr_sdk_missing')
   }
 
   if (code === 'TESSERACT_SDK_MISSING') {
-    return '云函数里的内置 OCR 依赖还没装好，需要重新部署 homeworkOCR。'
+    return i18n.t('ocrimp_err_tesseract_sdk_missing')
   }
 
   if (code === 'TESSERACT_LANGDATA_MISSING') {
-    return '云函数里的中文识别语言包缺失，需要重新部署 homeworkOCR。'
+    return i18n.t('ocrimp_err_tesseract_langdata_missing')
   }
 
   if (code === 'OCR_CREDENTIALS_MISSING') {
-    return '云函数已经接到真实 OCR，但当前云环境里还没配置可用凭证，所以识别失败。'
+    return i18n.t('ocrimp_err_credentials_missing')
   }
 
   if (code === 'OPENAI_API_KEY_MISSING') {
-    return 'OpenAI OCR 已接入，但云函数环境变量里还没有配置 OPENAI_API_KEY。配置后重新部署或更新函数配置即可真实识别。'
+    return i18n.t('ocrimp_err_openai_key_missing')
   }
 
   if (code === 'OPENAI_AUTH_FAILED') {
-    return `OpenAI OCR 鉴权失败，检查 OPENAI_API_KEY 是否正确、是否有余额或项目权限。${requestId}`
+    return i18n.t('ocrimp_err_openai_auth', { reqid: requestId })
   }
 
   if (code === 'OPENAI_RATE_LIMITED') {
-    return 'OpenAI OCR 被限流或额度不足，稍后重试或检查 OpenAI 项目额度。'
+    return i18n.t('ocrimp_err_openai_rate')
   }
 
   if (code === 'OPENAI_NETWORK_FAILED') {
-    return '云函数没有成功连到 OpenAI API。若云环境访问 api.openai.com 受限，需要配置 OPENAI_BASE_URL 到可访问的 OpenAI 兼容网关。'
+    return i18n.t('ocrimp_err_openai_network')
   }
 
   if (code === 'OPENAI_OCR_TIMEOUT') {
-    return 'OpenAI OCR 请求超时。可以换更清晰、更小的图片再试，或提高 OPENAI_OCR_TIMEOUT_MS。'
+    return i18n.t('ocrimp_err_openai_timeout')
   }
 
   if (code === 'OCR_POLL_TIMEOUT') {
-    return '这次识别用时过长（超过 2 分钟还没出结果）。可以换一张更清晰、更小的图片再试。'
+    return i18n.t('ocrimp_err_poll_timeout')
   }
 
   if (code === 'OPENAI_OCR_FAILED') {
-    return `OpenAI OCR 调用失败。\n${message || '请查看云函数日志。'}${requestId}`
+    return i18n.t('ocrimp_err_openai_ocr_failed', { msg: message || i18n.t('ocrimp_err_btn_ok'), reqid: requestId })
   }
 
   if (code === 'OCR_PERMISSION_DENIED') {
-    return `腾讯云 OCR 接口权限不足，真实 OCR 被拒绝。现在已停止使用内置 OCR 的错结果，需要给云函数运行角色添加 OCR 调用权限。${requestId}`
+    return i18n.t('ocrimp_err_ocr_permission', { reqid: requestId })
   }
 
   if (
@@ -150,46 +151,56 @@ function getRecognizeFailureMessage(error) {
     raw.includes('functions_time_limit_exceeded') ||
     raw.includes('timed out after')
   ) {
-    return 'homeworkOCR 这次识别超时了。现在已停止使用内置 OCR 的错结果。'
+    return i18n.t('ocrimp_err_scf_timeout')
   }
 
   if (code === 'BUILTIN_OCR_FAILED') {
-    return `内置 OCR 也没有成功跑通。\n${message || '请查看云函数日志。'}${requestId}`
+    return i18n.t('ocrimp_err_builtin_failed', { msg: message || i18n.t('ocrimp_err_btn_ok'), reqid: requestId })
   }
 
   if (code === 'DOWNLOAD_FILE_FAILED') {
-    return '云函数没有成功读到刚上传的图片，可能是云环境权限或文件访问失败。先回退到演示结果。'
+    return i18n.t('ocrimp_err_download_failed')
   }
 
   if (code === 'OCR_EMPTY_RESULT') {
-    return '真实 OCR 已经调起了，但这张图片没有识别出可用文本。可以换一张更清晰、角度更正的图片再试。'
+    return i18n.t('ocrimp_err_empty_result')
   }
 
   if (raw.includes('functionname') || raw.includes('not found') || raw.includes('函数') && raw.includes('不存在')) {
-    return '当前云环境里还没有部署 homeworkOCR 云函数，所以手机端只能失败回退。'
+    return i18n.t('ocrimp_err_no_function')
   }
 
   if (raw.includes('environment') || raw.includes('env')) {
-    return '当前小程序还没有绑定正确的云开发环境，云函数调用没有落到可用环境。'
+    return i18n.t('ocrimp_err_no_env')
   }
 
   const codeLine = code ? `[${code}]\n` : ''
-  return `真实 OCR 还没完全跑通。\n${codeLine}${message || '请查看开发者工具控制台日志。'}${requestId}`
+  return i18n.t('ocrimp_err_generic', { code: codeLine, msg: message || '', reqid: requestId })
 }
 
 Page({
   data: {
     imagePath: '',
+    previewNote: '',
     isRecognizing: false,
     ocrProgress: 0,
     ocrStage: '',
     ocrHint: '',
     canUseCloud: typeof wx.cloud !== 'undefined',
-    tips: [
-      '尽量正面拍整页，避免裁掉边缘',
-      '光线充足，减少阴影和反光',
-      '一页只拍当天登记本内容，便于拆分多条作业'
-    ]
+    tips: [],
+    t: {}
+  },
+
+  onShow() {
+    this.setData({
+      t: i18n.dict(),
+      tips: [
+        i18n.t('ocrimp_tip_0'),
+        i18n.t('ocrimp_tip_1'),
+        i18n.t('ocrimp_tip_2')
+      ]
+    })
+    wx.setNavigationBarTitle({ title: i18n.t('ocrimp_navtitle') })
   },
 
   handleSwitchToTaskEdit() {
@@ -207,13 +218,13 @@ Page({
         if (!file) return
         if (file.size && file.size > MAX_UPLOAD_BYTES) {
           wx.showToast({
-            title: '图片超过 5MB,请换小一点的',
+            title: i18n.t('ocrimp_toast_too_large'),
             icon: 'none',
             duration: 2400
           })
           return
         }
-        this.setData({ imagePath: file.tempFilePath })
+        this.setData({ imagePath: file.tempFilePath, previewNote: i18n.t('ocrimp_preview_note', { path: file.tempFilePath }) })
       }
     })
   },
@@ -245,21 +256,21 @@ Page({
 
   async handleStartRecognize() {
     if (!this.data.imagePath) {
-      wx.showToast({ title: '先选择一张登记本照片', icon: 'none' })
+      wx.showToast({ title: i18n.t('ocrimp_toast_no_image'), icon: 'none' })
       return
     }
 
     // 客户端先把次数挡一下,30 次对正常用户绰绰有余。
     if (this.data.canUseCloud && ocrCallsThisSession >= OCR_SESSION_LIMIT) {
       wx.showToast({
-        title: '本次启动已识别太多次,稍后再试',
+        title: i18n.t('ocrimp_toast_too_many'),
         icon: 'none',
         duration: 2400
       })
       return
     }
 
-    this.setData({ isRecognizing: true, ocrProgress: 0, ocrStage: '准备上传…', ocrHint: '' })
+    this.setData({ isRecognizing: true, ocrProgress: 0, ocrStage: i18n.t('ocrimp_stage_prepare'), ocrHint: '' })
 
     if (!this.data.canUseCloud) {
       this.runMockRecognition()
@@ -269,9 +280,9 @@ Page({
     let jobDocId = ''
     try {
       ocrCallsThisSession += 1
-      this.setData({ ocrStage: '压缩照片…' })
+      this.setData({ ocrStage: i18n.t('ocrimp_stage_compress') })
       const uploadFilePath = await this.prepareImageForUpload(this.data.imagePath)
-      this.setData({ ocrStage: '上传照片…' })
+      this.setData({ ocrStage: i18n.t('ocrimp_stage_upload') })
       const uploadRes = await this.uploadWithProgress(
         `${CLOUD_PATH_PREFIX}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`,
         uploadFilePath
@@ -334,9 +345,9 @@ Page({
       console.error('OCR recognize failed', error)
       this.resetRecognizeProgress()
       wx.showModal({
-        title: '识别失败',
+        title: i18n.t('ocrimp_err_title'),
         content: getRecognizeFailureMessage(error),
-        confirmText: error.canFallback ? '看演示' : '知道了',
+        confirmText: error.canFallback ? i18n.t('ocrimp_err_btn_demo') : i18n.t('ocrimp_err_btn_ok'),
         showCancel: false,
         success: () => {
           if (error.canFallback) {
@@ -375,12 +386,12 @@ Page({
   async pollOcrJobResult(jobDocId) {
     const d = (wx.cloud && wx.cloud.database) ? wx.cloud.database() : null
     if (!d) {
-      const e = new Error('云数据库不可用，无法轮询识别结果')
+      const e = new Error(i18n.t('ocrimp_db_unavailable'))
       e.code = 'OCR_POLL_TIMEOUT'
       throw e
     }
     // 网关已 ~60s 放弃,云函数后台还在跑 —— 进度条计时器仍在推进,这里只更新文案。
-    this.setData({ ocrStage: 'AI 识别中 · 正在取回结果…' })
+    this.setData({ ocrStage: i18n.t('ocrimp_stage_poll') })
     for (let i = 0; i < OCR_POLL_MAX_TRIES; i++) {
       await wait(OCR_POLL_INTERVAL_MS)
       let doc = null
@@ -395,7 +406,7 @@ Page({
         return doc.payload || {}
       }
     }
-    const timeoutErr = new Error('homeworkOCR 后台识别超时，未拿到结果')
+    const timeoutErr = new Error('homeworkOCR backend recognition timed out')
     timeoutErr.code = 'OCR_POLL_TIMEOUT'
     throw timeoutErr
   },
@@ -420,18 +431,18 @@ Page({
   startRecognizeProgress() {
     this.recognizeStartTs = Date.now()
     this.clearRecognizeTimer()
-    this.setData({ ocrProgress: 20, ocrStage: 'AI 正在识别作业…', ocrHint: '已用 0s · 通常 1–2 分钟' })
+    this.setData({ ocrProgress: 20, ocrStage: i18n.t('ocrimp_stage_ai'), ocrHint: i18n.t('ocrimp_hint_elapsed', { s: 0 }) })
     this.recognizeTimer = setInterval(() => {
       const elapsed = Date.now() - this.recognizeStartTs
       const eased = 1 - Math.exp(-(elapsed / 80000) * 1.4)
       const p = Math.min(95, Math.round(20 + 75 * eased))
-      this.setData({ ocrProgress: p, ocrHint: `已用 ${Math.round(elapsed / 1000)}s · 通常 1–2 分钟` })
+      this.setData({ ocrProgress: p, ocrHint: i18n.t('ocrimp_hint_elapsed', { s: Math.round(elapsed / 1000) }) })
     }, 500)
   },
 
   finishRecognizeProgress() {
     this.clearRecognizeTimer()
-    this.setData({ ocrProgress: 100, ocrStage: '识别完成', ocrHint: '' })
+    this.setData({ ocrProgress: 100, ocrStage: i18n.t('ocrimp_stage_done'), ocrHint: '' })
   },
 
   clearRecognizeTimer() {

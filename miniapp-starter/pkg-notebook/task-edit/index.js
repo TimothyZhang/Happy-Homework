@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const i18n = require('../../utils/i18n')
 
 const SUBJECT_OPTIONS = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
 
@@ -12,23 +13,33 @@ function buildOrgPickerOptions(currentValue) {
   }
   return base
 }
-const MODE_OPTIONS = [
-  { key: 'one-shot', label: '一次性' },
-  { key: 'recurring', label: '重复' }
-]
-const RECURRENCE_TYPE_OPTIONS = [
-  { key: 'daily', label: '每日' },
-  { key: 'weekly', label: '每周' }
-]
-const WEEKDAYS = [
-  { day: 1, label: '一' },
-  { day: 2, label: '二' },
-  { day: 3, label: '三' },
-  { day: 4, label: '四' },
-  { day: 5, label: '五' },
-  { day: 6, label: '六' },
-  { day: 7, label: '日' }
-]
+
+function buildModeOptions() {
+  return [
+    { key: 'one-shot', label: i18n.t('tedit_mode_oneshot') },
+    { key: 'recurring', label: i18n.t('tedit_mode_recurring') }
+  ]
+}
+
+function buildRecurrenceTypeOptions() {
+  return [
+    { key: 'daily', label: i18n.t('tedit_recur_daily') },
+    { key: 'weekly', label: i18n.t('tedit_recur_weekly') }
+  ]
+}
+
+function buildWeekdayOptions() {
+  return [
+    { day: 1, label: i18n.t('tedit_wd_1') },
+    { day: 2, label: i18n.t('tedit_wd_2') },
+    { day: 3, label: i18n.t('tedit_wd_3') },
+    { day: 4, label: i18n.t('tedit_wd_4') },
+    { day: 5, label: i18n.t('tedit_wd_5') },
+    { day: 6, label: i18n.t('tedit_wd_6') },
+    { day: 7, label: i18n.t('tedit_wd_7') }
+  ]
+}
+
 const INFER_DEBOUNCE_MS = 300
 
 Page({
@@ -53,20 +64,32 @@ Page({
     organizationOptions: [],
     // 调度
     formMode: 'one-shot',
-    modeOptions: MODE_OPTIONS,
+    modeOptions: [],
     formStartDate: '',
     formEndDate: '',
     formRecurrenceType: 'daily',
-    recurrenceTypeOptions: RECURRENCE_TYPE_OPTIONS,
+    recurrenceTypeOptions: [],
     formRecurrenceTypeIndex: 0,
     formWeekdays: [],     // [1..7]
-    weekdayOptions: WEEKDAYS,
+    weekdayOptions: [],
     // 历史推断
     formEstMinutes: 0,
     formEstHint: '',
     estAutoFilled: false,
     inferredSubject: '',
-    showInferHint: false
+    showInferHint: false,
+    tedit_infer_hint_rendered: '',
+    // i18n dict
+    t: {}
+  },
+
+  onShow() {
+    this.setData({
+      t: i18n.dict(),
+      modeOptions: buildModeOptions(),
+      recurrenceTypeOptions: buildRecurrenceTypeOptions(),
+      weekdayOptions: buildWeekdayOptions()
+    })
   },
 
   onLoad(options) {
@@ -78,11 +101,16 @@ Page({
     const seedDate = opts.date || ''
     const today = store.todayStr()
 
+    // Ensure options are built before we setData (onLoad may fire before onShow)
+    const modeOptions = buildModeOptions()
+    const recurrenceTypeOptions = buildRecurrenceTypeOptions()
+    const weekdayOptions = buildWeekdayOptions()
+
     if (taskId) {
       const state = store.getStateWithComputed()
       const task = state.tasks.find((t) => t.id === taskId)
       if (!task) {
-        wx.showToast({ title: '作业不存在', icon: 'none' })
+        wx.showToast({ title: i18n.t('tedit_toast_not_found'), icon: 'none' })
         setTimeout(() => wx.navigateBack(), 600)
         return
       }
@@ -120,9 +148,12 @@ Page({
           formEndDate: instance,
           formRecurrenceType: 'daily',
           formRecurrenceTypeIndex: 0,
-          formWeekdays: []
+          formWeekdays: [],
+          modeOptions,
+          recurrenceTypeOptions,
+          weekdayOptions
         }, () => this.recalcEstimate())
-        wx.setNavigationBarTitle({ title: `编辑此次 (${instance})` })
+        wx.setNavigationBarTitle({ title: i18n.t('tedit_navtitle_instance', { date: instance }) })
         return
       }
 
@@ -147,9 +178,12 @@ Page({
         formEndDate: task.endDate === null ? '' : (task.endDate || today),
         formRecurrenceType: recurrenceType,
         formRecurrenceTypeIndex: recurrenceType === 'weekly' ? 1 : 0,
-        formWeekdays: weekdays
+        formWeekdays: weekdays,
+        modeOptions,
+        recurrenceTypeOptions,
+        weekdayOptions
       }, () => this.recalcEstimate())
-      wx.setNavigationBarTitle({ title: '编辑作业' })
+      wx.setNavigationBarTitle({ title: i18n.t('tedit_navtitle_edit') })
       return
     }
 
@@ -164,9 +198,12 @@ Page({
       formEndDate: '',
       organizationOptions: newOrgOptions,
       formOrganization: newOrgOptions[0] || '校内',
-      formOrganizationIndex: 0
+      formOrganizationIndex: 0,
+      modeOptions,
+      recurrenceTypeOptions,
+      weekdayOptions
     })
-    wx.setNavigationBarTitle({ title: '新增作业' })
+    wx.setNavigationBarTitle({ title: i18n.t('tedit_navtitle_new') })
   },
 
   scheduleInferAndEstimate() {
@@ -182,24 +219,25 @@ Page({
     if (this._userSelectedSubject) return
     const content = (this.data.formContent || '').trim()
     if (!content) {
-      this.setData({ inferredSubject: '', showInferHint: false })
+      this.setData({ inferredSubject: '', showInferHint: false, tedit_infer_hint_rendered: '' })
       return
     }
     const result = store.inferSubjectByName(content)
     if (!result) {
-      this.setData({ inferredSubject: '', showInferHint: false })
+      this.setData({ inferredSubject: '', showInferHint: false, tedit_infer_hint_rendered: '' })
       return
     }
     const idx = SUBJECT_OPTIONS.indexOf(result.subject)
     if (idx < 0) {
-      this.setData({ inferredSubject: '', showInferHint: false })
+      this.setData({ inferredSubject: '', showInferHint: false, tedit_infer_hint_rendered: '' })
       return
     }
     this.setData({
       formSubject: result.subject,
       formSubjectIndex: idx,
       inferredSubject: result.subject,
-      showInferHint: true
+      showInferHint: true,
+      tedit_infer_hint_rendered: i18n.t('tedit_infer_hint', { subject: result.subject })
     })
   },
 
@@ -219,7 +257,9 @@ Page({
     if (est) {
       const updates = {
         formEstMinutes: est,
-        formEstHint: canAutoFill ? `已按历史预估 ${est} 分钟，可改` : `历史预估约 ${est} 分钟`
+        formEstHint: canAutoFill
+          ? i18n.t('tedit_est_autofilled', { n: est })
+          : i18n.t('tedit_est_hint', { n: est })
       }
       if (canAutoFill) {
         updates.formMinutes = String(est)
@@ -251,7 +291,8 @@ Page({
     this.setData({
       formSubjectIndex: idx,
       formSubject: SUBJECT_OPTIONS[idx],
-      showInferHint: false
+      showInferHint: false,
+      tedit_infer_hint_rendered: ''
     }, () => this.recalcEstimate())
   },
 
@@ -276,9 +317,10 @@ Page({
 
   handleRecurrenceTypeChange(e) {
     const idx = Number(e.detail.value)
+    const recurrenceTypeOptions = this.data.recurrenceTypeOptions
     this.setData({
       formRecurrenceTypeIndex: idx,
-      formRecurrenceType: RECURRENCE_TYPE_OPTIONS[idx].key
+      formRecurrenceType: recurrenceTypeOptions[idx].key
     })
   },
 
@@ -325,7 +367,7 @@ Page({
   handleSave() {
     const d = this.data
     if (!d.formContent || !d.formContent.trim()) {
-      wx.showToast({ title: '请填作业内容', icon: 'none' })
+      wx.showToast({ title: i18n.t('tedit_toast_no_content'), icon: 'none' })
       return
     }
     const payload = {
@@ -346,18 +388,18 @@ Page({
       // 1) detach 原 recurring 在 instanceDate 的实例,拿到新 task id
       const newId = store.detachOccurrence(d.originalTaskId, d.instanceDate)
       if (!newId) {
-        wx.showToast({ title: '拆分失败', icon: 'none' })
+        wx.showToast({ title: i18n.t('tedit_toast_detach_fail'), icon: 'none' })
         return
       }
       // 2) 把表单字段(可能改了日期/内容/分钟)写到新 task
       store.updateTask(newId, payload)
-      wx.showToast({ title: '已拆出独立作业', icon: 'success' })
+      wx.showToast({ title: i18n.t('tedit_toast_detached'), icon: 'success' })
     } else if (d.isEdit) {
       store.updateTask(d.taskId, payload)
-      wx.showToast({ title: '已保存', icon: 'success' })
+      wx.showToast({ title: i18n.t('tedit_toast_saved'), icon: 'success' })
     } else {
       store.addTask(payload)
-      wx.showToast({ title: '已添加', icon: 'success' })
+      wx.showToast({ title: i18n.t('tedit_toast_added'), icon: 'success' })
     }
     setTimeout(() => wx.navigateBack(), 200)
   },
@@ -370,13 +412,13 @@ Page({
       const date = this.data.instanceDate
       if (!taskId || !date) return
       wx.showModal({
-        title: '删除此次?',
-        content: '只删除当天这次,后续日期照常出现。',
-        confirmColor: '#e54545',
+        title: i18n.t('tedit_del_once_title'),
+        content: i18n.t('tedit_del_once_content'),
+        confirmColor: i18n.t('tedit_del_confirm_color'),
         success: (res) => {
           if (res.confirm) {
             store.excludeOccurrence(taskId, date)
-            wx.showToast({ title: '已删除此次', icon: 'success' })
+            wx.showToast({ title: i18n.t('tedit_toast_deleted_once'), icon: 'success' })
             setTimeout(() => wx.navigateBack(), 200)
           }
         }
@@ -385,13 +427,13 @@ Page({
     }
     if (!this.data.taskId) return
     wx.showModal({
-      title: '删除这条作业?',
-      content: '历史完成记录保留,但以后不再出现。',
-      confirmColor: '#e54545',
+      title: i18n.t('tedit_del_title'),
+      content: i18n.t('tedit_del_content'),
+      confirmColor: i18n.t('tedit_del_confirm_color'),
       success: (res) => {
         if (res.confirm) {
           store.deleteTask(this.data.taskId)
-          wx.showToast({ title: '已删除', icon: 'success' })
+          wx.showToast({ title: i18n.t('tedit_toast_deleted'), icon: 'success' })
           setTimeout(() => wx.navigateBack(), 200)
         }
       }

@@ -1,13 +1,13 @@
 <view class="page">
   <view class="balance-card">
-    <text class="balance-label">当前金币</text>
+    <text class="balance-label">{{t.coin_balance_label}}</text>
     <text class="balance-num">{{coins}}</text>
   </view>
 
   <view wx:if="{{logs.length === 0}}" class="card empty-card">
     <text class="empty-emoji">🪙</text>
-    <text class="empty-text">还没有金币变动记录</text>
-    <text class="empty-hint">完成作业、买宠物道具都会在这里留下记录</text>
+    <text class="empty-text">{{t.coin_empty_text}}</text>
+    <text class="empty-hint">{{t.coin_empty_hint}}</text>
   </view>
 
   <view wx:else class="card list-card">
@@ -20,7 +20,7 @@
       </view>
       <view class="log-right">
         <text class="log-delta {{item.deltaClass}}">{{item.deltaText}}</text>
-        <text wx:if="{{item.balanceAfter !== null}}" class="log-balance">余 {{item.balanceAfter}}</text>
+        <text wx:if="{{item.balanceAfter !== null}}" class="log-balance">{{item.balanceText}}</text>
       </view>
     </view>
   </view>

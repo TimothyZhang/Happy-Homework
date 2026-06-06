@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const i18n = require('../../utils/i18n')
 
 const subjectOptions = ['未识别', '语文', '数学', '英语', '科学', '道法', '美术', '音乐', '体育', '其他']
 
@@ -24,7 +25,7 @@ const SOURCE_LABELS = {
 }
 
 function getSourceLabel(source) {
-  return SOURCE_LABELS[source] || source || '未知通道'
+  return SOURCE_LABELS[source] || source || i18n.t('ocrres_source_unknown')
 }
 
 Page({
@@ -38,7 +39,10 @@ Page({
     organizationIndex: 0,
     importedCount: 0,
     source: '',
-    providerWarning: ''
+    providerWarning: '',
+    sourceTagLabel: '',
+    draftsCountLabel: '',
+    t: {}
   },
 
   // 非响应式字段:仅用于上传样本时引用,不需要进 setData
@@ -47,9 +51,12 @@ Page({
   _sampleUploaded: false,
 
   onShow() {
+    this.setData({ t: i18n.dict() })
+    wx.setNavigationBarTitle({ title: i18n.t('ocrres_navtitle') })
+
     const job = store.getCurrentOcrJob()
     if (!job) {
-      wx.showToast({ title: '还没有识别结果', icon: 'none' })
+      wx.showToast({ title: i18n.t('ocrres_toast_no_job'), icon: 'none' })
       setTimeout(() => {
         wx.navigateBack({ delta: 1 })
       }, 500)
@@ -70,25 +77,29 @@ Page({
     }))
     this._sampleUploaded = false
 
+    const drafts = (job.drafts || []).map((draft) => ({
+      ...draft,
+      dueDate: draft.dueDate || today,
+      confidenceClass: getConfidenceClass(draft.confidence)
+    }))
+
     this.setData({
       imagePath: job.imagePath,
       rawText: job.rawText,
       source: job.source || '',
       sourceLabel: getSourceLabel(job.source),
+      sourceTagLabel: i18n.t('ocrres_source_label', { label: getSourceLabel(job.source) }),
       providerWarning: job.providerWarning || '',
       organizationOptions: orgList,
       organization,
       organizationIndex,
-      drafts: (job.drafts || []).map((draft) => ({
-        ...draft,
-        dueDate: draft.dueDate || today,
-        confidenceClass: getConfidenceClass(draft.confidence)
-      }))
+      drafts,
+      draftsCountLabel: i18n.t('ocrres_drafts_count', { n: drafts.length })
     })
 
     if (job.source === 'builtin-ocr-tesseract') {
       wx.showToast({
-        title: '当前走内置 OCR，请重点确认识别结果',
+        title: i18n.t('ocrres_toast_builtin_warn'),
         icon: 'none',
         duration: 2200
       })
@@ -123,7 +134,7 @@ Page({
     const { index } = event.currentTarget.dataset
     const drafts = this.data.drafts.slice()
     drafts.splice(index, 1)
-    this.setData({ drafts })
+    this.setData({ drafts, draftsCountLabel: i18n.t('ocrres_drafts_count', { n: drafts.length }) })
   },
 
   handleAddDraft() {
@@ -137,14 +148,14 @@ Page({
       confidenceClass: 'low',
       needsConfirm: true
     })
-    this.setData({ drafts })
+    this.setData({ drafts, draftsCountLabel: i18n.t('ocrres_drafts_count', { n: drafts.length }) })
   },
 
   handleImportTasks() {
     const validDrafts = this.data.drafts.filter((item) => item.content && item.content.trim())
 
     if (!validDrafts.length) {
-      wx.showToast({ title: '至少保留一条作业', icon: 'none' })
+      wx.showToast({ title: i18n.t('ocrres_toast_empty'), icon: 'none' })
       return
     }
 
@@ -169,8 +180,9 @@ Page({
     this.persistOcrSample(validDrafts)
 
     wx.showModal({
-      title: '导入成功',
-      content: `已添加 ${validDrafts.length} 条作业。`,
+      title: i18n.t('ocrres_import_title'),
+      content: i18n.t('ocrres_import_content', { n: validDrafts.length }),
+      confirmText: i18n.t('ocrres_import_ok'),
       showCancel: false,
       success: () => {
         wx.switchTab({ url: '/pages/home/index' })

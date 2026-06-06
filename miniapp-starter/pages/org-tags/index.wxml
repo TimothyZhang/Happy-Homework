@@ -1,31 +1,31 @@
 <view class="page">
   <view class="card org-card">
     <view class="section-header">
-      <text class="section-title">作业组织标签</text>
+      <text class="section-title">{{t.org_section_title}}</text>
       <text class="org-count">{{organizations.length}}/{{orgMaxCount}}</text>
     </view>
-    <text class="org-hint">用于给作业分门别类（校内/校外/兴趣班…），添加作业时可选。</text>
+    <text class="org-hint">{{t.org_hint}}</text>
 
     <view class="org-list">
       <view wx:for="{{organizations}}" wx:key="*this" class="org-row">
         <text class="org-name">{{item}}</text>
         <view class="org-actions">
-          <text class="org-btn ghost" data-name="{{item}}" bindtap="handleRenameOrg">改名</text>
-          <text class="org-btn danger" data-name="{{item}}" bindtap="handleRemoveOrg">删除</text>
+          <text class="org-btn ghost" data-name="{{item}}" bindtap="handleRenameOrg">{{t.org_btn_rename}}</text>
+          <text class="org-btn danger" data-name="{{item}}" bindtap="handleRemoveOrg">{{t.org_btn_delete}}</text>
         </view>
       </view>
     </view>
 
     <view class="org-add">
       <input class="input org-input"
-             placeholder="新标签名（最多 {{orgMaxLen}} 字）"
+             placeholder="{{t.org_input_placeholder}}"
              maxlength="{{orgMaxLen}}"
              value="{{newOrgInput}}"
              bindinput="handleOrgInput"
              bindconfirm="handleAddOrg"
              confirm-type="done" />
-      <button class="org-add-btn" bindtap="handleAddOrg">添加</button>
+      <button class="org-add-btn" bindtap="handleAddOrg">{{t.org_btn_add}}</button>
     </view>
-    <view class="org-reset" bindtap="handleResetOrgs">恢复默认</view>
+    <view class="org-reset" bindtap="handleResetOrgs">{{t.org_btn_reset}}</view>
   </view>
 </view>

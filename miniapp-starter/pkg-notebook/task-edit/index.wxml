@@ -1,33 +1,33 @@
 <view class="page">
   <!-- 仅新增模式显示 tab(编辑/编辑此次模式不显示,因为已锚定具体 task) -->
   <view wx:if="{{!isEdit && !isInstanceDetach}}" class="tab-bar">
-    <view class="tab-btn active">新增作业</view>
-    <view class="tab-btn" bindtap="handleSwitchToOcr">拍照识别</view>
+    <view class="tab-btn active">{{t.tedit_tab_manual}}</view>
+    <view class="tab-btn" bindtap="handleSwitchToOcr">{{t.tedit_tab_ocr}}</view>
   </view>
 
   <view class="card">
     <view class="field">
-      <text class="field-label">作业内容</text>
+      <text class="field-label">{{t.tedit_label_content}}</text>
       <textarea class="input textarea"
-                placeholder="例：完成口算练习 2 页"
+                placeholder="{{t.tedit_ph_content}}"
                 value="{{formContent}}"
                 bindinput="handleContentInput"
                 auto-height />
     </view>
 
     <view class="field">
-      <text class="field-label">学科</text>
+      <text class="field-label">{{t.tedit_label_subject}}</text>
       <picker mode="selector"
               range="{{subjectOptions}}"
               value="{{formSubjectIndex}}"
               bindchange="handleSubjectChange">
         <view class="input picker-value">{{formSubject}}</view>
       </picker>
-      <text wx:if="{{showInferHint}}" class="infer-hint">根据历史推断「{{inferredSubject}}」（可在上方手动改）</text>
+      <text wx:if="{{showInferHint}}" class="infer-hint">{{tedit_infer_hint_rendered}}</text>
     </view>
 
     <view class="field">
-      <text class="field-label">组织</text>
+      <text class="field-label">{{t.tedit_label_org}}</text>
       <picker mode="selector"
               range="{{organizationOptions}}"
               value="{{formOrganizationIndex}}"
@@ -37,10 +37,10 @@
     </view>
 
     <view class="field">
-      <text class="field-label">预计耗时（分钟，可选）</text>
+      <text class="field-label">{{t.tedit_label_minutes}}</text>
       <input class="input"
              type="number"
-             placeholder="例：20"
+             placeholder="{{t.tedit_ph_minutes}}"
              value="{{formMinutes}}"
              bindinput="handleMinutesInput" />
       <view wx:if="{{formEstHint}}" class="est-hint" bindtap="handleAcceptEstimate">{{formEstHint}}</view>
@@ -49,38 +49,38 @@
 
   <view class="card">
     <view class="field">
-      <text class="field-label">类型</text>
+      <text class="field-label">{{t.tedit_label_type}}</text>
       <view class="mode-group {{isInstanceDetach ? 'locked' : ''}}">
         <view wx:for="{{modeOptions}}" wx:key="key"
               class="mode-btn {{formMode === item.key ? 'active' : ''}} {{isInstanceDetach && formMode !== item.key ? 'disabled' : ''}}"
               data-key="{{item.key}}"
               bindtap="handleModeChange">{{item.label}}</view>
       </view>
-      <text wx:if="{{isInstanceDetach}}" class="lock-hint">编辑此次:实例只能是一次性,无法切换为重复</text>
+      <text wx:if="{{isInstanceDetach}}" class="lock-hint">{{t.tedit_lock_hint}}</text>
     </view>
 
     <view class="field">
-      <text class="field-label">{{formMode === 'recurring' ? '开始日期' : '日期'}}</text>
+      <text class="field-label">{{formMode === 'recurring' ? t.tedit_label_start_date : t.tedit_label_date}}</text>
       <picker mode="date" value="{{formStartDate}}" bindchange="handleStartDateChange">
-        <view class="input picker-value">{{formStartDate || '请选择'}}</view>
+        <view class="input picker-value">{{formStartDate || t.tedit_ph_date}}</view>
       </picker>
     </view>
 
     <view wx:if="{{formMode === 'recurring'}}" class="field">
-      <text class="field-label">结束日期（可选，留空 = 长期）</text>
+      <text class="field-label">{{t.tedit_label_end_date}}</text>
       <view class="due-row">
         <picker mode="date"
                 value="{{formEndDate || formStartDate}}"
                 start="{{formStartDate}}"
                 bindchange="handleEndDateChange">
-          <view class="input picker-value">{{formEndDate || '长期'}}</view>
+          <view class="input picker-value">{{formEndDate || t.tedit_ongoing}}</view>
         </picker>
-        <view wx:if="{{formEndDate}}" class="due-clear" bindtap="handleClearEndDate">清除</view>
+        <view wx:if="{{formEndDate}}" class="due-clear" bindtap="handleClearEndDate">{{t.tedit_clear}}</view>
       </view>
     </view>
 
     <view wx:if="{{formMode === 'recurring'}}" class="field">
-      <text class="field-label">重复频率</text>
+      <text class="field-label">{{t.tedit_label_recur_freq}}</text>
       <picker mode="selector"
               range="{{recurrenceTypeOptions}}"
               range-key="label"
@@ -91,7 +91,7 @@
     </view>
 
     <view wx:if="{{formMode === 'recurring' && formRecurrenceType === 'weekly'}}" class="field">
-      <text class="field-label">每周哪几天</text>
+      <text class="field-label">{{t.tedit_label_weekdays}}</text>
       <view class="weekday-group">
         <view wx:for="{{weekdayOptions}}" wx:key="day"
               class="weekday-btn {{formWeekdays.indexOf(item.day) >= 0 ? 'active' : ''}}"
@@ -102,7 +102,7 @@
   </view>
 
   <view class="actions">
-    <button class="primary-btn" bindtap="handleSave">{{isEdit ? '保存修改' : '添加作业'}}</button>
-    <button wx:if="{{isEdit}}" class="ghost-btn delete-btn" bindtap="handleDelete">删除</button>
+    <button class="primary-btn" bindtap="handleSave">{{isEdit ? t.tedit_btn_save_edit : t.tedit_btn_save_new}}</button>
+    <button wx:if="{{isEdit}}" class="ghost-btn delete-btn" bindtap="handleDelete">{{t.tedit_btn_delete}}</button>
   </view>
 </view>

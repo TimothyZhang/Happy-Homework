@@ -1,5 +1,6 @@
 const store = require('../../utils/store')
 const shareReward = require('../../utils/share-reward')
+const i18n = require('../../utils/i18n')
 
 const SUBJECT_ORDER = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
 
@@ -25,8 +26,14 @@ function buildDateRangeLabel(start, end) {
 function buildDefaultTitle(organization, startDate, endDate) {
   const org = (organization || '').trim()
   const range = buildDateRangeLabel(startDate, endDate)
-  const prefix = org ? `${org}作业` : '作业'
-  return range ? `${prefix}(${range})` : prefix
+  if (org) {
+    return range
+      ? i18n.t('share_default_title_range', { org, range })
+      : i18n.t('share_default_title_norange', { org })
+  }
+  return range
+    ? i18n.t('share_default_title_noorg', { range })
+    : i18n.t('share_default_title_noorg_norange')
 }
 
 // payload.t 按学科分组,组内保留原顺序。每条 task 保留原下标 _idx 让导入时
@@ -39,7 +46,8 @@ function groupBySubject(tasks) {
     content: t.c || '',
     organization: t.o || '校内',
     estimatedMinutes: Number(t.m) || 0,
-    dueDateLabel: shortMD(t.dd || t.ed || t.sd || '')
+    dueDateLabel: shortMD(t.dd || t.ed || t.sd || ''),
+    estimatedMinutesLabel: Number(t.m) > 0 ? i18n.t('share_min', { n: Number(t.m) }) : ''
   }))
   const buckets = new Map()
   for (const t of list) {
@@ -63,17 +71,20 @@ Page({
     headerTitle: '',
     sharerNickname: '',
     sharerAvatar: '',
-    orgLabel: '全部组织',
+    orgLabel: '',
     dateRangeLabel: '',
+    sharerHint: '',
     error: '',
     importing: false,
-    imported: false
+    imported: false,
+    saveBtnLabel: '',
+    t: {}
   },
 
   onLoad(options) {
     const raw = options && options.d
     if (!raw) {
-      this.setData({ error: '分享链接里没有作业数据' })
+      this.setData({ error: i18n.t('nbshare_err_nodata') })
       return
     }
     try {
@@ -84,24 +95,22 @@ Page({
       }
       const subjectGroups = groupBySubject(payload.t)
       // 标题优先级:payload.title(分享方自定义)→ buildDefaultTitle(org+日期)。
-      // 不再用 "{nickname} 分享的作业" / "好友分享的作业" 这种 fallback —— 客态
-      // 视角不应该出现"我分享的"/"好友分享的"这种关于"谁"的描述,只描述作业本身。
       const customTitle = (payload.title || '').trim()
       const headerTitle = customTitle ||
         buildDefaultTitle(payload.org, payload.d, payload.de)
-      const orgLabel = payload.org ? payload.org : '全部组织'
+      const orgLabel = payload.org ? payload.org : i18n.t('nbshare_org_all')
       const dateRangeLabel = buildDateRangeLabel(payload.d, payload.de)
       this.setData({
         payload,
         subjectGroups,
         headerTitle,
         orgLabel,
-        dateRangeLabel
+        dateRangeLabel,
+        sharerHint: i18n.t('nbshare_hint', { n: payload.t.length }),
+        saveBtnLabel: i18n.t('nbshare_btn_save', { n: payload.t.length })
       })
-      wx.setNavigationBarTitle({ title: '导入作业' })
+      wx.setNavigationBarTitle({ title: i18n.t('nbshare_navtitle') })
       if (payload.sharer) {
-        // 仍然 fetch 头像/昵称用于头像位的展示,但 *不再覆盖 headerTitle* —
-        // 标题由 payload.title / 默认推导,跟分享者身份解耦。
         shareReward.fetchSharerProfile(payload.sharer).then((profile) => {
           if (!profile) return
           this.setData({
@@ -111,8 +120,13 @@ Page({
         }).catch(() => {})
       }
     } catch (e) {
-      this.setData({ error: '分享数据已损坏，无法读取' })
+      this.setData({ error: i18n.t('nbshare_err_corrupt') })
     }
+  },
+
+  onShow() {
+    this.setData({ t: i18n.dict() })
+    wx.setNavigationBarTitle({ title: i18n.t('nbshare_navtitle') })
   },
 
   handleImport() {
@@ -120,7 +134,7 @@ Page({
     if (!this.data.payload) return
     const payload = this.data.payload
     if (!payload.t || payload.t.length === 0) {
-      wx.showToast({ title: '没有可保存的作业', icon: 'none' })
+      wx.showToast({ title: i18n.t('nbshare_toast_none'), icon: 'none' })
       return
     }
     // 先检测和现有作业的重复 —— 有重复就弹 actionSheet 让用户选;
@@ -134,15 +148,12 @@ Page({
   },
 
   // 提示用户选重复处理策略。actionSheet 的取消按钮 = "全部放弃"。
-  // 4 项中"放弃重复项" / "全部放弃" 语义有重叠,分别对应:
-  //   - "跳过重复": 只导入不重复的部分(有 N-dup 项被加)
-  //   - "全部放弃": 整次 import 取消(没有任何变更)
   promptConflict(dupCount, total) {
     const newCount = total - dupCount
     const itemList = [
-      `替换重复项(覆盖现有 ${dupCount} 项)`,
-      `重命名重复项(加"（副本）"导入)`,
-      `跳过重复项(仅导入新增 ${newCount} 项)`
+      i18n.t('nbshare_conflict_replace', { dup: dupCount }),
+      i18n.t('nbshare_conflict_rename'),
+      i18n.t('nbshare_conflict_skip', { new: newCount })
     ]
     wx.showActionSheet({
       itemList,
@@ -152,7 +163,7 @@ Page({
         if (!mode) return
         // skip 模式如果没有非重复项,等于啥也不加,直接给用户一个明确提示。
         if (mode === 'skip' && newCount === 0) {
-          wx.showToast({ title: '没有可新增的作业', icon: 'none' })
+          wx.showToast({ title: i18n.t('nbshare_toast_skip_empty'), icon: 'none' })
           return
         }
         this.doImport(mode)
@@ -166,19 +177,22 @@ Page({
   // 真正写 store + 跳转。封装出来让 handleImport 和 promptConflict 共用。
   doImport(conflictMode) {
     const payload = this.data.payload
-    this.setData({ importing: true })
+    this.setData({ importing: true, saveBtnLabel: i18n.t('nbshare_btn_saving') })
     const newIds = store.importSharedTasks(payload, { conflictMode })
     if (!newIds || newIds.length === 0) {
-      this.setData({ importing: false, error: '保存失败，请稍后再试' })
+      this.setData({ importing: false, error: i18n.t('nbshare_err_save') })
       return
     }
-    // 保存成功:importing→false, imported→true,按钮文本变 "✓ 已保存",
-    // 在 600ms 跳转 tasks tab 之前用户能看到完成状态(原来一直停在 "保存中…")。
-    this.setData({ importing: false, imported: true })
+    // 保存成功:importing→false, imported→true,按钮文本变"✓ 已保存"。
+    this.setData({
+      importing: false,
+      imported: true,
+      saveBtnLabel: i18n.t('nbshare_btn_saved')
+    })
     const verb = conflictMode === 'replace'
-      ? '已替换'
-      : (conflictMode === 'rename' ? '已重命名导入' : '已保存')
-    wx.showToast({ title: `${verb} ${newIds.length} 项`, icon: 'success' })
+      ? i18n.t('nbshare_verb_replaced')
+      : (conflictMode === 'rename' ? i18n.t('nbshare_verb_renamed') : i18n.t('nbshare_verb_saved'))
+    wx.showToast({ title: i18n.t('nbshare_toast_done', { verb, n: newIds.length }), icon: 'success' })
     // 服务端 shareReward 给分享者 +3 coin(以 shareId 做 dedup,重复导入不会重复发)。
     if (payload.sharer && payload.shareId) {
       shareReward.reportShareSave({
@@ -202,16 +216,15 @@ Page({
   },
 
   // 转发卡片继续往下传播 — payload 里包含 shareId,reportShareSave 仍归属原作者。
-  // 卡片 title 用 "{原作者 nickname} 分享给你的作业"(跟 share 页 onShareAppMessage
-  // 同形),没 nickname 退化为 "好友分享给你的作业"。payload.title(落地页 header)
-  // 不变,跟着 payload 透传给下家。
   onShareAppMessage() {
     const payload = this.data.payload
-    if (!payload) return { title: '作业分享', path: '/pages/tasks/index' }
+    if (!payload) return { title: i18n.t('nbshare_fwd_fallback'), path: '/pages/tasks/index' }
     const forwarded = { ...payload }
     delete forwarded.from
     const nickname = (this.data.sharerNickname || '').trim()
-    const title = nickname ? `${nickname} 分享给你的作业` : '好友分享给你的作业'
+    const title = nickname
+      ? i18n.t('nbshare_fwd_named', { nickname })
+      : i18n.t('nbshare_fwd_anon')
     const encoded = encodeURIComponent(JSON.stringify(forwarded))
     return { title, path: `/pages/notebook-share/index?d=${encoded}` }
   }

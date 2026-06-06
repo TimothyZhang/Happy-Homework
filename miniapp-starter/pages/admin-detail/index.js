@@ -1,5 +1,7 @@
 // 用户详情页 — 完整资料 + 调整金币表单 + 调整 / coinLogs 历史。
 
+const i18n = require('../../utils/i18n')
+
 function pad(n) { return `${n}`.padStart(2, '0') }
 
 function formatAbsTime(ts) {
@@ -13,15 +15,15 @@ function shortenOpenid(openid) {
   return `${openid.slice(0, 6)}…${openid.slice(-4)}`
 }
 
-// coin_ledger.kind → 中文标签。新增 kind 时在这里加一行即可。
-const LEDGER_KIND_LABELS = {
-  task_reward: '完成作业',
-  task_refund: '退还作业奖励',
-  pet_purchase: '宠物道具',
-  level_upgrade: '宠物升级',
-  pet_skin_switch: '切换皮肤',
-  admin_coin_claim: '管理员调整',
-  share_reward_claim: '分享奖励'
+// coin_ledger.kind → 标签。新增 kind 时在这里加一行即可。
+const LEDGER_KIND_KEYS = {
+  task_reward: 'admind_kindTaskReward',
+  task_refund: 'admind_kindTaskRefund',
+  pet_purchase: 'admind_kindPetPurchase',
+  level_upgrade: 'admind_kindLevelUpgrade',
+  pet_skin_switch: 'admind_kindPetSkinSwitch',
+  admin_coin_claim: 'admind_kindAdminCoinClaim',
+  share_reward_claim: 'admind_kindShareReward'
 }
 
 function summarizeMeta(meta) {
@@ -51,28 +53,42 @@ Page({
     deltaInput: '',
     reasonInput: '',
     submitting: false,
+    // labels
+    metaStreakLabel: '',
+    metaNotebooksLabel: '',
+    metaTasksLabel: '',
+    adjustCurrentLabel: '',
+    auditRecentLabel: '',
+    ledgerCountLabel: '',
+    localCountLabel: '',
     // logs
     adjustments: [],
     coinLogs: [],
     ledger: [],
     ledgerTotal: 0,
     ledgerLoading: false,
+    t: {},
     canUseCloud: typeof wx.cloud !== 'undefined'
   },
 
   onLoad(query) {
     const openid = decodeURIComponent(query.openid || '')
     if (!openid) {
-      this.setData({ loading: false, error: '缺少 openid 参数' })
+      this.setData({ loading: false, error: i18n.t('admind_errorMissingOpenid') })
       return
     }
     this.setData({ openid })
     this.refresh()
   },
 
+  onShow() {
+    this.setData({ t: i18n.dict() })
+    wx.setNavigationBarTitle({ title: i18n.t('admind_navtitle') })
+  },
+
   async refresh() {
     if (!this.data.canUseCloud) {
-      this.setData({ loading: false, error: '云开发未启用' })
+      this.setData({ loading: false, error: i18n.t('admind_errorNoCloud') })
       return
     }
     this.setData({ loading: true, error: '' })
@@ -94,18 +110,18 @@ Page({
 
       const userResult = (userRes && userRes.result) || {}
       if (!userResult.ok) {
-        const msg = userResult.reason === 'not_admin' ? '当前账号不是管理员'
-          : userResult.reason === 'not_found' ? '未找到该用户的云端数据'
-          : (userResult.reason || '加载失败')
+        const msg = userResult.reason === 'not_admin' ? i18n.t('admind_errorNotAdmin')
+          : userResult.reason === 'not_found' ? i18n.t('admind_errorNotFound')
+          : (userResult.reason || i18n.t('admind_errorLoadFail'))
         this.setData({ loading: false, error: msg })
         return
       }
 
       const summary = userResult.summary || {}
       summary.shortOpenid = shortenOpenid(summary.openid)
-      summary.displayName = summary.nickname || '(未设置昵称)'
+      summary.displayName = summary.nickname || i18n.t('admind_noNickname')
       summary.avatarInitial = (summary.nickname && summary.nickname[0]) || '?'
-      summary.petDisplayName = (summary.pet && summary.pet.name) || '(未起名)'
+      summary.petDisplayName = (summary.pet && summary.pet.name) || i18n.t('admind_noPetName')
 
       const state = userResult.state || {}
       const coinLogs = Array.isArray(state.coinLogs) ? state.coinLogs.slice().reverse().slice(0, 100) : []
@@ -122,18 +138,25 @@ Page({
         createdAtDisplay: formatAbsTime(r.createdAt),
         claimedAtDisplay: r.claimedAt ? formatAbsTime(r.claimedAt) : '',
         signed: r.delta > 0 ? `+${r.delta}` : `${r.delta}`,
-        adminShort: shortenOpenid(r.adminOpenid)
+        adminShort: shortenOpenid(r.adminOpenid),
+        claimLabel: r.claimed ? i18n.t('admind_claimed') : i18n.t('admind_pending'),
+        noReasonLabel: i18n.t('admind_noReason'),
+        adminPrefix: i18n.t('admind_adminShort', { s: shortenOpenid(r.adminOpenid) }),
+        claimedAtLabel: r.claimedAt ? i18n.t('admind_claimedAt', { t: formatAbsTime(r.claimedAt) }) : ''
       }))
 
       const ledgerResult = (ledgerRes && ledgerRes.result) || {}
       const ledger = (ledgerResult.rows || []).map((r) => ({
         ...r,
-        kindLabel: LEDGER_KIND_LABELS[r.kind] || r.kind || '(未知)',
+        kindLabel: i18n.t(LEDGER_KIND_KEYS[r.kind] || 'admind_kindUnknown') || r.kind || i18n.t('admind_kindUnknown'),
         createdAtDisplay: formatAbsTime(r.createdAt),
         signed: r.delta > 0 ? `+${r.delta}` : `${r.delta}`,
         balanceAfterDisplay: (typeof r.balanceAfter === 'number') ? `${r.balanceAfter}` : '—',
-        metaSummary: summarizeMeta(r.meta)
+        metaSummary: summarizeMeta(r.meta),
+        balanceAfterLabel: i18n.t('admind_balanceAfter', { n: (typeof r.balanceAfter === 'number') ? r.balanceAfter : '—' })
       }))
+
+      const ledgerTotal = typeof ledgerResult.total === 'number' ? ledgerResult.total : ledger.length
 
       this.setData({
         loading: false,
@@ -145,13 +168,20 @@ Page({
         coinLogs: coinLogsDisplay,
         adjustments,
         ledger,
-        ledgerTotal: typeof ledgerResult.total === 'number' ? ledgerResult.total : ledger.length
+        ledgerTotal,
+        metaStreakLabel: i18n.t('admind_metaStreakVal', { n: summary.streakDays }),
+        metaNotebooksLabel: i18n.t('admind_metaNotebooksVal', { n: summary.notebookCount }),
+        metaTasksLabel: i18n.t('admind_metaTasksVal', { n: summary.taskCount }),
+        adjustCurrentLabel: i18n.t('admind_adjustCurrent', { n: summary.coins }),
+        auditRecentLabel: i18n.t('admind_auditRecent', { n: adjustments.length }),
+        ledgerCountLabel: i18n.t('admind_ledgerCount', { total: ledgerTotal, shown: ledger.length }),
+        localCountLabel: i18n.t('admind_localCount', { n: coinLogsDisplay.length })
       })
     } catch (e) {
       console.error('[admin-detail] load failed', e)
       this.setData({
         loading: false,
-        error: '加载失败:' + ((e && e.errMsg) || String(e))
+        error: i18n.t('admind_errorLoadFailDetail', { msg: (e && e.errMsg) || String(e) })
       })
     }
   },
@@ -171,25 +201,26 @@ Page({
     const raw = (this.data.deltaInput || '').trim()
     const delta = Math.trunc(Number(raw))
     if (!Number.isFinite(delta) || delta === 0) {
-      wx.showToast({ title: '请输入非零整数', icon: 'none' })
+      wx.showToast({ title: i18n.t('admind_toastNeedDelta'), icon: 'none' })
       return
     }
     const reason = (this.data.reasonInput || '').trim()
     if (!reason) {
-      wx.showToast({ title: '请填写调整原因', icon: 'none' })
+      wx.showToast({ title: i18n.t('admind_toastNeedReason'), icon: 'none' })
       return
     }
 
-    const confirmContent =
-      `${delta > 0 ? '增加' : '减少'} ${Math.abs(delta)} 金币\n\n` +
-      `调整会进入用户的待领取队列,用户下次打开 App 自动到账(失败也不会丢)。`
+    const changeLabel = delta > 0
+      ? i18n.t('admind_confirmAdd', { n: Math.abs(delta) })
+      : i18n.t('admind_confirmSub', { n: Math.abs(delta) })
+    const confirmContent = `${changeLabel}\n\n${i18n.t('admind_confirmBody')}`
 
     const confirmed = await new Promise((resolve) => {
       wx.showModal({
-        title: '确认调整',
+        title: i18n.t('admind_confirmTitle'),
         content: confirmContent,
-        confirmText: '确认',
-        cancelText: '取消',
+        confirmText: i18n.t('admind_confirmOk'),
+        cancelText: i18n.t('admind_confirmCancel'),
         success: (r) => resolve(!!r.confirm),
         fail: () => resolve(false)
       })
@@ -197,7 +228,7 @@ Page({
     if (!confirmed) return
 
     this.setData({ submitting: true })
-    wx.showLoading({ title: '提交中…', mask: true })
+    wx.showLoading({ title: i18n.t('admind_submitting'), mask: true })
     try {
       const res = await wx.cloud.callFunction({
         name: 'adminPanel',
@@ -211,16 +242,17 @@ Page({
       const result = (res && res.result) || {}
       wx.hideLoading()
       if (!result.ok) {
-        const msg = result.reason === 'not_admin' ? '当前账号不是管理员'
-          : result.reason === 'not_found' ? '未找到该用户'
-          : result.reason === 'invalid_delta' ? '金币变化值无效'
-          : result.reason === 'delta_too_large' ? '单次变化超过上限'
-          : (result.message || result.reason || '调整失败')
+        const msg = result.reason === 'not_admin' ? i18n.t('admind_errorSubmitNotAdmin')
+          : result.reason === 'not_found' ? i18n.t('admind_errorSubmitNotFound')
+          : result.reason === 'invalid_delta' ? i18n.t('admind_errorSubmitInvalidDelta')
+          : result.reason === 'delta_too_large' ? i18n.t('admind_errorSubmitTooLarge')
+          : (result.message || result.reason || i18n.t('admind_errorSubmitFail'))
         wx.showToast({ title: msg, icon: 'none', duration: 2200 })
         return
       }
+      const signed = `${delta > 0 ? '+' : ''}${delta}`
       wx.showToast({
-        title: `已加入待领取队列(${delta > 0 ? '+' : ''}${delta})`,
+        title: i18n.t('admind_toastQueued', { signed }),
         icon: 'none',
         duration: 2400
       })
@@ -229,7 +261,11 @@ Page({
     } catch (e) {
       wx.hideLoading()
       console.error('[admin-detail] adjustCoins failed', e)
-      wx.showToast({ title: '调整出错:' + ((e && e.errMsg) || String(e)), icon: 'none', duration: 2400 })
+      wx.showToast({
+        title: i18n.t('admind_errorSubmitError', { msg: (e && e.errMsg) || String(e) }),
+        icon: 'none',
+        duration: 2400
+      })
     } finally {
       this.setData({ submitting: false })
     }

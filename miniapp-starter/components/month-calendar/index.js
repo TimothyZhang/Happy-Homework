@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const i18n = require('../../utils/i18n')
 
 function pad2(n) { return `${n}`.padStart(2, '0') }
 
@@ -70,16 +71,26 @@ Component({
     monthIdx0: 0,
     monthLabel: '',
     weeks: [],
-    weekdayHeaders: ['一', '二', '三', '四', '五', '六', '日']
+    weekdayHeaders: [],
+    t: {}
   },
   lifetimes: {
     attached() {
+      const d = i18n.dict()
+      this.setData({ t: d, weekdayHeaders: d.mcal_weekdays })
       const seed = this.data.value || store.todayStr()
       const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(seed)
       const now = new Date()
       const y = m ? Number(m[1]) : now.getFullYear()
       const mi = m ? Number(m[2]) - 1 : now.getMonth()
       this._render({ year: y, monthIdx0: mi })
+    }
+  },
+  pageLifetimes: {
+    show() {
+      const d = i18n.dict()
+      this.setData({ t: d, weekdayHeaders: d.mcal_weekdays })
+      this._render({})
     }
   },
   methods: {
@@ -93,7 +104,7 @@ Component({
       const state = store.getStateWithComputed()
       const year = patch.year !== undefined ? patch.year : this.data.year
       const monthIdx0 = patch.monthIdx0 !== undefined ? patch.monthIdx0 : this.data.monthIdx0
-      const monthLabel = `${year} 年 ${monthIdx0 + 1} 月`
+      const monthLabel = i18n.t('mcal_month_label', { year, month: monthIdx0 + 1 })
       // Paint chrome first; defer the per-day grid build (the costly part)
       // a tick so first paint stays snappy when toggling open.
       this.setData({ year, monthIdx0, monthLabel })

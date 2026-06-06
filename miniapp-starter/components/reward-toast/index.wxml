@@ -46,7 +46,7 @@
       <view class="reward-alldone__pet-wrap">
         <text class="reward-alldone__pet">{{petEmoji}}</text>
       </view>
-      <text class="reward-alldone__title">{{subtitle || '今日全部完成!'}}</text>
+      <text class="reward-alldone__title">{{subtitle || t.rt_alldone_title}}</text>
 
       <!-- Single big TOTAL — the daily-perfect bonus rushing in from small
            to large. The per-task +10 already played in the task toast right
@@ -55,7 +55,7 @@
         <view class="reward-alldone__total">
           <view class="coin coin--lg"><text class="coin__sym">¥</text></view>
           <text class="reward-alldone__total-text">+{{coins}}</text>
-          <text class="reward-alldone__total-suffix">金币!</text>
+          <text class="reward-alldone__total-suffix">{{t.rt_coins_suffix}}</text>
         </view>
       </view>
 

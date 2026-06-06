@@ -1,5 +1,6 @@
 const store = require('../../utils/store')
 const shareReward = require('../../utils/share-reward')
+const i18n = require('../../utils/i18n')
 
 // 学科顺序与 notebook-share 保持一致 — 让接收方看到的分组顺序与分享方预览一致。
 const SUBJECT_ORDER = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
@@ -34,16 +35,22 @@ function chipDateLabel(dateStr, prefix) {
 function buildDefaultTitle(organization, startDate, endDate) {
   const org = (organization || '').trim()
   const range = buildDateRangeLabel(startDate, endDate)
-  const prefix = org ? `${org}作业` : '作业'
-  return range ? `${prefix}(${range})` : prefix
+  if (org) {
+    return range
+      ? i18n.t('share_default_title_range', { org, range })
+      : i18n.t('share_default_title_norange', { org })
+  }
+  return range
+    ? i18n.t('share_default_title_noorg', { range })
+    : i18n.t('share_default_title_noorg_norange')
 }
 
-// 微信对话框里看到的分享卡片标题:"{nickname} 分享给你的作业"。是客态文案,
-// 但跟 buildDefaultTitle 不同 —— 这个强调"谁分享给你的",方便接收方一眼知道
-// 来源;落地页内的 headerTitle 描述作业本身。两者独立,不互相覆盖。
+// 微信对话框里看到的分享卡片标题。
 function buildShareCardTitle(nickname) {
   const n = (nickname || '').trim()
-  return n ? `${n} 分享给你的作业` : '好友分享给你的作业'
+  return n
+    ? i18n.t('share_card_title_named', { nickname: n })
+    : i18n.t('share_card_title_anon')
 }
 
 // 把 payload.t 按学科分组,组内保留原顺序。
@@ -61,7 +68,8 @@ function groupBySubject(tasks) {
       content: t.c || '',
       organization: t.o || '校内',
       estimatedMinutes: Number(t.m) || 0,
-      dueDateLabel: shortMD(t.dd || t.ed || t.sd || '')
+      dueDateLabel: shortMD(t.dd || t.ed || t.sd || ''),
+      estimatedMinutesLabel: Number(t.m) > 0 ? i18n.t('share_min', { n: Number(t.m) }) : ''
     }))
   }))
   groups.sort((a, b) => {
@@ -94,10 +102,11 @@ Page({
     endDateLabel: '',
     totalCount: 0,
     subjectGroups: [],
-    filterEmptyHint: '该范围内没有可分享的作业',
+    filterEmptyHint: '',
     // 缓存最近一次序列化的 payload — onShareAppMessage 同步触发时不能再做 IO
     // (loadState 是同步的 storage,但还是把它缓存好降低开销)。
-    _cachedPayload: null
+    _cachedPayload: null,
+    t: {}
   },
 
   onLoad(options) {
@@ -119,6 +128,11 @@ Page({
   },
 
   onShow() {
+    this.setData({
+      t: i18n.dict(),
+      filterEmptyHint: i18n.t('share_empty')
+    })
+    wx.setNavigationBarTitle({ title: i18n.t('share_navtitle') })
     // 用户可能回到首页改了 task,再回来 — 重新算一次。
     this.refreshPreview()
   },
@@ -191,9 +205,11 @@ Page({
       totalCount,
       dateRangeLabel,
       startDateLabel: chipDateLabel(startDate, '📅 '),
-      endDateLabel: chipDateLabel(endDate, '至 '),
+      endDateLabel: chipDateLabel(endDate, i18n.t('share_to_prefix')),
       orgLabel: organization,
       titlePlaceholder,
+      shareBtnLabel: i18n.t('share_btn', { n: totalCount }),
+      sharerHint: i18n.t('share_hint', { n: totalCount }),
       _cachedPayload: payload
     })
   },

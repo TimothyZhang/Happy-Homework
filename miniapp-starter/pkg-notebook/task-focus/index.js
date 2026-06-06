@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const i18n = require('../../utils/i18n')
 
 // "进行中" 大数字格式:
 //   < 1 小时 → MM:SS
@@ -34,6 +35,8 @@ Page({
   },
 
   onShow() {
+    this.setData({ t: i18n.dict() })
+    wx.setNavigationBarTitle({ title: i18n.t('tfocus_navtitle') })
     if (!this.data.taskId) return
     if (!this.refresh()) return
     this.startTicker()
@@ -48,7 +51,7 @@ Page({
     const state = store.getStateWithComputed()
     const task = state.tasks.find((t) => t.id === this.data.taskId)
     if (!task) {
-      wx.showToast({ title: '作业不存在', icon: 'none' })
+      wx.showToast({ title: i18n.t('tfocus_toast_not_found'), icon: 'none' })
       setTimeout(() => wx.navigateBack(), 400)
       return false
     }
@@ -62,12 +65,14 @@ Page({
       ? Math.max(0, Date.now() - occState.currentSegmentStartedAt)
       : 0
     const elapsedMs = (occState.accumulatedMs || 0) + segMs
+    const estMins = Number(task.estimatedMinutes) || 0
     this.setData({
       content: task.content || '',
       subject: task.subject || '',
       isRecurring: task.mode === 'recurring',
       recurrenceLabel: store.formatRecurrenceLabel(task),
-      estimatedMinutes: Number(task.estimatedMinutes) || 0,
+      estimatedMinutes: estMins,
+      estChip: i18n.t('tfocus_est_chip', { n: estMins }),
       occurrenceDate: this.data.date || task.startDate || '',
       elapsedMs,
       elapsedDisplay: formatBigClock(elapsedMs)

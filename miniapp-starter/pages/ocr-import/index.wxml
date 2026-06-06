@@ -1,35 +1,35 @@
 <view class="page">
   <view class="tab-bar">
-    <view class="tab-btn" bindtap="handleSwitchToTaskEdit">新增作业</view>
-    <view class="tab-btn active">拍照识别</view>
+    <view class="tab-btn" bindtap="handleSwitchToTaskEdit">{{t.ocrimp_tab_new}}</view>
+    <view class="tab-btn active">{{t.ocrimp_tab_photo}}</view>
   </view>
 
   <view class="card upload-card">
     <view class="section-header">
-      <text class="section-title">1. 选择登记本照片</text>
-      <text class="subtle">建议只拍单页</text>
+      <text class="section-title">{{t.ocrimp_sec_choose}}</text>
+      <text class="subtle">{{t.ocrimp_sec_choose_sub}}</text>
     </view>
 
     <view wx:if="{{imagePath}}" class="preview-box">
       <image class="preview-image" src="{{imagePath}}" mode="aspectFit" />
-      <text class="preview-note">已选图片：{{imagePath}}</text>
+      <text class="preview-note">{{previewNote}}</text>
     </view>
     <view wx:else class="empty-box">
       <text class="empty-icon">📝</text>
-      <text class="empty-title">还没有选择图片</text>
-      <text class="empty-desc">可以直接拍照，也可以从相册导入</text>
+      <text class="empty-title">{{t.ocrimp_empty_title}}</text>
+      <text class="empty-desc">{{t.ocrimp_empty_desc}}</text>
     </view>
 
     <view class="action-row">
-      <button class="primary-btn" bindtap="handleTakePhoto">拍照</button>
-      <button class="ghost-btn" bindtap="handleChooseFromAlbum">相册导入</button>
+      <button class="primary-btn" bindtap="handleTakePhoto">{{t.ocrimp_btn_photo}}</button>
+      <button class="ghost-btn" bindtap="handleChooseFromAlbum">{{t.ocrimp_btn_album}}</button>
     </view>
   </view>
 
   <view class="card tips-card">
     <view class="section-header">
-      <text class="section-title">2. 拍摄建议</text>
-      <text class="subtle">提高识别成功率</text>
+      <text class="section-title">{{t.ocrimp_sec_tips}}</text>
+      <text class="subtle">{{t.ocrimp_sec_tips_sub}}</text>
     </view>
 
     <view wx:for="{{tips}}" wx:key="*this" class="tip-item">
@@ -39,7 +39,7 @@
   </view>
 
   <view class="bottom-bar">
-    <button class="save-btn" loading="{{isRecognizing}}" bindtap="handleStartRecognize">开始识别</button>
+    <button class="save-btn" loading="{{isRecognizing}}" bindtap="handleStartRecognize">{{t.ocrimp_btn_start}}</button>
   </view>
 
   <view wx:if="{{isRecognizing}}" class="ocr-overlay">

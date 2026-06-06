@@ -1,7 +1,7 @@
 <view class="page">
   <view class="placeholder-card">
     <text class="placeholder-emoji">🏆</text>
-    <text class="placeholder-title">排行榜</text>
-    <text class="placeholder-text">敬请期待</text>
+    <text class="placeholder-title">{{t.lb_placeholder_title}}</text>
+    <text class="placeholder-text">{{t.lb_placeholder_text}}</text>
   </view>
 </view>

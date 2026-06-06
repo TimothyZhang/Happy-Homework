@@ -1,27 +1,27 @@
 <view class="page">
   <view class="card result-hero">
     <view class="section-header">
-      <text class="section-title">识别结果</text>
-      <text class="subtle">先自动拆分，再人工校对</text>
+      <text class="section-title">{{t.ocrres_sec_result}}</text>
+      <text class="subtle">{{t.ocrres_sec_result_sub}}</text>
     </view>
 
-    <view wx:if="{{sourceLabel}}" class="source-tag">识别通道：{{sourceLabel}}</view>
+    <view wx:if="{{sourceLabel}}" class="source-tag">{{sourceTagLabel}}</view>
     <view wx:if="{{providerWarning}}" class="provider-warning">⚠️ {{providerWarning}}</view>
 
     <image wx:if="{{imagePath}}" class="result-image" src="{{imagePath}}" mode="aspectFit" />
-    <text class="raw-title">OCR 原始文本</text>
+    <text class="raw-title">{{t.ocrres_raw_title}}</text>
     <text class="raw-text">{{rawText}}</text>
   </view>
 
   <view class="card drafts-card">
     <view class="section-header">
-      <text class="section-title">作业草稿列表</text>
-      <text class="tag">共 {{drafts.length}} 条</text>
+      <text class="section-title">{{t.ocrres_sec_drafts}}</text>
+      <text class="tag">{{draftsCountLabel}}</text>
     </view>
 
     <view class="drafts-meta">
       <view class="field field-inline">
-        <text class="field-label">组织（全部）</text>
+        <text class="field-label">{{t.ocrres_org_label}}</text>
         <picker class="field-control" mode="selector" range="{{organizationOptions}}" value="{{organizationIndex}}" bindchange="handleOrganizationChange">
           <view class="picker draft-picker">{{organization}}</view>
         </picker>
@@ -30,42 +30,42 @@
 
     <view wx:for="{{drafts}}" wx:key="id" class="draft-card">
       <view class="draft-top">
-        <text class="draft-index">作业 {{index + 1}}</text>
+        <text class="draft-index">{{t.ocrres_draft_index_prefix}}{{index + 1}}</text>
         <view class="draft-top-actions">
-          <text class="confidence confidence-{{item.confidenceClass || 'low'}}">{{item.confidence}}置信度</text>
-          <text class="delete-link" data-index="{{index}}" bindtap="handleDeleteDraft">删除</text>
+          <text class="confidence confidence-{{item.confidenceClass || 'low'}}">{{item.confidence}}{{t.ocrres_confidence_suffix}}</text>
+          <text class="delete-link" data-index="{{index}}" bindtap="handleDeleteDraft">{{t.ocrres_delete}}</text>
         </view>
       </view>
 
       <view class="field field-inline">
-        <text class="field-label">科目</text>
+        <text class="field-label">{{t.ocrres_subject_label}}</text>
         <picker class="field-control" mode="selector" range="{{subjectOptions}}" value="{{item.subject ? subjectOptions.indexOf(item.subject) : 0}}" data-index="{{index}}" bindchange="handleSubjectChange">
-          <view class="picker draft-picker">{{item.subject || '未识别，点此选择'}}</view>
+          <view class="picker draft-picker">{{item.subject || t.ocrres_subject_placeholder}}</view>
         </picker>
       </view>
 
       <view class="field field-inline">
-        <text class="field-label">日期</text>
+        <text class="field-label">{{t.ocrres_date_label}}</text>
         <picker class="field-control" mode="date" value="{{item.dueDate}}" data-index="{{index}}" bindchange="handleDueDateChange">
           <view class="picker draft-picker">{{item.dueDate}}</view>
         </picker>
       </view>
 
       <view class="field">
-        <text class="field-label">作业内容</text>
-        <textarea class="input textarea draft-textarea" value="{{item.content}}" data-index="{{index}}" bindinput="handleContentInput" placeholder="补全或修正识别内容" auto-height></textarea>
+        <text class="field-label">{{t.ocrres_content_label}}</text>
+        <textarea class="input textarea draft-textarea" value="{{item.content}}" data-index="{{index}}" bindinput="handleContentInput" placeholder="{{t.ocrres_content_placeholder}}" auto-height></textarea>
       </view>
 
       <view wx:if="{{item.rawText}}" class="raw-fragment">
-        <text class="fragment-label">原始片段</text>
+        <text class="fragment-label">{{t.ocrres_fragment_label}}</text>
         <text class="fragment-text">{{item.rawText}}</text>
       </view>
     </view>
 
-    <button class="plain-add-btn" bindtap="handleAddDraft">+ 手动补一条作业</button>
+    <button class="plain-add-btn" bindtap="handleAddDraft">{{t.ocrres_btn_add}}</button>
   </view>
 
   <view class="bottom-bar">
-    <button class="save-btn" bindtap="handleImportTasks">确认并导入今日作业</button>
+    <button class="save-btn" bindtap="handleImportTasks">{{t.ocrres_btn_import}}</button>
   </view>
 </view>

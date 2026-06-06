@@ -13,6 +13,20 @@ const MODULES = [
   require('./worddiscover'),
   require('./pet'),
   require('./feedback'),
+  require('./orgtags'),
+  require('./leaderboard'),
+  require('./taskedit'),
+  require('./taskfocus'),
+  require('./coinhistory'),
+  require('./wordbookimport'),
+  require('./share'),
+  require('./notebookshare'),
+  require('./rewardtoast'),
+  require('./monthcalendar'),
+  require('./admin'),
+  require('./admindetail'),
+  require('./ocrimport'),
+  require('./ocrresult'),
 ]
 
 const en = {}

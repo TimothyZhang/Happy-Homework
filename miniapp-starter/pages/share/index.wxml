@@ -18,7 +18,7 @@
                  maxlength="20"
                  bindinput="onTitleInput"
                  confirm-type="done" />
-          <text class="sharer-hint">共 {{totalCount}} 项作业 · 可改标题</text>
+          <text class="sharer-hint">{{sharerHint}}</text>
         </view>
       </view>
 
@@ -62,7 +62,7 @@
           <text class="row-content">{{t.content}}</text>
           <view class="row-chips">
             <text wx:if="{{t.dueDateLabel}}" class="chip range-chip">{{t.dueDateLabel}}</text>
-            <text wx:if="{{t.estimatedMinutes > 0}}" class="chip est-chip">{{t.estimatedMinutes}} 分钟</text>
+            <text wx:if="{{t.estimatedMinutes > 0}}" class="chip est-chip">{{t.estimatedMinutesLabel}}</text>
           </view>
         </view>
       </view>
@@ -73,7 +73,7 @@
     <button class="full-btn share-btn"
             open-type="share"
             disabled="{{totalCount === 0}}">
-      💬 分享 {{totalCount}} 项作业
+      {{shareBtnLabel}}
     </button>
   </view>
 </view>

@@ -1,5 +1,5 @@
 <view class="page">
-  <view wx:if="{{loading}}" class="empty-block">加载中…</view>
+  <view wx:if="{{loading}}" class="empty-block">{{t.admind_loading}}</view>
 
   <view wx:elif="{{error}}" class="card error-card">
     <text class="error-text">{{error}}</text>
@@ -17,27 +17,27 @@
           <text class="nick">{{summary.displayName}}</text>
           <view class="openid-row" bindtap="handleCopyOpenid">
             <text class="openid">{{summary.openid}}</text>
-            <text class="copy-hint">点击复制</text>
+            <text class="copy-hint">{{t.admind_copyHint}}</text>
           </view>
         </view>
       </view>
 
       <view class="meta-grid">
         <view class="meta-item">
-          <text class="meta-label">金币</text>
+          <text class="meta-label">{{t.admind_metaCoins}}</text>
           <text class="meta-value coin">🪙 {{summary.coins}}</text>
         </view>
         <view class="meta-item">
-          <text class="meta-label">连续打卡</text>
-          <text class="meta-value">🔥 {{summary.streakDays}} 天</text>
+          <text class="meta-label">{{t.admind_metaStreak}}</text>
+          <text class="meta-value">{{metaStreakLabel}}</text>
         </view>
         <view class="meta-item">
-          <text class="meta-label">作业本</text>
-          <text class="meta-value">{{summary.notebookCount}} 本</text>
+          <text class="meta-label">{{t.admind_metaNotebooks}}</text>
+          <text class="meta-value">{{metaNotebooksLabel}}</text>
         </view>
         <view class="meta-item">
-          <text class="meta-label">任务数</text>
-          <text class="meta-value">{{summary.taskCount}} 项</text>
+          <text class="meta-label">{{t.admind_metaTasks}}</text>
+          <text class="meta-value">{{metaTasksLabel}}</text>
         </view>
       </view>
     </view>
@@ -45,7 +45,7 @@
     <!-- 宠物状态 -->
     <view class="card section-card">
       <view class="section-header">
-        <text class="section-title">宠物状态</text>
+        <text class="section-title">{{t.admind_petSection}}</text>
       </view>
       <view wx:if="{{summary.pet}}" class="pet-block">
         <view class="pet-head">
@@ -57,42 +57,42 @@
         </view>
         <view class="pet-stats">
           <view class="pet-stat">
-            <text class="pet-stat-label">😊 开心</text>
+            <text class="pet-stat-label">{{t.admind_petStatHappy}}</text>
             <text class="pet-stat-value">{{summary.pet.happiness}}</text>
           </view>
           <view class="pet-stat">
-            <text class="pet-stat-label">🍚 饱腹</text>
+            <text class="pet-stat-label">{{t.admind_petStatFull}}</text>
             <text class="pet-stat-value">{{summary.pet.fullness}}</text>
           </view>
           <view class="pet-stat">
-            <text class="pet-stat-label">🛁 清洁</text>
+            <text class="pet-stat-label">{{t.admind_petStatClean}}</text>
             <text class="pet-stat-value">{{summary.pet.cleanliness}}</text>
           </view>
           <view class="pet-stat">
-            <text class="pet-stat-label">💊 健康</text>
+            <text class="pet-stat-label">{{t.admind_petStatHealth}}</text>
             <text class="pet-stat-value">{{summary.pet.health}}</text>
           </view>
         </view>
       </view>
-      <view wx:else class="empty-block">用户尚未创建宠物</view>
+      <view wx:else class="empty-block">{{t.admind_noPet}}</view>
     </view>
 
     <!-- 同步状态 -->
     <view class="card section-card">
       <view class="section-header">
-        <text class="section-title">同步信息</text>
+        <text class="section-title">{{t.admind_syncSection}}</text>
       </view>
       <view class="info-rows">
         <view class="info-row">
-          <text class="info-label">最后写入</text>
+          <text class="info-label">{{t.admind_syncLastWrite}}</text>
           <text class="info-value">{{updatedAtDisplay}}</text>
         </view>
         <view class="info-row">
-          <text class="info-label">设备 sessionId</text>
+          <text class="info-label">{{t.admind_syncSessionId}}</text>
           <text class="info-value mono">{{sessionId ? sessionId : '—'}}</text>
         </view>
         <view class="info-row">
-          <text class="info-label">设备占用时间</text>
+          <text class="info-label">{{t.admind_syncClaimed}}</text>
           <text class="info-value">{{claimedAtDisplay}}</text>
         </view>
       </view>
@@ -101,8 +101,8 @@
     <!-- 调整金币 -->
     <view class="card section-card">
       <view class="section-header">
-        <text class="section-title">调整金币</text>
-        <text class="subtle">当前 {{summary.coins}}</text>
+        <text class="section-title">{{t.admind_adjustSection}}</text>
+        <text class="subtle">{{adjustCurrentLabel}}</text>
       </view>
 
       <view class="quick-row">
@@ -114,51 +114,51 @@
         <button class="quick-btn sub" size="mini" data-delta="-100" bindtap="handleQuickDelta">-100</button>
       </view>
 
-      <text class="field-label">变化值(正数为增加,负数为减少)</text>
+      <text class="field-label">{{t.admind_adjustFieldLabel}}</text>
       <input class="input"
              type="number"
-             placeholder="例如 100 或 -50"
+             placeholder="{{t.admind_adjustPlaceholder}}"
              value="{{deltaInput}}"
              bindinput="handleDeltaInput" />
 
-      <text class="field-label">调整原因</text>
+      <text class="field-label">{{t.admind_adjustReasonLabel}}</text>
       <input class="input"
-             placeholder="必填,例如 客服补偿 / 测试扣除"
+             placeholder="{{t.admind_adjustReasonPlaceholder}}"
              maxlength="100"
              value="{{reasonInput}}"
              bindinput="handleReasonInput" />
 
       <view class="inbox-note">
-        <text class="inbox-title">📬 调整走待领取队列</text>
-        <text class="inbox-text">提交后会进入用户的 inbox,用户下次打开 App 时本地累加 + 入金币流水。期间用户不在线也不会丢;减扣超过余额会自动 clamp 到 0。</text>
+        <text class="inbox-title">{{t.admind_inboxTitle}}</text>
+        <text class="inbox-text">{{t.admind_inboxBody}}</text>
       </view>
 
       <button class="primary-btn submit-btn"
               loading="{{submitting}}"
               disabled="{{submitting}}"
-              bindtap="handleSubmit">提交调整</button>
+              bindtap="handleSubmit">{{t.admind_submitBtn}}</button>
     </view>
 
     <!-- 审计日志 -->
     <view class="card section-card">
       <view class="section-header">
-        <text class="section-title">调整记录(审计)</text>
-        <text class="subtle">最近 {{adjustments.length}} 条</text>
+        <text class="section-title">{{t.admind_auditSection}}</text>
+        <text class="subtle">{{auditRecentLabel}}</text>
       </view>
-      <view wx:if="{{adjustments.length === 0}}" class="empty-block">暂无调整记录</view>
+      <view wx:if="{{adjustments.length === 0}}" class="empty-block">{{t.admind_auditEmpty}}</view>
       <view wx:else class="log-list">
         <view wx:for="{{adjustments}}" wx:key="_id" class="log-row">
           <view class="log-line top">
             <text class="log-delta {{item.delta > 0 ? 'add' : 'sub'}}">{{item.signed}}</text>
             <view class="log-status-block">
-              <text class="claim-pill {{item.claimed ? 'claimed' : 'pending'}}">{{item.claimed ? '已到账' : '待领取'}}</text>
+              <text class="claim-pill {{item.claimed ? 'claimed' : 'pending'}}">{{item.claimLabel}}</text>
               <text class="subtle">{{item.createdAtDisplay}}</text>
             </view>
           </view>
-          <text class="log-reason">{{item.reason ? item.reason : '(无原因)'}}</text>
+          <text class="log-reason">{{item.reason ? item.reason : item.noReasonLabel}}</text>
           <view class="log-line">
-            <text class="subtle">admin: {{item.adminShort}}</text>
-            <text wx:if="{{item.claimed}}" class="subtle">领取: {{item.claimedAtDisplay}}</text>
+            <text class="subtle">{{item.adminPrefix}}</text>
+            <text wx:if="{{item.claimed}}" class="subtle">{{item.claimedAtLabel}}</text>
           </view>
         </view>
       </view>
@@ -167,10 +167,10 @@
     <!-- coin_ledger:服务端权威金币账本(全部事件:任务/宠物/管理员/分享…) -->
     <view class="card section-card">
       <view class="section-header">
-        <text class="section-title">金币流水(云端账本)</text>
-        <text class="subtle">共 {{ledgerTotal}} 条 · 显示前 {{ledger.length}}</text>
+        <text class="section-title">{{t.admind_ledgerSection}}</text>
+        <text class="subtle">{{ledgerCountLabel}}</text>
       </view>
-      <view wx:if="{{ledger.length === 0}}" class="empty-block">暂无流水</view>
+      <view wx:if="{{ledger.length === 0}}" class="empty-block">{{t.admind_ledgerEmpty}}</view>
       <view wx:else class="log-list">
         <view wx:for="{{ledger}}" wx:key="_id" class="log-row">
           <view class="log-line top">
@@ -181,7 +181,7 @@
             <text class="log-delta {{item.delta > 0 ? 'add' : 'sub'}}">{{item.signed}}</text>
           </view>
           <view class="log-line">
-            <text class="subtle">余额变更后: {{item.balanceAfterDisplay}}</text>
+            <text class="subtle">{{item.balanceAfterLabel}}</text>
             <text wx:if="{{item.metaSummary}}" class="subtle">{{item.metaSummary}}</text>
           </view>
         </view>
@@ -191,10 +191,10 @@
     <!-- coinLogs (客户端镜像,留作对账参考;coin_ledger 才是权威源) -->
     <view class="card section-card">
       <view class="section-header">
-        <text class="section-title">金币流水(本地)</text>
-        <text class="subtle">最近 {{coinLogs.length}} 条 · 仅供对账</text>
+        <text class="section-title">{{t.admind_localSection}}</text>
+        <text class="subtle">{{localCountLabel}}</text>
       </view>
-      <view wx:if="{{coinLogs.length === 0}}" class="empty-block">暂无流水</view>
+      <view wx:if="{{coinLogs.length === 0}}" class="empty-block">{{t.admind_localEmpty}}</view>
       <view wx:else class="log-list">
         <view wx:for="{{coinLogs}}" wx:key="at" class="log-row tight">
           <view class="log-line top">

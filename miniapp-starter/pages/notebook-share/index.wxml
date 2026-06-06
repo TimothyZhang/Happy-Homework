@@ -2,7 +2,7 @@
   <view wx:if="{{error}}" class="card error-card">
     <text class="error-emoji">😢</text>
     <text class="error-text">{{error}}</text>
-    <button class="full-btn ghost-btn" bindtap="handleCancel">返回</button>
+    <button class="full-btn ghost-btn" bindtap="handleCancel">{{t.nbshare_btn_back}}</button>
   </view>
 
   <block wx:elif="{{payload}}">
@@ -16,7 +16,7 @@
           <view wx:else class="sharer-avatar sharer-avatar-fallback">📥</view>
           <view class="sharer-text">
             <text class="sharer-name">{{headerTitle}}</text>
-            <text class="sharer-hint">共 {{payload.t.length}} 项作业</text>
+            <text class="sharer-hint">{{sharerHint}}</text>
           </view>
         </view>
 
@@ -28,7 +28,7 @@
 
       <view wx:if="{{payload.t.length === 0}}" class="card empty-card">
         <text class="empty-emoji">📝</text>
-        <text class="empty-text">分享里没有作业,导入后可以自己再添加</text>
+        <text class="empty-text">{{t.nbshare_empty}}</text>
       </view>
 
       <block wx:for="{{subjectGroups}}" wx:key="subject" wx:for-item="group">
@@ -41,7 +41,7 @@
             <text class="row-content">{{t.content}}</text>
             <view class="row-chips">
               <text wx:if="{{t.dueDateLabel}}" class="chip range-chip">{{t.dueDateLabel}}</text>
-              <text wx:if="{{t.estimatedMinutes > 0}}" class="chip est-chip">{{t.estimatedMinutes}} 分钟</text>
+              <text wx:if="{{t.estimatedMinutes > 0}}" class="chip est-chip">{{t.estimatedMinutesLabel}}</text>
             </view>
           </view>
         </view>
@@ -52,7 +52,7 @@
       <button class="full-btn save-btn"
               bindtap="handleImport"
               disabled="{{importing || imported || payload.t.length === 0}}">
-        {{imported ? '✓ 已保存' : (importing ? '保存中…' : '💾 保存 ' + payload.t.length + ' 项作业')}}
+        {{saveBtnLabel}}
       </button>
     </view>
   </block>

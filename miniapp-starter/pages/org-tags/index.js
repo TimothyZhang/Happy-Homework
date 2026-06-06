@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const i18n = require('../../utils/i18n')
 
 // 作业组织标签的管理页(从「我」tab 折叠卡片点进来)。增 / 改名 / 删 / 恢复默认
 // 都在这里做;「我」tab 只展示只读概览。逻辑整体从 pages/profile 迁过来。
@@ -7,11 +8,16 @@ Page({
     organizations: [],
     orgMaxLen: store.ORGANIZATION_MAX_LEN,
     orgMaxCount: store.ORGANIZATION_MAX_COUNT,
-    newOrgInput: ''
+    newOrgInput: '',
+    t: {}
   },
 
   onShow() {
-    this.setData({ organizations: store.getOrganizations() })
+    this.setData({
+      t: i18n.dict(),
+      organizations: store.getOrganizations()
+    })
+    wx.setNavigationBarTitle({ title: i18n.t('org_navtitle') })
   },
 
   handleOrgInput(e) {
@@ -21,7 +27,7 @@ Page({
   handleAddOrg() {
     const name = (this.data.newOrgInput || '').trim()
     if (!name) {
-      wx.showToast({ title: '请输入标签名', icon: 'none' })
+      wx.showToast({ title: i18n.t('org_toast_empty_input'), icon: 'none' })
       return
     }
     const res = store.addOrganization(name)
@@ -33,18 +39,18 @@ Page({
       organizations: store.getOrganizations(),
       newOrgInput: ''
     })
-    wx.showToast({ title: '已添加', icon: 'success' })
+    wx.showToast({ title: i18n.t('org_toast_added'), icon: 'success' })
   },
 
   handleRemoveOrg(e) {
     const name = e.currentTarget.dataset.name
     if (!name) return
     wx.showModal({
-      title: `删除「${name}」？`,
-      content: '已用该标签的作业仍保留显示，仅在下次选择时不再出现。',
+      title: i18n.t('org_modal_delete_title', { name }),
+      content: i18n.t('org_modal_delete_content'),
       confirmColor: '#e54545',
-      confirmText: '删除',
-      cancelText: '取消',
+      confirmText: i18n.t('org_modal_delete_confirm'),
+      cancelText: i18n.t('org_modal_delete_cancel'),
       success: (r) => {
         if (!r.confirm) return
         const res = store.removeOrganization(name)
@@ -53,7 +59,7 @@ Page({
           return
         }
         this.setData({ organizations: store.getOrganizations() })
-        wx.showToast({ title: '已删除', icon: 'success' })
+        wx.showToast({ title: i18n.t('org_toast_deleted'), icon: 'success' })
       }
     })
   },
@@ -62,17 +68,17 @@ Page({
     const name = e.currentTarget.dataset.name
     if (!name) return
     wx.showModal({
-      title: `重命名「${name}」`,
+      title: i18n.t('org_modal_rename_title', { name }),
       editable: true,
-      placeholderText: '新标签名',
+      placeholderText: i18n.t('org_modal_rename_placeholder'),
       content: name,
-      confirmText: '保存',
-      cancelText: '取消',
+      confirmText: i18n.t('org_modal_rename_confirm'),
+      cancelText: i18n.t('org_modal_rename_cancel'),
       success: (r) => {
         if (!r.confirm) return
         const next = (r.content || '').trim()
         if (!next) {
-          wx.showToast({ title: '请输入新标签名', icon: 'none' })
+          wx.showToast({ title: i18n.t('org_toast_new_empty'), icon: 'none' })
           return
         }
         if (next === name) return
@@ -82,36 +88,36 @@ Page({
           return
         }
         this.setData({ organizations: store.getOrganizations() })
-        wx.showToast({ title: '已重命名', icon: 'success' })
+        wx.showToast({ title: i18n.t('org_toast_renamed'), icon: 'success' })
       }
     })
   },
 
   handleResetOrgs() {
     wx.showModal({
-      title: '恢复默认标签？',
-      content: '会重置为「校内 / 校外 / 其他」。已存在的作业标签不变。',
-      confirmText: '恢复',
-      cancelText: '取消',
+      title: i18n.t('org_modal_reset_title'),
+      content: i18n.t('org_modal_reset_content'),
+      confirmText: i18n.t('org_modal_reset_confirm'),
+      cancelText: i18n.t('org_modal_reset_cancel'),
       success: (r) => {
         if (!r.confirm) return
         store.resetOrganizations()
         this.setData({ organizations: store.getOrganizations() })
-        wx.showToast({ title: '已恢复默认', icon: 'success' })
+        wx.showToast({ title: i18n.t('org_toast_reset'), icon: 'success' })
       }
     })
   },
 
   orgErrorMessage(reason) {
     switch (reason) {
-      case 'empty':     return '请输入标签名'
-      case 'too_long':  return `标签最长 ${store.ORGANIZATION_MAX_LEN} 字`
-      case 'duplicate': return '该标签已存在'
-      case 'too_many':  return `最多 ${store.ORGANIZATION_MAX_COUNT} 个标签`
-      case 'last_one':  return '至少保留一个标签'
-      case 'unknown':   return '标签不存在'
+      case 'empty':     return i18n.t('org_err_empty')
+      case 'too_long':  return i18n.t('org_err_too_long', { n: store.ORGANIZATION_MAX_LEN })
+      case 'duplicate': return i18n.t('org_err_duplicate')
+      case 'too_many':  return i18n.t('org_err_too_many', { n: store.ORGANIZATION_MAX_COUNT })
+      case 'last_one':  return i18n.t('org_err_last_one')
+      case 'unknown':   return i18n.t('org_err_unknown')
       case 'noop':      return ''
-      default:          return '操作失败'
+      default:          return i18n.t('org_err_default')
     }
   }
 })

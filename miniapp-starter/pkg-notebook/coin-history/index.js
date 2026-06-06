@@ -1,32 +1,48 @@
 const store = require('../../utils/store')
+const i18n = require('../../utils/i18n')
 
 // kind → 显示文案 + emoji。覆盖 applyCoinDelta 写入的所有 kind。
 // admin_adjust 是新架构的入账 kind;legacy 老 admin 流水(没 kind,带
 // reason='admin-adjust:xxx')在 describeLog 里另走兼容分支。
-const KIND_LABELS = {
-  task_reward: { label: '完成作业', emoji: '📚' },
-  task_refund: { label: '撤销退款', emoji: '↩️' },
-  pet_purchase: { label: '宠物商店', emoji: '🛒' },
-  pet_skin_switch: { label: '更换宠物', emoji: '🔄' },
-  share_reward: { label: '分享奖励', emoji: '🎁' },
-  admin_adjust: { label: '管理员调整', emoji: '🛠️' },
-  perfect_day_clawback_skipped: { label: '审计跳过', emoji: '⚠️' }
+function KIND_LABELS() {
+  return {
+    task_reward: { label: i18n.t('coin_kind_task_reward'), emoji: '📚' },
+    task_refund: { label: i18n.t('coin_kind_task_refund'), emoji: '↩️' },
+    pet_purchase: { label: i18n.t('coin_kind_pet_purchase'), emoji: '🛒' },
+    pet_skin_switch: { label: i18n.t('coin_kind_pet_skin_switch'), emoji: '🔄' },
+    share_reward: { label: i18n.t('coin_kind_share_reward'), emoji: '🎁' },
+    admin_adjust: { label: i18n.t('coin_kind_admin_adjust'), emoji: '🛠️' },
+    perfect_day_clawback_skipped: { label: i18n.t('coin_kind_audit_skip'), emoji: '⚠️' }
+  }
 }
 
-const REFUND_REASONS = {
-  perfect_day_clawback: '撤销完美日奖励',
-  task_revert: '撤销已完成作业'
+function REFUND_REASONS() {
+  return {
+    perfect_day_clawback: i18n.t('coin_refund_perfect_day'),
+    task_revert: i18n.t('coin_refund_task_revert')
+  }
 }
 
-const REWARD_KIND_LABELS = {
-  today: '当天完成',
-  overdue: '补做过期',
-  future: '提前完成'
+function REWARD_KIND_LABELS() {
+  return {
+    today: i18n.t('coin_reward_today'),
+    overdue: i18n.t('coin_reward_overdue'),
+    future: i18n.t('coin_reward_future')
+  }
 }
 
-const SPECIES_LABELS = {
-  cat: '猫', dog: '狗', chicken: '鸡', parrot: '鹦鹉',
-  pig: '猪', cow: '牛', rabbit: '兔子', sheep: '羊', alpaca: '羊驼'
+function SPECIES_LABELS() {
+  return {
+    cat: i18n.t('coin_species_cat'),
+    dog: i18n.t('coin_species_dog'),
+    chicken: i18n.t('coin_species_chicken'),
+    parrot: i18n.t('coin_species_parrot'),
+    pig: i18n.t('coin_species_pig'),
+    cow: i18n.t('coin_species_cow'),
+    rabbit: i18n.t('coin_species_rabbit'),
+    sheep: i18n.t('coin_species_sheep'),
+    alpaca: i18n.t('coin_species_alpaca')
+  }
 }
 
 function pad2(n) { return `${n}`.padStart(2, '0') }
@@ -36,11 +52,11 @@ function formatTime(ts, todayStartMs, yesterdayStartMs) {
   const d = new Date(ts)
   const hm = `${pad2(d.getHours())}:${pad2(d.getMinutes())}`
   const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
-  if (dayStart === todayStartMs) return `今天 ${hm}`
-  if (dayStart === yesterdayStartMs) return `昨天 ${hm}`
+  if (dayStart === todayStartMs) return i18n.t('coin_time_today', { hm })
+  if (dayStart === yesterdayStartMs) return i18n.t('coin_time_yesterday', { hm })
   const now = new Date()
   if (d.getFullYear() === now.getFullYear()) {
-    return `${d.getMonth() + 1}月${d.getDate()}日 ${hm}`
+    return i18n.t('coin_time_this_year', { mo: d.getMonth() + 1, day: d.getDate(), hm })
   }
   return `${d.getFullYear()}/${pad2(d.getMonth() + 1)}/${pad2(d.getDate())} ${hm}`
 }
@@ -49,48 +65,52 @@ function describeLog(log) {
   // admin 后台调整走老格式:reason: 'admin-adjust:xxx',没 kind/balanceAfter。
   if (log && typeof log.reason === 'string' && log.reason.indexOf('admin-adjust:') === 0) {
     const tail = log.reason.slice('admin-adjust:'.length).trim()
-    return { title: '管理员调整', sub: tail || '系统调整', emoji: '🛠️' }
+    return { title: i18n.t('coin_kind_admin_adjust'), sub: tail || i18n.t('coin_sub_sys_adjust'), emoji: '🛠️' }
   }
   const kind = log.kind || ''
   const meta = log.meta || {}
-  const def = KIND_LABELS[kind]
+  const kindLabels = KIND_LABELS()
+  const def = kindLabels[kind]
   const emoji = def ? def.emoji : '💰'
-  const title = def ? def.label : (kind || '金币变动')
+  const title = def ? def.label : (kind || i18n.t('coin_sub_coin_delta'))
+  const rewardKindLabels = REWARD_KIND_LABELS()
+  const refundReasons = REFUND_REASONS()
+  const speciesLabels = SPECIES_LABELS()
   let sub = ''
   if (kind === 'task_reward') {
     const parts = []
-    if (meta.rewardKind && REWARD_KIND_LABELS[meta.rewardKind]) {
-      parts.push(REWARD_KIND_LABELS[meta.rewardKind])
+    if (meta.rewardKind && rewardKindLabels[meta.rewardKind]) {
+      parts.push(rewardKindLabels[meta.rewardKind])
     }
     const single = Number(meta.taskReward) || 0
     const bonus = (Number(meta.dailyBonus) || 0) + (Number(meta.weeklyBonus) || 0)
-    if (single > 0) parts.push(`单题 +${single}`)
-    if (bonus > 0) parts.push(`完美日 +${bonus}`)
+    if (single > 0) parts.push(i18n.t('coin_sub_single', { n: single }))
+    if (bonus > 0) parts.push(i18n.t('coin_sub_perfect_day', { n: bonus }))
     sub = parts.join(' · ')
   } else if (kind === 'task_refund') {
-    sub = REFUND_REASONS[meta.reason] || '退款'
+    sub = refundReasons[meta.reason] || i18n.t('coin_sub_refund')
   } else if (kind === 'pet_purchase') {
     // 改名复用 pet_purchase kind(server 端不必新增 EVENT_RULES),meta.type='rename'。
     if (meta.type === 'rename') {
       const oldN = meta.oldName || ''
       const newN = meta.newName || ''
       return {
-        title: '宠物改名',
-        sub: oldN && newN ? `${oldN} → ${newN}` : (newN || '改名'),
+        title: i18n.t('coin_kind_pet_rename'),
+        sub: oldN && newN ? `${oldN} → ${newN}` : (newN || i18n.t('coin_sub_rename')),
         emoji: '✏️'
       }
     }
-    sub = meta.itemName || '道具'
+    sub = meta.itemName || i18n.t('coin_sub_item')
   } else if (kind === 'pet_skin_switch') {
-    const to = SPECIES_LABELS[meta.toSpecies] || meta.toSpecies || ''
-    sub = to ? `换成${to}` : '更换宠物'
+    const to = speciesLabels[meta.toSpecies] || meta.toSpecies || ''
+    sub = to ? i18n.t('coin_sub_switch_to', { to }) : i18n.t('coin_kind_pet_skin_switch')
   } else if (kind === 'share_reward') {
     const n = Number(meta.count) || 0
-    sub = n > 1 ? `${n} 位好友保存` : (n === 1 ? '好友保存' : '分享奖励')
+    sub = n > 1 ? i18n.t('coin_sub_friends_saved', { n }) : (n === 1 ? i18n.t('coin_sub_friend_saved') : i18n.t('coin_kind_share_reward'))
   } else if (kind === 'admin_adjust') {
-    sub = (meta.reason || '').toString() || '系统调整'
+    sub = (meta.reason || '').toString() || i18n.t('coin_sub_sys_adjust')
   } else if (kind === 'perfect_day_clawback_skipped') {
-    sub = meta.day ? `${meta.day} 守卫跳过` : '守卫跳过'
+    sub = meta.day ? i18n.t('coin_sub_guard_skip_day', { day: meta.day }) : i18n.t('coin_sub_guard_skip')
   }
   return { title, sub, emoji }
 }
@@ -102,7 +122,11 @@ Page({
   },
 
   onLoad() { this.refresh() },
-  onShow() { this.refresh() },
+  onShow() {
+    this.setData({ t: i18n.dict() })
+    wx.setNavigationBarTitle({ title: i18n.t('coin_navtitle') })
+    this.refresh()
+  },
 
   refresh() {
     const state = store.getStateWithComputed()
@@ -127,7 +151,8 @@ Page({
           deltaText,
           deltaClass,
           timeText: formatTime(ts, todayStart, yesterdayStart),
-          balanceAfter: typeof log.balanceAfter === 'number' ? log.balanceAfter : null
+          balanceAfter: typeof log.balanceAfter === 'number' ? log.balanceAfter : null,
+          balanceText: typeof log.balanceAfter === 'number' ? i18n.t('coin_balance_after', { n: log.balanceAfter }) : ''
         }
       })
     this.setData({ coins: state.coins || 0, logs: list })
