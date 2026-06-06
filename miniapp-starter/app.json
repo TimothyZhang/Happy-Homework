@@ -10,6 +10,7 @@
     "pages/ocr-result/index",
     "pages/pet/index",
     "pages/profile/index",
+    "pages/settings/index",
     "pages/org-tags/index",
     "pages/stats/index",
     "pages/admin/index",

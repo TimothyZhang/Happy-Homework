@@ -1,16 +1,22 @@
 const perf = require('../utils/perf')
+const i18n = require('../utils/i18n')
 
 Component({
   data: {
     selected: 0,
     color: '#7b8794',
     selectedColor: '#245bdb',
+    t: i18n.dict(),
     list: [
-      { pagePath: '/pages/home/index', text: '首页' },
-      { pagePath: '/pages/pet/index', text: '宠物' },
-      { pagePath: '/pages/stats/index', text: '数据' },
-      { pagePath: '/pages/profile/index', text: '我' }
+      { pagePath: '/pages/home/index', key: 'tab_home' },
+      { pagePath: '/pages/pet/index', key: 'tab_pet' },
+      { pagePath: '/pages/stats/index', key: 'tab_stats' },
+      { pagePath: '/pages/profile/index', key: 'tab_me' }
     ]
+  },
+  // 每次承载它的 tab 页 show 都重读当前语言字典 → 切换语言后回到 tab 标签即更新。
+  pageLifetimes: {
+    show() { this.setData({ t: i18n.dict() }) }
   },
   methods: {
     handleTap(e) {

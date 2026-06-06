@@ -2,11 +2,13 @@ const cloudSync = require('../../utils/cloud-sync')
 const store = require('../../utils/store')
 const perf = require('../../utils/perf')
 const buildInfo = require('../../utils/build-info')
+const i18n = require('../../utils/i18n')
 
 const AVATAR_CLOUD_PATH_PREFIX = 'avatars'
 
 Page({
   data: {
+    t: i18n.dict(),
     profile: { nickname: '', avatar: '' },
     // 头像 / 昵称默认只读;点「编辑」才进编辑模式(头像可换、昵称可输)。
     editingProfile: false,
@@ -29,8 +31,9 @@ Page({
   onShow() {
     const stamp = perf.markPageShow('profile')
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
-    if (tb) tb.setData({ selected: 3 })
+    if (tb) tb.setData({ selected: 3, t: i18n.dict() })
     this.setData({
+      t: i18n.dict(),
       profile: store.getProfile(),
       organizations: store.getOrganizations(),
       syncStatus: cloudSync.getSyncStatus()
@@ -102,6 +105,10 @@ Page({
 
   goOrgTags() {
     wx.navigateTo({ url: '/pages/org-tags/index' })
+  },
+
+  goSettings() {
+    wx.navigateTo({ url: '/pages/settings/index' })
   },
 
   // 头像昵称编辑模式开关。退出时把当前昵称落库(防 blur 没触发),并 re-read profile。

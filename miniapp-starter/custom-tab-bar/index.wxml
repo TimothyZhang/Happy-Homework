@@ -5,6 +5,6 @@
         bindtap="handleTap"
         hover-class="tab-item-hover" hover-stay-time="80">
     <text class="tab-text"
-          style="color: {{selected === index ? selectedColor : color}}">{{item.text}}</text>
+          style="color: {{selected === index ? selectedColor : color}}">{{t[item.key]}}</text>
   </view>
 </view>

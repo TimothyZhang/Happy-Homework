@@ -7,6 +7,8 @@
 .profile-card {
   margin-bottom: 24rpx;
 }
+/* 去掉「学生信息」标题后,编辑开关单独靠右 */
+.profile-card-head { display: flex; justify-content: flex-end; align-items: center; min-height: 40rpx; }
 
 .profile-row {
   margin-top: 22rpx;

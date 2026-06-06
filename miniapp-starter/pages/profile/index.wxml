@@ -1,8 +1,7 @@
 <view class="page">
   <view class="card profile-card">
-    <view class="section-header">
-      <text class="section-title">学生信息</text>
-      <text class="edit-toggle {{editingProfile ? 'done' : ''}}" bindtap="toggleEditProfile">{{editingProfile ? '完成' : '编辑'}}</text>
+    <view class="profile-card-head">
+      <text class="edit-toggle {{editingProfile ? 'done' : ''}}" bindtap="toggleEditProfile">{{editingProfile ? t.prof_done : t.prof_edit}}</text>
     </view>
 
     <view class="profile-row">
@@ -13,24 +12,22 @@
                mode="aspectFill" />
         <view wx:else class="avatar-placeholder">
           <text class="avatar-placeholder-icon">+</text>
-          <text class="avatar-placeholder-hint">头像</text>
+          <text class="avatar-placeholder-hint">{{t.prof_avatar}}</text>
         </view>
-        <view wx:if="{{editingProfile && profile.avatar}}" class="avatar-edit-badge">换</view>
-        <view wx:if="{{uploadingAvatar}}" class="avatar-loading-mask">上传中…</view>
+        <view wx:if="{{editingProfile && profile.avatar}}" class="avatar-edit-badge">{{t.prof_change}}</view>
+        <view wx:if="{{uploadingAvatar}}" class="avatar-loading-mask">{{t.prof_uploading}}</view>
       </view>
 
       <view class="profile-fields">
-        <text class="field-label">昵称</text>
         <input wx:if="{{editingProfile}}"
                class="input nickname-input"
                type="nickname"
-               placeholder="给自己取个昵称"
+               placeholder="{{t.prof_noNick}}"
                maxlength="12"
                value="{{profile.nickname}}"
                bindinput="handleNicknameInput"
                bindblur="handleNicknameBlur" />
-        <text wx:else class="nickname-text">{{profile.nickname || '未设置昵称'}}</text>
-        <text class="profile-hint">{{editingProfile ? '点头像换一张 · 昵称可直接改' : '点右上角「编辑」改头像和昵称'}}</text>
+        <text wx:else class="nickname-text">{{profile.nickname || t.prof_noNick}}</text>
       </view>
     </view>
   </view>
@@ -38,68 +35,33 @@
   <view class="card wb-entry-card" bindtap="goWordBooks" hover-class="wb-entry-hover">
     <text class="wb-entry-emoji">📚</text>
     <view class="wb-entry-text">
-      <text class="wb-entry-title">我的单词本</text>
-      <text class="wb-entry-sub">建单词本 / 设目标 / 拍照导入 / 分享 · 和宠物玩单词挑战</text>
+      <text class="wb-entry-title">{{t.prof_wbTitle}}</text>
+      <text class="wb-entry-sub">{{t.prof_wbSub}}</text>
     </view>
     <text class="wb-entry-chev">›</text>
   </view>
 
-  <view class="card sync-card">
-    <view class="section-header">
-      <text class="section-title">数据同步</text>
-      <text class="sync-pill {{syncStatus.status}}">{{
-        syncStatus.status === 'healthy' ? '已同步' :
-        syncStatus.status === 'readonly' ? '只读' :
-        syncStatus.status === 'error' ? '同步失败' : '未同步'
-      }}</text>
+  <view class="card wb-entry-card" bindtap="goSettings" hover-class="wb-entry-hover">
+    <text class="wb-entry-emoji">⚙️</text>
+    <view class="wb-entry-text">
+      <text class="wb-entry-title">{{t.prof_settings}}</text>
+      <text class="wb-entry-sub">{{t.prof_settingsSub}}</text>
     </view>
-
-    <view class="sync-meta">
-      <text class="sync-meta-line">上次同步：{{syncStatus.lastSyncDisplay}}</text>
-      <text wx:if="{{syncStatus.lastError}}" class="sync-meta-line err">{{syncStatus.lastError}}</text>
-      <text wx:if="{{syncStatus.readOnly}}" class="sync-meta-line warn">本机当前为只读，写操作不会保存到云端。</text>
-    </view>
-
-    <view class="sync-actions">
-      <button wx:if="{{syncStatus.readOnly}}"
-              class="sync-btn primary"
-              loading="{{syncing}}"
-              disabled="{{syncing}}"
-              bindtap="handleReclaim">切回此设备</button>
-      <button class="sync-btn {{syncStatus.readOnly ? 'ghost' : 'primary'}}"
-              loading="{{syncing}}"
-              disabled="{{syncing}}"
-              bindtap="handleForceSync">立即同步</button>
-    </view>
-  </view>
-
-  <view class="card org-summary-card" bindtap="goOrgTags" hover-class="wb-entry-hover">
-    <view class="section-header">
-      <text class="section-title">作业组织标签</text>
-      <view class="org-summary-right">
-        <text class="org-summary-count">{{organizations.length}} 个</text>
-        <text class="org-summary-chev">›</text>
-      </view>
-    </view>
-    <view wx:if="{{organizations.length}}" class="org-chips">
-      <text wx:for="{{organizations}}" wx:key="*this" class="org-chip">{{item}}</text>
-    </view>
-    <text wx:else class="org-summary-empty">还没有标签，点这里去添加</text>
-    <text class="org-summary-hint">点这里添加 / 改名 / 删除标签</text>
+    <text class="wb-entry-chev">›</text>
   </view>
 
   <view wx:if="{{isAdmin}}" class="card admin-card" bindtap="handleOpenAdmin">
     <view class="admin-row">
       <view class="admin-text">
-        <text class="admin-title">🛠 管理后台</text>
-        <text class="admin-hint">查看所有用户、调整金币</text>
+        <text class="admin-title">{{t.prof_admin}}</text>
+        <text class="admin-hint">{{t.prof_adminSub}}</text>
       </view>
       <text class="admin-arrow">›</text>
     </view>
   </view>
 
   <view class="build-info">
-    <text class="build-info-line">版本 {{buildVersion}}</text>
+    <text class="build-info-line">{{t.prof_version}} {{buildVersion}}</text>
     <text class="build-info-line dim">commit {{buildCommitId}}</text>
   </view>
 </view>

@@ -1,0 +1,49 @@
+<view class="page">
+  <!-- 语言 -->
+  <view class="card set-card">
+    <text class="set-head">{{t.set_language}}</text>
+    <view class="lang-toggle">
+      <view class="lang-opt {{lang === 'en' ? 'on' : ''}}" data-lang="en" bindtap="setLang" hover-class="lang-opt-hover">English</view>
+      <view class="lang-opt {{lang === 'zh' ? 'on' : ''}}" data-lang="zh" bindtap="setLang" hover-class="lang-opt-hover">中文</view>
+    </view>
+  </view>
+
+  <!-- 作业组织标签 -->
+  <view class="card set-entry" bindtap="goOrgTags" hover-class="set-entry-hover">
+    <view class="set-entry-text">
+      <text class="set-entry-title">{{t.set_org}}</text>
+      <text class="set-entry-sub">{{t.set_orgSub}}</text>
+    </view>
+    <text class="set-entry-chev">›</text>
+  </view>
+
+  <!-- 数据同步 -->
+  <view class="card sync-card">
+    <view class="section-header">
+      <text class="section-title">{{t.set_sync}}</text>
+      <text class="sync-pill {{syncStatus.status}}">{{
+        syncStatus.status === 'healthy' ? t.sync_synced :
+        syncStatus.status === 'readonly' ? t.sync_readonly :
+        syncStatus.status === 'error' ? t.sync_error : t.sync_none
+      }}</text>
+    </view>
+
+    <view class="sync-meta">
+      <text class="sync-meta-line">{{t.sync_last}}{{syncStatus.lastSyncDisplay}}</text>
+      <text wx:if="{{syncStatus.lastError}}" class="sync-meta-line err">{{syncStatus.lastError}}</text>
+      <text wx:if="{{syncStatus.readOnly}}" class="sync-meta-line warn">{{t.sync_readonlyWarn}}</text>
+    </view>
+
+    <view class="sync-actions">
+      <button wx:if="{{syncStatus.readOnly}}"
+              class="sync-btn primary"
+              loading="{{syncing}}"
+              disabled="{{syncing}}"
+              bindtap="handleReclaim">{{t.sync_reclaim}}</button>
+      <button class="sync-btn {{syncStatus.readOnly ? 'ghost' : 'primary'}}"
+              loading="{{syncing}}"
+              disabled="{{syncing}}"
+              bindtap="handleForceSync">{{t.sync_now}}</button>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,43 @@
+.set-card { margin-bottom: 24rpx; }
+.set-head { font-size: 28rpx; font-weight: 700; color: #44505e; }
+
+.lang-toggle { margin-top: 18rpx; display: flex; gap: 16rpx; }
+.lang-opt {
+  flex: 1; height: 88rpx; border-radius: 18rpx;
+  display: flex; align-items: center; justify-content: center;
+  background: #f4f6fa; color: #1f2329; font-size: 30rpx; font-weight: 700;
+  box-shadow: inset 0 0 0 2rpx #eef1f5;
+}
+.lang-opt.on { background: #245bdb; color: #ffffff; box-shadow: none; }
+.lang-opt-hover { background: #e6ebf3; }
+
+.set-entry { display: flex; align-items: center; margin-bottom: 24rpx; }
+.set-entry-hover { background: #f5f8ff; }
+.set-entry-text { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.set-entry-title { font-size: 30rpx; font-weight: 700; color: #1f2329; }
+.set-entry-sub { margin-top: 6rpx; font-size: 23rpx; color: #8a94a0; }
+.set-entry-chev { color: #c7cdd6; font-size: 36rpx; flex-shrink: 0; }
+
+/* === 数据同步(从 profile 迁过来) === */
+.sync-card { margin-bottom: 24rpx; }
+.sync-pill { padding: 6rpx 18rpx; border-radius: 999rpx; font-size: 22rpx; font-weight: 600; }
+.sync-pill.healthy { background: #e8f7ee; color: #067647; }
+.sync-pill.readonly { background: #fff5e6; color: #b26a00; }
+.sync-pill.error { background: #fff1f0; color: #e54545; }
+.sync-pill.unknown { background: #edf0f3; color: #5f6b7a; }
+.sync-meta { margin-top: 18rpx; display: flex; flex-direction: column; gap: 8rpx; }
+.sync-meta-line { font-size: 24rpx; color: #6b7785; line-height: 1.5; word-break: break-all; }
+.sync-meta-line.warn { color: #b26a00; }
+.sync-meta-line.err { color: #e54545; }
+.sync-actions { margin-top: 22rpx; display: flex; gap: 16rpx; }
+.sync-btn {
+  flex: 1; height: 76rpx; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 999rpx; font-size: 28rpx; font-weight: 600; border: none; margin: 0; line-height: 1;
+}
+.sync-btn.primary {
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+  color: #ffffff; box-shadow: 0 6rpx 18rpx rgba(36, 91, 219, 0.22);
+}
+.sync-btn.ghost { background: #eef4ff; color: #245bdb; }
+.sync-btn[disabled] { opacity: 0.6; }
