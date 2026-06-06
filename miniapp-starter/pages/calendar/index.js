@@ -1,14 +1,15 @@
 const store = require('../../utils/store')
 const cloudSync = require('../../utils/cloud-sync')
+const i18n = require('../../utils/i18n')
 
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
   const totalSec = Math.floor(ms / 1000)
   const min = Math.floor(totalSec / 60)
   const sec = totalSec % 60
-  if (min === 0) return `${sec} 秒`
-  if (sec === 0) return `${min} 分钟`
-  return `${min} 分 ${sec} 秒`
+  if (min === 0) return i18n.t('cal_sec', { s: sec })
+  if (sec === 0) return i18n.t('cal_min', { m: min })
+  return i18n.t('cal_minsec', { m: min, s: sec })
 }
 
 function decorateDayItems(items, now) {
@@ -73,6 +74,8 @@ Page({
   },
 
   onShow() {
+    this.setData({ t: i18n.dict() })
+    wx.setNavigationBarTitle({ title: i18n.t('cal_title') })
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 2 })
     this.refresh()
@@ -88,6 +91,7 @@ Page({
     this.setData({
       selectedDate,
       selectedItems: items,
+      selectedCountLabel: i18n.t('cal_items', { n: items.length }),
       selectedLabel: this.formatDateLabel(selectedDate)
     })
     const cal = this.selectComponent('#cal')
@@ -96,9 +100,9 @@ Page({
 
   formatDateLabel(date) {
     const today = store.todayStr()
-    if (date === today) return `今日 · ${date}`
-    if (date === store.addDays(today, -1)) return `昨日 · ${date}`
-    if (date === store.addDays(today, 1)) return `明日 · ${date}`
+    if (date === today) return `${i18n.t('cal_today')} · ${date}`
+    if (date === store.addDays(today, -1)) return `${i18n.t('cal_yesterday')} · ${date}`
+    if (date === store.addDays(today, 1)) return `${i18n.t('cal_tomorrow')} · ${date}`
     return date
   },
 

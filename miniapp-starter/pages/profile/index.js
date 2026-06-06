@@ -14,7 +14,7 @@ Page({
     editingProfile: false,
     uploadingAvatar: false,
     canUseCloud: typeof wx.cloud !== 'undefined',
-    syncStatus: { status: 'unknown', readOnly: false, lastSyncDisplay: '从未', lastError: null, inflight: false },
+    syncStatus: { status: 'unknown', readOnly: false, lastSyncDisplay: '', lastError: null, inflight: false },
     syncing: false,
     // admin 入口可见性。whoami 返回 isAdmin=true 才渲染管理后台卡片。
     isAdmin: false,
@@ -111,6 +111,10 @@ Page({
     wx.navigateTo({ url: '/pages/settings/index' })
   },
 
+  goFeedback() {
+    wx.navigateTo({ url: '/pages/feedback/index' })
+  },
+
   // 头像昵称编辑模式开关。退出时把当前昵称落库(防 blur 没触发),并 re-read profile。
   toggleEditProfile() {
     const next = !this.data.editingProfile
@@ -143,7 +147,7 @@ Page({
 
   async pickAndUploadAvatar(sourceType) {
     if (!this.data.canUseCloud) {
-      wx.showToast({ title: '云存储未启用，无法上传头像', icon: 'none', duration: 2400 })
+      wx.showToast({ title: i18n.t('prof_avatar_no_cloud'), icon: 'none', duration: 2400 })
       return
     }
     let tempPath = ''
@@ -163,7 +167,7 @@ Page({
     }
 
     this.setData({ uploadingAvatar: true })
-    wx.showLoading({ title: '上传中…', mask: true })
+    wx.showLoading({ title: i18n.t('prof_uploading'), mask: true })
     try {
       let toUpload = tempPath
       try {
@@ -182,7 +186,7 @@ Page({
       store.updateProfileAvatar(uploadRes.fileID)
       this.setData({ profile: store.getProfile() })
       wx.hideLoading()
-      wx.showToast({ title: '头像已更新', icon: 'success' })
+      wx.showToast({ title: i18n.t('prof_avatar_updated'), icon: 'success' })
     } catch (e) {
       wx.hideLoading()
       console.error('avatar upload failed', e)
@@ -199,11 +203,11 @@ Page({
   getAvatarFailureMessage(error) {
     const code = String((error && error.errCode) || (error && error.code) || '')
     const msg = String((error && error.errMsg) || (error && error.message) || '')
-    if (msg.includes('storage_size_limit')) return '云存储空间不足，无法上传头像'
-    if (msg.includes('exceed_max') || msg.includes('size limit')) return '图片过大，换一张再试'
-    if (msg.includes('network') || msg.includes('timeout')) return '网络不稳定，稍后再试'
-    if (code === 'NO_FILE_ID') return '上传完成但没拿到 fileID，稍后再试'
-    return '头像上传失败，请重试'
+    if (msg.includes('storage_size_limit')) return i18n.t('prof_avatar_fail_space')
+    if (msg.includes('exceed_max') || msg.includes('size limit')) return i18n.t('prof_avatar_fail_big')
+    if (msg.includes('network') || msg.includes('timeout')) return i18n.t('prof_avatar_fail_net')
+    if (code === 'NO_FILE_ID') return i18n.t('prof_avatar_fail_nofileid')
+    return i18n.t('prof_avatar_fail_generic')
   },
 
   // === Sync === //
@@ -216,12 +220,12 @@ Page({
       const status = cloudSync.getSyncStatus()
       this.setData({ syncStatus: status, profile: store.getProfile() })
       if (status.lastError) {
-        wx.showToast({ title: '同步失败：' + status.lastError, icon: 'none', duration: 2400 })
+        wx.showToast({ title: i18n.t('prof_sync_fail', { e: status.lastError }), icon: 'none', duration: 2400 })
       } else {
-        wx.showToast({ title: '已同步', icon: 'success' })
+        wx.showToast({ title: i18n.t('sync_synced'), icon: 'success' })
       }
     } catch (e) {
-      wx.showToast({ title: '同步出错', icon: 'none' })
+      wx.showToast({ title: i18n.t('prof_sync_error'), icon: 'none' })
     } finally {
       this.setData({ syncing: false })
     }
@@ -230,13 +234,13 @@ Page({
   handleReclaim() {
     if (this.data.syncing) return
     wx.showModal({
-      title: '切回此设备',
-      content: '会以云端最新数据覆盖本机当前 state，并踢下线另一台设备。继续？',
+      title: i18n.t('prof_switch_title'),
+      content: i18n.t('prof_switch_content'),
       // confirmText/cancelText must be ≤4 chars — longer values silently fail
       // to render the modal on some basic library versions, leaving the user
       // staring at an unresponsive button.
-      confirmText: '用此设备',
-      cancelText: '取消',
+      confirmText: i18n.t('prof_switch_confirm'),
+      cancelText: i18n.t('prof_cancel'),
       success: async (r) => {
         if (!r.confirm) return
         this.setData({ syncing: true })
@@ -245,13 +249,13 @@ Page({
           this.refreshSyncStatus()
           this.setData({ profile: store.getProfile() })
           if (ok) {
-            wx.showToast({ title: '已切回此设备', icon: 'success', duration: 2000 })
+            wx.showToast({ title: i18n.t('prof_switch_done'), icon: 'success', duration: 2000 })
           } else {
             // Surface lastError so silent failures (network blip, schema rejection)
-            // give the user a hint rather than a bare "切回失败".
+            // give the user a hint rather than a bare "switch failed".
             const status = cloudSync.getSyncStatus()
             wx.showToast({
-              title: '切回失败' + (status.lastError ? '：' + status.lastError : ''),
+              title: i18n.t('prof_switch_fail') + (status.lastError ? ': ' + status.lastError : ''),
               icon: 'none',
               duration: 2400
             })
@@ -259,7 +263,7 @@ Page({
         } catch (e) {
           console.warn('[profile] reclaim threw', e)
           wx.showToast({
-            title: '切回出错：' + ((e && e.errMsg) || e || '未知错误'),
+            title: i18n.t('prof_switch_error') + ': ' + ((e && e.errMsg) || e || i18n.t('prof_unknown_err')),
             icon: 'none',
             duration: 2400
           })
@@ -270,7 +274,7 @@ Page({
       fail: (err) => {
         console.warn('[profile] reclaim modal failed', err)
         wx.showToast({
-          title: '弹窗打开失败：' + ((err && err.errMsg) || '未知错误'),
+          title: i18n.t('prof_modal_fail') + ': ' + ((err && err.errMsg) || i18n.t('prof_unknown_err')),
           icon: 'none',
           duration: 2400
         })

@@ -55,13 +55,13 @@
 
     <view class="card section-card">
       <view class="section-header">
-        <text class="section-title">未完成 ({{undoneItems.length}}项{{remainingHm ? '，预计' + remainingHm : ''}})</text>
+        <text class="section-title">{{undoneSectionTitle}}</text>
         <view class="add-task-btn" bindtap="handleAddTask">+</view>
       </view>
 
       <view wx:if="{{undoneItems.length === 0}}" class="empty-tip">
         <text class="empty-emoji">{{doneItems.length > 0 ? '🎉' : '📝'}}</text>
-        <text class="empty-text">{{doneItems.length > 0 ? (isToday ? '今天全部完成,点 + 可继续添加' : '这一天全部完成') : (isToday ? '今日没有待办，点右上角 + 新建' : '这一天没有作业')}}</text>
+        <text class="empty-text">{{emptyTipText}}</text>
       </view>
 
       <task-list wx:if="{{undoneItems.length > 0}}"
@@ -80,7 +80,7 @@
 
     <view wx:if="{{doneItems.length > 0}}" class="card section-card done-section">
       <view class="section-header">
-        <text class="section-title">已完成 ({{doneItems.length}})</text>
+        <text class="section-title">{{doneSectionTitle}}</text>
       </view>
       <task-list items="{{doneItems}}"
                  active-date="{{selectedDate}}"
@@ -95,7 +95,7 @@
 
     <view class="home-share-action" bindtap="handleNavigateToShare">
       <text class="home-share-icon">💬</text>
-      <text class="home-share-label">分享作业</text>
+      <text class="home-share-label">{{t.home_share_btn}}</text>
     </view>
   </scroll-view>
 
@@ -115,93 +115,93 @@
 
   <view wx:if="{{rewardRulesOpen}}" class="rules-mask" bindtap="closeRewardRules" catchtouchmove="noop">
     <view class="rules-sheet" catchtap="noop">
-      <view class="rules-title">金币奖励规则</view>
+      <view class="rules-title">{{t.home_rules_title}}</view>
       <scroll-view scroll-y="{{true}}" show-scrollbar="{{false}}" class="rules-scroll">
 
-      <view class="rules-subtitle">完成单项作业（按作业日期）</view>
+      <view class="rules-subtitle">{{t.home_rules_sub1}}</view>
       <view class="rules-section">
         <view class="rules-row">
-          <text class="rules-row__name">补做历史遗留作业</text>
+          <text class="rules-row__name">{{t.home_rules_makeup}}</text>
           <text class="rules-row__amt">+5</text>
         </view>
         <view class="rules-row">
-          <text class="rules-row__name">完成当日作业</text>
+          <text class="rules-row__name">{{t.home_rules_today_task}}</text>
           <text class="rules-row__amt">+10</text>
         </view>
         <view class="rules-row">
-          <text class="rules-row__name">提前完成明日及以后</text>
+          <text class="rules-row__name">{{t.home_rules_future_task}}</text>
           <text class="rules-row__amt">+15</text>
         </view>
       </view>
 
-      <view class="rules-hint">每天只有前 20 项完成的作业会获得金币（三种类型一起计）。</view>
+      <view class="rules-hint">{{t.home_rules_cap_hint}}</view>
 
       <view class="rules-divider"></view>
 
-      <view class="rules-subtitle">其他奖励</view>
+      <view class="rules-subtitle">{{t.home_rules_sub2}}</view>
       <view class="rules-section">
         <view class="rules-row">
-          <text class="rules-row__name">当日全部完成（首次）</text>
-          <text class="rules-row__amt">+ 当日单项金币之和</text>
+          <text class="rules-row__name">{{t.home_rules_perfect}}</text>
+          <text class="rules-row__amt">{{t.home_rules_perfect_amt}}</text>
         </view>
         <view class="rules-row">
-          <text class="rules-row__name">连续 7 天全完成</text>
+          <text class="rules-row__name">{{t.home_rules_streak}}</text>
           <text class="rules-row__amt">+100</text>
         </view>
         <view class="rules-row">
-          <text class="rules-row__name">分享被保存</text>
-          <text class="rules-row__amt">+3 / 次</text>
+          <text class="rules-row__name">{{t.home_rules_share_saved}}</text>
+          <text class="rules-row__amt">{{t.home_rules_share_saved_amt}}</text>
         </view>
       </view>
 
       <view class="rules-divider"></view>
 
-      <view class="rules-subtitle">早完成额外奖励（叠加在「当日全完成」上）</view>
+      <view class="rules-subtitle">{{t.home_rules_sub3}}</view>
       <view class="rules-section">
         <view class="rules-row">
-          <text class="rules-row__name">晚上 19:00 前完成</text>
+          <text class="rules-row__name">{{t.home_rules_early19}}</text>
           <text class="rules-row__amt">+50</text>
         </view>
         <view class="rules-row">
-          <text class="rules-row__name">19:00 – 20:00 完成</text>
+          <text class="rules-row__name">{{t.home_rules_early20}}</text>
           <text class="rules-row__amt">+30</text>
         </view>
         <view class="rules-row">
-          <text class="rules-row__name">20:00 – 21:00 完成</text>
+          <text class="rules-row__name">{{t.home_rules_early21}}</text>
           <text class="rules-row__amt">+20</text>
         </view>
         <view class="rules-row">
-          <text class="rules-row__name">21:00 之后完成</text>
+          <text class="rules-row__name">{{t.home_rules_early_late}}</text>
           <text class="rules-row__amt">+0</text>
         </view>
       </view>
 
-      <view class="rules-hint">举例：10 项当日作业 18:30 全完成 → 10×10 (单项) + 10×10 (全完成) + 50 (早完成) = 250 金币</view>
+      <view class="rules-hint">{{t.home_rules_example}}</view>
       </scroll-view>
 
-      <view class="rules-close" bindtap="closeRewardRules">知道了</view>
+      <view class="rules-close" bindtap="closeRewardRules">{{t.home_rules_got_it}}</view>
     </view>
   </view>
 
   <!-- 作业卡片左右滑改日期:一次性新手引导 -->
   <view wx:if="{{showSwipeGuide}}" class="sg-mask" bindtap="dismissSwipeGuide" catchtouchmove="noop">
     <view class="sg-panel" catchtap="noop">
-      <view class="sg-title">作业卡片能左右滑,改日期</view>
+      <view class="sg-title">{{t.home_sg_title}}</view>
       <view class="sg-stage">
-        <text class="sg-day">前一天</text>
+        <text class="sg-day">{{t.home_sg_prev}}</text>
         <view class="sg-card">
           <view class="sg-line"></view>
           <view class="sg-line short"></view>
           <text class="sg-hand">👆</text>
         </view>
-        <text class="sg-day">后一天</text>
+        <text class="sg-day">{{t.home_sg_next}}</text>
       </view>
       <view class="sg-legend">
-        <text>← 左滑 提前一天</text>
-        <text>右滑 顺延一天 →</text>
+        <text>{{t.home_sg_left}}</text>
+        <text>{{t.home_sg_right}}</text>
       </view>
-      <view class="sg-note">一次性作业、未完成时可滑</view>
-      <view class="sg-btn" catchtap="dismissSwipeGuide">知道了</view>
+      <view class="sg-note">{{t.home_sg_note}}</view>
+      <view class="sg-btn" catchtap="dismissSwipeGuide">{{t.home_sg_got_it}}</view>
     </view>
   </view>
 </view>

@@ -3,14 +3,14 @@
     <view class="task-row-swipable {{swipeId === item.id ? 'is-swiping' : ''}} {{swipeOpenId === item.id ? 'is-open' : ''}} {{postponeId === item.id ? 'is-postpone-row' : ''}} {{postponeDragging && postponeId === item.id ? 'is-postponing' : ''}}"
           data-id="{{item.id}}">
 
-      <!-- Swipe-revealed action zone. Undone: 仅编辑(删除入口在编辑页内);Done: 编辑 + 继续。 -->
+      <!-- Swipe-revealed action zone. Undone: edit only (delete lives in edit page); Done: edit + resume. -->
       <view wx:if="{{item.status !== 'done'}}" class="swipe-action">
         <view class="swipe-btn edit-swipe-btn"
               data-id="{{item.id}}"
               data-task-id="{{item.taskId || item.id}}"
               data-occurrence-date="{{item.occurrenceDate}}"
               data-task-mode="{{item.taskMode}}"
-              catchtap="handleEdit">编辑</view>
+              catchtap="handleEdit">{{t.tl_edit}}</view>
       </view>
       <view wx:else class="swipe-action swipe-action-double">
         <view class="swipe-btn edit-swipe-btn"
@@ -18,18 +18,18 @@
               data-task-id="{{item.taskId || item.id}}"
               data-occurrence-date="{{item.occurrenceDate}}"
               data-task-mode="{{item.taskMode}}"
-              catchtap="handleEdit">编辑</view>
+              catchtap="handleEdit">{{t.tl_edit}}</view>
         <view class="swipe-btn revert-swipe-btn"
               data-id="{{item.id}}"
               data-task-id="{{item.taskId || item.id}}"
               data-occurrence-date="{{item.occurrenceDate}}"
-              catchtap="handleRevert">继续</view>
+              catchtap="handleRevert">{{t.tl_resume}}</view>
       </view>
 
       <!-- 顺延色块:垫在 row 底层,卡片滑动露出。右滑→下一天(文字靠左)、左滑→
            上一天(文字靠右)。红=未过半屏、绿=已过(松手即顺延)。 -->
       <view wx:if="{{postponeId === item.id}}" class="postpone-action {{postponeArmed ? 'is-armed' : ''}} {{postponeDx < 0 ? 'postpone-left' : 'postpone-right'}}" style="background: {{postponeColor}};">
-        <text class="postpone-text">{{postponeDx < 0 ? '移至上一天' : '移至下一天'}}</text>
+        <text class="postpone-text">{{postponeDx < 0 ? t.tl_postpone_prev : t.tl_postpone_next}}</text>
       </view>
 
       <view class="task-row {{item.status}} {{rowVariant}} {{item.isOverdue ? 'is-overdue' : ''}} {{item.isMakeup ? 'is-makeup' : ''}} {{item.taskMode === 'recurring' ? 'is-recurring' : ''}} {{dragId === item.id ? 'is-dragging' : ''}}"
@@ -53,14 +53,14 @@
           </view>
           <view class="row-chips">
             <text wx:if="{{item.organization}}" class="chip org-chip">{{item.organization}}</text>
-            <text wx:if="{{item.isMakeup && item.occurrenceDate}}" class="chip overdue-chip">延期自 {{item.occurrenceDate}}</text>
+            <text wx:if="{{item.isMakeup && item.occurrenceDate}}" class="chip overdue-chip">{{item.makeupLabel}}</text>
             <text wx:elif="{{item.isOverdue && item.status !== 'done' && item.occurrenceDate}}" class="chip overdue-chip">{{item.occurrenceDate}}</text>
             <text class="chip est-chip est-chip-tap" catchtap="openEstPopup"
                   data-task-id="{{item.taskId || item.id}}"
                   data-occurrence-date="{{item.occurrenceDate}}"
                   data-min="{{item.estimatedMinutes}}"
-                  hover-class="est-chip-hover">预计 {{item.estimatedMinutes}} 分钟 ✎</text>
-            <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
+                  hover-class="est-chip-hover">{{item.estLabel}}</text>
+            <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.elapsedLabel}}</text>
           </view>
         </view>
         <view wx:if="{{item.status !== 'done'}}" class="row-actions">
@@ -77,19 +77,19 @@
   </block>
 </view>
 
-<!-- 设置「预计需要时间」弹窗:5~60 预设按钮 + 自定义输入 -->
+<!-- Est duration popup: presets 5–60 + custom input -->
 <view wx:if="{{showEstPopup}}" class="est-mask" catchtap="closeEstPopup" catchtouchmove="noop">
   <view class="est-sheet" catchtap="noop" catchtouchmove="noop">
-    <view class="est-title">预计需要多长时间?</view>
+    <view class="est-title">{{t.tl_est_title}}</view>
     <view class="est-grid">
       <view wx:for="{{estPresets}}" wx:key="*this"
             class="est-opt {{estCurrent === item ? 'on' : ''}}"
-            data-min="{{item}}" catchtap="pickEst" hover-class="est-opt-hover">{{item}}<text class="est-unit">分</text></view>
+            data-min="{{item}}" catchtap="pickEst" hover-class="est-opt-hover">{{item}}<text class="est-unit">{{t.tl_est_unit}}</text></view>
     </view>
     <view class="est-custom">
-      <input class="est-input" type="number" placeholder="自定义分钟" value="{{estInput}}"
+      <input class="est-input" type="number" placeholder="{{t.tl_est_placeholder}}" value="{{estInput}}"
              bindinput="onEstInput" bindconfirm="confirmEst" confirm-type="done" />
-      <view class="est-confirm" catchtap="confirmEst" hover-class="est-confirm-hover">确认</view>
+      <view class="est-confirm" catchtap="confirmEst" hover-class="est-confirm-hover">{{t.tl_est_confirm}}</view>
     </view>
   </view>
 </view>

@@ -1,4 +1,5 @@
 const store = require('../../utils/store')
+const i18n = require('../../utils/i18n')
 
 const PERIOD_DAYS = { week: 7, month: 30 }
 // 柱状区固定高度 (rpx),最大值占满,其余按比例。
@@ -26,14 +27,14 @@ function shortLabel(dateStr) {
 }
 
 // label 策略:
-//   - 周(7根):每根显示 "M/D",今天显 "今"
+//   - 周(7根):每根显示 "M/D",今天显 todayLabel
 //   - 月(30根):太挤 → 每 5 根 + 首/尾/今天 显示,其余空字符串
-function labelFor(dateStr, period, today, idx, total) {
+function labelFor(dateStr, period, today, idx, total, todayLabel) {
   if (period === 'week') {
-    return dateStr === today ? '今' : shortLabel(dateStr)
+    return dateStr === today ? todayLabel : shortLabel(dateStr)
   }
   // month
-  if (dateStr === today) return '今'
+  if (dateStr === today) return todayLabel
   const isFirst = idx === 0
   const isLast = idx === total - 1
   if (isFirst || isLast || idx % 5 === 0) return shortLabel(dateStr)
@@ -167,7 +168,7 @@ function scaleEstActBars(bars) {
   return max
 }
 
-function buildCharts(state, period) {
+function buildCharts(state, period, todayLabel) {
   const today = store.todayStr()
   const dates = buildDateList(period)
   const { counts, minutes, estimated } = aggregateTasks(state)
@@ -187,7 +188,7 @@ function buildCharts(state, period) {
     }
     return {
       date: d,
-      label: labelFor(d, period, today, i, total),
+      label: labelFor(d, period, today, i, total, todayLabel),
       isToday: d === today,
       value,
       displayValue
@@ -202,7 +203,7 @@ function buildCharts(state, period) {
 
   const countBars = dates.map((d, i) => ({
     date: d,
-    label: labelFor(d, period, today, i, total),
+    label: labelFor(d, period, today, i, total, todayLabel),
     isToday: d === today,
     value: counts[d] || 0
   }))
@@ -215,7 +216,7 @@ function buildCharts(state, period) {
     const diff = Math.abs(est - act)
     return {
       date: d,
-      label: labelFor(d, period, today, i, total),
+      label: labelFor(d, period, today, i, total, todayLabel),
       isToday: d === today,
       value: act,
       est,
@@ -230,7 +231,7 @@ function buildCharts(state, period) {
     const c = coins[d] || { gain: 0, spend: 0, net: 0 }
     return {
       date: d,
-      label: labelFor(d, period, today, i, total),
+      label: labelFor(d, period, today, i, total, todayLabel),
       isToday: d === today,
       gain: c.gain,
       spend: c.spend,
@@ -266,6 +267,7 @@ function buildCharts(state, period) {
 
 Page({
   data: {
+    t: {},
     period: 'week',
     barAreaRpx: BAR_AREA_RPX,
     finishTimeBars: [],
@@ -281,12 +283,18 @@ Page({
     countQ1: 0, countQ2: 0, countQ3: 0,
     minutesQ1: 0, minutesQ2: 0, minutesQ3: 0,
     coinHalf: 0,
-    finishTimeQ1: '06:00', finishTimeQ2: '12:00', finishTimeQ3: '18:00'
+    finishTimeQ1: '06:00', finishTimeQ2: '12:00', finishTimeQ3: '18:00',
+    statsAvgLabel: '',
+    statsCountSubtitle: '',
+    statsDurSummary: '',
+    statsCoinsSubtitle: ''
   },
 
   onShow() {
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 2 })
+    wx.setNavigationBarTitle({ title: i18n.t('stats_navtitle') })
+    this.setData({ t: i18n.dict() })
     this._refresh()
   },
 
@@ -297,8 +305,24 @@ Page({
 
   _refresh() {
     const state = store.getStateWithComputed()
-    const charts = buildCharts(state, this.data.period)
-    this.setData(charts)
+    const period = this.data.period
+    const todayLabel = i18n.t('stats_today')
+    const charts = buildCharts(state, period, todayLabel)
+    const countTotal = charts.countTotal
+    const minutesTotal = charts.minutesTotal
+    const estimatedTotal = charts.estimatedTotal
+    const coinGainTotal = charts.coinGainTotal
+    const coinSpendTotal = charts.coinSpendTotal
+    this.setData({
+      ...charts,
+      statsAvgLabel: i18n.t('stats_avg', { v: charts.finishTimeAvgLabel }),
+      statsCountSubtitle: i18n.t(
+        period === 'week' ? 'stats_count_subtitle_week' : 'stats_count_subtitle_month',
+        { n: countTotal }
+      ),
+      statsDurSummary: i18n.t('stats_dur_summary', { act: minutesTotal, est: estimatedTotal }),
+      statsCoinsSubtitle: i18n.t('stats_coins_subtitle', { gain: coinGainTotal, spent: coinSpendTotal })
+    })
   },
 
   onSwitchPeriod(e) {

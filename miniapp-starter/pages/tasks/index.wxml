@@ -1,16 +1,16 @@
 <view class="page">
   <view class="card header-card">
-    <button class="primary-btn add-nb-btn" bindtap="handleAddTask">+ 新建作业</button>
+    <button class="primary-btn add-nb-btn" bindtap="handleAddTask">{{t.tasks_add_btn}}</button>
     <view class="toolbar-row">
       <view class="seg-group">
-        <text>分组：</text>
+        <text>{{t.tasks_group_label}}</text>
         <text wx:for="{{GROUP_MODES}}" wx:key="key"
               class="seg-btn {{groupMode === item.key ? 'active' : ''}}"
               data-key="{{item.key}}"
               bindtap="handleGroupChange">{{item.label}}</text>
       </view>
       <view class="seg-group">
-        <text>显示：</text>
+        <text>{{t.tasks_filter_label}}</text>
         <text wx:for="{{FILTER_MODES}}" wx:key="key"
               class="seg-btn {{filterMode === item.key ? 'active' : ''}}"
               data-key="{{item.key}}"
@@ -22,7 +22,7 @@
   <view wx:if="{{totalCount === 0}}" class="card">
     <view class="empty-state">
       <text class="empty-emoji">📝</text>
-      <text class="empty-text">还没有作业，点上方「+ 新建作业」开始吧</text>
+      <text class="empty-text">{{t.tasks_empty}}</text>
     </view>
   </view>
 
@@ -47,8 +47,8 @@
               <text wx:if="{{task.subject}}" class="chip rec-chip">{{task.subject}}</text>
               <text class="chip range-chip">{{task.organization}}</text>
               <text class="chip range-chip">{{task.scheduleLabel}}</text>
-              <text wx:if="{{task.activeToday}}" class="chip today-chip">今日</text>
-              <text wx:if="{{task.doneToday}}" class="chip today-chip">已完成</text>
+              <text wx:if="{{task.activeToday}}" class="chip today-chip">{{t.tasks_chip_today}}</text>
+              <text wx:if="{{task.doneToday}}" class="chip today-chip">{{t.tasks_chip_done}}</text>
             </view>
           </view>
         </view>
@@ -72,8 +72,8 @@
             <text wx:if="{{item.subject}}" class="chip rec-chip">{{item.subject}}</text>
             <text class="chip range-chip">{{item.organization}}</text>
             <text class="chip range-chip">{{item.scheduleLabel}}</text>
-            <text wx:if="{{item.activeToday}}" class="chip today-chip">今日</text>
-            <text wx:if="{{item.doneToday}}" class="chip today-chip">已完成</text>
+            <text wx:if="{{item.activeToday}}" class="chip today-chip">{{t.tasks_chip_today}}</text>
+            <text wx:if="{{item.doneToday}}" class="chip today-chip">{{t.tasks_chip_done}}</text>
           </view>
         </view>
       </view>

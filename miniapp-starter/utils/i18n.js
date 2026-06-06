@@ -17,6 +17,26 @@ const DICT = {
     prof_wbSub: 'Create / set goals / import / share · word challenge with your pet',
     prof_settings: 'Settings',
     prof_settingsSub: 'Language · organization tags · data sync',
+    prof_feedback: 'Feedback',
+    prof_feedbackSub: 'Suggestions or report a problem',
+    prof_avatar_no_cloud: 'Cloud storage is off; can\'t upload avatar',
+    prof_avatar_updated: 'Avatar updated',
+    prof_avatar_fail_space: 'Cloud storage full; can\'t upload avatar',
+    prof_avatar_fail_big: 'Image too large, try another',
+    prof_avatar_fail_net: 'Network unstable, try again later',
+    prof_avatar_fail_nofileid: 'Uploaded but got no fileID, try again later',
+    prof_avatar_fail_generic: 'Avatar upload failed, please retry',
+    prof_sync_fail: 'Sync failed: {e}',
+    prof_sync_error: 'Sync error',
+    prof_switch_title: 'Use this device',
+    prof_switch_content: 'This overwrites local data with the latest cloud copy and signs out the other device. Continue?',
+    prof_switch_confirm: 'OK',
+    prof_cancel: 'Cancel',
+    prof_switch_done: 'Switched to this device',
+    prof_switch_fail: 'Switch failed',
+    prof_switch_error: 'Switch error',
+    prof_modal_fail: 'Failed to open dialog',
+    prof_unknown_err: 'unknown error',
     prof_admin: '🛠 Admin Panel',
     prof_adminSub: 'View all users, adjust coins',
     prof_version: 'Version',
@@ -28,6 +48,7 @@ const DICT = {
     set_orgSub: 'Tag homework by category (school / club …)',
     set_sync: 'Data Sync',
     sync_synced: 'Synced', sync_readonly: 'Read-only', sync_error: 'Sync failed', sync_none: 'Not synced',
+    sync_never: 'Never', sync_just_now: 'just now', sync_sec_ago: '{n}s ago', sync_min_ago: '{n} min ago', sync_hr_ago: '{n}h ago',
     sync_last: 'Last sync: ',
     sync_now: 'Sync now', sync_reclaim: 'Use this device',
     sync_readonlyWarn: 'This device is read-only; changes won\'t save to the cloud.',
@@ -43,6 +64,26 @@ const DICT = {
     prof_wbSub: '建单词本 / 设目标 / 拍照导入 / 分享 · 和宠物玩单词挑战',
     prof_settings: '设置',
     prof_settingsSub: '语言 · 组织标签 · 数据同步',
+    prof_feedback: '建议反馈',
+    prof_feedbackSub: '提建议或反馈问题',
+    prof_avatar_no_cloud: '云存储未启用，无法上传头像',
+    prof_avatar_updated: '头像已更新',
+    prof_avatar_fail_space: '云存储空间不足，无法上传头像',
+    prof_avatar_fail_big: '图片过大，换一张再试',
+    prof_avatar_fail_net: '网络不稳定，稍后再试',
+    prof_avatar_fail_nofileid: '上传完成但没拿到 fileID，稍后再试',
+    prof_avatar_fail_generic: '头像上传失败，请重试',
+    prof_sync_fail: '同步失败：{e}',
+    prof_sync_error: '同步出错',
+    prof_switch_title: '切回此设备',
+    prof_switch_content: '会以云端最新数据覆盖本机当前 state，并踢下线另一台设备。继续？',
+    prof_switch_confirm: '用此设备',
+    prof_cancel: '取消',
+    prof_switch_done: '已切回此设备',
+    prof_switch_fail: '切回失败',
+    prof_switch_error: '切回出错',
+    prof_modal_fail: '弹窗打开失败',
+    prof_unknown_err: '未知错误',
     prof_admin: '🛠 管理后台',
     prof_adminSub: '查看所有用户、调整金币',
     prof_version: '版本',
@@ -53,12 +94,21 @@ const DICT = {
     set_orgSub: '给作业分门别类(校内 / 校外 / 兴趣班…)',
     set_sync: '数据同步',
     sync_synced: '已同步', sync_readonly: '只读', sync_error: '同步失败', sync_none: '未同步',
+    sync_never: '从未', sync_just_now: '刚刚', sync_sec_ago: '{n} 秒前', sync_min_ago: '{n} 分钟前', sync_hr_ago: '{n} 小时前',
     sync_last: '上次同步：',
     sync_now: '立即同步', sync_reclaim: '切回此设备',
     sync_readonlyWarn: '本机当前为只读，写操作不会保存到云端。',
     set_count_suffix: ' 个'
   }
 }
+
+// 各页面的分字典模块合并进来(每页一个 utils/i18n/<page>.js,避免一个巨型文件 +
+// 便于并行维护)。模块导出 { en:{...}, zh:{...} },键名加页面前缀防撞。
+try {
+  const extra = require('./i18n/index')
+  if (extra && extra.en) Object.assign(DICT.en, extra.en)
+  if (extra && extra.zh) Object.assign(DICT.zh, extra.zh)
+} catch (e) { /* 分模块还没建时静默 */ }
 
 let _lang = null
 function getLang() {
@@ -75,10 +125,15 @@ function setLang(l) {
   return _lang
 }
 function dict() { return DICT[getLang()] }
-function t(key) {
+// 占位替换:t('imported', { n: 5 }),字典里写 "Imported {n} words" / "已导入 {n} 个"。
+function applyParams(s, params) {
+  if (!params) return s
+  return String(s).replace(/\{(\w+)\}/g, (m, k) => (params[k] != null ? params[k] : m))
+}
+function t(key, params) {
   const d = DICT[getLang()]
-  if (d && d[key] != null) return d[key]
-  return DICT.en[key] != null ? DICT.en[key] : key
+  const s = (d && d[key] != null) ? d[key] : (DICT.en[key] != null ? DICT.en[key] : key)
+  return applyParams(s, params)
 }
 
 module.exports = { DICT, getLang, setLang, dict, t }

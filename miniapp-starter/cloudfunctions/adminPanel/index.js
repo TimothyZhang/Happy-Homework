@@ -93,6 +93,16 @@ exports.main = async (event = {}) => {
     }
   }
 
+  // submitFeedback 任何用户都能调（提交建议/反馈,落 feedback 集合）。
+  if (action === 'submitFeedback') {
+    try {
+      return await submitFeedback({ ...event, openid: callerOpenid })
+    } catch (e) {
+      console.error('[adminPanel] submitFeedback failed', e)
+      return { ok: false, reason: 'internal_error', message: (e && e.errMsg) || String(e) }
+    }
+  }
+
   if (!isAdmin(callerOpenid)) {
     return { ok: false, reason: 'not_admin' }
   }
@@ -116,6 +126,9 @@ exports.main = async (event = {}) => {
     }
     if (action === 'listCoinLedger') {
       return await listCoinLedger(event)
+    }
+    if (action === 'listFeedback') {
+      return await listFeedback(event)
     }
     return { ok: false, reason: 'unknown_action' }
   } catch (e) {
@@ -464,5 +477,64 @@ async function listCoinLedger(event) {
   } catch (e) {
     // count 失败不阻塞列表
   }
+  return { ok: true, rows, total, limit, skip }
+}
+
+const FEEDBACK_COLLECTION = 'feedback'
+// 剥掉控制字符 / 零宽 / bidi 标记（字面量会让源文件含不可见字符，git 当 binary）。
+const FEEDBACK_BAD_CHARS_RE = new RegExp(
+  '[\u0000-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]',
+  'g'
+)
+function cleanFeedbackStr(s, max) {
+  return String(s == null ? '' : s).replace(FEEDBACK_BAD_CHARS_RE, '').trim().slice(0, max)
+}
+
+// 任何用户提交建议/反馈。落 feedback 集合,管理员用 listFeedback 看。
+async function submitFeedback({ openid, text, contact, version }) {
+  const body = cleanFeedbackStr(text, 1000)
+  if (!body) return { ok: false, reason: 'empty' }
+  await ensureCollection(FEEDBACK_COLLECTION)
+  const db = cloud.database()
+  // 轻量防刷:同一用户 30 秒内最多 5 条。
+  try {
+    const since = Date.now() - 30000
+    const recent = await db.collection(FEEDBACK_COLLECTION)
+      .where({ _openid: openid, createdAt: db.command.gt(since) }).count()
+    if (recent && recent.total >= 5) return { ok: false, reason: 'too_frequent' }
+  } catch (e) { /* count 失败不挡提交 */ }
+  // 顺手带上昵称,管理员看着方便(best-effort)。
+  let nickname = ''
+  try {
+    const u = await db.collection(USER_COLLECTION).where({ _openid: openid }).field({ state: true }).limit(1).get()
+    const p = u.data && u.data[0] && u.data[0].state && u.data[0].state.profile
+    if (p && p.nickname) nickname = cleanFeedbackStr(p.nickname, 40)
+  } catch (e) { /* ignore */ }
+  await db.collection(FEEDBACK_COLLECTION).add({
+    data: {
+      _openid: openid,
+      text: body,
+      contact: cleanFeedbackStr(contact, 100),
+      version: cleanFeedbackStr(version, 40),
+      nickname,
+      createdAt: Date.now()
+    }
+  })
+  return { ok: true }
+}
+
+// 管理员看反馈列表(按时间倒序)。
+async function listFeedback(event) {
+  await ensureCollection(FEEDBACK_COLLECTION)
+  const db = cloud.database()
+  const limit = Math.min(LIST_LIMIT_MAX, Math.max(1, Number(event.limit) || LIST_LIMIT_DEFAULT))
+  const skip = Math.max(0, Number(event.skip) || 0)
+  const res = await db.collection(FEEDBACK_COLLECTION).orderBy('createdAt', 'desc').skip(skip).limit(limit).get()
+  const rows = res.data || []
+  let total = rows.length + skip
+  try {
+    const c = await db.collection(FEEDBACK_COLLECTION).count()
+    if (c && typeof c.total === 'number') total = c.total
+  } catch (e) { /* count 失败不阻塞 */ }
   return { ok: true, rows, total, limit, skip }
 }

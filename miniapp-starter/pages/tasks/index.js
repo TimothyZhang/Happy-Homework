@@ -2,32 +2,40 @@ const store = require('../../utils/store')
 const cloudSync = require('../../utils/cloud-sync')
 const perf = require('../../utils/perf')
 const shareReward = require('../../utils/share-reward')
+const i18n = require('../../utils/i18n')
 
-const WEEKDAY_NAMES = ['一', '二', '三', '四', '五', '六', '日']
 const GROUP_MODES = [
-  { key: 'subject', label: '按学科' },
-  { key: 'organization', label: '按组织' },
-  { key: 'none', label: '不分组' }
+  { key: 'subject', labelKey: 'tasks_group_subject' },
+  { key: 'organization', labelKey: 'tasks_group_org' },
+  { key: 'none', labelKey: 'tasks_group_none' }
 ]
 const FILTER_MODES = [
-  { key: 'open', label: '待办' },
-  { key: 'all', label: '全部' }
+  { key: 'open', labelKey: 'tasks_filter_open' },
+  { key: 'all', labelKey: 'tasks_filter_all' }
 ]
 
+function buildLocalizedModes() {
+  const groupModes = GROUP_MODES.map((m) => ({ key: m.key, label: i18n.t(m.labelKey) }))
+  const filterModes = FILTER_MODES.map((m) => ({ key: m.key, label: i18n.t(m.labelKey) }))
+  return { groupModes, filterModes }
+}
+
 function describeRecurrence(t) {
-  if (!t.recurrence) return '每日'
-  if (t.recurrence.type === 'daily') return '每日'
+  const weekdays = i18n.t('tasks_weekdays')
+  const sep = i18n.t('tasks_weekday_sep')
+  if (!t.recurrence) return i18n.t('tasks_recur_daily')
+  if (t.recurrence.type === 'daily') return i18n.t('tasks_recur_daily')
   if (t.recurrence.type === 'weekly') {
     const wds = (t.recurrence.weekdays || []).slice().sort()
-    if (!wds.length) return '每周（未选日）'
-    return '每周' + wds.map((w) => WEEKDAY_NAMES[w - 1]).join('、')
+    if (!wds.length) return i18n.t('tasks_recur_weekly_nodays')
+    return i18n.t('tasks_recur_weekly') + wds.map((w) => weekdays[w - 1]).join(sep)
   }
   return ''
 }
 
 function describeSchedule(t) {
   if (t.mode === 'recurring') {
-    const tail = t.endDate ? `→ ${t.endDate}` : '→ 长期'
+    const tail = t.endDate ? `→ ${t.endDate}` : i18n.t('tasks_schedule_ongoing')
     return `${describeRecurrence(t)} · ${t.startDate || ''} ${tail}`
   }
   const due = t.dueDate || t.endDate || t.startDate
@@ -62,7 +70,7 @@ function decorateTask(t, today) {
   return {
     ...t,
     scheduleLabel: describeSchedule(t),
-    modeLabel: t.mode === 'recurring' ? '重复' : '一次性',
+    modeLabel: t.mode === 'recurring' ? i18n.t('tasks_mode_recurring') : i18n.t('tasks_mode_oneshot'),
     doneToday,
     cleared,
     activeToday
@@ -76,14 +84,18 @@ Page({
     groups: [],            // [{ key, label, tasks: [decoratedTask] }]
     flatList: [],          // when groupMode === 'none'
     totalCount: 0,
-    GROUP_MODES,
-    FILTER_MODES
+    GROUP_MODES: GROUP_MODES.map((m) => ({ key: m.key, label: '' })),
+    FILTER_MODES: FILTER_MODES.map((m) => ({ key: m.key, label: '' })),
+    t: {}
   },
 
   onShow() {
     const stamp = perf.markPageShow('tasks')
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 1 })
+    const { groupModes, filterModes } = buildLocalizedModes()
+    this.setData({ t: i18n.dict(), GROUP_MODES: groupModes, FILTER_MODES: filterModes })
+    wx.setNavigationBarTitle({ title: i18n.t('tasks_navtitle') })
     this.refreshState(stamp)
     cloudSync.hydrateIfStale().then((r) => {
       if (r && r.changed) this.refreshState()
@@ -175,14 +187,14 @@ Page({
       .find((t) => t.id === id)
     if (!task) return
     wx.showModal({
-      title: `删除「${task.content || '该作业'}」？`,
-      content: '历史完成记录不变,但这条作业以后不再出现。',
+      title: i18n.t('tasks_delete_title', { name: task.content || i18n.t('tasks_navtitle') }),
+      content: i18n.t('tasks_delete_content'),
       confirmColor: '#e54545',
       success: (res) => {
         if (res.confirm) {
           store.deleteTask(id)
           this.refreshState()
-          wx.showToast({ title: '已删除', icon: 'success' })
+          wx.showToast({ title: i18n.t('tasks_deleted'), icon: 'success' })
         }
       }
     })
@@ -192,7 +204,7 @@ Page({
     // 引导 wx 分享面板 — 真正的 serializeTasksForShare 在 onShareAppMessage 里
     // 落地。一次只能分一份,通常分享方拍一遍当日的全部任务。
     wx.showShareMenu({ withShareTicket: false, menus: ['shareAppMessage'] })
-    wx.showToast({ title: '点右上角「···」分享', icon: 'none' })
+    wx.showToast({ title: i18n.t('tasks_share_hint'), icon: 'none' })
   },
 
   // wx 分享面板回调 — 默认序列化当日全部任务。学科/组织过滤可在分享前
@@ -204,7 +216,7 @@ Page({
     const payload = store.serializeTasksForShare(today, { sharerOpenid: sharer })
     const encoded = encodeURIComponent(JSON.stringify(payload))
     return {
-      title: `今天的作业 (${(payload.t || []).length} 项)`,
+      title: i18n.t('tasks_share_title', { n: (payload.t || []).length }),
       path: `/pages/notebook-share/index?d=${encoded}`
     }
   }

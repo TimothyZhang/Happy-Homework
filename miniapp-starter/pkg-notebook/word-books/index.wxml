@@ -1,10 +1,10 @@
 <view class="page">
-  <!-- 每次背诵数量 -->
+  <!-- words per session -->
   <view class="card">
     <view class="row">
       <view class="row-main">
-        <text class="row-title">每次背诵数量</text>
-        <text class="row-sub">默认 20,至少 {{sizeMin}} 个(含 ≥3 新词)</text>
+        <text class="row-title">{{t.wbooks_sessionSize_title}}</text>
+        <text class="row-sub">{{sessionSizeSub}}</text>
       </view>
       <view class="stepper">
         <view class="step-btn {{sessionSize <= sizeMin ? 'off' : ''}}" bindtap="decSize" hover-class="step-hover">−</view>
@@ -14,32 +14,32 @@
     </view>
   </view>
 
-  <!-- 单词本列表 -->
+  <!-- word book list -->
   <view class="section-hd">
-    <text class="section-title">我的单词本</text>
-    <text class="section-sub">勾选 ★ 设为近期目标(可多选)· 已选 {{targetCount}}</text>
+    <text class="section-title">{{t.wbooks_section_title}}</text>
+    <text class="section-sub">{{sectionSub}}</text>
   </view>
 
-  <view class="lib-stat">全部单词 <text class="lib-stat-n">{{totalWords}}</text> 个(去重),已掌握 <text class="lib-stat-n ok">{{masteredWords}}</text> 个</view>
+  <view class="lib-stat">{{statLabel}}</view>
 
   <view wx:for="{{books}}" wx:key="id" class="book" bindtap="openBook" data-id="{{item.id}}" hover-class="book-hover">
     <view class="star {{item.isTarget ? 'on' : ''}}" catchtap="toggleTarget" data-id="{{item.id}}">★</view>
     <view class="book-main">
       <view class="book-name-row">
         <text class="book-name">{{item.name}}</text>
-        <text wx:if="{{item.isRef}}" class="book-ref-tag">引用</text>
+        <text wx:if="{{item.isRef}}" class="book-ref-tag">{{t.wbooks_ref_tag}}</text>
       </view>
       <view wx:if="{{item.isRef}}" class="book-creator">
         <image wx:if="{{item.creatorAvatar}}" class="book-creator-avatar" src="{{item.creatorAvatar}}" mode="aspectFill" />
         <view wx:else class="book-creator-avatar book-creator-ph">👤</view>
-        <text class="book-creator-name">{{item.creatorName || '匿名'}}</text>
+        <text class="book-creator-name">{{item.creatorName || t.wbooks_anon}}</text>
       </view>
-      <text class="book-meta">{{item.count}} 词 · 已掌握 {{item.mastered}}{{item.builtin ? ' · 内置' : ''}}</text>
+      <text class="book-meta">{{item.metaLabel}}</text>
     </view>
     <text class="book-chev">›</text>
   </view>
 
-  <view class="new-book {{customCount >= customMax ? 'full' : ''}}" bindtap="newBook" hover-class="new-hover">＋ 新建单词本 · {{customCount}}/{{customMax}}</view>
-  <view class="new-book discover" bindtap="goDiscover" hover-class="discover-hover">🔍 发现 · 搜别人公开的单词本</view>
-  <view class="hint-line">提示:点单词本进去可以加 / 删 / 改单词、拍照导入、分享、公开,也支持短语。</view>
+  <view class="new-book {{customCount >= customMax ? 'full' : ''}}" bindtap="newBook" hover-class="new-hover">{{newLabel}}</view>
+  <view class="new-book discover" bindtap="goDiscover" hover-class="discover-hover">{{t.wbooks_discover}}</view>
+  <view class="hint-line">{{t.wbooks_hint}}</view>
 </view>

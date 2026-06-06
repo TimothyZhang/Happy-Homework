@@ -10,9 +10,9 @@
     <view class="card list-card">
       <view class="list-header">
         <text class="list-title">{{selectedLabel}}</text>
-        <text class="list-count">{{selectedItems.length}} 项</text>
+        <text class="list-count">{{selectedCountLabel}}</text>
       </view>
-      <view wx:if="{{selectedItems.length === 0}}" class="empty">这一天没有作业</view>
+      <view wx:if="{{selectedItems.length === 0}}" class="empty">{{t.cal_empty}}</view>
       <task-list wx:if="{{selectedItems.length > 0}}"
                  items="{{selectedItems}}"
                  active-date="{{selectedDate}}"

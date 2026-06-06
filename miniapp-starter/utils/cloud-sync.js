@@ -356,12 +356,13 @@ async function handleKickedOnPush(remoteDoc, attemptedState, attemptedUpdatedAt)
 // are the fallback when the user wants to verify or recover.
 
 function formatRelativeTime(ts) {
-  if (!ts) return '从未'
+  const i18n = require('./i18n')   // lazy: cloud-sync 加载很早,避免任何初始化顺序问题
+  if (!ts) return i18n.t('sync_never')
   const diff = Date.now() - ts
-  if (diff < 30 * 1000) return '刚刚'
-  if (diff < 60 * 1000) return `${Math.floor(diff / 1000)} 秒前`
-  if (diff < 60 * 60 * 1000) return `${Math.floor(diff / 60000)} 分钟前`
-  if (diff < 24 * 60 * 60 * 1000) return `${Math.floor(diff / 3600000)} 小时前`
+  if (diff < 30 * 1000) return i18n.t('sync_just_now')
+  if (diff < 60 * 1000) return i18n.t('sync_sec_ago', { n: Math.floor(diff / 1000) })
+  if (diff < 60 * 60 * 1000) return i18n.t('sync_min_ago', { n: Math.floor(diff / 60000) })
+  if (diff < 24 * 60 * 60 * 1000) return i18n.t('sync_hr_ago', { n: Math.floor(diff / 3600000) })
   const d = new Date(ts)
   const pad = (n) => `${n}`.padStart(2, '0')
   return `${d.getMonth() + 1}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`

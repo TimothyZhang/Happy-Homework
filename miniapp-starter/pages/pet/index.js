@@ -1,21 +1,24 @@
 const store = require('../../utils/store')
 const cloudSync = require('../../utils/cloud-sync')
 const perf = require('../../utils/perf')
+const i18n = require('../../utils/i18n')
 
 const deriveAnimState = store.deriveAnimState
 
-const SPEAKING_LINES = {
-  hungry:  ['我饿了…要吃东西啦', '咕噜咕噜，肚子空空的'],
-  dirty:   ['我想洗澡澡了～', '快帮我搓个泡泡浴'],
-  sick:    ['不太舒服…想吃药', '我有点头晕…'],
-  sad:     ['陪陪我嘛', '今天有点闷闷的'],
-  happy:   ['好喜欢你呀！', '今天天气真好！', '嘻嘻嘻～'],
-  idle:    ['今天过得怎么样呀？', '想我了吗？', '一起加油哦～']
+// Speaking lines are now resolved via i18n at runtime (see pickLine below).
+// Keys map: hungry → [pet_speak_hungry_1, pet_speak_hungry_2], etc.
+const SPEAKING_KEYS = {
+  hungry:  ['pet_speak_hungry_1', 'pet_speak_hungry_2'],
+  dirty:   ['pet_speak_dirty_1',  'pet_speak_dirty_2'],
+  sick:    ['pet_speak_sick_1',   'pet_speak_sick_2'],
+  sad:     ['pet_speak_sad_1',    'pet_speak_sad_2'],
+  happy:   ['pet_speak_happy_1',  'pet_speak_happy_2', 'pet_speak_happy_3'],
+  idle:    ['pet_speak_idle_1',   'pet_speak_idle_2',  'pet_speak_idle_3']
 }
 
 function pickLine(state) {
-  const arr = SPEAKING_LINES[state] || SPEAKING_LINES.idle
-  return arr[Math.floor(Math.random() * arr.length)]
+  const keys = SPEAKING_KEYS[state] || SPEAKING_KEYS.idle
+  return i18n.t(keys[Math.floor(Math.random() * keys.length)])
 }
 
 // Tiny visual milestone for higher levels — pet name gets a star/crown badge
@@ -84,6 +87,26 @@ function faceFromDelta(dx, prevFace) {
 
 function hasAnimRig(pet) { return !!(pet && pet.species) }
 
+// Map store.js species array → translated labels for display.
+// Internal ids/emojis are unchanged; only .label is replaced.
+function translateSpecies(speciesOptions) {
+  return speciesOptions.map(function(s) {
+    return { id: s.id, emoji: s.emoji, label: i18n.t('pet_species_' + s.id) }
+  })
+}
+
+// Map store.js shopItems → translated name/effect/buyLabel for display.
+// Internal ids/prices/stats are unchanged.
+function translateShopItems(items) {
+  return items.map(function(item) {
+    return Object.assign({}, item, {
+      name:     i18n.t('pet_item_name_' + item.id),
+      effect:   i18n.t('pet_item_effect_' + item.id),
+      buyLabel: i18n.t('pet_shop_buy_btn', { price: item.price })
+    })
+  })
+}
+
 Page({
   data: {
     pet: {},
@@ -145,13 +168,25 @@ Page({
     levelBadge: '',
     // 升级动画覆盖层:点击升级按钮 → 触发 LEVEL_UP_ANIM_MS 的全屏动画。
     showLevelUpAnim: false,
-    levelUpToLevel: 0
+    levelUpToLevel: 0,
+    // i18n dict injected into template
+    t: {},
+    // computed i18n strings that need dynamic interpolation
+    hudCoins: '',
+    hudAgeDays: '',
+    hudVocab: '',
+    shopPanelCoins: '',
+    manageRenameSub: '',
+    manageSwitchSub: '',
+    manageRoomSub: '',
+    switchSheetSub: ''
   },
 
   onShow() {
     const stamp = perf.markPageShow('pet')
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 1 })
+    wx.setNavigationBarTitle({ title: i18n.t('pet_navtitle') })
     this.refreshState(stamp)
     // Consume celebration flag from home page (set in maybeShowReward).
     const app = getApp()
@@ -207,16 +242,24 @@ Page({
     const xpPreviewWidth = !isSetup || isMaxLevel || xpNeeded <= 0
       ? 0
       : Math.max(0, Math.min(100 - xpPercent, xpPerHourRaw * 100 / xpNeeded))
+    const coins = state.coins
+    const ageDays = isSetup ? store.petAgeDays(pet) : 0
+    const vocab = store.getWordStats(state).mastered
+    const renameCost = store.PET_RENAME_COST
+    const switchCost = store.PET_SWITCH_COST
+    const roomTheme = pet.roomTheme || 'cozy'
     this.setData({
+      t: i18n.dict(),
       pet,
-      coins: state.coins,
-      shopItems: state.shopItems,
+      coins,
+      shopItems: translateShopItems(state.shopItems),
+      speciesOptions: translateSpecies(store.PET_SPECIES),
       mode: isSetup ? 'view' : 'setup',
       animState: isSetup ? deriveAnimState(pet) : 'idle',
       rigPivot: RIG_PIVOTS[pet.species] || RIG_PIVOTS.cat,
-      roomTheme: pet.roomTheme || 'cozy',
-      ageDays: isSetup ? store.petAgeDays(pet) : 0,
-      vocab: store.getWordStats(state).mastered,
+      roomTheme,
+      ageDays,
+      vocab,
       reciteLeft: store.reciteRemaining(state),
       xp,
       xpNeeded,
@@ -227,7 +270,18 @@ Page({
       isMaxLevel,
       levelBadge: levelBadge(pet.level || 1),
       showBubble: false,
-      bubbleText: ''
+      bubbleText: '',
+      // Computed interpolated strings
+      hudCoins: i18n.t('pet_hud_coins', { n: coins }),
+      hudAgeDays: i18n.t('pet_age_days', { n: ageDays }),
+      hudVocab: i18n.t('pet_vocab', { n: vocab }),
+      shopPanelCoins: i18n.t('pet_shop_panel_coins', { n: coins }),
+      manageRenameSub: i18n.t('pet_manage_rename_sub', { cost: renameCost }),
+      manageSwitchSub: i18n.t('pet_manage_switch_sub', { cost: switchCost }),
+      manageRoomSub: roomTheme === 'castle'
+        ? i18n.t('pet_manage_room_sub_castle')
+        : i18n.t('pet_manage_room_sub_cozy'),
+      switchSheetSub: i18n.t('pet_switch_sub', { cost: switchCost, coins })
     }, perfStamp ? () => perf.markPaint(perfStamp) : undefined)
     // Start/stop the 2.5D scene engine alongside refreshState. Idempotent —
     // _startSceneEngine is a no-op if already running. First setup drops the
@@ -364,17 +418,17 @@ Page({
   handleConfirmSetup() {
     const { setupSpecies, setupName } = this.data
     if (!setupSpecies) {
-      wx.showToast({ title: '选一只想养的吧', icon: 'none' })
+      wx.showToast({ title: i18n.t('pet_toast_pick_species'), icon: 'none' })
       return
     }
     const trimmed = (setupName || '').trim()
     if (!trimmed) {
-      wx.showToast({ title: '给它起个名字吧', icon: 'none' })
+      wx.showToast({ title: i18n.t('pet_toast_enter_name'), icon: 'none' })
       return
     }
     store.setupPet({ species: setupSpecies, name: trimmed })
     this.refreshState()
-    wx.showToast({ title: `你好，${trimmed}！`, icon: 'success' })
+    wx.showToast({ title: i18n.t('pet_toast_hello', { name: trimmed }), icon: 'success' })
   },
 
   // === Pet interactions === //
@@ -445,8 +499,19 @@ Page({
   },
   pickRoom(e) {
     const theme = store.setRoomTheme(e.currentTarget.dataset.theme)
-    this.setData({ roomTheme: theme, showRoomPicker: false })
-    wx.showToast({ title: theme === 'castle' ? '已换成城堡' : '已换成温馨小屋', icon: 'none' })
+    this.setData({
+      roomTheme: theme,
+      showRoomPicker: false,
+      manageRoomSub: theme === 'castle'
+        ? i18n.t('pet_manage_room_sub_castle')
+        : i18n.t('pet_manage_room_sub_cozy')
+    })
+    wx.showToast({
+      title: theme === 'castle'
+        ? i18n.t('pet_toast_room_castle')
+        : i18n.t('pet_toast_room_cozy'),
+      icon: 'none'
+    })
   },
 
   // 摸摸它:按心情互动(挤一下 + 飘爱心 + 说话气泡)。现在由点宠物直接触发。
@@ -515,13 +580,13 @@ Page({
     const before = store.getStateWithComputed()
     const item = before.shopItems.find((shopItem) => shopItem.id === id)
     if (before.coins < item.price) {
-      wx.showToast({ title: '金币不够', icon: 'none' })
+      wx.showToast({ title: i18n.t('pet_toast_not_enough_coins'), icon: 'none' })
       return
     }
 
     store.buyItem(id)
     this.refreshState()
-    wx.showToast({ title: `${item.name} 已购买`, icon: 'success' })
+    wx.showToast({ title: i18n.t('pet_toast_bought', { name: i18n.t('pet_item_name_' + item.id) }), icon: 'success' })
     // Only food items (those that raise fullness) trigger the eating
     // animation — bath / toy / vitamin items don't (per spec §4).
     if ((item.fullness || 0) > 0) this.queueAnim('eating')
@@ -537,7 +602,7 @@ Page({
     if (this.data.isMaxLevel) return
     if (!this.data.canLevelUp) {
       wx.showToast({
-        title: `还差 ${Math.max(0, this.data.xpNeeded - this.data.xp)} XP`,
+        title: i18n.t('pet_toast_xp_needed', { n: Math.max(0, this.data.xpNeeded - this.data.xp) }),
         icon: 'none'
       })
       return
@@ -545,9 +610,9 @@ Page({
     const result = store.levelUpPet()
     if (!result || !result.ok) {
       if (result && result.reason === 'insufficient-xp') {
-        wx.showToast({ title: `还差 ${result.need} XP`, icon: 'none' })
+        wx.showToast({ title: i18n.t('pet_toast_xp_needed', { n: result.need }), icon: 'none' })
       } else if (result && result.reason === 'max-level') {
-        wx.showToast({ title: '已经满级啦', icon: 'none' })
+        wx.showToast({ title: i18n.t('pet_toast_max_level'), icon: 'none' })
       }
       return
     }
@@ -575,34 +640,34 @@ Page({
     this.setData({ showShopPanel: false })
     const currentName = (this.data.pet && this.data.pet.name) || ''
     wx.showModal({
-      title: `改名（${this.data.renameCost} 金币）`,
+      title: i18n.t('pet_rename_modal_title', { cost: this.data.renameCost }),
       editable: true,
-      placeholderText: '给宠物起个新名字',
+      placeholderText: i18n.t('pet_rename_placeholder'),
       content: currentName,
-      confirmText: '确定',
-      cancelText: '取消',
+      confirmText: i18n.t('pet_rename_confirm'),
+      cancelText: i18n.t('pet_rename_cancel'),
       success: (res) => {
         if (!res.confirm) return
         const newName = (res.content || '').trim()
         if (!newName) {
-          wx.showToast({ title: '名字不能为空', icon: 'none' })
+          wx.showToast({ title: i18n.t('pet_toast_rename_empty'), icon: 'none' })
           return
         }
         if (newName === currentName) return  // 同名,不扣金币静默返回
         const r = store.renamePet(newName)
         if (r && r.ok) {
           this.refreshState()
-          wx.showToast({ title: `改名成功！现在叫 ${r.newName} 啦~`, icon: 'none' })
+          wx.showToast({ title: i18n.t('pet_toast_rename_success', { name: r.newName }), icon: 'none' })
         } else if (r && r.reason === 'name-too-long') {
-          wx.showToast({ title: `名字不能超过 ${r.max} 个字`, icon: 'none' })
+          wx.showToast({ title: i18n.t('pet_toast_rename_too_long', { max: r.max }), icon: 'none' })
         } else if (r && r.reason === 'not-enough-coins') {
-          wx.showToast({ title: `金币不足，需要 ${r.cost}`, icon: 'none' })
+          wx.showToast({ title: i18n.t('pet_toast_rename_no_coins', { cost: r.cost }), icon: 'none' })
         } else if (r && r.reason === 'empty-name') {
-          wx.showToast({ title: '名字不能为空', icon: 'none' })
+          wx.showToast({ title: i18n.t('pet_toast_rename_empty'), icon: 'none' })
         } else if (r && r.reason === 'same-name') {
           // 静默 — UI 层已经早返回了,这里兜底
         } else if (r && r.reason === 'no-pet') {
-          wx.showToast({ title: '还没有宠物', icon: 'none' })
+          wx.showToast({ title: i18n.t('pet_toast_no_pet'), icon: 'none' })
         }
       }
     })
@@ -624,15 +689,15 @@ Page({
     if (!entry) return
     if (this.data.pet.species === id) return  // current species — disabled
     if ((this.data.coins || 0) < this.data.switchCost) {
-      wx.showToast({ title: `金币不足，需要 ${this.data.switchCost}`, icon: 'none' })
+      wx.showToast({ title: i18n.t('pet_toast_switch_no_coins', { cost: this.data.switchCost }), icon: 'none' })
       return
     }
     this.setData({ switching: true })
     wx.showModal({
-      title: '换宠物',
-      content: `花 ${this.data.switchCost} 金币换成 ${entry.emoji} ${entry.label} 吗？属性、等级和名字都会保留。`,
-      confirmText: '确认',
-      cancelText: '取消',
+      title: i18n.t('pet_switch_modal_title'),
+      content: i18n.t('pet_switch_modal_content', { cost: this.data.switchCost, emoji: entry.emoji, label: i18n.t('pet_species_' + entry.id) }),
+      confirmText: i18n.t('pet_switch_modal_confirm'),
+      cancelText: i18n.t('pet_switch_modal_cancel'),
       success: (res) => {
         if (!res.confirm) {
           this.setData({ switching: false })
@@ -642,9 +707,9 @@ Page({
         this.setData({ switching: false, showSwitchPanel: false })
         this.refreshState()
         if (r && r.ok) {
-          wx.showToast({ title: `换成 ${r.emoji} ${r.label} 啦！`, icon: 'success' })
+          wx.showToast({ title: i18n.t('pet_toast_switch_success', { emoji: r.emoji, label: i18n.t('pet_species_' + id) }), icon: 'success' })
         } else if (r && r.reason === 'not-enough-coins') {
-          wx.showToast({ title: `金币不足，需要 ${this.data.switchCost}`, icon: 'none' })
+          wx.showToast({ title: i18n.t('pet_toast_switch_no_coins', { cost: this.data.switchCost }), icon: 'none' })
         }
       },
       fail: () => { this.setData({ switching: false }) }

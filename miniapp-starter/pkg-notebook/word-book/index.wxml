@@ -5,44 +5,44 @@
       <view class="ref-creator">
         <image wx:if="{{creatorAvatar}}" class="ref-avatar" src="{{creatorAvatar}}" mode="aspectFill" />
         <view wx:else class="ref-avatar ref-avatar-ph">👤</view>
-        <text class="ref-creator-name">{{creatorName || '匿名'}}</text>
-        <text class="ref-refcount">· 被引用 {{refCount}} 次</text>
+        <text class="ref-creator-name">{{creatorName || t.wbook_anon}}</text>
+        <text class="ref-refcount">· {{refCountLabel}}</text>
       </view>
-      <text class="ref-sub">🔗 引用自公开库 · 只读,点更新拉作者最新内容</text>
+      <text class="ref-sub">{{t.wbook_ref_sub}}</text>
     </view>
-    <view class="ref-update" bindtap="updateRef" hover-class="ref-update-hover">🔄 更新</view>
+    <view class="ref-update" bindtap="updateRef" hover-class="ref-update-hover">{{t.wbook_ref_update}}</view>
   </view>
 
   <!-- 录入:中文 + 英文(可短语) -->
   <view wx:if="{{!isRef}}" class="add-card">
     <view class="add-row">
-      <input class="add-input cn" placeholder="中文(如:苹果)" maxlength="{{textMax}}" value="{{cnInput}}" bindinput="onCn" confirm-type="next" />
-      <input class="add-input en" placeholder="英文(可短语)" maxlength="{{textMax}}" value="{{enInput}}" bindinput="onEn" confirm-type="done" bindconfirm="addWord" />
-      <view class="add-btn" bindtap="addWord" hover-class="add-btn-hover">添加</view>
+      <input class="add-input cn" placeholder="{{t.wbook_cn_placeholder}}" maxlength="{{textMax}}" value="{{cnInput}}" bindinput="onCn" confirm-type="next" />
+      <input class="add-input en" placeholder="{{t.wbook_en_placeholder}}" maxlength="{{textMax}}" value="{{enInput}}" bindinput="onEn" confirm-type="done" bindconfirm="addWord" />
+      <view class="add-btn" bindtap="addWord" hover-class="add-btn-hover">{{t.wbook_add_btn}}</view>
     </view>
   </view>
 
   <view wx:if="{{!isRef}}" class="tools">
-    <view class="tool-btn" bindtap="ocrImport" hover-class="tool-hover">📷 拍照导入</view>
-    <button class="tool-btn share" open-type="share" hover-class="tool-hover">🔗 分享给同学</button>
+    <view class="tool-btn" bindtap="ocrImport" hover-class="tool-hover">{{t.wbook_ocr_btn}}</view>
+    <button class="tool-btn share" open-type="share" hover-class="tool-hover">{{t.wbook_share_btn}}</button>
   </view>
   <view class="tools tools-2">
-    <view wx:if="{{!isRef}}" class="tool-btn" bindtap="renameBook" hover-class="tool-hover">✏️ 改名</view>
-    <view wx:if="{{isRef}}" class="tool-btn" bindtap="copyBook" hover-class="tool-hover">📋 复制为可编辑</view>
-    <view class="tool-btn del" bindtap="deleteBook" hover-class="del-hover">🗑 删除单词本</view>
+    <view wx:if="{{!isRef}}" class="tool-btn" bindtap="renameBook" hover-class="tool-hover">{{t.wbook_rename_btn}}</view>
+    <view wx:if="{{isRef}}" class="tool-btn" bindtap="copyBook" hover-class="tool-hover">{{t.wbook_copy_btn}}</view>
+    <view class="tool-btn del" bindtap="deleteBook" hover-class="del-hover">{{t.wbook_delete_btn}}</view>
   </view>
 
   <view wx:if="{{!isRef}}" class="public-row">
     <view class="public-l">
-      <text class="public-label">🌐 公开到单词库</text>
-      <text class="public-sub">{{isPublic ? ('别人能搜到 · 已被引用 ' + refCount + ' 次') : '打开后别人可搜索并添加(只读,改不到你的)'}}</text>
+      <text class="public-label">{{t.wbook_public_label}}</text>
+      <text class="public-sub">{{isPublic ? publicOnLabel : t.wbook_public_off}}</text>
     </view>
     <switch checked="{{isPublic}}" color="#245bdb" disabled="{{publicBusy}}" bindchange="togglePublic" />
   </view>
 
-  <view class="count-line">共 {{words.length}} 个</view>
+  <view class="count-line">{{countLabel}}</view>
 
-  <view wx:if="{{words.length === 0}}" class="empty">还没有单词,上面加一个吧~</view>
+  <view wx:if="{{words.length === 0}}" class="empty">{{t.wbook_empty}}</view>
 
   <view wx:for="{{words}}" wx:key="id" class="word">
     <view class="word-main">
@@ -50,23 +50,23 @@
       <text class="word-en">{{item.en}}</text>
     </view>
     <view class="badge badge-{{item.state}}">
-      <text wx:if="{{item.state === 'mastered'}}">✓ 掌握</text>
-      <text wx:elif="{{item.state === 'learning'}}">{{item.everWrong ? '需加强' : '复习中'}}</text>
-      <text wx:else>未学</text>
+      <text wx:if="{{item.state === 'mastered'}}">{{t.wbook_state_mastered}}</text>
+      <text wx:elif="{{item.state === 'learning'}}">{{item.everWrong ? t.wbook_state_needs_work : t.wbook_state_learning}}</text>
+      <text wx:else>{{t.wbook_state_new}}</text>
     </view>
-    <view wx:if="{{!isRef}}" class="word-edit" catchtap="editWord" data-id="{{item.id}}" hover-class="edit-hover">改</view>
-    <view wx:if="{{!isRef}}" class="word-del" catchtap="removeWord" data-id="{{item.id}}" hover-class="del-hover">删</view>
+    <view wx:if="{{!isRef}}" class="word-edit" catchtap="editWord" data-id="{{item.id}}" hover-class="edit-hover">{{t.wbook_word_edit}}</view>
+    <view wx:if="{{!isRef}}" class="word-del" catchtap="removeWord" data-id="{{item.id}}" hover-class="del-hover">{{t.wbook_word_del}}</view>
   </view>
 
   <!-- 修改单词 -->
   <view wx:if="{{editing}}" class="edit-mask" bindtap="cancelEdit" catchtouchmove="noop">
     <view class="edit-sheet" catchtap="noop" catchtouchmove="noop">
-      <view class="edit-title">修改单词</view>
-      <input class="edit-input" placeholder="中文" maxlength="{{textMax}}" value="{{editCn}}" bindinput="onEditCn" />
-      <input class="edit-input" placeholder="英文(可短语)" maxlength="{{textMax}}" value="{{editEn}}" bindinput="onEditEn" />
+      <view class="edit-title">{{t.wbook_edit_title}}</view>
+      <input class="edit-input" placeholder="{{t.wbook_edit_cn_placeholder}}" maxlength="{{textMax}}" value="{{editCn}}" bindinput="onEditCn" />
+      <input class="edit-input" placeholder="{{t.wbook_edit_en_placeholder}}" maxlength="{{textMax}}" value="{{editEn}}" bindinput="onEditEn" />
       <view class="edit-actions">
-        <view class="edit-cancel" catchtap="cancelEdit" hover-class="add-btn-hover">取消</view>
-        <view class="edit-save" catchtap="saveEdit" hover-class="add-btn-hover">保存</view>
+        <view class="edit-cancel" catchtap="cancelEdit" hover-class="add-btn-hover">{{t.wbook_edit_cancel}}</view>
+        <view class="edit-save" catchtap="saveEdit" hover-class="add-btn-hover">{{t.wbook_edit_save}}</view>
       </view>
     </view>
   </view>
@@ -74,8 +74,8 @@
   <!-- OCR 识别结果预览 -->
   <view wx:if="{{showOcr}}" class="ocr-mask" bindtap="cancelOcr" catchtouchmove="noop">
     <view class="ocr-sheet" catchtap="noop" catchtouchmove="noop">
-      <view class="ocr-title">识别到 {{ocrPairs.length}} 个,确认导入?</view>
-      <view class="ocr-sub">点 ✕ 去掉不要的</view>
+      <view class="ocr-title">{{ocrTitle}}</view>
+      <view class="ocr-sub">{{t.wbook_ocr_sub}}</view>
       <scroll-view scroll-y class="ocr-list">
         <view wx:for="{{ocrPairs}}" wx:key="index" class="ocr-pair">
           <text class="ocr-cn">{{item.cn}}</text>
@@ -84,8 +84,8 @@
         </view>
       </scroll-view>
       <view class="ocr-actions">
-        <view class="ocr-cancel" catchtap="cancelOcr" hover-class="add-btn-hover">取消</view>
-        <view class="ocr-import {{ocrPairs.length === 0 ? 'off' : ''}}" catchtap="importOcr" hover-class="add-btn-hover">导入这 {{ocrPairs.length}} 个</view>
+        <view class="ocr-cancel" catchtap="cancelOcr" hover-class="add-btn-hover">{{t.wbook_ocr_cancel}}</view>
+        <view class="ocr-import {{ocrPairs.length === 0 ? 'off' : ''}}" catchtap="importOcr" hover-class="add-btn-hover">{{ocrImportLabel}}</view>
       </view>
     </view>
   </view>

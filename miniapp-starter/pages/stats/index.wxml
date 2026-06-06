@@ -1,20 +1,20 @@
 <view class="page">
   <view class="card">
     <view class="section-header">
-      <text class="section-title">数据</text>
+      <text class="section-title">{{t.stats_navtitle}}</text>
       <view class="period-switch">
         <view class="period-tab {{period === 'week' ? 'is-active' : ''}}"
-              data-period="week" bindtap="onSwitchPeriod">周</view>
+              data-period="week" bindtap="onSwitchPeriod">{{t.stats_period_week}}</view>
         <view class="period-tab {{period === 'month' ? 'is-active' : ''}}"
-              data-period="month" bindtap="onSwitchPeriod">月</view>
+              data-period="month" bindtap="onSwitchPeriod">{{t.stats_period_month}}</view>
       </view>
     </view>
   </view>
 
   <view class="card section-card chart-card">
     <view class="section-header">
-      <text class="section-title">完成时间</text>
-      <text class="subtle">平均 {{finishTimeAvgLabel}}</text>
+      <text class="section-title">{{t.stats_section_finish}}</text>
+      <text class="subtle">{{statsAvgLabel}}</text>
     </view>
     <view class="chart-scroll">
       <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
@@ -38,8 +38,8 @@
 
   <view class="card section-card chart-card">
     <view class="section-header">
-      <text class="section-title">作业数量</text>
-      <text class="subtle">{{period === 'week' ? '近 7 天' : '近 30 天'}}共 {{countTotal}} 项</text>
+      <text class="section-title">{{t.stats_section_count}}</text>
+      <text class="subtle">{{statsCountSubtitle}}</text>
     </view>
     <view class="chart-scroll">
       <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
@@ -63,13 +63,13 @@
 
   <view class="card section-card chart-card">
     <view class="section-header">
-      <text class="section-title">作业耗时</text>
-      <text class="subtle">实际 {{minutesTotal}} · 预计 {{estimatedTotal}} 分钟</text>
+      <text class="section-title">{{t.stats_section_duration}}</text>
+      <text class="subtle">{{statsDurSummary}}</text>
     </view>
     <view class="legend">
-      <text class="legend-item"><text class="legend-dot base"></text>实际</text>
-      <text class="legend-item"><text class="legend-dot under"></text>比预计省</text>
-      <text class="legend-item"><text class="legend-dot over"></text>比预计超</text>
+      <text class="legend-item"><text class="legend-dot base"></text>{{t.stats_legend_actual}}</text>
+      <text class="legend-item"><text class="legend-dot under"></text>{{t.stats_legend_under}}</text>
+      <text class="legend-item"><text class="legend-dot over"></text>{{t.stats_legend_over}}</text>
     </view>
     <view class="chart-scroll">
       <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
@@ -95,8 +95,8 @@
 
   <view class="card section-card chart-card">
     <view class="section-header">
-      <text class="section-title">金币</text>
-      <text class="subtle">获得 +{{coinGainTotal}} · 消耗 -{{coinSpendTotal}}</text>
+      <text class="section-title">{{t.stats_section_coins}}</text>
+      <text class="subtle">{{statsCoinsSubtitle}}</text>
     </view>
     <view class="chart-scroll">
       <view class="bar-row coin-row {{period === 'month' ? 'is-month' : 'is-week'}}"

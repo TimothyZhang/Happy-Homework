@@ -5,7 +5,7 @@ Page({
   data: {
     t: {},
     lang: 'en',
-    syncStatus: { status: 'unknown', readOnly: false, lastSyncDisplay: '从未', lastError: null },
+    syncStatus: { status: 'unknown', readOnly: false, lastSyncDisplay: '', lastError: null },
     syncing: false
   },
 
@@ -46,12 +46,12 @@ Page({
       const status = cloudSync.getSyncStatus()
       this.setData({ syncStatus: status })
       if (status.lastError) {
-        wx.showToast({ title: '同步失败：' + status.lastError, icon: 'none', duration: 2400 })
+        wx.showToast({ title: i18n.t('prof_sync_fail', { e: status.lastError }), icon: 'none', duration: 2400 })
       } else {
-        wx.showToast({ title: '已同步', icon: 'success' })
+        wx.showToast({ title: i18n.t('sync_synced'), icon: 'success' })
       }
     } catch (e) {
-      wx.showToast({ title: '同步出错', icon: 'none' })
+      wx.showToast({ title: i18n.t('prof_sync_error'), icon: 'none' })
     } finally {
       this.setData({ syncing: false })
     }
@@ -60,10 +60,10 @@ Page({
   handleReclaim() {
     if (this.data.syncing) return
     wx.showModal({
-      title: '切回此设备',
-      content: '会以云端最新数据覆盖本机当前 state，并踢下线另一台设备。继续？',
-      confirmText: '用此设备',
-      cancelText: '取消',
+      title: i18n.t('prof_switch_title'),
+      content: i18n.t('prof_switch_content'),
+      confirmText: i18n.t('prof_switch_confirm'),
+      cancelText: i18n.t('prof_cancel'),
       success: async (r) => {
         if (!r.confirm) return
         this.setData({ syncing: true })
@@ -71,13 +71,13 @@ Page({
           const ok = await cloudSync.reclaim()
           this.refreshSyncStatus()
           if (ok) {
-            wx.showToast({ title: '已切回此设备', icon: 'success', duration: 2000 })
+            wx.showToast({ title: i18n.t('prof_switch_done'), icon: 'success', duration: 2000 })
           } else {
             const status = cloudSync.getSyncStatus()
-            wx.showToast({ title: '切回失败' + (status.lastError ? '：' + status.lastError : ''), icon: 'none', duration: 2400 })
+            wx.showToast({ title: i18n.t('prof_switch_fail') + (status.lastError ? ': ' + status.lastError : ''), icon: 'none', duration: 2400 })
           }
         } catch (e) {
-          wx.showToast({ title: '切回出错：' + ((e && e.errMsg) || e || '未知错误'), icon: 'none', duration: 2400 })
+          wx.showToast({ title: i18n.t('prof_switch_error') + ': ' + ((e && e.errMsg) || e || i18n.t('prof_unknown_err')), icon: 'none', duration: 2400 })
         } finally {
           this.setData({ syncing: false })
         }

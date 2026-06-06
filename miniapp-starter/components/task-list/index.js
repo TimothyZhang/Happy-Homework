@@ -1,13 +1,14 @@
 const store = require('../../utils/store')
+const i18n = require('../../utils/i18n')
 
 function formatElapsed(ms) {
   if (!ms || ms < 0) return ''
   const totalSec = Math.floor(ms / 1000)
   const min = Math.floor(totalSec / 60)
   const sec = totalSec % 60
-  if (min === 0) return `${sec} 秒`
-  if (sec === 0) return `${min} 分钟`
-  return `${min} 分 ${sec} 秒`
+  if (min === 0) return i18n.t('tl_elapsed_sec', { s: sec })
+  if (sec === 0) return i18n.t('tl_elapsed_min', { m: min })
+  return i18n.t('tl_elapsed_minsec', { m: min, s: sec })
 }
 
 // undone row 只有 "编辑" 按钮(删除入口收进编辑页内) → 120rpx;
@@ -50,6 +51,7 @@ Component({
     rowVariant: { type: String, value: '' }
   },
   data: {
+    t: {},
     list: [],
     dragId: null,
     dragDy: 0,
@@ -75,13 +77,24 @@ Component({
       const list = (items || []).map((it) => ({
         ...it,
         shiftY: 0,
-        swipeMax: it.status === 'done' ? SWIPE_MAX_RPX.done : SWIPE_MAX_RPX.undone
+        swipeMax: it.status === 'done' ? SWIPE_MAX_RPX.done : SWIPE_MAX_RPX.undone,
+        makeupLabel: i18n.t('tl_makeup_from', { date: it.occurrenceDate || '' }),
+        estLabel: i18n.t('tl_est_chip', { min: it.estimatedMinutes || 0 }),
+        elapsedLabel: it.elapsedDisplay
+          ? i18n.t(it.status === 'done' ? 'tl_elapsed_spent' : 'tl_elapsed_used', { t: it.elapsedDisplay })
+          : ''
       }))
       this.setData({ list })
       this.startTickerIfNeeded()
     }
   },
-  detached() { this.stopTicker() },
+  lifetimes: {
+    attached() { this.setData({ t: i18n.dict() }) },
+    detached() { this.stopTicker() }
+  },
+  pageLifetimes: {
+    show() { this.setData({ t: i18n.dict() }) }
+  },
   methods: {
     startTickerIfNeeded() {
       this.stopTicker()
@@ -91,7 +104,11 @@ Component({
         const next = (this.data.list || []).map((it) => {
           let ms = it.elapsedMs || 0
           if (it.status === 'doing') ms += 1000
-          return { ...it, elapsedMs: ms, elapsedDisplay: formatElapsed(ms) }
+          const elapsedDisplay = formatElapsed(ms)
+          const elapsedLabel = elapsedDisplay
+            ? i18n.t(it.status === 'done' ? 'tl_elapsed_spent' : 'tl_elapsed_used', { t: elapsedDisplay })
+            : ''
+          return { ...it, elapsedMs: ms, elapsedDisplay, elapsedLabel }
         })
         this.setData({ list: next })
         if (!next.some((it) => it.status === 'doing')) this.stopTicker()
@@ -459,7 +476,7 @@ Component({
       this._setSwipeOpen(null)
       if (taskMode === 'recurring' && date) {
         wx.showActionSheet({
-          itemList: ['仅编辑此次', '编辑整个作业'],
+          itemList: [i18n.t('tl_edit_once'), i18n.t('tl_edit_all')],
           success(res) {
             if (res.tapIndex === 0) {
               wx.navigateTo({ url: `/pkg-notebook/task-edit/index?id=${taskId}&instance=${date}` })
@@ -482,7 +499,7 @@ Component({
       this._setSwipeOpen(null, 0, { swipeId: null, swipeDx: 0 })
       this.triggerEvent('changed')
       if (refund > 0) {
-        wx.showToast({ title: `扣除 ${refund} 金币`, icon: 'none', duration: 1500 })
+        wx.showToast({ title: i18n.t('tl_toast_deduct', { n: refund }), icon: 'none', duration: 1500 })
       }
     },
 
@@ -504,7 +521,7 @@ Component({
     pickEst(e) { this._applyEst(Number(e.currentTarget.dataset.min) || 0) },
     confirmEst() {
       const v = Math.round(Number(this.data.estInput))
-      if (!v || v <= 0) { wx.showToast({ title: '请输入分钟数', icon: 'none' }); return }
+      if (!v || v <= 0) { wx.showToast({ title: i18n.t('tl_toast_enter_min'), icon: 'none' }); return }
       this._applyEst(v)
     },
     _applyEst(min) {

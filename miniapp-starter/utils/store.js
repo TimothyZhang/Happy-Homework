@@ -1,4 +1,5 @@
 const cloudSync = require('./cloud-sync')
+const i18n = require('./i18n')
 
 const STORAGE_KEY = 'homework-pet-v1'
 const SCHEMA_VERSION = 3
@@ -110,19 +111,22 @@ function getCurrentTime() {
 //   weekly + weekdays 空                   → "每周?"(fallback,实际数据不该出现)
 // 非 recurring task 返回 ''。
 const WEEKDAY_CHARS = { 1: '一', 2: '二', 3: '三', 4: '四', 5: '五', 6: '六', 7: '日' }
+const WEEKDAY_ABBR_EN = { 1: 'Mon', 2: 'Tue', 3: 'Wed', 4: 'Thu', 5: 'Fri', 6: 'Sat', 7: 'Sun' }
 function formatRecurrenceLabel(task) {
   if (!task || task.mode !== 'recurring') return ''
   const rec = task.recurrence || { type: 'daily' }
-  if (rec.type === 'daily') return '每天'
+  if (rec.type === 'daily') return i18n.t('rec_daily')
   if (rec.type === 'weekly') {
     const wds = Array.isArray(rec.weekdays)
       ? rec.weekdays.filter((w) => Number.isInteger(w) && w >= 1 && w <= 7).slice().sort()
       : []
-    if (wds.length === 0) return '每周?'
-    if (wds.length === 7) return '每天'
-    return '每周' + wds.map((d) => WEEKDAY_CHARS[d]).join('')
+    if (wds.length === 0) return i18n.t('rec_weekly_unknown')
+    if (wds.length === 7) return i18n.t('rec_daily')
+    const zh = i18n.getLang() === 'zh'
+    const map = zh ? WEEKDAY_CHARS : WEEKDAY_ABBR_EN
+    return i18n.t('rec_weekly_prefix') + wds.map((d) => map[d]).join(zh ? '' : '/')
   }
-  return '重复'
+  return i18n.t('rec_repeat')
 }
 
 // === Reward constants — kept in sync with V1-VALUES-DESIGN.md. === //
@@ -1520,7 +1524,7 @@ function maybeToastReadOnly() {
   const now = Date.now()
   if (now - _lastReadOnlyToastAt < 4000) return
   _lastReadOnlyToastAt = now
-  wx.showToast({ title: '只读模式：已在其他设备登录', icon: 'none', duration: 1800 })
+  wx.showToast({ title: i18n.t('store_readonly_toast'), icon: 'none', duration: 1800 })
 }
 
 function updateState(updater) {

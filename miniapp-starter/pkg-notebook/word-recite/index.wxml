@@ -1,8 +1,8 @@
 <view class="page" style="padding-top: {{statusBarH}}px;">
   <view class="topbar">
-    <view class="exit-btn" bindtap="exit" hover-class="exit-hover">‹ 返回</view>
+    <view class="exit-btn" bindtap="exit" hover-class="exit-hover">{{t.wrec_back}}</view>
     <text wx:if="{{!done && !blocked}}" class="progress">{{index + 1}} / {{total}}</text>
-    <view wx:if="{{!done && !blocked}}" class="skip-btn" bindtap="skip" hover-class="exit-hover">跳过 ›</view>
+    <view wx:if="{{!done && !blocked}}" class="skip-btn" bindtap="skip" hover-class="exit-hover">{{t.wrec_skip}}</view>
     <view wx:else class="topbar-spacer"></view>
   </view>
 
@@ -10,7 +10,7 @@
   <view wx:if="{{blocked}}" class="centered">
     <image class="pet" src="/assets/pets/{{species}}.svg" mode="aspectFit" />
     <view class="blocked-text">{{blockedReason}}</view>
-    <view class="done-btn ghost" bindtap="exit" hover-class="done-btn-hover">回去找 {{petName}}</view>
+    <view class="done-btn ghost" bindtap="exit" hover-class="done-btn-hover">{{goFindPetLabel}}</view>
   </view>
 
   <block wx:elif="{{!done}}">
@@ -19,23 +19,23 @@
       <image class="pet {{feedback}}" src="/assets/pets/{{species}}.svg" mode="aspectFit" />
       <!-- 答对瞬间从宠物旁边往上飘的奖励 -->
       <view wx:if="{{rewardFly}}" class="reward-fly">
-        <view class="rf-chip rf-xp">✨ +1 经验</view>
-        <view class="rf-chip rf-kn">📚 +1 知识</view>
+        <view class="rf-chip rf-xp">{{t.wrec_xp_fly}}</view>
+        <view class="rf-chip rf-kn">{{t.wrec_kn_fly}}</view>
       </view>
 
       <block wx:if="{{mode === 'dictation'}}">
         <view class="dict-play" bindtap="replay" hover-class="dict-play-hover">🔊</view>
-        <text class="hint">🎧 听写 · 拼出听到的单词</text>
+        <text class="hint">{{t.wrec_dictation_hint}}</text>
         <!-- 听写不显示中文(显示了就等于给答案);只听发音拼写 -->
         <!-- 没语音兜底才亮英文;有语音时新词只提示"仔细听",不剧透原文 -->
-        <view wx:if="{{!ttsOn}}" class="newword">🔇 语音未开通,先照着拼:<text class="newword-en">{{word.en}}</text></view>
-        <view wx:elif="{{word.isNew}}" class="newword">📖 新词 · 仔细听,试着拼出来</view>
+        <view wx:if="{{!ttsOn}}" class="newword">{{t.wrec_tts_off}}<text class="newword-en">{{word.en}}</text></view>
+        <view wx:elif="{{word.isNew}}" class="newword">{{t.wrec_dictation_newword}}</view>
       </block>
 
       <block wx:else>
         <view class="say-bubble">{{word.cn}}</view>
-        <text wx:if="{{!word.isNew}}" class="hint">用英语怎么说?</text>
-        <view wx:else class="newword">📖 新词 · 先自己试试,记不住没关系</view>
+        <text wx:if="{{!word.isNew}}" class="hint">{{t.wrec_recite_hint}}</text>
+        <view wx:else class="newword">{{t.wrec_recite_newword}}</view>
       </block>
     </view>
 
@@ -44,15 +44,15 @@
         <text class="ans {{feedback}}" space="nbsp">{{input}}</text>
         <view wx:if="{{!feedback}}" class="caret"></view>
       </view>
-      <text wx:if="{{!input && !feedback}}" class="ans-ph">下面拼出英文…</text>
-      <view wx:if="{{feedback === 'wrong'}}" class="correct">正确答案:{{word.en}}</view>
-      <view wx:if="{{feedback === 'wrong'}}" class="next-btn" bindtap="goNext" hover-class="next-btn-hover">下一个 ›</view>
-      <view wx:if="{{feedback === 'right'}}" class="bravo">答对啦!📚 +1</view>
+      <text wx:if="{{!input && !feedback}}" class="ans-ph">{{t.wrec_input_placeholder}}</text>
+      <view wx:if="{{feedback === 'wrong'}}" class="correct">{{t.wrec_correct_answer}}{{word.en}}</view>
+      <view wx:if="{{feedback === 'wrong'}}" class="next-btn" bindtap="goNext" hover-class="next-btn-hover">{{t.wrec_next}}</view>
+      <view wx:if="{{feedback === 'right'}}" class="bravo">{{t.wrec_bravo}}</view>
     </view>
 
     <!-- 听写:重听按钮放在键盘右上角,拼写时大拇指顺手就能点 -->
     <view wx:if="{{mode === 'dictation'}}" class="kb-replay-row">
-      <view class="kb-replay" bindtap="replay" hover-class="kb-replay-hover">🔁 重听</view>
+      <view class="kb-replay" bindtap="replay" hover-class="kb-replay-hover">{{t.wrec_replay}}</view>
     </view>
 
     <!-- 自制键盘(不用系统输入法),布局对齐 iPhone 默认英文键盘 -->
@@ -90,8 +90,8 @@
       </block>
       <view class="kb-row kb-row-bottom">
         <view class="kb-key kb-fnk kb-mode" bindtap="kbToggleMode" hover-class="kb-fnk-hover">{{kbMode === 'abc' ? '123' : 'ABC'}}</view>
-        <view class="kb-key kb-space" bindtap="kbSpace" hover-class="kb-key-hover" hover-stay-time="40">空格</view>
-        <view class="kb-key kb-submit" bindtap="kbSubmit" hover-class="kb-submit-hover" hover-stay-time="40">确定</view>
+        <view class="kb-key kb-space" bindtap="kbSpace" hover-class="kb-key-hover" hover-stay-time="40">{{t.wrec_space}}</view>
+        <view class="kb-key kb-submit" bindtap="kbSubmit" hover-class="kb-submit-hover" hover-stay-time="40">{{t.wrec_submit}}</view>
       </view>
     </view>
   </block>
@@ -99,22 +99,22 @@
   <!-- 背完结算 -->
   <view wx:else class="centered done">
     <image class="pet bravo-pet" src="/assets/pets/{{species}}.svg" mode="aspectFit" />
-    <view class="done-title">挑战完成!🎉</view>
+    <view class="done-title">{{t.wrec_done_title}}</view>
     <view class="reward-tally">
       <view class="rt-item rt-xp">
         <text class="rt-num">+{{xpGained}}</text>
-        <text class="rt-label">✨ 经验</text>
+        <text class="rt-label">{{t.wrec_xp_label}}</text>
       </view>
       <view class="rt-item rt-kn">
         <text class="rt-num">+{{knowledgeGained}}</text>
-        <text class="rt-label">📚 知识</text>
+        <text class="rt-label">{{t.wrec_kn_label}}</text>
       </view>
     </view>
-    <view class="done-sub">一次答对 {{correctCount}} / {{total}} 个 · {{petName}} 现在共 {{knowledge}} 知识</view>
+    <view class="done-sub">{{doneSub}}</view>
     <view class="done-btns">
-      <view wx:if="{{canMore}}" class="done-btn" bindtap="restart" hover-class="done-btn-hover">再来一组</view>
-      <view class="done-btn ghost" bindtap="exit" hover-class="done-btn-hover">回去找 {{petName}}</view>
+      <view wx:if="{{canMore}}" class="done-btn" bindtap="restart" hover-class="done-btn-hover">{{t.wrec_restart}}</view>
+      <view class="done-btn ghost" bindtap="exit" hover-class="done-btn-hover">{{goFindPetLabel}}</view>
     </view>
-    <view wx:if="{{!canMore}}" class="done-note">今天 3 次挑战都完成啦,明天再来~</view>
+    <view wx:if="{{!canMore}}" class="done-note">{{t.wrec_done_note}}</view>
   </view>
 </view>

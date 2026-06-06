@@ -1,6 +1,7 @@
 // 单个单词本:增减单词/短语 + 拍照/选图 OCR 导入。
 // OCR 复用已部署的 homeworkOCR 云函数拿 rawText,再在本地解析成「中英成对」。
 const store = require('../../utils/store')
+const i18n = require('../../utils/i18n')
 
 // 把一段 OCR 文本解析成 [{cn,en}]。每行抓中文串 + 英文串(任意先后),成对即收。
 function parsePairs(rawText) {
@@ -11,7 +12,7 @@ function parsePairs(rawText) {
     const line = (raw || '').trim()
     if (!line) return
     const cnMatch = line.match(/[一-鿿]+/g)
-    const enMatch = line.match(/[a-zA-Z][a-zA-Z'’\- ]*[a-zA-Z]|[a-zA-Z]/)
+    const enMatch = line.match(/[a-zA-Z][a-zA-Z''\- ]*[a-zA-Z]|[a-zA-Z]/)
     if (!cnMatch || !enMatch) return
     const cn = cnMatch.join('').slice(0, 40)
     const en = enMatch[0].trim().replace(/\s+/g, ' ').slice(0, 40)
@@ -63,7 +64,8 @@ Page({
     editing: false,
     editId: '',
     editCn: '',
-    editEn: ''
+    editEn: '',
+    t: {}
   },
 
   onLoad(q) {
@@ -72,11 +74,30 @@ Page({
     this._refresh()
   },
 
+  onShow() {
+    this.setData({ t: i18n.dict() })
+    this._refreshLabels()
+  },
+
+  // Recompute all dynamic i18n labels from current data state.
+  _refreshLabels() {
+    const d = this.data
+    const n = d.words ? d.words.length : 0
+    const rc = d.refCount || 0
+    this.setData({
+      countLabel: i18n.t('wbook_count', { n }),
+      publicOnLabel: i18n.t('wbook_public_on', { n: rc }),
+      refCountLabel: i18n.t('wbook_ref_count', { n: rc }),
+      ocrTitle: i18n.t('wbook_ocr_title', { n: d.ocrPairs ? d.ocrPairs.length : 0 }),
+      ocrImportLabel: i18n.t('wbook_ocr_import_btn', { n: d.ocrPairs ? d.ocrPairs.length : 0 })
+    })
+  },
+
   _refresh() {
     const s = store.getStateWithComputed()
     const b = (s.wordBooks || []).find((x) => x.id === this._id)
     if (!b) { wx.navigateBack({ delta: 1 }); return }
-    wx.setNavigationBarTitle({ title: b.name || '单词本' })
+    wx.setNavigationBarTitle({ title: b.name || i18n.t('wbook_navtitle_fallback') })
     this.setData({
       bookId: b.id,
       name: b.name,
@@ -91,7 +112,7 @@ Page({
         state: w.mastered ? 'mastered' : (w.seen ? 'learning' : 'new'),
         everWrong: !!w.everWrong
       }))
-    }, () => this._loadStats())
+    }, () => { this._loadStats(); this._refreshLabels() })
   },
 
   // 拉「被引用次数」:引用本看源公开库的热度;自己的公开本看自己被引用多少次。
@@ -108,13 +129,13 @@ Page({
             refCount: bk.refCount || 0,
             creatorName: bk.creatorName || this.data.creatorName,
             creatorAvatar: bk.creatorAvatar || this.data.creatorAvatar
-          })
+          }, () => this._refreshLabels())
         }).catch(() => {})
     } else if (this.data.isPublic) {
       wx.cloud.callFunction({ name: 'homeworkOCR', data: { action: 'myBookStat', bookKey: this._id } })
         .then((res) => {
           const r = (res && res.result) || {}
-          if (r.ok) this.setData({ refCount: r.refCount || 0 })
+          if (r.ok) this.setData({ refCount: r.refCount || 0 }, () => this._refreshLabels())
         }).catch(() => {})
     }
   },
@@ -128,32 +149,32 @@ Page({
 
   _publishBook() {
     if (!wx.cloud || !wx.cloud.callFunction) {
-      wx.showToast({ title: '当前环境用不了公开', icon: 'none' }); this.setData({ isPublic: false }); return
+      wx.showToast({ title: i18n.t('wbook_toast_no_cloud_publish'), icon: 'none' }); this.setData({ isPublic: false }); return
     }
     const words = (this.data.words || []).map((w) => ({ cn: w.cn, en: w.en }))
-    if (!words.length) { wx.showToast({ title: '空单词本不能公开', icon: 'none' }); this.setData({ isPublic: false }); return }
+    if (!words.length) { wx.showToast({ title: i18n.t('wbook_toast_empty_publish'), icon: 'none' }); this.setData({ isPublic: false }); return }
     this.setData({ publicBusy: true })
-    wx.showLoading({ title: '发布中…', mask: true })
+    wx.showLoading({ title: i18n.t('wbook_loading_publishing'), mask: true })
     const prof = store.getProfile() || {}
     wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 20000, data: { action: 'publishBook', bookKey: this._id, name: this.data.name, words, ownerName: prof.nickname || '', ownerAvatar: prof.avatar || '' } })
       .then((res) => {
         const r = (res && res.result) || {}
         wx.hideLoading(); this.setData({ publicBusy: false })
-        if (!r.ok) { this.setData({ isPublic: false }); wx.showToast({ title: r.error || '发布失败', icon: 'none' }); return }
+        if (!r.ok) { this.setData({ isPublic: false }); wx.showToast({ title: r.error || i18n.t('wbook_toast_publish_fail'), icon: 'none' }); return }
         store.setWordBookPublic(this._id, true)
-        this.setData({ isPublic: true })
-        wx.showToast({ title: '已公开 ' + (r.count || words.length) + ' 词', icon: 'success' })
+        this.setData({ isPublic: true }, () => this._refreshLabels())
+        wx.showToast({ title: i18n.t('wbook_toast_published', { n: r.count || words.length }), icon: 'success' })
       })
-      .catch(() => { wx.hideLoading(); this.setData({ publicBusy: false, isPublic: false }); wx.showToast({ title: '发布失败,稍后再试', icon: 'none' }) })
+      .catch(() => { wx.hideLoading(); this.setData({ publicBusy: false, isPublic: false }); wx.showToast({ title: i18n.t('wbook_toast_publish_fail_retry'), icon: 'none' }) })
   },
 
   _unpublishBook() {
     this.setData({ publicBusy: true })
-    wx.showLoading({ title: '撤销中…', mask: true })
-    const done = () => { wx.hideLoading(); store.setWordBookPublic(this._id, false); this.setData({ publicBusy: false, isPublic: false, refCount: 0 }) }
+    wx.showLoading({ title: i18n.t('wbook_loading_unpublishing'), mask: true })
+    const done = () => { wx.hideLoading(); store.setWordBookPublic(this._id, false); this.setData({ publicBusy: false, isPublic: false, refCount: 0 }, () => this._refreshLabels()) }
     if (!wx.cloud || !wx.cloud.callFunction) { done(); return }
     wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 20000, data: { action: 'unpublishBook', bookKey: this._id } })
-      .then(() => { done(); wx.showToast({ title: '已撤销公开', icon: 'none' }) })
+      .then(() => { done(); wx.showToast({ title: i18n.t('wbook_toast_unpublished'), icon: 'none' }) })
       .catch(() => { done() })   // 撤销失败也按本地撤销,避免卡在公开态
   },
 
@@ -161,39 +182,39 @@ Page({
   updateRef() {
     if (this.data.refBusy) return
     const ref = this.data._ref
-    if (!ref) { wx.showToast({ title: '这个本没有来源', icon: 'none' }); return }
-    if (!wx.cloud || !wx.cloud.callFunction) { wx.showToast({ title: '当前环境用不了同步', icon: 'none' }); return }
+    if (!ref) { wx.showToast({ title: i18n.t('wbook_toast_no_source'), icon: 'none' }); return }
+    if (!wx.cloud || !wx.cloud.callFunction) { wx.showToast({ title: i18n.t('wbook_toast_no_cloud_sync'), icon: 'none' }); return }
     this.setData({ refBusy: true })
-    wx.showLoading({ title: '更新中…', mask: true })
+    wx.showLoading({ title: i18n.t('wbook_loading_updating'), mask: true })
     wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 20000, data: { action: 'getBook', id: ref } })
       .then((res) => {
         const r = (res && res.result) || {}
         wx.hideLoading(); this.setData({ refBusy: false })
         if (!r.ok || !r.book) {
           // 源被作者撤回 / 删除:这本仍可继续用,只是没法再同步新内容。说清楚、不报错脸。
-          wx.showModal({ title: '原作者已不再公开', content: '这个单词本的来源已被撤回或删除,无法再同步更新。你现在这本仍然可以正常使用。', showCancel: false, confirmText: '知道了' })
+          wx.showModal({ title: i18n.t('wbook_modal_source_gone_title'), content: i18n.t('wbook_modal_source_gone_content'), showCancel: false, confirmText: i18n.t('wbook_modal_source_gone_ok') })
           return
         }
         const n = store.syncReferencedBook(this._id, r.book.words || [])
         this._refresh()
-        wx.showToast({ title: '已更新 · ' + n + ' 词', icon: 'success' })
+        wx.showToast({ title: i18n.t('wbook_toast_updated', { n }), icon: 'success' })
       })
-      .catch(() => { wx.hideLoading(); this.setData({ refBusy: false }); wx.showToast({ title: '更新失败,稍后再试', icon: 'none' }) })
+      .catch(() => { wx.hideLoading(); this.setData({ refBusy: false }); wx.showToast({ title: i18n.t('wbook_toast_update_fail'), icon: 'none' }) })
   },
 
   // === 复制成「我自己的」可编辑副本(占自定义单词本额度,从掌握度从头开始)===
   copyBook() {
     if (this.data.copyBusy) return
     if (store.getCustomBookCount() >= store.CUSTOM_WORD_BOOKS_MAX) {
-      wx.showToast({ title: '自定义单词本已满(上限 ' + store.CUSTOM_WORD_BOOKS_MAX + ' 个)', icon: 'none' }); return
+      wx.showToast({ title: i18n.t('wbook_toast_book_full', { n: store.CUSTOM_WORD_BOOKS_MAX }), icon: 'none' }); return
     }
     const payload = store.serializeWordBookForShare(this._id)
-    if (!payload || !payload.w.length) { wx.showToast({ title: '这个单词本是空的', icon: 'none' }); return }
+    if (!payload || !payload.w.length) { wx.showToast({ title: i18n.t('wbook_toast_book_empty'), icon: 'none' }); return }
     this.setData({ copyBusy: true })
     const book = store.importSharedWordBook(payload)
     this.setData({ copyBusy: false })
-    if (!book) { wx.showToast({ title: '复制失败(可能已达自定义上限)', icon: 'none' }); return }
-    wx.showToast({ title: '已复制为可编辑的本', icon: 'success' })
+    if (!book) { wx.showToast({ title: i18n.t('wbook_toast_copy_fail'), icon: 'none' }); return }
+    wx.showToast({ title: i18n.t('wbook_toast_copy_ok'), icon: 'success' })
     setTimeout(() => wx.redirectTo({ url: '/pkg-notebook/word-book/index?id=' + book.id }), 650)
   },
 
@@ -210,12 +231,12 @@ Page({
   saveEdit() {
     const cn = (this.data.editCn || '').trim()
     const en = (this.data.editEn || '').trim()
-    if (!cn || !en) { wx.showToast({ title: '中文和英文都要填', icon: 'none' }); return }
+    if (!cn || !en) { wx.showToast({ title: i18n.t('wbook_toast_both_required'), icon: 'none' }); return }
     const ok = store.updateWord(this._id, this.data.editId, cn, en)
-    if (!ok) { wx.showToast({ title: '保存失败', icon: 'none' }); return }
+    if (!ok) { wx.showToast({ title: i18n.t('wbook_toast_save_fail'), icon: 'none' }); return }
     this.setData({ editing: false, editId: '', editCn: '', editEn: '' })
     this._refresh()
-    wx.showToast({ title: '已保存', icon: 'success' })
+    wx.showToast({ title: i18n.t('wbook_toast_saved'), icon: 'success' })
   },
 
   onCn(e) { this.setData({ cnInput: e.detail.value }) },
@@ -224,9 +245,9 @@ Page({
   addWord() {
     const cn = (this.data.cnInput || '').trim()
     const en = (this.data.enInput || '').trim()
-    if (!cn || !en) { wx.showToast({ title: '中文和英文都要填', icon: 'none' }); return }
+    if (!cn || !en) { wx.showToast({ title: i18n.t('wbook_toast_both_required'), icon: 'none' }); return }
     const w = store.addWord(this._id, cn, en)
-    if (!w) { wx.showToast({ title: '添加失败', icon: 'none' }); return }
+    if (!w) { wx.showToast({ title: i18n.t('wbook_toast_add_fail'), icon: 'none' }); return }
     this.setData({ cnInput: '', enInput: '' })
     this._refresh()
   },
@@ -240,7 +261,7 @@ Page({
   renameBook() {
     const cur = this.data.name || ''
     wx.showModal({
-      title: '单词本改名', editable: true, content: cur, placeholderText: '新名字',
+      title: i18n.t('wbook_modal_rename_title'), editable: true, content: cur, placeholderText: i18n.t('wbook_modal_rename_placeholder'),
       success: (r) => {
         if (!r.confirm) return
         const next = (r.content || '').trim()
@@ -252,11 +273,11 @@ Page({
   },
 
   deleteBook() {
-    const name = this.data.name || '这个单词本'
+    const name = this.data.name || ''
     wx.showModal({
-      title: '删除单词本',
-      content: '确定删除「' + name + '」?里面的单词会一起删掉,无法恢复。',
-      confirmText: '删除', confirmColor: '#e15c5c',
+      title: i18n.t('wbook_modal_delete_title'),
+      content: i18n.t('wbook_modal_delete_content', { name }),
+      confirmText: i18n.t('wbook_modal_delete_confirm'), confirmColor: '#e15c5c',
       success: (r) => {
         if (!r.confirm) return
         // 自己的公开本被删:顺手把云端公开副本也撤掉,这样别人「引用」的本以后
@@ -284,34 +305,34 @@ Page({
 
   async _runOcr(filePath) {
     if (!wx.cloud || !wx.cloud.callFunction) {
-      wx.showModal({ title: '识别不可用', content: '当前环境用不了云识别,先手动加词吧~', showCancel: false })
+      wx.showModal({ title: i18n.t('wbook_modal_ocr_unavail_title'), content: i18n.t('wbook_modal_ocr_unavail_content'), showCancel: false })
       return
     }
     this._ocrBusy = true
-    wx.showLoading({ title: '上传图片…', mask: true })
+    wx.showLoading({ title: i18n.t('wbook_loading_uploading'), mask: true })
     try {
       const up = await wx.cloud.uploadFile({
         cloudPath: 'ocr-words/' + Date.now() + '-' + Math.random().toString(36).slice(2) + '.jpg',
         filePath
       })
-      wx.showLoading({ title: '识别中…', mask: true })
+      wx.showLoading({ title: i18n.t('wbook_loading_recognizing'), mask: true })
       const callRes = await wx.cloud.callFunction({ name: 'homeworkOCR', timeout: 60000, data: { action: 'wordpairs', imageFileID: up.fileID } })
       const result = (callRes && callRes.result) || {}
       wx.hideLoading()
       this._ocrBusy = false
-      if (!result.ok) throw new Error(result.error || result.message || '识别失败')
+      if (!result.ok) throw new Error(result.error || result.message || i18n.t('wbook_modal_ocr_fail_title'))
       // 优先用云端单词表专用识别的成对结果;老云函数还没认 wordpairs 时只回 rawText,本地正则兜底。
       let pairs = normalizePairs(result.pairs)
       if (!pairs.length) pairs = parsePairs(result.rawText || '')
       if (!pairs.length) {
-        wx.showModal({ title: '没识别到单词', content: '试着拍清楚点,保证图里有「中文 英文」成对的词。', showCancel: false })
+        wx.showModal({ title: i18n.t('wbook_modal_ocr_none_title'), content: i18n.t('wbook_modal_ocr_none_content'), showCancel: false })
         return
       }
-      this.setData({ showOcr: true, ocrPairs: pairs })
+      this.setData({ showOcr: true, ocrPairs: pairs }, () => this._refreshLabels())
     } catch (e) {
       wx.hideLoading()
       this._ocrBusy = false
-      wx.showModal({ title: '识别失败', content: (e && e.message) || '再试一次,或换张清楚点的图。', showCancel: false })
+      wx.showModal({ title: i18n.t('wbook_modal_ocr_fail_title'), content: (e && e.message) || i18n.t('wbook_modal_ocr_fail_content'), showCancel: false })
     }
   },
 
@@ -319,7 +340,7 @@ Page({
     const i = e.currentTarget.dataset.i
     const arr = this.data.ocrPairs.slice()
     arr.splice(i, 1)
-    this.setData({ ocrPairs: arr })
+    this.setData({ ocrPairs: arr }, () => this._refreshLabels())
   },
 
   cancelOcr() { this.setData({ showOcr: false, ocrPairs: [] }) },
@@ -330,11 +351,11 @@ Page({
   onShareAppMessage() {
     const payload = store.serializeWordBookForShare(this._id)
     if (!payload || !payload.w.length) {
-      return { title: '一起来单词挑战', path: '/pages/pet/index' }
+      return { title: i18n.t('wbook_share_empty_title'), path: '/pages/pet/index' }
     }
     const encoded = encodeURIComponent(JSON.stringify(payload))
     return {
-      title: '「' + (this.data.name || '单词本') + '」单词本 · 来场单词挑战',
+      title: i18n.t('wbook_share_title', { name: this.data.name || '' }),
       path: '/pkg-notebook/word-book-import/index?d=' + encoded
     }
   },
@@ -344,6 +365,6 @@ Page({
     pairs.forEach((p) => store.addWord(this._id, p.cn, p.en))
     this.setData({ showOcr: false, ocrPairs: [] })
     this._refresh()
-    wx.showToast({ title: '已导入 ' + pairs.length + ' 个', icon: 'success' })
+    wx.showToast({ title: i18n.t('wbook_toast_imported', { n: pairs.length }), icon: 'success' })
   }
 })

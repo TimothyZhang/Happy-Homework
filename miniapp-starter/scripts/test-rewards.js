@@ -867,6 +867,10 @@ assert('提前完成:5.17 视图 status=done(进已完成区)',
 // ===== Scenario L: formatRecurrenceLabel(一次性 / daily / weekly 多种) =====
 console.log('\n[L] formatRecurrenceLabel: 中文周期标签')
 
+// formatRecurrenceLabel 现在按 i18n 语言出标签;默认 en,这组中文断言显式切 zh。
+const i18n = require(path.join(__dirname, '..', 'utils', 'i18n.js'))
+i18n.setLang('zh')
+
 assert('一次性 task → 空字符串',
   s.formatRecurrenceLabel({ mode: 'one-shot' }) === '')
 assert('null task → 空字符串',
@@ -893,6 +897,16 @@ assert('recurring + weekly + 空 weekdays → 每周?',
     recurrence: { type: 'weekly', weekdays: [] } }) === '每周?')
 assert('recurring + 无 recurrence 字段 → 每天(默认)',
   s.formatRecurrenceLabel({ mode: 'recurring' }) === '每天')
+
+// 英文模式同一逻辑出英文标签
+i18n.setLang('en')
+assert('[en] daily → Daily',
+  s.formatRecurrenceLabel({ mode: 'recurring', recurrence: { type: 'daily' } }) === 'Daily')
+assert('[en] weekly [1,3,5] → Weekly Mon/Wed/Fri',
+  s.formatRecurrenceLabel({ mode: 'recurring', recurrence: { type: 'weekly', weekdays: [1, 3, 5] } }) === 'Weekly Mon/Wed/Fri')
+assert('[en] weekly all 7 → Daily',
+  s.formatRecurrenceLabel({ mode: 'recurring', recurrence: { type: 'weekly', weekdays: [1, 2, 3, 4, 5, 6, 7] } }) === 'Daily')
+i18n.setLang('en')   // 恢复默认,后续场景按 en 跑
 
 // ===== Scenario O: 延期(overdue)补做不补发归属日 perfect-day 奖 =====
 // 用户反馈:1 号作业拖到 2 号才做完,1 号当天本身没全部完成,perfect 奖不该

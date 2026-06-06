@@ -4,6 +4,7 @@ const shareReward = require('../../utils/share-reward')
 const adminInbox = require('../../utils/admin-inbox')
 const perf = require('../../utils/perf')
 const homeTips = require('../../utils/home-tips')
+const i18n = require('../../utils/i18n')
 
 const formatDuration = homeTips.formatDuration
 
@@ -22,9 +23,9 @@ function formatElapsed(ms) {
   const totalSec = Math.floor(ms / 1000)
   const min = Math.floor(totalSec / 60)
   const sec = totalSec % 60
-  if (min === 0) return `${sec} 秒`
-  if (sec === 0) return `${min} 分钟`
-  return `${min} 分 ${sec} 秒`
+  if (min === 0) return i18n.t('home_elapsed_sec', { s: sec })
+  if (sec === 0) return i18n.t('home_elapsed_min', { m: min })
+  return i18n.t('home_elapsed_minsec', { m: min, s: sec })
 }
 
 // "5/10" — short M/D suffix shown on segment buttons.
@@ -53,10 +54,10 @@ function buildBonusChip(isToday, pendingCount) {
     return { active: false, icon: '', label: '' }
   }
   const b = store.earlyBirdBonus()
-  if (b === 50) return { active: true, icon: '🏆', label: '19 点前完成 +50' }
-  if (b === 30) return { active: true, icon: '⏱', label: '20 点前完成 +30' }
-  if (b === 20) return { active: true, icon: '⏰', label: '21 点前完成 +20' }
-  return { active: false, icon: '', label: '当前无加成' }
+  if (b === 50) return { active: true, icon: '🏆', label: i18n.t('home_bonus_before19') }
+  if (b === 30) return { active: true, icon: '⏱', label: i18n.t('home_bonus_before20') }
+  if (b === 20) return { active: true, icon: '⏰', label: i18n.t('home_bonus_before21') }
+  return { active: false, icon: '', label: i18n.t('home_bonus_none') }
 }
 
 // buildPetMessage / buildPetTips moved to utils/home-tips.js so the pure
@@ -68,9 +69,9 @@ const buildPetTips = homeTips.buildPetTips
 // 'overdue' explains the −5, 'capped' explains why the count was 0. The
 // default 'today' case stays clean — no caption.
 function captionForKind(kind) {
-  if (kind === 'future')  return '提前完成 +5'
-  if (kind === 'overdue') return '补做 (历史作业)'
-  if (kind === 'capped')  return '今日已达 20 项上限'
+  if (kind === 'future')  return i18n.t('home_caption_future')
+  if (kind === 'overdue') return i18n.t('home_caption_overdue')
+  if (kind === 'capped')  return i18n.t('home_caption_capped')
   return ''
 }
 
@@ -193,6 +194,8 @@ Page({
 
   onShow() {
     const stamp = perf.markPageShow('home')
+    this.setData({ t: i18n.dict() })
+    wx.setNavigationBarTitle({ title: i18n.t('home_navtitle') })
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 0 })
     if (!this.data.selectedDate) {
@@ -217,8 +220,8 @@ Page({
         const claim = store.applyShareRewardClaim(r)
         if (!claim) return
         this.refreshState()
-        const label = r.count > 1 ? `${r.count} 位好友保存了你的作业` : '好友保存了你分享的作业'
-        wx.showToast({ title: `${label}，+${r.total} 金币`, icon: 'none', duration: 2400 })
+        const label = r.count > 1 ? i18n.t('home_share_many', { n: r.count }) : i18n.t('home_share_one')
+        wx.showToast({ title: `${label} ${i18n.t('home_share_coins', { total: r.total })}`, icon: 'none', duration: 2400 })
       }).catch(() => {})
 
       // 拉 admin 调整 inbox。 throttle 30s，失败静默。server 现在做服务端
@@ -230,7 +233,7 @@ Page({
         if (!summary || summary.totalApplied === 0) return
         this.refreshState()
         const t = summary.totalApplied
-        const label = t > 0 ? `管理员奖励 +${t} 金币` : `管理员扣除 ${t} 金币`
+        const label = t > 0 ? i18n.t('home_admin_award', { t }) : i18n.t('home_admin_deduct', { t: Math.abs(t) })
         wx.showToast({ title: label, icon: 'none', duration: 2400 })
       }).catch(() => {})
     }
@@ -295,7 +298,7 @@ Page({
     const dayAfterLabel = formatShortMDW(dayAfter)
     const showCalDate = selectedDate &&
       selectedDate !== today && selectedDate !== tomorrow && selectedDate !== dayAfter
-    const calendarLabel = showCalDate ? formatShortMDW(selectedDate) : '日历'
+    const calendarLabel = showCalDate ? formatShortMDW(selectedDate) : i18n.t('home_cal_label')
 
     let activeSegment
     if (this.data.calendarOpen) activeSegment = 'calendar'
@@ -303,6 +306,19 @@ Page({
     else if (selectedDate === tomorrow) activeSegment = 'tomorrow'
     else if (selectedDate === dayAfter) activeSegment = 'day-after'
     else activeSegment = 'calendar'
+
+    const hm = fmtHm(remainingMinutes)
+    const undoneSectionTitle = hm
+      ? i18n.t('home_undone_title_est', { n: undoneItems.length, hm })
+      : i18n.t('home_undone_title', { n: undoneItems.length })
+    const doneSectionTitle = i18n.t('home_done_title', { n: doneItems.length })
+    // empty-tip text for undone section (four cases)
+    let emptyTipText = ''
+    if (doneItems.length > 0) {
+      emptyTipText = isToday ? i18n.t('home_empty_today_done') : i18n.t('home_empty_other_done')
+    } else {
+      emptyTipText = isToday ? i18n.t('home_empty_today_none') : i18n.t('home_empty_other_none')
+    }
 
     this.setData({
       selectedDate,
@@ -314,7 +330,10 @@ Page({
       calendarLabel,
       overview: { totalCount: total, pendingCount: undoneItems.length, doneCount: doneItems.length },
       remainingMinutesDisplay: formatDuration(remainingMinutes),
-      remainingHm: fmtHm(remainingMinutes),
+      remainingHm: hm,
+      undoneSectionTitle,
+      doneSectionTitle,
+      emptyTipText,
       undoneItems,
       doneItems,
       pet: (state.pet && state.pet.emoji) ? state.pet : this.data.pet,
@@ -430,8 +449,8 @@ Page({
       // 触发 today toast"了。todayCleared 在有未补 overdue 时为 false,会错挡掉
       // today 真完成时的庆祝。
       const subtitle = weeklyBonus > 0
-        ? '今日全部完成 · 连续 7 天!'
-        : '今日全部完成!'
+        ? i18n.t('home_alldone_weekly')
+        : i18n.t('home_alldone_daily')
       const delay = TASK_ANIM_MS + TASK_TO_ALLDONE_GAP_MS
       this._allDoneTimer = setTimeout(() => {
         this.showAllDone(bonusCoins, subtitle)
@@ -531,7 +550,7 @@ Page({
     // 任务原地不动(toast 提示移了但还在当天)。三个日期一起移才生效。
     store.updateTask(taskId, { dueDate: next, startDate: next, endDate: next })
     this.refreshState()
-    wx.showToast({ title: dir < 0 ? '已移到上一天' : '已移到下一天', icon: 'none' })
+    wx.showToast({ title: dir < 0 ? i18n.t('home_moved_prev') : i18n.t('home_moved_next'), icon: 'none' })
   },
 
   handleSwipeOpen() {

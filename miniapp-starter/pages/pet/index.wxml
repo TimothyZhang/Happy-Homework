@@ -1,8 +1,8 @@
 <view class="page">
   <block wx:if="{{mode === 'setup'}}">
     <view class="card setup-card">
-      <view class="setup-title">选一只想养的宠物吧</view>
-      <view class="setup-sub">陪你一起完成作业，每天都会和你互动哦</view>
+      <view class="setup-title">{{t.pet_setup_title}}</view>
+      <view class="setup-sub">{{t.pet_setup_sub}}</view>
 
       <view class="species-grid">
         <view wx:for="{{speciesOptions}}"
@@ -16,15 +16,15 @@
       </view>
 
       <view class="setup-name-row">
-        <text class="setup-name-label">取个名字</text>
+        <text class="setup-name-label">{{t.pet_setup_name_label}}</text>
         <input class="setup-name-input"
-               placeholder="比如：豆豆"
+               placeholder="{{t.pet_setup_name_placeholder}}"
                maxlength="12"
                value="{{setupName}}"
                bindinput="handleSetupName" />
       </view>
 
-      <button class="setup-confirm" bindtap="handleConfirmSetup">确定，就是它！</button>
+      <button class="setup-confirm" bindtap="handleConfirmSetup">{{t.pet_setup_confirm}}</button>
     </view>
   </block>
 
@@ -42,8 +42,8 @@
         <view class="room-window-bar room-window-bar-h"></view>
       </view>
       <view class="room-picture room-poster">
-        <text class="poster-line">好好学习</text>
-        <text class="poster-line">天天向上</text>
+        <text class="poster-line">{{t.pet_poster_line1}}</text>
+        <text class="poster-line">{{t.pet_poster_line2}}</text>
       </view>
       <view class="room-baseboard"></view>
       <view class="room-floor"></view>
@@ -51,7 +51,7 @@
 
       <!-- 学习小书桌(房间角落):点它弹「背单词」菜单 -->
       <view class="room-desk" catchtap="openDeskMenu" hover-class="room-desk-hover">
-        <view class="desk-hint">📖 背单词</view>
+        <view class="desk-hint">{{t.pet_desk_hint}}</view>
         <image class="room-desk-art" src="/assets/room/desk.svg" mode="aspectFit" />
       </view>
 
@@ -99,12 +99,12 @@
       <text class="hud-name">{{pet.name}} {{levelBadge}}</text>
       <view class="hud-right">
         <view class="hud-coin" catchtap="handleOpenCoinHistory">
-          <text class="hud-coin-text">金币 {{coins}}</text>
+          <text class="hud-coin-text">{{hudCoins}}</text>
           <text class="coin-chev">›</text>
         </view>
         <view class="hud-btns">
-          <view class="hud-btn shop-btn" catchtap="openShopPanel">🛒 商店</view>
-          <view wx:if="{{canLevelUp}}" class="hud-btn levelup-btn" catchtap="handleLevelUp">⬆️ 可升级</view>
+          <view class="hud-btn shop-btn" catchtap="openShopPanel">{{t.pet_hud_shop}}</view>
+          <view wx:if="{{canLevelUp}}" class="hud-btn levelup-btn" catchtap="handleLevelUp">{{t.pet_hud_levelup}}</view>
         </view>
       </view>
     </view>
@@ -112,31 +112,31 @@
     <!-- 透明状态浮窗:紧凑 4 条状态条,半透明浮在房间上 -->
     <view class="status-hud">
       <view class="status-meta">
-        <text>Lv.{{pet.level}}</text><text class="dot">·</text><text>{{ageDays}} 天大</text>
+        <text>Lv.{{pet.level}}</text><text class="dot">·</text><text>{{hudAgeDays}}</text>
       </view>
-      <view class="status-know-line">📚 词汇量 {{vocab}}</view>
+      <view class="status-know-line">{{hudVocab}}</view>
       <view class="svrow">
-        <text class="svlabel">开心</text>
+        <text class="svlabel">{{t.pet_stat_happiness}}</text>
         <view class="sbar"><view class="sbar-fill" style="width: {{pet.happiness}}%; background: #ffb648"></view></view>
         <text class="svnum">{{pet.happiness}}</text>
       </view>
       <view class="svrow">
-        <text class="svlabel">饱腹</text>
+        <text class="svlabel">{{t.pet_stat_fullness}}</text>
         <view class="sbar"><view class="sbar-fill" style="width: {{pet.fullness}}%; background: #07c160"></view></view>
         <text class="svnum">{{pet.fullness}}</text>
       </view>
       <view class="svrow">
-        <text class="svlabel">清洁</text>
+        <text class="svlabel">{{t.pet_stat_cleanliness}}</text>
         <view class="sbar"><view class="sbar-fill" style="width: {{pet.cleanliness}}%; background: #3ea2ff"></view></view>
         <text class="svnum">{{pet.cleanliness}}</text>
       </view>
       <view class="svrow">
-        <text class="svlabel">健康</text>
+        <text class="svlabel">{{t.pet_stat_health}}</text>
         <view class="sbar"><view class="sbar-fill" style="width: {{pet.health}}%; background: #e15c5c"></view></view>
         <text class="svnum">{{pet.health}}</text>
       </view>
       <view class="svrow">
-        <text class="svlabel">努力</text>
+        <text class="svlabel">{{t.pet_stat_effort}}</text>
         <view class="sbar"><view class="sbar-fill" style="width: {{pet.effort}}%; background: #7a5af0"></view></view>
         <text class="svnum">{{pet.effort}}</text>
       </view>
@@ -164,8 +164,8 @@
 
   <view wx:if="{{showSwitchPanel}}" class="switch-mask" bindtap="handleCloseSwitchPanel" catchtouchmove="noop">
     <view class="switch-sheet" catchtap="" catchtouchmove="noop">
-      <view class="switch-sheet-title">选一只想换的</view>
-      <view class="switch-sheet-sub">花 {{switchCost}} 金币 · 当前 {{coins}}</view>
+      <view class="switch-sheet-title">{{t.pet_switch_title}}</view>
+      <view class="switch-sheet-sub">{{switchSheetSub}}</view>
       <view class="switch-grid">
         <view wx:for="{{speciesOptions}}"
               wx:key="id"
@@ -174,33 +174,33 @@
               bindtap="handlePickSwitchSpecies">
           <image class="switch-art" src="/assets/pets/{{item.id}}.svg" mode="aspectFit" />
           <text class="switch-label">{{item.emoji}} {{item.label}}</text>
-          <text wx:if="{{pet.species === item.id}}" class="switch-current-tag">当前</text>
+          <text wx:if="{{pet.species === item.id}}" class="switch-current-tag">{{t.pet_switch_current_tag}}</text>
         </view>
       </view>
-      <button class="switch-cancel" bindtap="handleCloseSwitchPanel">取消</button>
+      <button class="switch-cancel" bindtap="handleCloseSwitchPanel">{{t.pet_switch_cancel}}</button>
     </view>
   </view>
 
   <!-- 点书桌弹出的「学习角」菜单(非模态):透明层接收外部点击关闭。点宠物本身=直接摸摸它 -->
   <view wx:if="{{showDeskMenu}}" class="popover-catch" bindtap="closeDeskMenu" catchtouchmove="noop">
     <view class="desk-popover" catchtap="" catchtouchmove="noop">
-      <view class="desk-popover-title">📚 学习角</view>
+      <view class="desk-popover-title">{{t.pet_desk_menu_title}}</view>
       <block wx:if="{{reciteLeft > 0}}">
         <view class="pet-popover-item" bindtap="menuStartRecite" hover-class="pet-popover-item-hover">
           <text class="pmi-emoji">🎯</text>
-          <text>单词挑战</text>
+          <text>{{t.pet_desk_recite}}</text>
         </view>
         <view class="pet-popover-divider"></view>
         <view class="pet-popover-item" bindtap="menuStartDictation" hover-class="pet-popover-item-hover">
           <text class="pmi-emoji">🎧</text>
-          <text>听写单词</text>
+          <text>{{t.pet_desk_dictation}}</text>
         </view>
         <view class="pet-popover-divider"></view>
       </block>
-      <view wx:else class="desk-popover-note">今天挑战 / 听写次数用完啦,明天再来~</view>
+      <view wx:else class="desk-popover-note">{{t.pet_desk_no_recite}}</view>
       <view class="pet-popover-item" bindtap="menuWordBooks" hover-class="pet-popover-item-hover">
         <text class="pmi-emoji">📚</text>
-        <text>我的单词本</text>
+        <text>{{t.pet_desk_wordbooks}}</text>
       </view>
     </view>
   </view>
@@ -209,66 +209,66 @@
   <view wx:if="{{showShopPanel}}" class="shop-panel-mask" bindtap="closeShopPanel" catchtouchmove="noop">
     <view class="shop-panel" catchtap="" catchtouchmove="noop">
       <view class="shop-panel-head">
-        <text class="shop-panel-title">🛒 商店 · 管理</text>
-        <text class="shop-panel-coin">金币 {{coins}}</text>
+        <text class="shop-panel-title">{{t.pet_shop_panel_title}}</text>
+        <text class="shop-panel-coin">{{shopPanelCoins}}</text>
       </view>
       <scroll-view scroll-y class="shop-panel-list">
-        <view class="shop-panel-section">用金币照顾它</view>
+        <view class="shop-panel-section">{{t.pet_shop_section_care}}</view>
         <view wx:for="{{shopItems}}" wx:key="id" class="shop-item-card">
           <view class="shop-item-text">
             <text class="shop-name">{{item.emoji}} {{item.name}}</text>
             <text class="shop-effect">{{item.effect}}</text>
           </view>
-          <button class="mini-btn buy-btn" size="mini" data-id="{{item.id}}" bindtap="handleBuyItem">{{item.price}} 金币</button>
+          <button class="mini-btn buy-btn" size="mini" data-id="{{item.id}}" bindtap="handleBuyItem">{{item.buyLabel}}</button>
         </view>
 
-        <view class="shop-panel-section">管理</view>
+        <view class="shop-panel-section">{{t.pet_shop_section_manage}}</view>
         <view class="sp-manage" catchtap="handleOpenRename" hover-class="sp-manage-hover">
           <text class="sp-manage-emoji">✏️</text>
           <view class="sp-manage-text">
-            <text class="sp-manage-title">改宠物名字</text>
-            <text class="sp-manage-sub">{{renameCost}} 金币更改名字，旧名字会被清空</text>
+            <text class="sp-manage-title">{{t.pet_manage_rename_title}}</text>
+            <text class="sp-manage-sub">{{manageRenameSub}}</text>
           </view>
           <text class="sp-manage-chev">›</text>
         </view>
         <view class="sp-manage" catchtap="handleOpenSwitchPanel" hover-class="sp-manage-hover">
           <text class="sp-manage-emoji">🔄</text>
           <view class="sp-manage-text">
-            <text class="sp-manage-title">换宠物</text>
-            <text class="sp-manage-sub">{{switchCost}} 金币更换种类，属性和名字都保留</text>
+            <text class="sp-manage-title">{{t.pet_manage_switch_title}}</text>
+            <text class="sp-manage-sub">{{manageSwitchSub}}</text>
           </view>
           <text class="sp-manage-chev">›</text>
         </view>
         <view class="sp-manage" catchtap="openRoomPicker" hover-class="sp-manage-hover">
           <text class="sp-manage-emoji">🏰</text>
           <view class="sp-manage-text">
-            <text class="sp-manage-title">换房间背景</text>
-            <text class="sp-manage-sub">{{roomTheme === 'castle' ? '当前:城堡' : '当前:温馨小屋'}} · 免费切换</text>
+            <text class="sp-manage-title">{{t.pet_manage_room_title}}</text>
+            <text class="sp-manage-sub">{{manageRoomSub}}</text>
           </view>
           <text class="sp-manage-chev">›</text>
         </view>
       </scroll-view>
-      <view class="shop-panel-close" bindtap="closeShopPanel">关闭</view>
+      <view class="shop-panel-close" bindtap="closeShopPanel">{{t.pet_shop_close}}</view>
     </view>
   </view>
 
   <!-- 选房间背景 -->
   <view wx:if="{{showRoomPicker}}" class="room-picker-mask" bindtap="closeRoomPicker" catchtouchmove="noop">
     <view class="room-picker" catchtap="" catchtouchmove="noop">
-      <view class="room-picker-title">选个房间背景</view>
+      <view class="room-picker-title">{{t.pet_room_picker_title}}</view>
       <view class="room-picker-grid">
         <view class="rp-item {{roomTheme === 'cozy' ? 'on' : ''}}" data-theme="cozy" bindtap="pickRoom" hover-class="rp-hover">
           <view class="rp-thumb rp-thumb-cozy"></view>
-          <text class="rp-name">温馨小屋</text>
-          <text class="rp-tag {{roomTheme === 'cozy' ? '' : 'ghost'}}">{{roomTheme === 'cozy' ? '当前' : '选它'}}</text>
+          <text class="rp-name">{{t.pet_room_cozy}}</text>
+          <text class="rp-tag {{roomTheme === 'cozy' ? '' : 'ghost'}}">{{roomTheme === 'cozy' ? t.pet_room_tag_current : t.pet_room_tag_select}}</text>
         </view>
         <view class="rp-item {{roomTheme === 'castle' ? 'on' : ''}}" data-theme="castle" bindtap="pickRoom" hover-class="rp-hover">
           <view class="rp-thumb rp-thumb-castle"></view>
-          <text class="rp-name">城堡</text>
-          <text class="rp-tag {{roomTheme === 'castle' ? '' : 'ghost'}}">{{roomTheme === 'castle' ? '当前' : '选它'}}</text>
+          <text class="rp-name">{{t.pet_room_castle}}</text>
+          <text class="rp-tag {{roomTheme === 'castle' ? '' : 'ghost'}}">{{roomTheme === 'castle' ? t.pet_room_tag_current : t.pet_room_tag_select}}</text>
         </view>
       </view>
-      <view class="room-picker-close" bindtap="closeRoomPicker">关闭</view>
+      <view class="room-picker-close" bindtap="closeRoomPicker">{{t.pet_room_picker_close}}</view>
     </view>
   </view>
 </view>

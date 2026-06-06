@@ -1,5 +1,6 @@
 // 单词库管理:增减单词本、选「近期目标」本、设每次背诵数量。
 const store = require('../../utils/store')
+const i18n = require('../../utils/i18n')
 
 Page({
   data: {
@@ -11,37 +12,58 @@ Page({
     totalWords: 0,
     masteredWords: 0,
     customCount: 0,
-    customMax: 5
+    customMax: 5,
+    t: {}
   },
 
-  onShow() { this._refresh() },
+  onShow() {
+    this.setData({ t: i18n.dict() })
+    wx.setNavigationBarTitle({ title: i18n.t('wbooks_navtitle') })
+    this._refresh()
+  },
 
   _refresh() {
     const s = store.getStateWithComputed()
     const targets = (s.wordConfig && s.wordConfig.targetBookIds) || []
     const books = (s.wordBooks || []).map((b) => {
       const words = b.words || []
+      const count = words.length
+      const mastered = words.filter((w) => w.mastered).length
+      const builtin = !!b.builtin
+      const metaKey = builtin ? 'wbooks_meta_builtin' : 'wbooks_meta'
       return {
         id: b.id,
         name: b.name,
-        builtin: !!b.builtin,
+        builtin,
         isRef: !!b.ref,
         creatorName: b.creatorName || '',
         creatorAvatar: b.creatorAvatar || '',
-        count: words.length,
-        mastered: words.filter((w) => w.mastered).length,
-        isTarget: targets.indexOf(b.id) !== -1
+        count,
+        mastered,
+        isTarget: targets.indexOf(b.id) !== -1,
+        metaLabel: i18n.t(metaKey, { count, mastered })
       }
     })
     const stats = store.getWordStats(s)
+    const customCount = store.getCustomBookCount()
+    const customMax = store.CUSTOM_WORD_BOOKS_MAX
+    const targetCount = books.filter((b) => b.isTarget).length
+    const totalWords = stats.total
+    const masteredWords = stats.mastered
+    const sessionSize = (s.wordConfig && s.wordConfig.sessionSize) || store.RECITE_DEFAULT_SIZE
+    const sizeMin = this.data.sizeMin
     this.setData({
       books,
-      customCount: store.getCustomBookCount(),
-      customMax: store.CUSTOM_WORD_BOOKS_MAX,
-      sessionSize: (s.wordConfig && s.wordConfig.sessionSize) || store.RECITE_DEFAULT_SIZE,
-      targetCount: books.filter((b) => b.isTarget).length,
-      totalWords: stats.total,
-      masteredWords: stats.mastered
+      customCount,
+      customMax,
+      sessionSize,
+      targetCount,
+      totalWords,
+      masteredWords,
+      statLabel: i18n.t('wbooks_stat', { total: totalWords, mastered: masteredWords }),
+      sectionSub: i18n.t('wbooks_section_sub', { n: targetCount }),
+      sessionSizeSub: i18n.t('wbooks_sessionSize_sub', { min: sizeMin }),
+      newLabel: i18n.t('wbooks_new', { count: customCount, max: customMax })
     })
   },
 
@@ -66,21 +88,24 @@ Page({
   newBook() {
     if (store.getCustomBookCount() >= store.CUSTOM_WORD_BOOKS_MAX) {
       wx.showModal({
-        title: '自定义单词本已满',
-        content: '最多只能有 ' + store.CUSTOM_WORD_BOOKS_MAX + ' 个自己的单词本(引用别人的不算)。删掉一个再建,或去发现页「添加」别人的。',
-        confirmText: '去发现', cancelText: '知道了',
+        title: i18n.t('wbooks_modal_full_title'),
+        content: i18n.t('wbooks_modal_full_content', { max: store.CUSTOM_WORD_BOOKS_MAX }),
+        confirmText: i18n.t('wbooks_modal_full_confirm'),
+        cancelText: i18n.t('wbooks_modal_full_cancel'),
         success: (r) => { if (r.confirm) this.goDiscover() }
       })
       return
     }
     wx.showModal({
-      title: '新建单词本', editable: true, placeholderText: '给单词本起个名字',
+      title: i18n.t('wbooks_modal_new_title'),
+      editable: true,
+      placeholderText: i18n.t('wbooks_modal_new_placeholder'),
       success: (r) => {
         if (!r.confirm) return
         const b = store.addWordBook(r.content)
         this._refresh()
         if (b) wx.navigateTo({ url: '/pkg-notebook/word-book/index?id=' + b.id })
-        else wx.showToast({ title: '新建失败(已达自定义上限)', icon: 'none' })
+        else wx.showToast({ title: i18n.t('wbooks_toast_new_fail'), icon: 'none' })
       }
     })
   },

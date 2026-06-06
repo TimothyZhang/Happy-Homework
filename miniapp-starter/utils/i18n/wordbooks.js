@@ -1,0 +1,47 @@
+// 单词本列表页 pkg-notebook/word-books
+module.exports = {
+  en: {
+    wbooks_navtitle: 'My Word Books',
+    wbooks_sessionSize_title: 'Words per session',
+    wbooks_sessionSize_sub: 'Default 20, at least {min} (incl. ≥3 new)',
+    wbooks_section_title: 'My Word Books',
+    wbooks_section_sub: 'Tap ★ to set as current goal (multi-select) · selected {n}',
+    wbooks_stat: 'Total words: {total} (deduped), mastered: {mastered}',
+    wbooks_ref_tag: 'ref',
+    wbooks_anon: 'Anonymous',
+    wbooks_meta: '{count} words · mastered {mastered}',
+    wbooks_meta_builtin: '{count} words · mastered {mastered} · built-in',
+    wbooks_new: '＋ New Word Book · {count}/{max}',
+    wbooks_discover: '🔍 Discover · search public word books',
+    wbooks_hint: 'Tap a word book to add / remove / edit words, import via photo, share, or make public. Phrases are also supported.',
+    wbooks_modal_full_title: 'Custom word book limit reached',
+    wbooks_modal_full_content: 'You can have at most {max} custom word books (referenced ones don\'t count). Delete one first, or go to Discover to "Add" someone else\'s.',
+    wbooks_modal_full_confirm: 'Go to Discover',
+    wbooks_modal_full_cancel: 'Got it',
+    wbooks_modal_new_title: 'New Word Book',
+    wbooks_modal_new_placeholder: 'Give your word book a name',
+    wbooks_toast_new_fail: 'Create failed (custom limit reached)'
+  },
+  zh: {
+    wbooks_navtitle: '我的单词本',
+    wbooks_sessionSize_title: '每次背诵数量',
+    wbooks_sessionSize_sub: '默认 20,至少 {min} 个(含 ≥3 新词)',
+    wbooks_section_title: '我的单词本',
+    wbooks_section_sub: '勾选 ★ 设为近期目标(可多选)· 已选 {n}',
+    wbooks_stat: '全部单词 {total} 个(去重),已掌握 {mastered} 个',
+    wbooks_ref_tag: '引用',
+    wbooks_anon: '匿名',
+    wbooks_meta: '{count} 词 · 已掌握 {mastered}',
+    wbooks_meta_builtin: '{count} 词 · 已掌握 {mastered} · 内置',
+    wbooks_new: '＋ 新建单词本 · {count}/{max}',
+    wbooks_discover: '🔍 发现 · 搜别人公开的单词本',
+    wbooks_hint: '提示:点单词本进去可以加 / 删 / 改单词、拍照导入、分享、公开,也支持短语。',
+    wbooks_modal_full_title: '自定义单词本已满',
+    wbooks_modal_full_content: '最多只能有 {max} 个自己的单词本(引用别人的不算)。删掉一个再建,或去发现页「添加」别人的。',
+    wbooks_modal_full_confirm: '去发现',
+    wbooks_modal_full_cancel: '知道了',
+    wbooks_modal_new_title: '新建单词本',
+    wbooks_modal_new_placeholder: '给单词本起个名字',
+    wbooks_toast_new_fail: '新建失败(已达自定义上限)'
+  }
+}

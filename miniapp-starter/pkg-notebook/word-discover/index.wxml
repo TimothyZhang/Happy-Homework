@@ -1,28 +1,28 @@
 <view class="page">
   <view class="search-bar">
-    <input class="search-input" placeholder="搜单词本名字…" value="{{q}}"
+    <input class="search-input" placeholder="{{t.wdisc_search_placeholder}}" value="{{q}}"
            bindinput="onQ" confirm-type="search" bindconfirm="doSearch" />
-    <view class="search-btn" bindtap="doSearch" hover-class="search-btn-hover">搜索</view>
+    <view class="search-btn" bindtap="doSearch" hover-class="search-btn-hover">{{t.wdisc_search_btn}}</view>
   </view>
 
-  <view wx:if="{{loading}}" class="tip">搜索中…</view>
-  <view wx:elif="{{searched && books.length === 0}}" class="tip">没找到公开的单词本,换个词试试~</view>
-  <view wx:else class="hint">「添加」= 跟作者保持关联、能同步更新(只读,不占额度)。想要独立可改的副本,添加后进本子点「复制」。</view>
+  <view wx:if="{{loading}}" class="tip">{{t.wdisc_loading}}</view>
+  <view wx:elif="{{searched && books.length === 0}}" class="tip">{{t.wdisc_empty}}</view>
+  <view wx:else class="hint">{{t.wdisc_hint}}</view>
 
   <view wx:for="{{books}}" wx:key="id" class="pb">
     <view class="pb-main">
-      <view class="pb-name"><text wx:if="{{item.featured}}" class="pb-star-mark">⭐</text>{{item.name}}<text wx:if="{{item.mine}}" class="pb-mine">我的</text></view>
+      <view class="pb-name"><text wx:if="{{item.featured}}" class="pb-star-mark">⭐</text>{{item.name}}<text wx:if="{{item.mine}}" class="pb-mine">{{t.wdisc_mine}}</text></view>
       <view class="pb-creator">
         <image wx:if="{{item.creatorAvatar}}" class="pb-avatar" src="{{item.creatorAvatar}}" mode="aspectFill" />
         <view wx:else class="pb-avatar pb-avatar-ph">👤</view>
-        <text class="pb-creator-name">{{item.creatorName || '匿名'}}</text>
-        <text class="pb-meta">· {{item.wordCount}} 词 · 被引用 {{item.refCount}} 次</text>
+        <text class="pb-creator-name">{{item.creatorName || t.wdisc_anon}}</text>
+        <text class="pb-meta">{{item.metaLabel}}</text>
       </view>
       <view wx:if="{{item.preview}}" class="pb-preview">{{item.preview}}…</view>
     </view>
     <view class="pb-acts">
       <view wx:if="{{isAdmin}}" class="pb-feature {{item.featured ? 'on' : ''}}" catchtap="toggleFeatured" data-id="{{item.id}}">{{item.featured ? '★' : '☆'}}</view>
-      <view class="pb-ref" catchtap="referenceBook" data-id="{{item.id}}" hover-class="pb-ref-hover">添加</view>
+      <view class="pb-ref" catchtap="referenceBook" data-id="{{item.id}}" hover-class="pb-ref-hover">{{t.wdisc_add}}</view>
     </view>
   </view>
 </view>

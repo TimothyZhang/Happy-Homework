@@ -1,0 +1,45 @@
+// 任务列表组件 components/task-list
+module.exports = {
+  en: {
+    tl_edit:           'Edit',
+    tl_resume:         'Resume',
+    tl_postpone_prev:  'Move to yesterday',
+    tl_postpone_next:  'Move to tomorrow',
+    tl_makeup_from:    'Overdue from {date}',
+    tl_est_chip:       'Est. {min} min ✎',
+    tl_elapsed_spent:  'Took {t}',
+    tl_elapsed_used:   'Used {t}',
+    tl_elapsed_sec:    '{s}s',
+    tl_elapsed_min:    '{m} min',
+    tl_elapsed_minsec: '{m}m {s}s',
+    tl_est_title:      'How long will it take?',
+    tl_est_unit:       'min',
+    tl_est_placeholder:'Custom minutes',
+    tl_est_confirm:    'OK',
+    tl_edit_once:      'Edit this occurrence',
+    tl_edit_all:       'Edit entire task',
+    tl_toast_deduct:   'Deducted {n} coins',
+    tl_toast_enter_min:'Enter minutes'
+  },
+  zh: {
+    tl_edit:           '编辑',
+    tl_resume:         '继续',
+    tl_postpone_prev:  '移至上一天',
+    tl_postpone_next:  '移至下一天',
+    tl_makeup_from:    '延期自 {date}',
+    tl_est_chip:       '预计 {min} 分钟 ✎',
+    tl_elapsed_spent:  '花费 {t}',
+    tl_elapsed_used:   '已用 {t}',
+    tl_elapsed_sec:    '{s} 秒',
+    tl_elapsed_min:    '{m} 分钟',
+    tl_elapsed_minsec: '{m} 分 {s} 秒',
+    tl_est_title:      '预计需要多长时间?',
+    tl_est_unit:       '分',
+    tl_est_placeholder:'自定义分钟',
+    tl_est_confirm:    '确认',
+    tl_edit_once:      '仅编辑此次',
+    tl_edit_all:       '编辑整个作业',
+    tl_toast_deduct:   '扣除 {n} 金币',
+    tl_toast_enter_min:'请输入分钟数'
+  }
+}

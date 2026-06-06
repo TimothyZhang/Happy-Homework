@@ -50,6 +50,15 @@
     <text class="wb-entry-chev">›</text>
   </view>
 
+  <view class="card wb-entry-card" bindtap="goFeedback" hover-class="wb-entry-hover">
+    <text class="wb-entry-emoji">💬</text>
+    <view class="wb-entry-text">
+      <text class="wb-entry-title">{{t.prof_feedback}}</text>
+      <text class="wb-entry-sub">{{t.prof_feedbackSub}}</text>
+    </view>
+    <text class="wb-entry-chev">›</text>
+  </view>
+
   <view wx:if="{{isAdmin}}" class="card admin-card" bindtap="handleOpenAdmin">
     <view class="admin-row">
       <view class="admin-text">

@@ -2,6 +2,7 @@
 // 宠物在上方"说"中文,用自制大键盘拼英文。每答对一个给宠物 +1 知识,背完结算。
 const store = require('../../utils/store')
 const tts = require('../../utils/tts')
+const i18n = require('../../utils/i18n')
 
 // 自制键盘:布局对齐 iPhone 默认英文键盘。
 const ROWS_ABC = [
@@ -21,7 +22,7 @@ function norm(s) { return (s || '').trim().toLowerCase().replace(/\s+/g, ' ') }
 Page({
   data: {
     species: 'cat',
-    petName: '宝贝',
+    petName: '',
     knowledge: 0,
     mode: 'recite',        // 'recite'(看中文拼英文) | 'dictation'(听写)
     ttsOn: false,          // 听写模式能不能发声(同声传译插件是否可用)
@@ -56,6 +57,11 @@ Page({
     this._startSession()
   },
 
+  onShow() {
+    this.setData({ t: i18n.dict() })
+    wx.setNavigationBarTitle({ title: i18n.t('wrec_navtitle') })
+  },
+
   onUnload() {
     if (this._t) { clearTimeout(this._t); this._t = null }
     try { tts.stop() } catch (e) {}
@@ -70,7 +76,7 @@ Page({
       if (!ok && reason !== 'inflight' && !this._ttsWarned) {
         this._ttsWarned = true
         this.setData({ ttsOn: false })
-        wx.showToast({ title: '语音暂不可用:' + (reason || ''), icon: 'none', duration: 2400 })
+        wx.showToast({ title: i18n.t('wrec_tts_unavail') + (reason || ''), icon: 'none', duration: 2400 })
       }
     })
   },
@@ -81,8 +87,8 @@ Page({
     tts.speak(this.data.word.en, 'en_US', (ok, reason) => {
       if (ok) { if (!this.data.ttsOn) this.setData({ ttsOn: true }); return }
       // inflight = 自动播放那次还在加载,稍等它就出声,别误报"不可用"。
-      if (reason === 'inflight') { wx.showToast({ title: '加载中,稍等再点~', icon: 'none', duration: 1400 }); return }
-      wx.showToast({ title: '语音暂不可用:' + (reason || ''), icon: 'none', duration: 2400 })
+      if (reason === 'inflight') { wx.showToast({ title: i18n.t('wrec_tts_loading'), icon: 'none', duration: 1400 }); return }
+      wx.showToast({ title: i18n.t('wrec_tts_unavail') + (reason || ''), icon: 'none', duration: 2400 })
     })
   },
 
@@ -100,14 +106,15 @@ Page({
   _startSession() {
     const state = store.getStateWithComputed()
     const pet = (state && state.pet) || {}
-    const base = { species: pet.species || 'cat', petName: pet.name || '宝贝', knowledge: pet.knowledge || 0 }
+    const petName = pet.name || ''
+    const base = { species: pet.species || 'cat', petName, knowledge: pet.knowledge || 0, goFindPetLabel: i18n.t('wrec_go_find_pet', { petName }) }
     if (store.reciteRemaining(state) <= 0) {
-      this.setData(Object.assign({}, base, { blocked: true, blockedReason: '今天 3 次单词挑战都完成啦,明天再来~' }))
+      this.setData(Object.assign({}, base, { blocked: true, blockedReason: i18n.t('wrec_blocked_sessions_done') }))
       return
     }
     const session = store.buildReciteSession(state)
     if (!session.length) {
-      this.setData(Object.assign({}, base, { blocked: true, blockedReason: '目标单词本里暂时没有要挑战的词啦~' }))
+      this.setData(Object.assign({}, base, { blocked: true, blockedReason: i18n.t('wrec_blocked_no_words') }))
       return
     }
     this._session = session
@@ -195,14 +202,24 @@ Page({
     const r = store.applyReciteSession(this._results)
     const state = store.getStateWithComputed()
     const remaining = store.reciteRemaining(state)
+    const knowledgeGained = (r && r.knowledgeGained) || 0
+    const xpGained = (r && r.xpGained) || 0
+    const knowledge = (state.pet && state.pet.knowledge) || 0
+    const correctCount = this.data.correctCount
+    const total = this.data.total
+    const petName = this.data.petName
+    const doneSub = i18n.t('wrec_done_sub', { correctCount, total, petName, knowledge })
+    const goFindPetLabel = i18n.t('wrec_go_find_pet', { petName })
     this.setData({
       done: true,
       feedback: '',
       rewardFly: false,
-      knowledgeGained: (r && r.knowledgeGained) || 0,
-      xpGained: (r && r.xpGained) || 0,
-      knowledge: (state.pet && state.pet.knowledge) || 0,
-      canMore: remaining > 0
+      knowledgeGained,
+      xpGained,
+      knowledge,
+      canMore: remaining > 0,
+      doneSub,
+      goFindPetLabel
     })
   },
 
