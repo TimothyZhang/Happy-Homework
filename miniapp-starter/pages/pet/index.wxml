@@ -32,7 +32,7 @@
     <!-- 全屏室内房间(fixed 背景):宠物在地板上以侧面朝向四向行走。点空地板
          宠物走过去,点宠物本身按心情互动。控制卡片在下面的 .sheet 里,往上滚
          盖住下半截房间。 -->
-    <scroll-view class="scene-scroll" scroll-x="true">
+    <scroll-view class="scene-scroll" scroll-x="true" scroll-left="{{sceneScroll}}" scroll-with-animation="true">
     <view class="room theme-{{roomTheme}}" bindtap="handleSceneTap">
       <view class="room-wall"></view>
       <view class="room-window">
@@ -141,42 +141,7 @@
       </view>
     </view>
 
-    <!-- 控制层:顶部留空看房间,往上滚把卡片盖上来。
-         经验值「一大坨」已隐藏(可升级时顶栏出现「⬆️可升级」);商店挪到金币下的「🛒商店」按钮(点开弹窗)。 -->
-    <view class="sheet">
-      <view class="card switch-card sheet-first" bindtap="handleOpenRename">
-      <view class="switch-row">
-        <text class="switch-emoji">✏️</text>
-        <view class="switch-text">
-          <text class="switch-title">改宠物名字</text>
-          <text class="switch-sub">{{renameCost}} 金币更改名字，旧的名字会被清空</text>
-        </view>
-        <text class="switch-chev">›</text>
-      </view>
-    </view>
-
-    <view class="card switch-card" bindtap="handleOpenSwitchPanel">
-      <view class="switch-row">
-        <text class="switch-emoji">🔄</text>
-        <view class="switch-text">
-          <text class="switch-title">换宠物</text>
-          <text class="switch-sub">{{switchCost}} 金币更换种类，属性和名字都保留</text>
-        </view>
-        <text class="switch-chev">›</text>
-      </view>
-    </view>
-
-    <view class="card switch-card" bindtap="openRoomPicker">
-      <view class="switch-row">
-        <text class="switch-emoji">🏰</text>
-        <view class="switch-text">
-          <text class="switch-title">换房间背景</text>
-          <text class="switch-sub">{{roomTheme === 'castle' ? '当前:城堡' : '当前:温馨小屋'}} · 免费切换</text>
-        </view>
-        <text class="switch-chev">›</text>
-      </view>
-    </view>
-    </view>
+    <!-- 沉底控制卡已全部收进「🛒商店」弹窗(商店 + 改名/换宠物/换背景),房间全屏显示。 -->
   </block>
 
   <!-- 升级动画覆盖层 — 由 handleLevelUp 触发,2.4s 后自动消失。
@@ -243,16 +208,43 @@
   <view wx:if="{{showShopPanel}}" class="shop-panel-mask" bindtap="closeShopPanel" catchtouchmove="noop">
     <view class="shop-panel" catchtap="" catchtouchmove="noop">
       <view class="shop-panel-head">
-        <text class="shop-panel-title">🛒 宠物商店</text>
+        <text class="shop-panel-title">🛒 商店 · 管理</text>
         <text class="shop-panel-coin">金币 {{coins}}</text>
       </view>
       <scroll-view scroll-y class="shop-panel-list">
+        <view class="shop-panel-section">用金币照顾它</view>
         <view wx:for="{{shopItems}}" wx:key="id" class="shop-item-card">
           <view class="shop-item-text">
             <text class="shop-name">{{item.emoji}} {{item.name}}</text>
             <text class="shop-effect">{{item.effect}}</text>
           </view>
           <button class="mini-btn buy-btn" size="mini" data-id="{{item.id}}" bindtap="handleBuyItem">{{item.price}} 金币</button>
+        </view>
+
+        <view class="shop-panel-section">管理</view>
+        <view class="sp-manage" catchtap="handleOpenRename" hover-class="sp-manage-hover">
+          <text class="sp-manage-emoji">✏️</text>
+          <view class="sp-manage-text">
+            <text class="sp-manage-title">改宠物名字</text>
+            <text class="sp-manage-sub">{{renameCost}} 金币更改名字，旧名字会被清空</text>
+          </view>
+          <text class="sp-manage-chev">›</text>
+        </view>
+        <view class="sp-manage" catchtap="handleOpenSwitchPanel" hover-class="sp-manage-hover">
+          <text class="sp-manage-emoji">🔄</text>
+          <view class="sp-manage-text">
+            <text class="sp-manage-title">换宠物</text>
+            <text class="sp-manage-sub">{{switchCost}} 金币更换种类，属性和名字都保留</text>
+          </view>
+          <text class="sp-manage-chev">›</text>
+        </view>
+        <view class="sp-manage" catchtap="openRoomPicker" hover-class="sp-manage-hover">
+          <text class="sp-manage-emoji">🏰</text>
+          <view class="sp-manage-text">
+            <text class="sp-manage-title">换房间背景</text>
+            <text class="sp-manage-sub">{{roomTheme === 'castle' ? '当前:城堡' : '当前:温馨小屋'}} · 免费切换</text>
+          </view>
+          <text class="sp-manage-chev">›</text>
         </view>
       </scroll-view>
       <view class="shop-panel-close" bindtap="closeShopPanel">关闭</view>

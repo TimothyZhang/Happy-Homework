@@ -113,6 +113,7 @@ Page({
     actorFace: 'right',
     actorMoving: false,
     moveDurMs: 0,
+    sceneScroll: 0,        // 场景横向滚动位置(px):自动跟随宠物保持其大致居中(scroll-with-animation 平滑)
     spriteAnim: '',
     rigPivot: RIG_PIVOTS.cat,   // 当前物种 rig 各关节 pivot(refreshState 按 species 覆盖)
     showPetMenu: false,
@@ -245,12 +246,24 @@ Page({
   // queueAnim(eating/celebrating/happy)是最高优先级的原地动作,暂停漫游。
   _initActor() {
     const y = (FLOOR.yMin + FLOOR.yMax) / 2
-    // 起始放在左半边(2 倍宽场景默认滚到最左,宠物落在初始可见区中间偏左)。
     this.setData({
       actorX: 25, actorY: y,
       actorScale: depthForY(y), actorZ: zForY(y),
-      actorFace: 'right', actorMoving: false, moveDurMs: 0
+      actorFace: 'right', actorMoving: false, moveDurMs: 0,
+      sceneScroll: this._centerScroll(25)
     })
+  },
+
+  // 把横向滚动算到「让宠物(xPct% 处)大致居中」。房间宽 2W,scrollLeft 夹在 [0, W]。
+  // 配合 scroll-view 的 scroll-with-animation → 平滑跟随。
+  _centerScroll(xPct) {
+    if (!this._winW) {
+      let w = 375
+      try { const i = (wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()) || {}; w = i.windowWidth || i.screenWidth || 375 } catch (e) {}
+      this._winW = w
+    }
+    const W = this._winW
+    return Math.round(clampNum(xPct / 100 * 2 * W - W / 2, 0, W))
   },
 
   _startSceneEngine() {
@@ -306,7 +319,8 @@ Page({
       actorZ: zForY(ty),
       actorFace: faceFromDelta(dx, this.data.actorFace),
       actorMoving: true,
-      moveDurMs: dur
+      moveDurMs: dur,
+      sceneScroll: this._centerScroll(tx)   // 相机平滑跟到目标点,宠物大致保持居中
     })
     if (this._arriveTimer) clearTimeout(this._arriveTimer)
     this._arriveTimer = setTimeout(() => {
@@ -424,7 +438,7 @@ Page({
 
   // === 房间背景主题 === //
   openRoomPicker() {
-    this.setData({ showRoomPicker: true })
+    this.setData({ showRoomPicker: true, showShopPanel: false })
   },
   closeRoomPicker() {
     this.setData({ showRoomPicker: false })
@@ -558,6 +572,7 @@ Page({
   // 弹 wx.showModal 收新名字(editable + placeholderText)。校验交给 store.renamePet,
   // 这里仅在 UI 层做提示:空 / 超长 / 重名 / 金币不足 都用 toast 反馈。
   handleOpenRename() {
+    this.setData({ showShopPanel: false })
     const currentName = (this.data.pet && this.data.pet.name) || ''
     wx.showModal({
       title: `改名（${this.data.renameCost} 金币）`,
@@ -595,7 +610,7 @@ Page({
 
   // === Switch species === //
   handleOpenSwitchPanel() {
-    this.setData({ showSwitchPanel: true })
+    this.setData({ showSwitchPanel: true, showShopPanel: false })
   },
 
   handleCloseSwitchPanel() {
