@@ -348,13 +348,14 @@
 .cat-rig.walking .cr-eye       { animation: cat-blink 4.4s ease-in-out infinite; }
 
 /* —— 一次性动作 —— 摸摸它=整只挤一下;开心=蹦两下;吃=低头啃 */
-.cat-rig.do-happy        { animation: cat-squish 0.7s ease-out 1; }
+.cat-rig.do-happy        { animation: cat-squish 0.85s ease-in-out 1; }
 .cat-rig.do-celebrating  { animation: cat-hop 0.6s ease-in-out 2; }
 .cat-rig.do-eating .cr-head-grp { animation: cat-peck 0.42s ease-in-out 4; }
 
 @keyframes cat-breath {
-  0%, 100% { transform: scaleY(1) translateY(0); }
-  50%      { transform: scaleY(1.035) translateY(-2rpx); }
+  0%, 100% { transform: scaleX(1)     scaleY(1); }
+  45%      { transform: scaleX(0.985) scaleY(1.03) translateY(-3rpx); } /* 吸气:略瘦略高(保体积) */
+  62%      { transform: scaleX(1.008) scaleY(0.992); }                  /* 小回弹,带点软软的惯性 */
 }
 @keyframes cat-head-idle {
   0%, 100% { transform: rotate(0deg) translateY(0); }
@@ -362,7 +363,9 @@
 }
 @keyframes cat-tail {
   0%, 100% { transform: rotate(0deg); }
-  50%      { transform: rotate(-10deg); }
+  35%      { transform: rotate(-12deg); }
+  55%      { transform: rotate(-3deg); }   /* 甩过头再回摆 = 次级运动 */
+  78%      { transform: rotate(-9deg); }
 }
 @keyframes cat-blink {
   0%, 90%, 100% { transform: scaleY(1); }
@@ -377,8 +380,10 @@
   50%      { transform: translateY(0)     rotate(0deg); }
 }
 @keyframes cat-walk-bob {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-4rpx); }
+  0%, 100% { transform: translateY(0)     scaleY(1)    scaleX(1); }
+  25%      { transform: translateY(-5rpx) scaleY(1.03) scaleX(0.99); } /* 腾空:抻 */
+  50%      { transform: translateY(0)     scaleY(0.97) scaleX(1.02); } /* 落地:压 */
+  75%      { transform: translateY(-5rpx) scaleY(1.03) scaleX(0.99); }
 }
 @keyframes cat-head-walk {
   0%, 100% { transform: translateY(0)     rotate(0deg); }
@@ -386,9 +391,11 @@
 }
 @keyframes cat-squish {
   0%   { transform: scaleX(1)    scaleY(1)    translateY(0); }
-  22%  { transform: scaleX(1.14) scaleY(0.82) translateY(8rpx); }
-  52%  { transform: scaleX(0.93) scaleY(1.12) translateY(-16rpx); }
-  76%  { transform: scaleX(1.03) scaleY(0.98) translateY(0); }
+  12%  { transform: scaleX(0.96) scaleY(1.07) translateY(-7rpx); }   /* 预备:先轻轻抻一下 */
+  34%  { transform: scaleX(1.20) scaleY(0.78) translateY(11rpx); }   /* 主挤:又扁又宽,压到脚 */
+  54%  { transform: scaleX(0.89) scaleY(1.15) translateY(-19rpx); }  /* 过冲:弹得又高又瘦 */
+  70%  { transform: scaleX(1.08) scaleY(0.95) translateY(2rpx); }    /* 回弹抖动 1 */
+  84%  { transform: scaleX(0.98) scaleY(1.03) translateY(-4rpx); }   /* 回弹抖动 2(衰减) */
   100% { transform: scaleX(1)    scaleY(1)    translateY(0); }
 }
 @keyframes cat-hop {
