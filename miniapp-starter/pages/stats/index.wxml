@@ -64,7 +64,12 @@
   <view class="card section-card chart-card">
     <view class="section-header">
       <text class="section-title">作业耗时</text>
-      <text class="subtle">共 {{minutesTotal}} 分钟</text>
+      <text class="subtle">实际 {{minutesTotal}} · 预计 {{estimatedTotal}} 分钟</text>
+    </view>
+    <view class="legend">
+      <text class="legend-item"><text class="legend-dot base"></text>实际</text>
+      <text class="legend-item"><text class="legend-dot under"></text>比预计省</text>
+      <text class="legend-item"><text class="legend-dot over"></text>比预计超</text>
     </view>
     <view class="chart-scroll">
       <view class="bar-row {{period === 'month' ? 'is-month' : 'is-week'}}"
@@ -76,9 +81,11 @@
         </block>
         <view wx:for="{{minutesBars}}" wx:key="date" class="bar-col">
           <view class="bar-stack" style="height: {{barAreaRpx}}rpx;">
-            <text wx:if="{{item.value > 0}}" class="bar-value">{{item.value}}</text>
-            <view class="bar bar-minutes {{item.isToday ? 'is-today' : ''}}"
-                  style="height: {{item.heightRpx}}rpx;"></view>
+            <text wx:if="{{item.hasData}}" class="bar-value">{{item.act}}<text wx:if="{{item.diffLabel}}" class="bar-diff-tag {{item.over ? 'over' : 'under'}}"> {{item.diffLabel}}</text></text>
+            <view wx:if="{{item.diffHeightRpx > 0}}" class="bar bar-est-diff {{item.over ? 'over' : 'under'}}"
+                  style="height: {{item.diffHeightRpx}}rpx;"></view>
+            <view class="bar bar-est-base {{item.diffHeightRpx > 0 ? 'flat-top' : ''}} {{item.isToday ? 'is-today' : ''}}"
+                  style="height: {{item.baseHeightRpx}}rpx;"></view>
           </view>
           <text class="bar-label {{item.isToday ? 'is-today' : ''}}">{{item.label}}</text>
         </view>

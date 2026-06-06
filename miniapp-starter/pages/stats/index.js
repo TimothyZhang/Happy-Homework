@@ -41,14 +41,17 @@ function labelFor(dateStr, period, today, idx, total) {
 }
 
 function aggregateTasks(state) {
-  const counts = {}   // dateStr -> done count
-  const minutes = {}  // dateStr -> sum actualMinutes
+  const counts = {}     // dateStr -> done count
+  const minutes = {}    // dateStr -> sum actualMinutes(实际)
+  const estimated = {}  // dateStr -> sum estimatedMinutes(预计)
   for (const t of state.tasks) {
+    const est = Number(t.estimatedMinutes) || 0   // 预计是 task 级,recurring 各次共用
     if (t.mode !== 'recurring') {
       if (t.status === 'done' && t.completedAt) {
         const d = store.dateToStr(new Date(t.completedAt))
         counts[d] = (counts[d] || 0) + 1
         minutes[d] = (minutes[d] || 0) + (Number(t.actualMinutes) || 0)
+        estimated[d] = (estimated[d] || 0) + est
       }
     } else {
       const occs = t.occurrences || {}
@@ -58,11 +61,12 @@ function aggregateTasks(state) {
           const d = store.dateToStr(new Date(occ.completedAt))
           counts[d] = (counts[d] || 0) + 1
           minutes[d] = (minutes[d] || 0) + (Number(occ.actualMinutes) || 0)
+          estimated[d] = (estimated[d] || 0) + (Number(occ.estimatedMinutes) || est)
         }
       }
     }
   }
-  return { counts, minutes }
+  return { counts, minutes, estimated }
 }
 
 // 每天的"完成时间":取该日所有 done 任务里最晚的 completedAt(=当天最后一笔
@@ -139,10 +143,34 @@ function scaleCoinBars(bars) {
   return max
 }
 
+// 作业耗时:一根柱子里同时表达「预计」与「实际」。
+// 柱高 = max(预计, 实际);下半 base = min(两者)是中性色;上半 diff = |差值|,
+// 实际 < 预计(提前完成)→ 差值绿色(省下的时间);实际 > 预计(超时)→ 差值红色。
+function scaleEstActBars(bars) {
+  let max = 0
+  for (const b of bars) {
+    const hi = Math.max(b.est || 0, b.act || 0)
+    if (hi > max) max = hi
+  }
+  for (const b of bars) {
+    const est = b.est || 0
+    const act = b.act || 0
+    const hasBoth = est > 0 && act > 0   // 只有同时有预计+实际才比差值上色
+    // base = 两者重叠的部分(中性色),diff = 差值(绿/红)。缺一个时整根中性。
+    const base = hasBoth ? Math.min(est, act) : Math.max(est, act)
+    const diff = hasBoth ? Math.abs(est - act) : 0
+    b.over = hasBoth && act > est        // 超时(红);提前完成则绿
+    b.hasData = est > 0 || act > 0
+    b.baseHeightRpx = max > 0 ? Math.round((base / max) * BAR_AREA_RPX) : 0
+    b.diffHeightRpx = max > 0 ? Math.round((diff / max) * BAR_AREA_RPX) : 0
+  }
+  return max
+}
+
 function buildCharts(state, period) {
   const today = store.todayStr()
   const dates = buildDateList(period)
-  const { counts, minutes } = aggregateTasks(state)
+  const { counts, minutes, estimated } = aggregateTasks(state)
   const coins = aggregateCoins(state)
   const finishTs = aggregateFinishTimes(state)
 
@@ -180,13 +208,23 @@ function buildCharts(state, period) {
   }))
   const countMax = scaleBars(countBars, 'value')
 
-  const minutesBars = dates.map((d, i) => ({
-    date: d,
-    label: labelFor(d, period, today, i, total),
-    isToday: d === today,
-    value: minutes[d] || 0
-  }))
-  const minutesMax = scaleBars(minutesBars, 'value')
+  const minutesBars = dates.map((d, i) => {
+    const act = minutes[d] || 0
+    const est = estimated[d] || 0
+    const hasBoth = est > 0 && act > 0
+    const diff = Math.abs(est - act)
+    return {
+      date: d,
+      label: labelFor(d, period, today, i, total),
+      isToday: d === today,
+      value: act,
+      est,
+      act,
+      // 角标:实际比预计省/超了多少分钟(只有同时有预计+实际且不等才显示)
+      diffLabel: (hasBoth && diff > 0) ? ((act > est ? '+' : '-') + diff) : ''
+    }
+  })
+  const minutesMax = scaleEstActBars(minutesBars)
 
   const coinBars = dates.map((d, i) => {
     const c = coins[d] || { gain: 0, spend: 0, net: 0 }
@@ -208,7 +246,8 @@ function buildCharts(state, period) {
     minutesBars,
     coinBars,
     countTotal: countBars.reduce((s, b) => s + b.value, 0),
-    minutesTotal: minutesBars.reduce((s, b) => s + b.value, 0),
+    minutesTotal: minutesBars.reduce((s, b) => s + b.act, 0),
+    estimatedTotal: minutesBars.reduce((s, b) => s + b.est, 0),
     coinGainTotal: coinBars.reduce((s, b) => s + b.gain, 0),
     coinSpendTotal: coinBars.reduce((s, b) => s + b.spend, 0),
     // 月模式参考线上标的数字 —— 25/50/75% 三档(金币只标 50%);完成时间用固定刻度
@@ -236,6 +275,7 @@ Page({
     coinBars: [],
     countTotal: 0,
     minutesTotal: 0,
+    estimatedTotal: 0,
     coinGainTotal: 0,
     coinSpendTotal: 0,
     countQ1: 0, countQ2: 0, countQ3: 0,

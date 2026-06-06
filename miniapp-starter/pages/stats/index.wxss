@@ -113,6 +113,33 @@
   background: linear-gradient(180deg, #ffc56b 0%, #ff9933 100%);
 }
 
+/* 作业耗时:预计 vs 实际 一根柱 —— base(重叠/实际)中性 + diff(差值)绿/红 */
+.bar-est-base {
+  background: linear-gradient(180deg, #8ea4c4 0%, #5f769b 100%);
+  border-radius: 8rpx 8rpx 0 0;
+}
+.bar-est-base.flat-top { border-radius: 0; }
+.bar-est-diff {
+  border-radius: 8rpx 8rpx 0 0;
+}
+.bar-est-diff.under {
+  background: linear-gradient(180deg, #6dd58c 0%, #1aab50 100%);
+}
+.bar-est-diff.over {
+  background: linear-gradient(180deg, #f3a0a0 0%, #e35454 100%);
+}
+.bar-diff-tag { font-size: 18rpx; font-weight: 700; }
+.bar-diff-tag.under { color: #1aab50; }
+.bar-diff-tag.over { color: #e35454; }
+
+/* 图例 */
+.legend { display: flex; gap: 22rpx; padding: 4rpx 4rpx 14rpx; }
+.legend-item { display: flex; align-items: center; font-size: 21rpx; color: #6b7785; }
+.legend-dot { width: 16rpx; height: 16rpx; border-radius: 4rpx; margin-right: 8rpx; }
+.legend-dot.base { background: #6f86ab; }
+.legend-dot.under { background: #1aab50; }
+.legend-dot.over { background: #e35454; }
+
 .bar-finish {
   background: linear-gradient(180deg, #b08bee 0%, #7c3aed 100%);
 }
