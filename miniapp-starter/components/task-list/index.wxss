@@ -276,3 +276,38 @@
   font-size: 26rpx;
   font-weight: 600;
 }
+
+/* === 「预计需要时间」可点 chip + 设置弹窗 === */
+.est-chip-hover { opacity: 0.55; }
+.est-mask {
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 200;
+  background: rgba(20, 16, 10, 0.45);
+  display: flex; align-items: flex-end;
+}
+.est-sheet {
+  width: 100%; box-sizing: border-box;
+  background: #ffffff; border-radius: 28rpx 28rpx 0 0;
+  padding: 30rpx 28rpx calc(24rpx + env(safe-area-inset-bottom));
+}
+.est-title { font-size: 32rpx; font-weight: 800; color: #1f2329; text-align: center; }
+.est-grid { margin-top: 24rpx; display: flex; flex-wrap: wrap; gap: 16rpx; }
+.est-opt {
+  width: calc((100% - 32rpx) / 3);
+  box-sizing: border-box; height: 92rpx; border-radius: 18rpx;
+  display: flex; align-items: center; justify-content: center;
+  background: #f4f6fa; color: #1f2329; font-size: 34rpx; font-weight: 800;
+}
+.est-opt.on { background: #245bdb; color: #ffffff; }
+.est-opt-hover { background: #e6ebf3; }
+.est-unit { font-size: 22rpx; font-weight: 600; margin-left: 3rpx; opacity: 0.7; }
+.est-custom { margin-top: 22rpx; display: flex; gap: 14rpx; }
+.est-input {
+  flex: 1; min-width: 0; height: 88rpx; padding: 0 24rpx;
+  background: #f4f6fa; border-radius: 16rpx; font-size: 30rpx; color: #1f2329;
+}
+.est-confirm {
+  flex-shrink: 0; padding: 0 40rpx; height: 88rpx;
+  display: flex; align-items: center; justify-content: center;
+  background: #245bdb; color: #ffffff; font-size: 30rpx; font-weight: 700; border-radius: 16rpx;
+}
+.est-confirm-hover { background: #1e4fc0; }

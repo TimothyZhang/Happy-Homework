@@ -61,7 +61,14 @@ Component({
     postponeDx: 0,       // 右滑期间 row 的 x 位移(rpx,正值=向右)
     postponeArmed: false,// 右滑距离 ≥ 40% 卡宽 → true(满绿,松手即顺延)
     postponeColor: 'rgb(207,19,34)', // 色块当前背景色(随滑动进度红→琥珀→绿渐变)
-    postponeDragging: false // 拖动中(true→关 transition 跟手;松手→开 transition 飞出/回弹)
+    postponeDragging: false, // 拖动中(true→关 transition 跟手;松手→开 transition 飞出/回弹)
+    // 点「预计 X 分钟」弹出的设置时长弹窗
+    showEstPopup: false,
+    estTaskId: '',
+    estDate: '',
+    estInput: '',
+    estCurrent: 0,
+    estPresets: [5, 10, 15, 20, 25, 30, 40, 50, 60]
   },
   observers: {
     'items': function (items) {
@@ -477,6 +484,36 @@ Component({
       if (refund > 0) {
         wx.showToast({ title: `扣除 ${refund} 金币`, icon: 'none', duration: 1500 })
       }
+    },
+
+    noop() {},
+
+    // === 设置「预计需要时间」(点 est-chip 弹窗:预设按钮 5~60 或自定义输入)===
+    openEstPopup(e) {
+      const ds = e.currentTarget.dataset
+      this.setData({
+        showEstPopup: true,
+        estTaskId: ds.taskId || ds.id,
+        estDate: ds.occurrenceDate || this.data.activeDate,
+        estCurrent: Number(ds.min) || 0,
+        estInput: ''
+      })
+    },
+    closeEstPopup() { this.setData({ showEstPopup: false }) },
+    onEstInput(e) { this.setData({ estInput: e.detail.value }) },
+    pickEst(e) { this._applyEst(Number(e.currentTarget.dataset.min) || 0) },
+    confirmEst() {
+      const v = Math.round(Number(this.data.estInput))
+      if (!v || v <= 0) { wx.showToast({ title: '请输入分钟数', icon: 'none' }); return }
+      this._applyEst(v)
+    },
+    _applyEst(min) {
+      const m = Math.max(1, Math.min(600, Math.round(min)))
+      if (!this.data.estTaskId) { this.setData({ showEstPopup: false }); return }
+      store.updateTask(this.data.estTaskId, { estimatedMinutes: m })
+      this.setData({ showEstPopup: false })
+      this.triggerEvent('changed')
+      wx.showToast({ title: `预计 ${m} 分钟`, icon: 'none', duration: 1200 })
     }
   }
 })

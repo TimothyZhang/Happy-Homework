@@ -55,7 +55,11 @@
             <text wx:if="{{item.organization}}" class="chip org-chip">{{item.organization}}</text>
             <text wx:if="{{item.isMakeup && item.occurrenceDate}}" class="chip overdue-chip">延期自 {{item.occurrenceDate}}</text>
             <text wx:elif="{{item.isOverdue && item.status !== 'done' && item.occurrenceDate}}" class="chip overdue-chip">{{item.occurrenceDate}}</text>
-            <text class="chip est-chip">预计 {{item.estimatedMinutes}} 分钟</text>
+            <text class="chip est-chip est-chip-tap" catchtap="openEstPopup"
+                  data-task-id="{{item.taskId || item.id}}"
+                  data-occurrence-date="{{item.occurrenceDate}}"
+                  data-min="{{item.estimatedMinutes}}"
+                  hover-class="est-chip-hover">预计 {{item.estimatedMinutes}} 分钟 ✎</text>
             <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.status === 'done' ? '花费' : '已用'}} {{item.elapsedDisplay}}</text>
           </view>
         </view>
@@ -71,4 +75,21 @@
       </view>
     </view>
   </block>
+</view>
+
+<!-- 设置「预计需要时间」弹窗:5~60 预设按钮 + 自定义输入 -->
+<view wx:if="{{showEstPopup}}" class="est-mask" catchtap="closeEstPopup" catchtouchmove="noop">
+  <view class="est-sheet" catchtap="noop" catchtouchmove="noop">
+    <view class="est-title">预计需要多长时间?</view>
+    <view class="est-grid">
+      <view wx:for="{{estPresets}}" wx:key="*this"
+            class="est-opt {{estCurrent === item ? 'on' : ''}}"
+            data-min="{{item}}" catchtap="pickEst" hover-class="est-opt-hover">{{item}}<text class="est-unit">分</text></view>
+    </view>
+    <view class="est-custom">
+      <input class="est-input" type="number" placeholder="自定义分钟" value="{{estInput}}"
+             bindinput="onEstInput" bindconfirm="confirmEst" confirm-type="done" />
+      <view class="est-confirm" catchtap="confirmEst" hover-class="est-confirm-hover">确认</view>
+    </view>
+  </view>
 </view>
