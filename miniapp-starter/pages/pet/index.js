@@ -58,6 +58,16 @@ const RIG_PIVOTS = {
 // 落在 10~190vw,宠物在整个 2 倍宽的房间里漫游。深度范围拉大(远 0.58 / 近 1.0)=
 // 更强的近大远小透视感。
 const FLOOR = { xMin: 5, xMax: 95, yMin: 40, yMax: 86 }
+// 家具:宠物走过去「用」它时站的位置(脚底 scene%,在家具正前方稍下方)+ 到点播的动作。
+// 跟 wxss .furni-* 的 left% 对齐;y 取家具底部稍往前(下),让宠物站在家具前面。
+const FURNITURE = {
+  tv:     { x: 11, y: 50, anim: 'happy' },
+  sofa:   { x: 25, y: 54, anim: 'happy' },
+  bed:    { x: 43, y: 52, anim: 'happy' },
+  table:  { x: 61, y: 55, anim: 'eating' },
+  bath:   { x: 77, y: 51, anim: 'celebrating' },
+  toilet: { x: 90, y: 50, anim: 'happy' }
+}
 const DEPTH_FAR = 0.58      // 脚底在 yMin(最远)时的身体缩放
 const DEPTH_NEAR = 1.0      // 脚底在 yMax(最近)时的身体缩放(放大 → 近大远小更明显)
 const WALK_SPEED_PCT_PER_S = 24   // 行走速度(room% / 秒)→ 每段 transition 时长
@@ -573,6 +583,28 @@ Page({
         if (this._engineOn) this._scheduleWander(IDLE_MIN_MS + Math.random() * (IDLE_MAX_MS - IDLE_MIN_MS))
       })
     }).exec()
+  },
+
+  // 点家具 → 宠物走过去「用」它:走到家具前 → 播动作 + 冒泡说句应景的话。
+  // 纯互动 + 演出,不改任何属性(避免绕过商店白嫖清洁/饱腹等)。
+  useFurniture(e) {
+    if (this.data.mode !== 'view' || !hasAnimRig(this.data.pet)) return
+    if (this._oneShotActive) return
+    if (this.data.showPetMenu) { this.closePetMenu(); return }
+    const kind = e.currentTarget.dataset.kind
+    const f = FURNITURE[kind]
+    if (!f) return
+    if (this._wanderTimer) { clearTimeout(this._wanderTimer); this._wanderTimer = null }
+    this._moveActorTo(f.x, f.y, () => {
+      this.queueAnim(f.anim)          // 播完会自己 _scheduleWander 恢复漫游
+      this._spawnHearts(2)
+      this.setData({ showBubble: true, bubbleText: i18n.t('pet_furni_' + kind) })
+      if (this._bubbleTimer) clearTimeout(this._bubbleTimer)
+      this._bubbleTimer = setTimeout(() => {
+        this.setData({ showBubble: false })
+        this._bubbleTimer = null
+      }, 2400)
+    })
   },
 
   handleBuyItem(event) {

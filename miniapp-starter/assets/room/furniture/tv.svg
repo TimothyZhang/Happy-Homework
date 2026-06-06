@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100">
+  <!-- contact shadow -->
+  <ellipse cx="60" cy="96" rx="46" ry="4.5" fill="rgba(40,25,8,0.18)"/>
+
+  <!-- low wooden cabinet / stand base -->
+  <rect x="16" y="78" width="88" height="16" rx="3.5" fill="#b08e5e"/>
+  <rect x="16" y="78" width="88" height="5" rx="2.5" fill="#e0c193"/>
+  <!-- cabinet legs (small feet) -->
+  <rect x="20" y="91" width="9" height="4" rx="1.5" fill="#9a7848"/>
+  <rect x="91" y="91" width="9" height="4" rx="1.5" fill="#9a7848"/>
+  <!-- cabinet drawer line (decorative) -->
+  <rect x="52" y="85" width="16" height="2" rx="1" fill="#9a7848"/>
+  <rect x="54" y="86" width="2" height="2" rx="1" fill="#c79e68"/>
+
+  <!-- TV bezel (outer dark frame) -->
+  <rect x="14" y="22" width="92" height="60" rx="5" fill="#27323f"/>
+
+  <!-- TV screen (dark with slight inset) -->
+  <rect x="19" y="27" width="82" height="50" rx="3" fill="#1e2830"/>
+
+  <!-- screen glow / content area (it's ON) -->
+  <rect x="22" y="30" width="76" height="44" rx="2" fill="#3a5a6a"/>
+  <!-- soft center glow suggest content -->
+  <rect x="30" y="36" width="60" height="32" rx="2" fill="#4e8a9e"/>
+  <!-- inner bright highlight strip (top of screen) -->
+  <rect x="30" y="36" width="60" height="8" rx="2" fill="#6fc4d6"/>
+
+  <!-- stand neck (center post connecting TV to cabinet) -->
+  <rect x="55" y="78" width="10" height="6" rx="2" fill="#1e2830"/>
+
+  <!-- power indicator dot -->
+  <circle cx="96" cy="71" r="2" fill="#6fc4d6"/>
+</svg>

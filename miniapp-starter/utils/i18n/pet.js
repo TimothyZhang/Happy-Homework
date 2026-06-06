@@ -122,6 +122,14 @@ module.exports = {
     pet_speak_idle_2: 'Miss me?',
     pet_speak_idle_3: "Let's keep it up~",
 
+    // furniture interaction lines (tap a furniture → pet walks over & says this)
+    pet_furni_tv: 'Cartoon time~ 📺',
+    pet_furni_sofa: 'So comfy on the sofa~',
+    pet_furni_bed: 'So sleepy… just a little nap 💤',
+    pet_furni_table: 'Yum, dinner time!',
+    pet_furni_bath: 'Bath time — splashy bubbles~',
+    pet_furni_toilet: 'Be right back…',
+
     // species labels (data-defined in store.js, translated here)
     pet_species_cat: 'Cat',
     pet_species_dog: 'Dog',
@@ -274,6 +282,14 @@ module.exports = {
     pet_speak_idle_1: '今天过得怎么样呀？',
     pet_speak_idle_2: '想我了吗？',
     pet_speak_idle_3: '一起加油哦～',
+
+    // furniture interaction lines
+    pet_furni_tv: '看会儿动画~ 📺',
+    pet_furni_sofa: '瘫在沙发上好舒服~',
+    pet_furni_bed: '好困…眯一会儿 💤',
+    pet_furni_table: '开饭啦,好香!',
+    pet_furni_bath: '泡澡咯,搓搓泡泡~',
+    pet_furni_toilet: '我去趟厕所…',
 
     // species labels (data-defined in store.js, translated here)
     pet_species_cat: '猫',

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100">
+  <!-- contact shadow -->
+  <ellipse cx="60" cy="96" rx="26" ry="4.5" fill="rgba(40,25,8,0.18)"/>
+
+  <!-- base / pedestal foot -->
+  <rect x="46" y="83" width="28" height="12" rx="5" fill="#d4d4d4"/>
+  <!-- base top highlight -->
+  <rect x="46" y="83" width="28" height="5" rx="3.5" fill="#eeeeee"/>
+
+  <!-- bowl body -->
+  <rect x="38" y="62" width="44" height="26" rx="11" fill="#e4e4e4"/>
+  <!-- bowl depth shade (bottom) -->
+  <rect x="40" y="75" width="40" height="14" rx="8" fill="#cccccc"/>
+  <!-- bowl inner water oval -->
+  <ellipse cx="60" cy="81" rx="13" ry="8" fill="#bdd8e8"/>
+  <!-- bowl rim highlight -->
+  <rect x="38" y="62" width="44" height="7" rx="7" fill="#f4f4f4"/>
+
+  <!-- seat ring (open-top style, slightly cream-tinted) -->
+  <rect x="35" y="55" width="50" height="13" rx="8" fill="#eee8e8"/>
+  <!-- seat highlight -->
+  <rect x="37" y="56" width="46" height="5" rx="6" fill="#faf6f6"/>
+  <!-- seat underside shade -->
+  <rect x="35" y="62" width="50" height="5" rx="4" fill="#d6d0d0"/>
+
+  <!-- lid (open/upright, warm white, angled look) -->
+  <rect x="40" y="36" width="40" height="23" rx="10" fill="#f0eeee"/>
+  <!-- lid top highlight -->
+  <rect x="42" y="38" width="36" height="8" rx="6" fill="#fafafa"/>
+  <!-- lid bottom shade (connects to seat) -->
+  <rect x="40" y="53" width="40" height="6" rx="5" fill="#d8d4d4"/>
+
+  <!-- tank body -->
+  <rect x="44" y="16" width="32" height="40" rx="8" fill="#e8e8e8"/>
+  <!-- tank face highlight -->
+  <rect x="46" y="18" width="28" height="11" rx="6" fill="#f6f6f6"/>
+  <!-- tank bottom shade (sits on lid) -->
+  <rect x="44" y="48" width="32" height="8" rx="6" fill="#d0d0d0"/>
+
+  <!-- flush button (top of tank) -->
+  <rect x="52" y="16" width="16" height="6" rx="3" fill="#d8d8d8"/>
+  <rect x="54" y="17" width="12" height="4" rx="2" fill="#e6e6e6"/>
+  <ellipse cx="60" cy="19" rx="4" ry="1.8" fill="#c8c8c8"/>
+</svg>

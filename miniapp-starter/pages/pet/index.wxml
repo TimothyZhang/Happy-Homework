@@ -62,14 +62,14 @@
         <image class="castle-chandelier" src="/assets/room/chandelier.svg" mode="aspectFit" />
       </block>
 
-      <!-- 房间家具(装饰,沿房间宽度铺开;靠墙摆放,宠物走过会在它们前面;
-           点击穿透到地板,不影响「点空地走过去」)。z-index ≈ 10+top% 跟深度挂钩。 -->
-      <view class="furni furni-tv"><text class="furni-ico">📺</text></view>
-      <view class="furni furni-sofa"><text class="furni-ico">🛋️</text></view>
-      <view class="furni furni-bed"><text class="furni-ico">🛏️</text></view>
-      <view class="furni furni-table"><text class="furni-ico">🍽️</text></view>
-      <view class="furni furni-bath"><text class="furni-ico">🛁</text></view>
-      <view class="furni furni-toilet"><text class="furni-ico">🚽</text></view>
+      <!-- 房间家具(PNG 摆件,沿房间宽度铺开;靠墙摆放,宠物走过会在它们前面;
+           点一下 → 宠物走过去用它 + 冒泡说话)。z-index ≈ 10+top% 跟深度挂钩。 -->
+      <view class="furni furni-tv" catchtap="useFurniture" data-kind="tv" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/tv.png" mode="widthFix" /></view>
+      <view class="furni furni-sofa" catchtap="useFurniture" data-kind="sofa" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/sofa.png" mode="widthFix" /></view>
+      <view class="furni furni-bed" catchtap="useFurniture" data-kind="bed" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/bed.png" mode="widthFix" /></view>
+      <view class="furni furni-table" catchtap="useFurniture" data-kind="table" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/table.png" mode="widthFix" /></view>
+      <view class="furni furni-bath" catchtap="useFurniture" data-kind="bath" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/bath.png" mode="widthFix" /></view>
+      <view class="furni furni-toilet" catchtap="useFurniture" data-kind="toilet" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/toilet.png" mode="widthFix" /></view>
 
       <view wx:if="{{pet.species}}"
             class="pet-actor face-{{actorFace}} {{actorMoving ? 'moving' : (spriteAnim ? '' : 'still')}} anim-{{animState}} {{spriteAnim ? 'do-' + spriteAnim : ''}}"

@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100">
+  <!-- contact shadow -->
+  <ellipse cx="60" cy="97" rx="42" ry="4.5" fill="rgba(40,25,8,0.18)"/>
+
+  <!-- chair behind table -->
+  <!-- chair legs (peeking behind table) -->
+  <rect x="48" y="56" width="5" height="8" rx="1.5" fill="#b08e5e"/>
+  <rect x="67" y="56" width="5" height="8" rx="1.5" fill="#b08e5e"/>
+  <!-- chair seat -->
+  <rect x="44" y="50" width="32" height="8" rx="2.5" fill="#c79e68"/>
+  <!-- chair back slats -->
+  <rect x="47" y="33" width="5" height="18" rx="2" fill="#b08e5e"/>
+  <rect x="55" y="33" width="5" height="18" rx="2" fill="#b08e5e"/>
+  <rect x="63" y="33" width="5" height="18" rx="2" fill="#b08e5e"/>
+  <!-- chair top rail -->
+  <rect x="44" y="30" width="32" height="6" rx="3" fill="#c79e68"/>
+  <rect x="44" y="30" width="32" height="3" rx="2" fill="#e0c193"/>
+
+  <!-- table legs -->
+  <rect x="20" y="72" width="9" height="25" rx="2" fill="#b08e5e"/>
+  <rect x="91" y="72" width="9" height="25" rx="2" fill="#b08e5e"/>
+
+  <!-- tabletop -->
+  <rect x="10" y="60" width="100" height="14" rx="3.5" fill="#c79e68"/>
+  <!-- tabletop highlight strip -->
+  <rect x="10" y="60" width="100" height="5" rx="2.5" fill="#e0c193"/>
+
+  <!-- plate (cream ellipse on tabletop) -->
+  <ellipse cx="56" cy="63" rx="14" ry="5" fill="#fff4e2"/>
+  <ellipse cx="56" cy="63" rx="10" ry="3.5" fill="#ffefd5"/>
+
+  <!-- food: rice dome (warm white mound) -->
+  <ellipse cx="56" cy="60" rx="7.5" ry="3" fill="#f9f0e3"/>
+  <!-- carrot/veggie accent on rice -->
+  <ellipse cx="53" cy="59" rx="2.5" ry="1.2" fill="#f4a44e"/>
+  <ellipse cx="59" cy="59.5" rx="2" ry="1" fill="#3bbe7a"/>
+
+  <!-- cup (right side) -->
+  <rect x="80" y="57" width="10" height="10" rx="3" fill="#5b8def"/>
+  <rect x="80" y="57" width="10" height="3.5" rx="2" fill="#8ab4f8"/>
+  <!-- cup handle -->
+  <path d="M90 60.5 Q95 60.5 95 64 Q95 67 90 67" fill="none" stroke="#5b8def" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- steam puffs -->
+  <path d="M83 55 Q84 52 83 49" fill="none" stroke="#d4c5b0" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M87 55 Q88 51.5 87 48.5" fill="none" stroke="#d4c5b0" stroke-width="1.5" stroke-linecap="round"/>
+</svg>

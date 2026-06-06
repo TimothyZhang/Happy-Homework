@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100">
+  <!-- contact shadow -->
+  <ellipse cx="60" cy="96" rx="50" ry="4.5" fill="rgba(40,25,8,0.18)"/>
+  <!-- headboard (wood, right/back end) -->
+  <rect x="95" y="32" width="16" height="58" rx="4" fill="#c79e68"/>
+  <rect x="95" y="32" width="16" height="6" rx="3" fill="#e0c193"/>
+  <rect x="98" y="41" width="10" height="20" rx="2.5" fill="#b08e5e"/>
+  <!-- footboard (wood, left/front end) -->
+  <rect x="9" y="52" width="11" height="38" rx="3.5" fill="#c79e68"/>
+  <rect x="9" y="52" width="11" height="5" rx="2.5" fill="#e0c193"/>
+  <!-- bed base / frame -->
+  <rect x="9" y="70" width="103" height="22" rx="4" fill="#c79e68"/>
+  <rect x="9" y="70" width="103" height="5" rx="3" fill="#e0c193"/>
+  <!-- mattress -->
+  <rect x="13" y="48" width="89" height="26" rx="4" fill="#fff4e2"/>
+  <rect x="13" y="48" width="89" height="5" rx="3" fill="#fff9f0"/>
+  <!-- blanket covering lower 60% of mattress -->
+  <rect x="13" y="60" width="70" height="14" rx="4" fill="#9ec8e8"/>
+  <rect x="13" y="60" width="70" height="5" rx="3" fill="#bdddf4"/>
+  <!-- blanket fold lines -->
+  <rect x="27" y="62" width="2.5" height="10" rx="1.2" fill="rgba(90,150,205,0.28)"/>
+  <rect x="47" y="62" width="2.5" height="10" rx="1.2" fill="rgba(90,150,205,0.28)"/>
+  <rect x="67" y="62" width="2.5" height="10" rx="1.2" fill="rgba(90,150,205,0.28)"/>
+  <!-- pillow (cream, at headboard/right end) -->
+  <rect x="76" y="50" width="20" height="13" rx="5" fill="#fff4e2"/>
+  <rect x="78" y="52" width="16" height="5" rx="2.5" fill="#fff9f4"/>
+</svg>
