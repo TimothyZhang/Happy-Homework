@@ -8,6 +8,8 @@ const AVATAR_CLOUD_PATH_PREFIX = 'avatars'
 Page({
   data: {
     profile: { nickname: '', avatar: '' },
+    // 头像 / 昵称默认只读;点「编辑」才进编辑模式(头像可换、昵称可输)。
+    editingProfile: false,
     uploadingAvatar: false,
     canUseCloud: typeof wx.cloud !== 'undefined',
     syncStatus: { status: 'unknown', readOnly: false, lastSyncDisplay: '从未', lastError: null, inflight: false },
@@ -15,11 +17,9 @@ Page({
     // admin 入口可见性。whoami 返回 isAdmin=true 才渲染管理后台卡片。
     isAdmin: false,
     adminCheckDone: false,
-    // 用户自定义的组织标签列表(在 task-edit 下拉里出现)。
+    // 用户自定义的组织标签列表(在 task-edit 下拉里出现)。这里只读展示概览,
+    // 增删改在 pages/org-tags 页里做。
     organizations: [],
-    orgMaxLen: store.ORGANIZATION_MAX_LEN,
-    orgMaxCount: store.ORGANIZATION_MAX_COUNT,
-    newOrgInput: '',
     // 版本号 + commit id。build-info 由 scripts/write-build-info.js 在
     // upload 前生成 —— 本地开发(没跑过 script)显示 dev/unknown。
     buildVersion: buildInfo.version || 'dev',
@@ -98,6 +98,28 @@ Page({
 
   goWordBooks() {
     wx.navigateTo({ url: '/pkg-notebook/word-books/index' })
+  },
+
+  goOrgTags() {
+    wx.navigateTo({ url: '/pages/org-tags/index' })
+  },
+
+  // 头像昵称编辑模式开关。退出时把当前昵称落库(防 blur 没触发),并 re-read profile。
+  toggleEditProfile() {
+    const next = !this.data.editingProfile
+    if (!next) {
+      store.updateProfileNickname((this.data.profile.nickname || '').trim())
+    }
+    this.setData({ editingProfile: next, profile: store.getProfile() })
+  },
+
+  // 头像点击:非编辑态先进编辑模式;编辑态再点才弹拍照/相册。
+  handleAvatarTap() {
+    if (!this.data.editingProfile) {
+      this.setData({ editingProfile: true })
+      return
+    }
+    this.handleEditAvatar()
   },
 
   handleEditAvatar() {
@@ -247,108 +269,5 @@ Page({
         })
       }
     })
-  },
-
-  // === Organization tag management === //
-
-  handleOrgInput(e) {
-    this.setData({ newOrgInput: e.detail.value })
-  },
-
-  handleAddOrg() {
-    const name = (this.data.newOrgInput || '').trim()
-    if (!name) {
-      wx.showToast({ title: '请输入标签名', icon: 'none' })
-      return
-    }
-    const res = store.addOrganization(name)
-    if (!res.ok) {
-      wx.showToast({ title: this.orgErrorMessage(res.reason), icon: 'none' })
-      return
-    }
-    this.setData({
-      organizations: store.getOrganizations(),
-      newOrgInput: ''
-    })
-    wx.showToast({ title: '已添加', icon: 'success' })
-  },
-
-  handleRemoveOrg(e) {
-    const name = e.currentTarget.dataset.name
-    if (!name) return
-    wx.showModal({
-      title: `删除「${name}」？`,
-      content: '已用该标签的作业仍保留显示，仅在下次选择时不再出现。',
-      confirmColor: '#e54545',
-      confirmText: '删除',
-      cancelText: '取消',
-      success: (r) => {
-        if (!r.confirm) return
-        const res = store.removeOrganization(name)
-        if (!res.ok) {
-          wx.showToast({ title: this.orgErrorMessage(res.reason), icon: 'none' })
-          return
-        }
-        this.setData({ organizations: store.getOrganizations() })
-        wx.showToast({ title: '已删除', icon: 'success' })
-      }
-    })
-  },
-
-  handleRenameOrg(e) {
-    const name = e.currentTarget.dataset.name
-    if (!name) return
-    wx.showModal({
-      title: `重命名「${name}」`,
-      editable: true,
-      placeholderText: '新标签名',
-      content: name,
-      confirmText: '保存',
-      cancelText: '取消',
-      success: (r) => {
-        if (!r.confirm) return
-        const next = (r.content || '').trim()
-        if (!next) {
-          wx.showToast({ title: '请输入新标签名', icon: 'none' })
-          return
-        }
-        if (next === name) return
-        const res = store.renameOrganization(name, next)
-        if (!res.ok) {
-          wx.showToast({ title: this.orgErrorMessage(res.reason), icon: 'none' })
-          return
-        }
-        this.setData({ organizations: store.getOrganizations() })
-        wx.showToast({ title: '已重命名', icon: 'success' })
-      }
-    })
-  },
-
-  handleResetOrgs() {
-    wx.showModal({
-      title: '恢复默认标签？',
-      content: '会重置为「校内 / 校外 / 其他」。已存在的作业标签不变。',
-      confirmText: '恢复',
-      cancelText: '取消',
-      success: (r) => {
-        if (!r.confirm) return
-        store.resetOrganizations()
-        this.setData({ organizations: store.getOrganizations() })
-        wx.showToast({ title: '已恢复默认', icon: 'success' })
-      }
-    })
-  },
-
-  orgErrorMessage(reason) {
-    switch (reason) {
-      case 'empty':     return '请输入标签名'
-      case 'too_long':  return `标签最长 ${store.ORGANIZATION_MAX_LEN} 字`
-      case 'duplicate': return '该标签已存在'
-      case 'too_many':  return `最多 ${store.ORGANIZATION_MAX_COUNT} 个标签`
-      case 'last_one':  return '至少保留一个标签'
-      case 'unknown':   return '标签不存在'
-      case 'noop':      return ''
-      default:          return '操作失败'
-    }
   }
 })

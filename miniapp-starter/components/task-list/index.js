@@ -14,6 +14,24 @@ function formatElapsed(ms) {
 // done row 有 "编辑" + "继续" → 240rpx。
 const SWIPE_MAX_RPX = { done: 240, undone: 120 }
 
+// 顺延色块随滑动进度从红→琥珀→绿渐变:让用户看出「再滑一点就生效」。
+// progress 0 = 刚起滑(红),1 = 到阈值(绿,松手即顺延);往回滑 progress 减小,颜色退回红。
+const PP_RED = [207, 19, 34]     // #cf1322
+const PP_AMBER = [245, 166, 35]  // #f5a623
+const PP_GREEN = [38, 166, 91]   // #26a65b
+function _ppMix(a, b, t) {
+  const r = Math.round(a[0] + (b[0] - a[0]) * t)
+  const g = Math.round(a[1] + (b[1] - a[1]) * t)
+  const bl = Math.round(a[2] + (b[2] - a[2]) * t)
+  return 'rgb(' + r + ',' + g + ',' + bl + ')'
+}
+function postponeColorFor(p) {
+  // p>0 判定顺带把 NaN(阈值未就绪)兜成 0 → 红,不会渲染出 rgb(NaN…)。
+  const x = p > 0 ? (p > 1 ? 1 : p) : 0
+  if (x <= 0.5) return _ppMix(PP_RED, PP_AMBER, x / 0.5)
+  return _ppMix(PP_AMBER, PP_GREEN, (x - 0.5) / 0.5)
+}
+
 Component({
   options: { addGlobalClass: true },
   properties: {
@@ -41,7 +59,8 @@ Component({
     swipeOpenMax: 0,     // 当前展开的 max 偏移(rpx) — done 120 / undone 240
     postponeId: null,    // 当前正在右滑顺延的 row id
     postponeDx: 0,       // 右滑期间 row 的 x 位移(rpx,正值=向右)
-    postponeArmed: false,// 右滑距离 ≥ 1/3 卡宽 → true(绿色,松手即顺延)
+    postponeArmed: false,// 右滑距离 ≥ 40% 卡宽 → true(满绿,松手即顺延)
+    postponeColor: 'rgb(207,19,34)', // 色块当前背景色(随滑动进度红→琥珀→绿渐变)
     postponeDragging: false // 拖动中(true→关 transition 跟手;松手→开 transition 飞出/回弹)
   },
   observers: {
@@ -122,8 +141,9 @@ Component({
       } catch (e) {}
       this._pxToRpx = 750 / winPx
       this._rowWidthRpx = 750 - 48
-      // 顺延阈值 = 卡宽的一半。左右滑共用:划过半屏才 armed(变绿 + 松手生效)。
-      this._postponeThresholdRpx = this._rowWidthRpx / 2
+      // 顺延阈值 = 卡宽的 40%。左右滑共用:划过 40% 才 armed(满绿 + 松手生效);
+      // 色块颜色按 当前位移/阈值 的比例红→绿渐变,提示「继续滑」。
+      this._postponeThresholdRpx = this._rowWidthRpx * 0.4
     },
 
     handleRowLongPress(e) {
@@ -237,7 +257,8 @@ Component({
         const dxRpx = Math.max(0, dx * this._pxToRpx)
         const tx = Math.min(this._rowWidthRpx, dxRpx)
         const armed = dxRpx >= this._postponeThresholdRpx
-        this.setData({ postponeId: id, postponeDx: tx, postponeArmed: armed, postponeDragging: true })
+        const color = postponeColorFor(dxRpx / this._postponeThresholdRpx)
+        this.setData({ postponeId: id, postponeDx: tx, postponeArmed: armed, postponeColor: color, postponeDragging: true })
       } else if (this._gestureMode === 'swipe') {
         // 左滑:浅划(≤ 菜单宽)露编辑菜单【原行为】;eligible 时继续左划过
         // 菜单宽 → 进入「移至上一天」顺延区,卡片继续跟手,藏菜单显左滑色块。
@@ -254,8 +275,9 @@ Component({
           // 藏菜单(swipeId=null)只显色块。armed = 过半屏。
           const tx = Math.max(-this._rowWidthRpx, raw)
           const armed = -tx >= this._postponeThresholdRpx
+          const color = postponeColorFor(-tx / this._postponeThresholdRpx)
           this.setData({
-            postponeId: id, postponeDx: tx, postponeArmed: armed,
+            postponeId: id, postponeDx: tx, postponeArmed: armed, postponeColor: color,
             postponeDragging: true, swipeId: null, swipeDx: 0
           })
         } else {
@@ -311,18 +333,18 @@ Component({
         // 右滑顺延松手:postponeDragging=false 让 transition 生效。
         const id = this.data.postponeId
         if (id && this.data.postponeArmed) {
-          // 已过半屏(绿):卡片飞出右侧,动画结束后触发 postpone(dir=+1 → 下一天)。
+          // 已过 40%(绿):卡片飞出右侧,动画结束后触发 postpone(dir=+1 → 下一天)。
           const item = this.data.list.find((it) => it.id === id)
           const taskId = (item && (item.taskId || item.id)) || ''
           const occurrenceDate = (item && item.occurrenceDate) || ''
           this.setData({ postponeDragging: false, postponeDx: this._rowWidthRpx + 120 })
           setTimeout(() => {
             this.triggerEvent('postpone', { taskId, occurrenceDate, dir: 1 })
-            this.setData({ postponeId: null, postponeDx: 0, postponeArmed: false })
+            this.setData({ postponeId: null, postponeDx: 0, postponeArmed: false, postponeColor: 'rgb(207,19,34)' })
           }, 200)
         } else if (id) {
-          // 没到半屏(红):回弹归位。
-          this.setData({ postponeDragging: false, postponeDx: 0, postponeArmed: false })
+          // 没到 40%(红):回弹归位,色块淡回红。
+          this.setData({ postponeDragging: false, postponeDx: 0, postponeArmed: false, postponeColor: 'rgb(207,19,34)' })
           setTimeout(() => {
             if (this.data.postponeId === id && this.data.postponeDx === 0) {
               this.setData({ postponeId: null })
@@ -334,24 +356,25 @@ Component({
         // 左滑进了顺延区松手。
         const id = this.data.postponeId
         if (this.data.postponeArmed) {
-          // 过半屏(绿):卡片飞出左侧,触发 postpone(dir=-1 → 上一天)。
+          // 已过 40%(绿):卡片飞出左侧,触发 postpone(dir=-1 → 上一天)。
           const item = this.data.list.find((it) => it.id === id)
           const taskId = (item && (item.taskId || item.id)) || ''
           const occurrenceDate = (item && item.occurrenceDate) || ''
           this.setData({ postponeDragging: false, postponeDx: -(this._rowWidthRpx + 120) })
           setTimeout(() => {
             this.triggerEvent('postpone', { taskId, occurrenceDate, dir: -1 })
-            this.setData({ postponeId: null, postponeDx: 0, postponeArmed: false })
+            this.setData({ postponeId: null, postponeDx: 0, postponeArmed: false, postponeColor: 'rgb(207,19,34)' })
           }, 200)
         } else {
-          // 未过半屏(红):回弹到「菜单展开态」(露出编辑菜单),而非完全归位。
+          // 未过 40%(红):回弹到「菜单展开态」(露出编辑菜单),而非完全归位。
           // 清 postpone 状态 + _setSwipeOpen 切菜单态:transform 从 postponeDx 落到
           // swipeOpenId 分支(-swipeOpenMax),即时吸附到菜单宽,和正常左滑开菜单一致;
           // swipeopen 事件让父页锁 scroll。
           const item = this.data.list.find((it) => it.id === id)
           const swipeMax = (item && item.swipeMax) || SWIPE_MAX_RPX.undone
           this._setSwipeOpen(id, swipeMax, {
-            postponeId: null, postponeDx: 0, postponeArmed: false, postponeDragging: false
+            postponeId: null, postponeDx: 0, postponeArmed: false, postponeDragging: false,
+            postponeColor: 'rgb(207,19,34)'
           })
         }
         this.triggerEvent('swipeend')

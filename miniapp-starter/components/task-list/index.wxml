@@ -28,7 +28,7 @@
 
       <!-- 顺延色块:垫在 row 底层,卡片滑动露出。右滑→下一天(文字靠左)、左滑→
            上一天(文字靠右)。红=未过半屏、绿=已过(松手即顺延)。 -->
-      <view wx:if="{{postponeId === item.id}}" class="postpone-action {{postponeArmed ? 'is-armed' : ''}} {{postponeDx < 0 ? 'postpone-left' : 'postpone-right'}}">
+      <view wx:if="{{postponeId === item.id}}" class="postpone-action {{postponeArmed ? 'is-armed' : ''}} {{postponeDx < 0 ? 'postpone-left' : 'postpone-right'}}" style="background: {{postponeColor}};">
         <text class="postpone-text">{{postponeDx < 0 ? '移至上一天' : '移至下一天'}}</text>
       </view>
 

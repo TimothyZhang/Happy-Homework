@@ -2,10 +2,11 @@
   <view class="card profile-card">
     <view class="section-header">
       <text class="section-title">学生信息</text>
+      <text class="edit-toggle {{editingProfile ? 'done' : ''}}" bindtap="toggleEditProfile">{{editingProfile ? '完成' : '编辑'}}</text>
     </view>
 
     <view class="profile-row">
-      <view class="avatar-wrap {{uploadingAvatar ? 'is-loading' : ''}}" bindtap="handleEditAvatar">
+      <view class="avatar-wrap {{uploadingAvatar ? 'is-loading' : ''}} {{editingProfile ? 'editable' : ''}}" bindtap="handleAvatarTap">
         <image wx:if="{{profile.avatar}}"
                class="avatar-img"
                src="{{profile.avatar}}"
@@ -14,19 +15,22 @@
           <text class="avatar-placeholder-icon">+</text>
           <text class="avatar-placeholder-hint">头像</text>
         </view>
+        <view wx:if="{{editingProfile && profile.avatar}}" class="avatar-edit-badge">换</view>
         <view wx:if="{{uploadingAvatar}}" class="avatar-loading-mask">上传中…</view>
       </view>
 
       <view class="profile-fields">
         <text class="field-label">昵称</text>
-        <input class="input nickname-input"
+        <input wx:if="{{editingProfile}}"
+               class="input nickname-input"
                type="nickname"
                placeholder="给自己取个昵称"
                maxlength="12"
                value="{{profile.nickname}}"
                bindinput="handleNicknameInput"
                bindblur="handleNicknameBlur" />
-        <text class="profile-hint">点头像可拍照或从相册选一张</text>
+        <text wx:else class="nickname-text">{{profile.nickname || '未设置昵称'}}</text>
+        <text class="profile-hint">{{editingProfile ? '点头像换一张 · 昵称可直接改' : '点右上角「编辑」改头像和昵称'}}</text>
       </view>
     </view>
   </view>
@@ -69,34 +73,19 @@
     </view>
   </view>
 
-  <view class="card org-card">
+  <view class="card org-summary-card" bindtap="goOrgTags" hover-class="wb-entry-hover">
     <view class="section-header">
       <text class="section-title">作业组织标签</text>
-      <text class="org-count">{{organizations.length}}/{{orgMaxCount}}</text>
-    </view>
-    <text class="org-hint">用于给作业分门别类（校内/校外/兴趣班…），添加作业时可选。</text>
-
-    <view class="org-list">
-      <view wx:for="{{organizations}}" wx:key="*this" class="org-row">
-        <text class="org-name">{{item}}</text>
-        <view class="org-actions">
-          <text class="org-btn ghost" data-name="{{item}}" bindtap="handleRenameOrg">改名</text>
-          <text class="org-btn danger" data-name="{{item}}" bindtap="handleRemoveOrg">删除</text>
-        </view>
+      <view class="org-summary-right">
+        <text class="org-summary-count">{{organizations.length}} 个</text>
+        <text class="org-summary-chev">›</text>
       </view>
     </view>
-
-    <view class="org-add">
-      <input class="input org-input"
-             placeholder="新标签名（最多 {{orgMaxLen}} 字）"
-             maxlength="{{orgMaxLen}}"
-             value="{{newOrgInput}}"
-             bindinput="handleOrgInput"
-             bindconfirm="handleAddOrg"
-             confirm-type="done" />
-      <button class="org-add-btn" bindtap="handleAddOrg">添加</button>
+    <view wx:if="{{organizations.length}}" class="org-chips">
+      <text wx:for="{{organizations}}" wx:key="*this" class="org-chip">{{item}}</text>
     </view>
-    <view class="org-reset" bindtap="handleResetOrgs">恢复默认</view>
+    <text wx:else class="org-summary-empty">还没有标签，点这里去添加</text>
+    <text class="org-summary-hint">点这里添加 / 改名 / 删除标签</text>
   </view>
 
   <view wx:if="{{isAdmin}}" class="card admin-card" bindtap="handleOpenAdmin">

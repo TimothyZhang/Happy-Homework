@@ -80,6 +80,48 @@
   color: #8a94a4;
 }
 
+/* 只读态昵称(非编辑模式直接显示文字) */
+.nickname-text {
+  margin-top: 6rpx;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1f2329;
+  line-height: 1.3;
+}
+
+/* 「编辑 / 完成」开关(学生信息卡右上角) */
+.edit-toggle {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #245bdb;
+  background: #eef4ff;
+  padding: 8rpx 24rpx;
+  border-radius: 999rpx;
+  line-height: 1;
+}
+.edit-toggle.done {
+  color: #ffffff;
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+}
+
+/* 编辑态:头像加蓝色高亮环 + 底部「换」带,提示可点换图 */
+.avatar-wrap.editable {
+  box-shadow: 0 0 0 4rpx rgba(36, 91, 219, 0.35);
+}
+.avatar-edit-badge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 8rpx 0;
+  background: rgba(36, 91, 219, 0.85);
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1;
+}
+
 /* === Sync card === */
 
 .sync-pill {
@@ -139,12 +181,17 @@
 }
 .sync-btn[disabled] { opacity: 0.6; }
 
-/* === Organization tags === */
+/* === Organization tags(「我」tab 只读概览;增删改在 pages/org-tags) === */
 
-.org-card {
+.org-summary-card {
   margin-top: 24rpx;
 }
-.org-count {
+.org-summary-right {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+.org-summary-count {
   font-size: 22rpx;
   font-weight: 600;
   color: #6b7785;
@@ -152,86 +199,36 @@
   padding: 4rpx 14rpx;
   border-radius: 999rpx;
 }
-.org-hint {
-  display: block;
-  margin-top: 12rpx;
-  font-size: 24rpx;
-  color: #8a94a4;
-  line-height: 1.5;
+.org-summary-chev {
+  font-size: 36rpx;
+  color: #c1c8d2;
+  line-height: 1;
 }
-.org-list {
+.org-chips {
   margin-top: 18rpx;
   display: flex;
-  flex-direction: column;
-  gap: 10rpx;
-}
-.org-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18rpx 20rpx;
-  background: #f7f9fc;
-  border-radius: 14rpx;
-  gap: 16rpx;
-}
-.org-name {
-  flex: 1;
-  font-size: 28rpx;
-  color: #1f2329;
-  font-weight: 500;
-  word-break: break-all;
-}
-.org-actions {
-  display: flex;
+  flex-wrap: wrap;
   gap: 12rpx;
-  flex-shrink: 0;
 }
-.org-btn {
+.org-chip {
   font-size: 24rpx;
-  padding: 8rpx 18rpx;
+  color: #245bdb;
+  background: #eef4ff;
+  padding: 10rpx 22rpx;
   border-radius: 999rpx;
   line-height: 1;
 }
-.org-btn.ghost {
-  background: #eef4ff;
-  color: #245bdb;
-}
-.org-btn.danger {
-  background: #fff1f0;
-  color: #e54545;
-}
-
-.org-add {
-  margin-top: 20rpx;
-  display: flex;
-  gap: 12rpx;
-  align-items: stretch;
-}
-.org-input {
-  flex: 1;
-  min-width: 0;
-}
-.org-add-btn {
-  flex-shrink: 0;
-  padding: 0 28rpx;
-  height: 76rpx;
-  line-height: 76rpx;
-  font-size: 28rpx;
-  font-weight: 600;
-  border-radius: 999rpx;
-  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
-  color: #ffffff;
-  margin: 0;
-  border: none;
-}
-.org-add-btn::after { border: none; }
-
-.org-reset {
-  margin-top: 16rpx;
-  text-align: center;
+.org-summary-empty {
+  display: block;
+  margin-top: 18rpx;
   font-size: 24rpx;
   color: #8a94a4;
-  padding: 12rpx 0;
+}
+.org-summary-hint {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 22rpx;
+  color: #aab3bd;
 }
 
 /* === Admin entry === */

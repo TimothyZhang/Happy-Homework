@@ -242,7 +242,9 @@
   transition: none;
 }
 
-/* 顺延色块:绝对定位垫在 row 底层铺满,卡片滑走后露出。红=未过半屏,绿=已过。
+/* 顺延色块:绝对定位垫在 row 底层铺满,卡片滑走后露出。背景色由 JS 按滑动进度
+   红→琥珀→绿渐变(inline style 写 postponeColor),滑到 40% 满绿=松手生效;往回
+   滑进度回落、颜色退回红。下面的 background 只是兜底(渲染时 inline 永远覆盖)。
    右滑露左侧(文字靠左)、左滑露右侧(文字靠右)。 */
 .task-row-swipable .postpone-action {
   position: absolute;
@@ -264,8 +266,10 @@
 .task-row-swipable .postpone-action.postpone-left {
   justify-content: flex-end;
 }
-.task-row-swipable .postpone-action.is-armed {
-  background: #26a65b;
+/* 拖动中禁背景过渡:颜色每帧跟手即时变;松手(去掉 .is-postponing)后基础 0.15s
+   接管,平滑落到红(回弹)或绿(飞出)。 */
+.task-row-swipable.is-postponing .postpone-action {
+  transition: none;
 }
 .postpone-text {
   color: #ffffff;
