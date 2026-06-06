@@ -91,10 +91,18 @@
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
   min-height: 150rpx;
 }
+.ans-line { display: flex; align-items: center; justify-content: center; min-height: 86rpx; }
 .ans { font-size: 76rpx; letter-spacing: 8rpx; font-weight: 800; color: #1f2329; }
 .ans.right { color: #07a050; }
 .ans.wrong { color: #e15c5c; }
-.ans-ph { font-size: 30rpx; color: #c7ad8c; }
+/* 自制键盘没有系统光标,加一个闪烁竖线模拟输入光标 */
+.caret {
+  width: 4rpx; height: 58rpx; margin-left: 6rpx; border-radius: 2rpx;
+  background: #245bdb; flex-shrink: 0;
+  animation: caret-blink 1.1s step-end infinite;
+}
+@keyframes caret-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+.ans-ph { margin-top: 6rpx; font-size: 30rpx; color: #c7ad8c; }
 .correct { margin-top: 16rpx; font-size: 38rpx; color: #e15c5c; font-weight: 800; }
 .bravo { margin-top: 16rpx; font-size: 38rpx; color: #07a050; font-weight: 800; }
 
