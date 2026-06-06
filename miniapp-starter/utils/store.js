@@ -323,11 +323,12 @@ function getXpForLevel(level) {
   return lvl * XP_PER_LEVEL_BASE + XP_PER_LEVEL_OFFSET
 }
 
-// 四项属性平均值 / 100 = XP 倍率。pet 不存在或没 species 返 0(没宠物不发 XP)。
+// 五项属性(四项照料 + 努力)平均值 / 100 = XP 倍率。努力越高升级越快;努力随时间
+// 衰减,所以要持续背单词才能维持满速。pet 不存在或没 species 返 0(没宠物不发 XP)。
 function attrMultiplier(pet) {
   if (!pet || !pet.species) return 0
   const avg = ((pet.fullness | 0) + (pet.cleanliness | 0) +
-               (pet.happiness | 0) + (pet.health | 0)) / 4
+               (pet.happiness | 0) + (pet.health | 0) + (pet.effort | 0)) / 5
   if (avg <= 0) return 0
   if (avg >= 100) return 1
   return avg / 100
