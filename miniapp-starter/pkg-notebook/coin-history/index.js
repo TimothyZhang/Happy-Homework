@@ -100,7 +100,14 @@ function describeLog(log) {
         emoji: '✏️'
       }
     }
-    sub = meta.itemName || i18n.t('coin_sub_item')
+    // 道具名按 itemId 走 i18n(跟商店一致),老 log 缺 itemId 时回退到当时存的名字。
+    let itemLabel = ''
+    if (meta.itemId != null) {
+      const k = 'pet_item_name_' + meta.itemId
+      const v = i18n.t(k)
+      if (v !== k) itemLabel = v
+    }
+    sub = itemLabel || meta.itemName || i18n.t('coin_sub_item')
   } else if (kind === 'pet_skin_switch') {
     const to = speciesLabels[meta.toSpecies] || meta.toSpecies || ''
     sub = to ? i18n.t('coin_sub_switch_to', { to }) : i18n.t('coin_kind_pet_skin_switch')

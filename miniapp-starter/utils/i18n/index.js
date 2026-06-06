@@ -28,6 +28,7 @@ const MODULES = [
   require('./ocrimport'),
   require('./ocrresult'),
   require('./adminfeedback'),
+  require('./hometips'),
 ]
 
 const en = {}

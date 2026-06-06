@@ -901,6 +901,9 @@ check('imported task w/o history → estimatedMinutes = 0',
 // 验证当日全部完成时,pet-bubble 唯一一条 celebration 文案里直接带数字,
 // 不再 push 第二条 stats tip。直接复用 store.coinsEarnedOn / store.tasksForDate,
 // 通过 buildPetTips 跑全链路。
+// home-tips 现在随 i18n 语言出文案;这组中文断言显式切 zh(默认 en)。
+const i18nVC = require(require('path').resolve(__dirname, '../utils/i18n.js'))
+i18nVC.setLang('zh')
 console.log('\n[home-tips] all-done celebration line:')
 
 function freshHomeTips() {
@@ -1006,6 +1009,7 @@ check('formatSpentTime(60) = 1 小时',   ht.formatSpentTime(60), '1 小时')
 check('formatSpentTime(80) = 1 小时 20 分', ht.formatSpentTime(80), '1 小时 20 分')
 check('formatSpentTime(120) = 2 小时',  ht.formatSpentTime(120), '2 小时')
 check('formatSpentTime(125) = 2 小时 5 分', ht.formatSpentTime(125), '2 小时 5 分')
+i18nVC.setLang('en')   // 恢复默认,后续测试不依赖语言
 
 // === Test 18: dueDate / overdue chip data wiring (components/task-list) ===
 // 卡片上的"延期"/"过期日"chip 由 (item.isOverdue, item.isMakeup, item.status)
