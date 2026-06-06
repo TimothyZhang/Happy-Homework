@@ -4,6 +4,14 @@
   "packOptions": {
     "ignore": [
       {
+        "type": "glob",
+        "value": "preview-qr-*.jpg"
+      },
+      {
+        "type": "glob",
+        "value": "preview-qr-*.png"
+      },
+      {
         "type": "folder",
         "value": "scripts"
       },
