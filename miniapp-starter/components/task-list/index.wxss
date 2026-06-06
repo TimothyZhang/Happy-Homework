@@ -280,14 +280,14 @@
 /* === 「预计需要时间」可点 chip + 设置弹窗 === */
 .est-chip-hover { opacity: 0.55; }
 .est-mask {
-  position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 200;
+  position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 9000;
   background: rgba(20, 16, 10, 0.45);
-  display: flex; align-items: flex-end;
+  display: flex; align-items: center; justify-content: center;
 }
 .est-sheet {
-  width: 100%; box-sizing: border-box;
-  background: #ffffff; border-radius: 28rpx 28rpx 0 0;
-  padding: 30rpx 28rpx calc(24rpx + env(safe-area-inset-bottom));
+  width: 620rpx; box-sizing: border-box;
+  background: #ffffff; border-radius: 28rpx;
+  padding: 34rpx 28rpx 30rpx;
 }
 .est-title { font-size: 32rpx; font-weight: 800; color: #1f2329; text-align: center; }
 .est-grid { margin-top: 24rpx; display: flex; flex-wrap: wrap; gap: 16rpx; }

@@ -513,7 +513,6 @@ Component({
       store.updateTask(this.data.estTaskId, { estimatedMinutes: m })
       this.setData({ showEstPopup: false })
       this.triggerEvent('changed')
-      wx.showToast({ title: `预计 ${m} 分钟`, icon: 'none', duration: 1200 })
     }
   }
 })
