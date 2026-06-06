@@ -32,6 +32,7 @@
     <!-- 全屏室内房间(fixed 背景):宠物在地板上以侧面朝向四向行走。点空地板
          宠物走过去,点宠物本身按心情互动。控制卡片在下面的 .sheet 里,往上滚
          盖住下半截房间。 -->
+    <scroll-view class="scene-scroll" scroll-x="true">
     <view class="room theme-{{roomTheme}}" bindtap="handleSceneTap">
       <view class="room-wall"></view>
       <view class="room-window">
@@ -90,6 +91,7 @@
         <view wx:if="{{showBubble}}" class="speech-bubble">{{bubbleText}}</view>
       </view>
     </view>
+    </scroll-view>
 
     <!-- 固定顶栏:名字 + 等级徽章 + 金币;金币下面是 商店 + (可升级时)升级 按钮 -->
     <view class="top-hud">

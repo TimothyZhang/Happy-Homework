@@ -51,11 +51,12 @@ const RIG_PIVOTS = {
 
 // 地板可行走带(全屏 room 的百分比)。上沿(yMin)= 远处,下沿(yMax)= 近处。
 // 带子落在房间地板的可见区(被下方控制卡盖住之前),侧面行走以横向为主。
-// 房间扩大 ~2 倍:墙降到 34% → 地板更大;可行走带拉宽拉深;宠物整体缩小,
-// 这样同一屏里地板/空间显得是原来的约两倍。
+// 场景宽 2 倍(.room = 200vw,可左右滑动看)。可行走带是 .room 的百分比 → 横向 5~95%
+// 落在 10~190vw,宠物在整个 2 倍宽的房间里漫游。深度范围拉大(远 0.58 / 近 1.0)=
+// 更强的近大远小透视感。
 const FLOOR = { xMin: 5, xMax: 95, yMin: 40, yMax: 86 }
-const DEPTH_FAR = 0.56      // 脚底在 yMin(最远)时的身体缩放(原 0.72,缩小约 22%)
-const DEPTH_NEAR = 0.86     // 脚底在 yMax(最近)时的身体缩放(原 1.12)
+const DEPTH_FAR = 0.58      // 脚底在 yMin(最远)时的身体缩放
+const DEPTH_NEAR = 1.0      // 脚底在 yMax(最近)时的身体缩放(放大 → 近大远小更明显)
 const WALK_SPEED_PCT_PER_S = 24   // 行走速度(room% / 秒)→ 每段 transition 时长
 // 竖屏里纵向 1% 跨的像素远多于横向(屏高≈屏宽×2.2),给 dy 加权,
 // 让纵向移动 duration 变长 → 纵向走得没那么快(横向不变)。
@@ -105,7 +106,7 @@ Page({
     // 深度推出;actorZ 控前后遮挡;actorFace(left/right)决定侧面朝向(left 镜像);
     // actorMoving 决定走/站姿;moveDurMs 是这一段位移的 transition 时长;spriteAnim
     // 是原地一次性动作名(eating/celebrating/happy)。
-    actorX: 50,
+    actorX: 25,
     actorY: 62,
     actorScale: 1,
     actorZ: 72,
@@ -244,8 +245,9 @@ Page({
   // queueAnim(eating/celebrating/happy)是最高优先级的原地动作,暂停漫游。
   _initActor() {
     const y = (FLOOR.yMin + FLOOR.yMax) / 2
+    // 起始放在左半边(2 倍宽场景默认滚到最左,宠物落在初始可见区中间偏左)。
     this.setData({
-      actorX: 50, actorY: y,
+      actorX: 25, actorY: y,
       actorScale: depthForY(y), actorZ: zForY(y),
       actorFace: 'right', actorMoving: false, moveDurMs: 0
     })
