@@ -56,7 +56,11 @@ Page({
     this._startSession()
   },
 
-  onUnload() { if (this._t) { clearTimeout(this._t); this._t = null } try { tts.stop() } catch (e) {} },
+  onUnload() {
+    if (this._t) { clearTimeout(this._t); this._t = null }
+    try { tts.stop() } catch (e) {}
+    try { if (this._sfx) { this._sfx.stop(); this._sfx.destroy(); this._sfx = null } } catch (e) {}
+  },
 
   // 听写模式:读出当前词的英文(看中文模式不读)。合成失败就降级显示英文。
   _speakCurrent(word) {
@@ -80,6 +84,17 @@ Page({
       if (reason === 'inflight') { wx.showToast({ title: '加载中,稍等再点~', icon: 'none', duration: 1400 }); return }
       wx.showToast({ title: '语音暂不可用:' + (reason || ''), icon: 'none', duration: 2400 })
     })
+  },
+
+  // 答对的庆祝音效。每次重建 InnerAudioContext(复用实例在真机偶发不响)。
+  _playCorrectSfx() {
+    try { if (this._sfx) { this._sfx.stop(); this._sfx.destroy() } } catch (e) {}
+    try {
+      this._sfx = wx.createInnerAudioContext()
+      this._sfx.obeyMuteSwitch = false
+      this._sfx.src = '/assets/sounds/correct.mp3'
+      this._sfx.play()
+    } catch (e) {}
   },
 
   _startSession() {
@@ -147,7 +162,8 @@ Page({
     }
     if (this._t) clearTimeout(this._t)
     if (correct) {
-      // 答对:亮绿 + 从宠物旁边飘出 +1经验 +1知识(1s 后进入下一题)
+      // 答对:亮绿 + 庆祝音效 + 从宠物旁边飘出 +1经验 +1知识(1s 后进入下一题)
+      this._playCorrectSfx()
       this.setData({ feedback: 'right', rewardFly: true })
       this._t = setTimeout(() => this._next(), 1000)
     } else {
