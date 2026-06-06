@@ -36,7 +36,6 @@
       <view class="room-wall"></view>
       <view class="room-window">
         <view class="room-cloud"></view>
-        <view wx:if="{{roomTheme === 'castle'}}" class="castle-sun"></view>
         <view class="room-window-bar room-window-bar-v"></view>
         <view class="room-window-bar room-window-bar-h"></view>
       </view>

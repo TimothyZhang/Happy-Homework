@@ -188,12 +188,6 @@
   box-shadow: 0 8rpx 18rpx rgba(120,90,30,0.22), inset 0 0 0 3rpx rgba(255,240,190,0.6);
 }
 .theme-castle .room-window-bar { background: #dcb24e; }
-.castle-sun {
-  position: absolute; top: 12%; right: 12%;
-  width: 34%; height: 34%; border-radius: 50%;
-  background: radial-gradient(circle at 42% 40%, #fffceb 0%, #ffe680 56%, #ffcf3a 100%);
-  box-shadow: 0 0 30rpx 10rpx rgba(255,210,90,0.6);
-}
 /* 海报 → 金框红底挂旗(保留标语);左移让出顶部中央给吊灯 */
 .theme-castle .room-picture { left: 7%; border-color: #d9b24e; border-width: 9rpx; box-shadow: 0 6rpx 16rpx rgba(150,110,30,0.28); }
 .theme-castle .room-poster {
