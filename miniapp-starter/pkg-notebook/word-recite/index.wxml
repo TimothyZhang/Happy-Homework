@@ -42,7 +42,7 @@
 
     <view class="answer">
       <view class="ans-line">
-        <text class="ans {{feedback}}">{{input}}</text>
+        <text class="ans {{feedback}}" space="nbsp">{{input}}</text>
         <view wx:if="{{!feedback}}" class="caret"></view>
       </view>
       <text wx:if="{{!input && !feedback}}" class="ans-ph">下面拼出英文…</text>
