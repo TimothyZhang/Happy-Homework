@@ -169,6 +169,8 @@ Page({
     furniMenuCoins: '',
     furniFreeAvail: true,
     furniFreeLabel: '',
+    furniAnchorLeft: 0,
+    furniAnchorTop: 0,
     reciteLeft: 0,         // 今天还能背几次(0 则菜单里不显示「背单词」)
     vocab: 0,              // 词汇量 = 已掌握单词数(浮窗展示)
     showBubble: false,
@@ -364,6 +366,7 @@ Page({
     this._wanderTimer = setTimeout(() => {
       this._wanderTimer = null
       if (!this._engineOn || !hasAnimRig(this.data.pet)) return
+      if (this.data.showFurniMenu) { this._scheduleWander(800); return }   // 家具副窗开着,冻住漫游(别让相机滑走)
       if (this._oneShotActive) { this._scheduleWander(500); return }
       const pet = this.data.pet
       const unwell = (pet.health || 0) < 30 || (pet.cleanliness || 0) < 30
@@ -600,7 +603,8 @@ Page({
     }).exec()
   },
 
-  // 点家具 → 弹菜单(跟书桌类似):上面「免费陪它用一下」(有冷却),下面买对应属性的商店道具。
+  // 点家具 → 在家具正上方「原地」弹一个小副窗(跟书桌菜单同款):
+  // 上面「免费陪它用一下」(有冷却),下面买对应属性的商店道具。
   openFurnitureMenu(e) {
     if (this.data.mode !== 'view' || !hasAnimRig(this.data.pet)) return
     if (this._oneShotActive) return
@@ -611,21 +615,38 @@ Page({
     const ids = STAT_ITEMS[f.stat] || []
     const items = (this.data.shopItems || []).filter((it) => ids.indexOf(it.id) !== -1)
     const left = store.furnitureCooldownLeft(kind)
-    this.setData({
-      showFurniMenu: true,
-      furniMenuKind: kind,
-      furniMenuTitle: f.emoji + ' ' + i18n.t('pet_furni_act_' + kind),
-      furniMenuItems: items,
-      furniMenuCoins: this.data.shopPanelCoins,
-      furniFreeAvail: left <= 0,
-      furniFreeLabel: left <= 0
-        ? i18n.t('pet_furni_free')
-        : i18n.t('pet_furni_cooldown', { t: this._fmtCooldown(left) })
-    })
+    // 副窗开着时先冻住漫游(别让相机滑走、家具跑出副窗下方)
+    if (this._wanderTimer) { clearTimeout(this._wanderTimer); this._wanderTimer = null }
+    const win = this._win || (this._win = wx.getSystemInfoSync())
+    const sw = win.windowWidth || 375
+    const sh = win.windowHeight || 667
+    const halfPx = 180 * sw / 750 + 12
+    // 量一下被点家具的屏幕位置 → 副窗锚在它正上方(fixed 屏幕坐标,夹在视口内)
+    wx.createSelectorQuery().select('.furni-' + kind).boundingClientRect((rect) => {
+      let ax = sw / 2, ay = sh * 0.46
+      if (rect && rect.width) {
+        ax = Math.min(Math.max(rect.left + rect.width / 2, halfPx), sw - halfPx)
+        ay = rect.top
+      }
+      this.setData({
+        showFurniMenu: true,
+        furniMenuKind: kind,
+        furniMenuTitle: f.emoji + ' ' + i18n.t('pet_furni_act_' + kind),
+        furniMenuItems: items,
+        furniMenuCoins: this.data.shopPanelCoins,
+        furniFreeAvail: left <= 0,
+        furniFreeLabel: left <= 0
+          ? i18n.t('pet_furni_free')
+          : i18n.t('pet_furni_cooldown', { t: this._fmtCooldown(left) }),
+        furniAnchorLeft: Math.round(ax),
+        furniAnchorTop: Math.round(ay)
+      })
+    }).exec()
   },
 
   closeFurnitureMenu() {
     this.setData({ showFurniMenu: false })
+    if (this._engineOn) this._scheduleWander(500 + Math.random() * 600)   // 恢复漫游
   },
 
   // 菜单·免费陪它用一下:走过去用家具,免费回一点属性(有冷却)。冷却中只走过去蹭一下。

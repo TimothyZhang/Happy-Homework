@@ -215,23 +215,23 @@
     </view>
   </view>
 
-  <!-- 家具菜单(点家具弹出):免费陪它用一下(有冷却)+ 买对应属性的商店道具 -->
-  <view wx:if="{{showFurniMenu}}" class="shop-panel-mask" bindtap="closeFurnitureMenu" catchtouchmove="noop">
-    <view class="shop-panel furni-menu" catchtap="" catchtouchmove="noop">
-      <view class="shop-panel-head">
-        <text class="shop-panel-title">{{furniMenuTitle}}</text>
-        <text class="shop-panel-coin">{{furniMenuCoins}}</text>
+  <!-- 家具菜单:在被点家具正上方「原地」弹小副窗(跟书桌菜单同款样式) -->
+  <view wx:if="{{showFurniMenu}}" class="popover-catch" bindtap="closeFurnitureMenu" catchtouchmove="noop">
+    <view class="furni-popover" catchtap="" catchtouchmove="noop"
+          style="left: {{furniAnchorLeft}}px; top: {{furniAnchorTop}}px;">
+      <view class="furni-pop-head">
+        <text class="furni-pop-title">{{furniMenuTitle}}</text>
+        <text class="furni-pop-coin">{{furniMenuCoins}}</text>
       </view>
-      <view class="furni-free {{furniFreeAvail ? '' : 'off'}}" bindtap="furnitureFreeUse" hover-class="furni-free-hover">{{furniFreeLabel}}</view>
-      <view class="shop-panel-section">{{t.pet_furni_menu_shop}}</view>
-      <view wx:for="{{furniMenuItems}}" wx:key="id" class="shop-item-card">
-        <view class="shop-item-text">
-          <text class="shop-name">{{item.emoji}} {{item.name}}</text>
-          <text class="shop-effect">{{item.effect}}</text>
+      <view class="furni-pop-free {{furniFreeAvail ? '' : 'off'}}" bindtap="furnitureFreeUse" hover-class="pet-popover-item-hover">{{furniFreeLabel}}</view>
+      <view class="pet-popover-divider"></view>
+      <view wx:for="{{furniMenuItems}}" wx:key="id" class="furni-pop-item">
+        <view class="fpi-text">
+          <text class="fpi-name">{{item.emoji}} {{item.name}}</text>
+          <text class="fpi-effect">{{item.effect}}</text>
         </view>
         <button class="mini-btn buy-btn" size="mini" data-id="{{item.id}}" bindtap="buyFromFurniMenu">{{item.buyLabel}}</button>
       </view>
-      <view class="shop-panel-close" bindtap="closeFurnitureMenu">{{t.pet_shop_close}}</view>
     </view>
   </view>
 

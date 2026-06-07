@@ -721,15 +721,39 @@
 .furni-bath       { left: 74%; top: 42%;   z-index: 52; width: 178rpx; }
 .furni-toilet     { left: 87%; top: 40.5%; z-index: 51; width: 132rpx; }
 
-/* 家具菜单:顶部「免费陪它用一下」按钮 */
-.furni-menu { gap: 0; }
-.furni-free {
-  margin: 18rpx 0 6rpx; padding: 22rpx 20rpx; border-radius: 18rpx;
-  text-align: center; font-size: 28rpx; font-weight: 700;
+/* 家具菜单:在家具正上方原地弹的小副窗(跟书桌菜单同款) */
+@keyframes furni-pop {
+  0%   { opacity: 0; transform: translate(-50%, calc(-100% - 18rpx)) scale(0.7); }
+  100% { opacity: 1; transform: translate(-50%, calc(-100% - 18rpx)) scale(1); }
+}
+.furni-popover {
+  position: fixed; z-index: 150;
+  transform: translate(-50%, calc(-100% - 18rpx));
+  transform-origin: 50% 100%;
+  min-width: 320rpx; max-width: 66vw;
+  background: #ffffff; border-radius: 22rpx; padding: 12rpx 8rpx 14rpx;
+  box-shadow: 0 14rpx 36rpx rgba(60, 40, 15, 0.28);
+  animation: furni-pop 0.16s ease-out;
+}
+.furni-pop-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8rpx 18rpx 6rpx;
+}
+.furni-pop-title { font-size: 26rpx; font-weight: 800; color: #1f2329; }
+.furni-pop-coin { font-size: 22rpx; font-weight: 700; color: #b9810f; }
+.furni-pop-free {
+  margin: 6rpx 8rpx; padding: 16rpx; border-radius: 14rpx; text-align: center;
+  font-size: 26rpx; font-weight: 700;
   background: linear-gradient(180deg, #ffe9c2 0%, #ffd591 100%); color: #9a5d12;
 }
-.furni-free-hover { opacity: 0.85; }
-.furni-free.off { background: #f1f3f6; color: #9aa3b0; font-weight: 600; }
+.furni-pop-free.off { background: #f1f3f6; color: #9aa3b0; font-weight: 600; }
+.furni-pop-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10rpx 16rpx;
+}
+.fpi-text { display: flex; flex-direction: column; min-width: 0; padding-right: 14rpx; }
+.fpi-name { font-size: 26rpx; color: #1f2329; font-weight: 600; white-space: nowrap; }
+.fpi-effect { font-size: 21rpx; color: #8a94a4; margin-top: 2rpx; }
 
 .room-desk {
   position: absolute; left: 1.5%; top: 40%;
