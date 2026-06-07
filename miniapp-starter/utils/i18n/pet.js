@@ -122,6 +122,9 @@ module.exports = {
     pet_speak_idle_2: 'Miss me?',
     pet_speak_idle_3: "Let's keep it up~",
 
+    // shown when today's homework isn't done yet (pet stays put, won't play)
+    pet_busy_homework: 'Finish your homework first, then come play~',
+
     // furniture interaction lines (tap a furniture → pet walks over & says this)
     pet_furni_tv: 'Cartoon time~ 📺',
     pet_furni_sofa: 'So comfy on the sofa~',
@@ -301,6 +304,9 @@ module.exports = {
     pet_speak_idle_1: '今天过得怎么样呀？',
     pet_speak_idle_2: '想我了吗？',
     pet_speak_idle_3: '一起加油哦～',
+
+    // 今天作业还没做完时(宠物待在原地、不玩)
+    pet_busy_homework: '做完作业再来玩哦~',
 
     // furniture interaction lines
     pet_furni_tv: '看会儿动画~ 📺',
