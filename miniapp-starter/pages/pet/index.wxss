@@ -713,13 +713,14 @@
 }
 .furni-img { display: block; width: 100%; }
 .furni-press { opacity: 0.82; transform: translate(-50%, -100%) scale(0.96); }
-.furni-tv         { left: 9%;  top: 41%;   z-index: 51; width: 150rpx; }
-.furni-sofa       { left: 22%; top: 45%;   z-index: 55; width: 188rpx; }
-.furni-playground { left: 35%; top: 44%;   z-index: 54; width: 176rpx; }
-.furni-bed        { left: 48%; top: 43%;   z-index: 53; width: 198rpx; }
-.furni-table      { left: 61%; top: 46%;   z-index: 56; width: 178rpx; }
-.furni-bath       { left: 74%; top: 42%;   z-index: 52; width: 178rpx; }
-.furni-toilet     { left: 87%; top: 40.5%; z-index: 51; width: 132rpx; }
+/* 散落、多层次:靠墙的 top 小(36-40%)、前景的 top 大(52-58%);z=10+top% 管前后遮挡 */
+.furni-tv         { left: 10%; top: 37%; z-index: 47; width: 150rpx; }  /* 客厅:电视靠墙 */
+.furni-sofa       { left: 17%; top: 52%; z-index: 62; width: 196rpx; }  /* 客厅:沙发在电视前 */
+.furni-bed        { left: 50%; top: 39%; z-index: 49; width: 200rpx; }  /* 卧室:床靠墙 */
+.furni-playground { left: 35%; top: 58%; z-index: 68; width: 176rpx; }  /* 前景:游乐场 */
+.furni-table      { left: 64%; top: 54%; z-index: 64; width: 178rpx; }  /* 中景:餐桌 */
+.furni-bath       { left: 78%; top: 40%; z-index: 50; width: 178rpx; }  /* 卫生间:浴缸靠墙 */
+.furni-toilet     { left: 88%; top: 55%; z-index: 65; width: 132rpx; }  /* 卫生间:马桶在前 */
 
 /* 家具菜单:在家具正上方原地弹的小副窗(跟书桌菜单同款) */
 @keyframes furni-pop {
