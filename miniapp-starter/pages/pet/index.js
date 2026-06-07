@@ -596,15 +596,35 @@ Page({
     if (!f) return
     if (this._wanderTimer) { clearTimeout(this._wanderTimer); this._wanderTimer = null }
     this._moveActorTo(f.x, f.y, () => {
-      this.queueAnim(f.anim)          // 播完会自己 _scheduleWander 恢复漫游
-      this._spawnHearts(2)
-      this.setData({ showBubble: true, bubbleText: i18n.t('pet_furni_' + kind) })
+      const r = store.useFurnitureItem(kind)
+      let bubble = i18n.t('pet_furni_' + kind)
+      if (r && r.ok) {
+        this.refreshState()                       // 属性条立即更新
+        this.queueAnim(f.anim)                     // 播完自己 _scheduleWander 恢复漫游
+        this._spawnHearts(2)
+        if (r.amount > 0) {
+          wx.showToast({ title: i18n.t('pet_stat_' + r.stat) + ' +' + r.amount, icon: 'none' })
+        }
+      } else if (r && r.reason === 'cooldown') {
+        this.queueAnim('happy')                    // 冷却中也走过去蹭一下,只是不回属性
+        bubble = i18n.t('pet_furni_cooldown', { t: this._fmtCooldown(r.remainingMs) })
+      } else {
+        this.queueAnim('happy')
+      }
+      this.setData({ showBubble: true, bubbleText: bubble })
       if (this._bubbleTimer) clearTimeout(this._bubbleTimer)
       this._bubbleTimer = setTimeout(() => {
         this.setData({ showBubble: false })
         this._bubbleTimer = null
       }, 2400)
     })
+  },
+
+  // 冷却剩余的本地化短文案:≥1h 显示「Xh / X 小时」,否则「Xmin / X 分钟」。
+  _fmtCooldown(ms) {
+    const m = Math.max(1, Math.ceil(ms / 60000))
+    if (m >= 60) return i18n.t('pet_furni_cd_h', { n: Math.ceil(m / 60) })
+    return i18n.t('pet_furni_cd_min', { n: m })
   },
 
   handleBuyItem(event) {

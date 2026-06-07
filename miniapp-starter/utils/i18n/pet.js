@@ -129,6 +129,9 @@ module.exports = {
     pet_furni_table: 'Yum, dinner time!',
     pet_furni_bath: 'Bath time — splashy bubbles~',
     pet_furni_toilet: 'Be right back…',
+    pet_furni_cooldown: 'Just used this — come back in {t}',
+    pet_furni_cd_h: '{n}h',
+    pet_furni_cd_min: '{n}min',
 
     // species labels (data-defined in store.js, translated here)
     pet_species_cat: 'Cat',
@@ -290,6 +293,9 @@ module.exports = {
     pet_furni_table: '开饭啦,好香!',
     pet_furni_bath: '泡澡咯,搓搓泡泡~',
     pet_furni_toilet: '我去趟厕所…',
+    pet_furni_cooldown: '刚用过~ {t}后再来',
+    pet_furni_cd_h: '{n} 小时',
+    pet_furni_cd_min: '{n} 分钟',
 
     // species labels (data-defined in store.js, translated here)
     pet_species_cat: '猫',

@@ -1198,6 +1198,35 @@ assert('ref: 正常同步保留 cat', after.some((w) => w.en === 'cat'))
 assert('ref: 正常同步加入 bird', after.some((w) => w.en === 'bird'))
 assert('ref: 正常同步删掉 dog', !after.some((w) => w.en === 'dog'))
 
+// --- P.11 家具交互:冷却 + 回属性 + 封顶 ---
+function seedPet(over) {
+  seed({ pet: Object.assign({
+    species: 'cat', emoji: '🐱', name: 'p', level: 1, xp: 0,
+    happiness: 50, fullness: 50, cleanliness: 50, health: 50, effort: 0,
+    bornAt: _realDateNow(), lastDecayAt: Date.now()
+  }, over || {}) })
+}
+seedPet()
+const fb1 = s.useFurnitureItem('bath')
+assert('furni: bath 可用', fb1.ok === true)
+assert('furni: bath 回清洁 +22', fb1.stat === 'cleanliness' && fb1.amount === 22, JSON.stringify(fb1))
+assert('furni: 清洁 50 → 72', st().pet.cleanliness === 72)
+const fb2 = s.useFurnitureItem('bath')
+assert('furni: 立刻再用 bath → 冷却', fb2.ok === false && fb2.reason === 'cooldown' && fb2.remainingMs > 0)
+assert('furni: 冷却中清洁不变(仍 72)', st().pet.cleanliness === 72)
+const ftab = s.useFurnitureItem('table')
+assert('furni: table 独立冷却,可用回饱腹 +22', ftab.ok && ftab.stat === 'fullness' && st().pet.fullness === 72)
+
+// 封顶:health 92 + bed(18) → 100,amount=8
+seedPet({ health: 92 })
+const fbed = s.useFurnitureItem('bed')
+assert('furni: 健康 92 + bed → 封顶 100,amount=8', fbed.ok && st().pet.health === 100 && fbed.amount === 8, JSON.stringify(fbed))
+
+// 未知家具 / 无宠物
+assert('furni: 未知 kind → ok:false', s.useFurnitureItem('nope').ok === false)
+seed({ pet: null })
+assert('furni: 无宠物 → reason nopet', s.useFurnitureItem('bath').reason === 'nopet')
+
 // ===== Summary =====
 console.log(`\n=== ${passed} passed, ${failed} failed ===`)
 process.exit(failed === 0 ? 0 : 1)

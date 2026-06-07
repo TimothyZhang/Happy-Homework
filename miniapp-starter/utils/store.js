@@ -298,6 +298,19 @@ const PET_DECAY_PER_HOUR = { fullness: 4, cleanliness: 3, happiness: 3, health: 
 // 计入 attrMultiplier(五项均值之一 → 努力越高 XP 越快;commit 7ccb2ec),但不影响 mood。
 const EFFORT_PER_WORD = 5
 
+// 房间家具:点一下宠物走过去「用」它,免费回一点对应属性,但每件有冷却(防刷)。
+// 商店仍有价值:家具=免费但慢(有冷却、量小),商店=花金币但即时、量大。
+// 冷却存在 pet.furniAt[kind](随 pet 同步;petWithDecay 用 {...pet} 保留)。
+const FURNI_COOLDOWN_MS = 3 * 3600 * 1000   // 每件家具 3 小时冷却
+const FURNI_EFFECTS = {
+  tv:     { stat: 'happiness',   amount: 18 },
+  sofa:   { stat: 'happiness',   amount: 20 },
+  bed:    { stat: 'health',      amount: 18 },
+  table:  { stat: 'fullness',    amount: 22 },
+  bath:   { stat: 'cleanliness', amount: 22 },
+  toilet: { stat: 'cleanliness', amount: 12 }
+}
+
 // 升级:XP 满 → 用户手动点按钮升级。levelUpPet() 检查 pet.xp >= getXpForLevel(level),
 // 扣掉 cost,level +=1,溢出的 XP 留作下一级的进度。XP 不进金币 ledger
 // (云端账本只管金币),靠 pet 字段随 SYNC_FIELDS 同步。
@@ -2418,6 +2431,37 @@ function buyItem(itemId) {
   })
 }
 
+// 用一件家具:在冷却外回一点对应属性(免费),并记录冷却时间。
+// 返回 { ok, stat, amount, value } 或 { ok:false, reason:'cooldown'|'nopet'|'unknown', remainingMs }。
+function useFurnitureItem(kind) {
+  const eff = FURNI_EFFECTS[kind]
+  if (!eff) return { ok: false, reason: 'unknown' }
+  let result = { ok: false, reason: 'unknown' }
+  updateState((state) => {
+    if (!state.pet || !state.pet.species) { result = { ok: false, reason: 'nopet' }; return state }
+    const now = Date.now()
+    const cd = (state.pet.furniAt && typeof state.pet.furniAt === 'object') ? state.pet.furniAt : {}
+    const remain = FURNI_COOLDOWN_MS - (now - (Number(cd[kind]) || 0))
+    if (remain > 0) { result = { ok: false, reason: 'cooldown', remainingMs: remain, stat: eff.stat }; return state }
+    state.pet = commitPetDecay(state.pet)   // 先把衰减结算到当前,再在当前值上加(跟 buyItem 一致)
+    const cur = Number(state.pet[eff.stat]) || 0
+    const next = Math.min(100, cur + eff.amount)
+    state.pet[eff.stat] = next
+    state.pet.furniAt = Object.assign({}, cd, { [kind]: now })
+    result = { ok: true, stat: eff.stat, amount: next - cur, value: next, cooldownMs: FURNI_COOLDOWN_MS }
+    return state
+  })
+  return result
+}
+
+// 家具冷却剩余 ms(UI 提示用);0 = 可用。
+function furnitureCooldownLeft(kind) {
+  if (!FURNI_EFFECTS[kind]) return 0
+  const pet = loadState().pet
+  const cd = (pet && pet.furniAt) || {}
+  return Math.max(0, FURNI_COOLDOWN_MS - (Date.now() - (Number(cd[kind]) || 0)))
+}
+
 // 手动升级:扣 getXpForLevel(level) 经验 → level += 1。溢出的 XP 留到下一级,
 // 防止"卡了一会才点升级"丢经验。一次只升一级 —— 即使 xp 够升两级,也要再点一下,
 // 播两次升级动画(spec 要求"手动点一下播放升级动画")。
@@ -3253,6 +3297,9 @@ module.exports = {
   switchPetSpecies,
   renamePet,
   buyItem,
+  useFurnitureItem,
+  furnitureCooldownLeft,
+  FURNI_COOLDOWN_MS,
   levelUpPet,
   // ocr
   setCurrentOcrJob,
