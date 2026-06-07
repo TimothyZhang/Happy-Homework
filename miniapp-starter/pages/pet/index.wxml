@@ -63,13 +63,14 @@
       </block>
 
       <!-- 房间家具(PNG 摆件,沿房间宽度铺开;靠墙摆放,宠物走过会在它们前面;
-           点一下 → 宠物走过去用它 + 冒泡说话)。z-index ≈ 10+top% 跟深度挂钩。 -->
-      <view class="furni furni-tv" catchtap="useFurniture" data-kind="tv" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/tv.png" mode="widthFix" /></view>
-      <view class="furni furni-sofa" catchtap="useFurniture" data-kind="sofa" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/sofa.png" mode="widthFix" /></view>
-      <view class="furni furni-bed" catchtap="useFurniture" data-kind="bed" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/bed.png" mode="widthFix" /></view>
-      <view class="furni furni-table" catchtap="useFurniture" data-kind="table" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/table.png" mode="widthFix" /></view>
-      <view class="furni furni-bath" catchtap="useFurniture" data-kind="bath" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/bath.png" mode="widthFix" /></view>
-      <view class="furni furni-toilet" catchtap="useFurniture" data-kind="toilet" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/toilet.png" mode="widthFix" /></view>
+           点一下 → 弹菜单:免费用一下 / 买对应属性道具)。z-index ≈ 10+top% 跟深度挂钩。 -->
+      <view class="furni furni-tv" catchtap="openFurnitureMenu" data-kind="tv" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/tv.png" mode="widthFix" /></view>
+      <view class="furni furni-sofa" catchtap="openFurnitureMenu" data-kind="sofa" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/sofa.png" mode="widthFix" /></view>
+      <view class="furni furni-playground" catchtap="openFurnitureMenu" data-kind="playground" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/playground.png" mode="widthFix" /></view>
+      <view class="furni furni-bed" catchtap="openFurnitureMenu" data-kind="bed" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/bed.png" mode="widthFix" /></view>
+      <view class="furni furni-table" catchtap="openFurnitureMenu" data-kind="table" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/table.png" mode="widthFix" /></view>
+      <view class="furni furni-bath" catchtap="openFurnitureMenu" data-kind="bath" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/bath.png" mode="widthFix" /></view>
+      <view class="furni furni-toilet" catchtap="openFurnitureMenu" data-kind="toilet" hover-class="furni-press"><image class="furni-img" src="/assets/room/furniture/toilet.png" mode="widthFix" /></view>
 
       <view wx:if="{{pet.species}}"
             class="pet-actor face-{{actorFace}} {{actorMoving ? 'moving' : (spriteAnim ? '' : 'still')}} anim-{{animState}} {{spriteAnim ? 'do-' + spriteAnim : ''}}"
@@ -211,6 +212,26 @@
         <text class="pmi-emoji">📚</text>
         <text>{{t.pet_desk_wordbooks}}</text>
       </view>
+    </view>
+  </view>
+
+  <!-- 家具菜单(点家具弹出):免费陪它用一下(有冷却)+ 买对应属性的商店道具 -->
+  <view wx:if="{{showFurniMenu}}" class="shop-panel-mask" bindtap="closeFurnitureMenu" catchtouchmove="noop">
+    <view class="shop-panel furni-menu" catchtap="" catchtouchmove="noop">
+      <view class="shop-panel-head">
+        <text class="shop-panel-title">{{furniMenuTitle}}</text>
+        <text class="shop-panel-coin">{{furniMenuCoins}}</text>
+      </view>
+      <view class="furni-free {{furniFreeAvail ? '' : 'off'}}" bindtap="furnitureFreeUse" hover-class="furni-free-hover">{{furniFreeLabel}}</view>
+      <view class="shop-panel-section">{{t.pet_furni_menu_shop}}</view>
+      <view wx:for="{{furniMenuItems}}" wx:key="id" class="shop-item-card">
+        <view class="shop-item-text">
+          <text class="shop-name">{{item.emoji}} {{item.name}}</text>
+          <text class="shop-effect">{{item.effect}}</text>
+        </view>
+        <button class="mini-btn buy-btn" size="mini" data-id="{{item.id}}" bindtap="buyFromFurniMenu">{{item.buyLabel}}</button>
+      </view>
+      <view class="shop-panel-close" bindtap="closeFurnitureMenu">{{t.pet_shop_close}}</view>
     </view>
   </view>
 

@@ -303,12 +303,13 @@ const EFFORT_PER_WORD = 5
 // 冷却存在 pet.furniAt[kind](随 pet 同步;petWithDecay 用 {...pet} 保留)。
 const FURNI_COOLDOWN_MS = 3 * 3600 * 1000   // 每件家具 3 小时冷却
 const FURNI_EFFECTS = {
-  tv:     { stat: 'happiness',   amount: 18 },
-  sofa:   { stat: 'happiness',   amount: 20 },
-  bed:    { stat: 'health',      amount: 18 },
-  table:  { stat: 'fullness',    amount: 22 },
-  bath:   { stat: 'cleanliness', amount: 22 },
-  toilet: { stat: 'cleanliness', amount: 12 }
+  tv:         { stat: 'happiness',   amount: 18 },
+  sofa:       { stat: 'happiness',   amount: 20 },
+  playground: { stat: 'happiness',   amount: 22 },
+  bed:        { stat: 'health',      amount: 18 },
+  table:      { stat: 'fullness',    amount: 22 },
+  bath:       { stat: 'cleanliness', amount: 22 },
+  toilet:     { stat: 'cleanliness', amount: 12 }
 }
 
 // 升级:XP 满 → 用户手动点按钮升级。levelUpPet() 检查 pet.xp >= getXpForLevel(level),

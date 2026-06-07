@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100">
+  <!-- contact shadow -->
+  <ellipse cx="60" cy="96" rx="44" ry="4.5" fill="rgba(40,25,8,0.18)"/>
+
+  <!-- === LADDER SIDE RAILS (back layer) === -->
+  <rect x="25" y="38" width="5" height="52" rx="2.5" fill="#4a9e9a"/>
+  <rect x="37" y="38" width="5" height="52" rx="2.5" fill="#4a9e9a"/>
+
+  <!-- ladder rungs -->
+  <rect x="25" y="43" width="17" height="4" rx="2" fill="#6dbfbb"/>
+  <rect x="25" y="53" width="17" height="4" rx="2" fill="#6dbfbb"/>
+  <rect x="25" y="63" width="17" height="4" rx="2" fill="#6dbfbb"/>
+  <rect x="25" y="73" width="17" height="4" rx="2" fill="#6dbfbb"/>
+  <rect x="25" y="83" width="17" height="4" rx="2" fill="#6dbfbb"/>
+
+  <!-- === SLIDE SIDE RAILS (drawn before chute surface) === -->
+  <!-- left teal rim of slide -->
+  <polygon points="54,28 60,28 88,90 82,90" fill="#4a9e9a"/>
+  <!-- right teal rim of slide -->
+  <polygon points="70,28 76,28 100,90 94,90" fill="#4a9e9a"/>
+
+  <!-- === SLIDE CHUTE (yellow, on top of rails) === -->
+  <polygon points="59,29 71,29 95,90 83,90" fill="#f6c643"/>
+  <!-- slide highlight strip -->
+  <polygon points="59,29 64,29 88,90 83,90" fill="#fce07a"/>
+  <!-- slide right-edge shadow -->
+  <polygon points="68,29 71,29 95,90 92,90" fill="#e8a800"/>
+
+  <!-- === PLATFORM at top === -->
+  <rect x="18" y="29" width="56" height="13" rx="4" fill="#5bb0ac"/>
+  <!-- platform top surface highlight -->
+  <rect x="18" y="29" width="56" height="5" rx="3" fill="#7ec9c5"/>
+
+  <!-- safety rail posts -->
+  <rect x="21" y="13" width="4" height="18" rx="2" fill="#e8866b"/>
+  <rect x="66" y="13" width="4" height="18" rx="2" fill="#e8866b"/>
+  <!-- safety rail horizontal bar -->
+  <rect x="21" y="13" width="49" height="5" rx="2.5" fill="#f0a088"/>
+
+  <!-- tiny flag pole -->
+  <rect x="22.5" y="3" width="2.5" height="13" rx="1" fill="#e8866b"/>
+  <!-- flag pennant -->
+  <polygon points="25,3 36,8 25,13" fill="#f6c643"/>
+
+  <!-- === GROUND LEGS === -->
+  <rect x="27" y="88" width="6" height="8" rx="2" fill="#3d8a87"/>
+  <rect x="86" y="88" width="6" height="8" rx="2" fill="#3d8a87"/>
+
+  <!-- === COLORFUL BALL beside slide === -->
+  <circle cx="108" cy="91" r="6" fill="#e8866b"/>
+  <!-- ball top shine segment -->
+  <path d="M103 87.5 Q108 84 113 87.5" fill="none" stroke="#f5b09a" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- ball teal stripe -->
+  <path d="M102.2 91 Q108 88 113.8 91" fill="none" stroke="#5bb0ac" stroke-width="1.8" stroke-linecap="round"/>
+</svg>

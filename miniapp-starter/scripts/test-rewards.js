@@ -1216,6 +1216,8 @@ assert('furni: 立刻再用 bath → 冷却', fb2.ok === false && fb2.reason ===
 assert('furni: 冷却中清洁不变(仍 72)', st().pet.cleanliness === 72)
 const ftab = s.useFurnitureItem('table')
 assert('furni: table 独立冷却,可用回饱腹 +22', ftab.ok && ftab.stat === 'fullness' && st().pet.fullness === 72)
+const fpg = s.useFurnitureItem('playground')
+assert('furni: playground 回开心 +22', fpg.ok && fpg.stat === 'happiness' && st().pet.happiness === 72)
 
 // 封顶:health 92 + bed(18) → 100,amount=8
 seedPet({ health: 92 })

@@ -132,6 +132,15 @@ module.exports = {
     pet_furni_cooldown: 'Just used this — come back in {t}',
     pet_furni_cd_h: '{n}h',
     pet_furni_cd_min: '{n}min',
+    pet_furni_free: '✨ Free quick use',
+    pet_furni_menu_shop: 'Buy items (instant, bigger boost)',
+    pet_furni_act_tv: 'Watch TV',
+    pet_furni_act_sofa: 'Relax',
+    pet_furni_act_playground: 'Play',
+    pet_furni_act_bed: 'Sleep',
+    pet_furni_act_table: 'Feed',
+    pet_furni_act_bath: 'Bath',
+    pet_furni_act_toilet: 'Toilet',
 
     // species labels (data-defined in store.js, translated here)
     pet_species_cat: 'Cat',
@@ -296,6 +305,15 @@ module.exports = {
     pet_furni_cooldown: '刚用过~ {t}后再来',
     pet_furni_cd_h: '{n} 小时',
     pet_furni_cd_min: '{n} 分钟',
+    pet_furni_free: '✨ 免费陪它用一下',
+    pet_furni_menu_shop: '买道具(即时回更多)',
+    pet_furni_act_tv: '看电视',
+    pet_furni_act_sofa: '休息一下',
+    pet_furni_act_playground: '玩耍',
+    pet_furni_act_bed: '睡觉',
+    pet_furni_act_table: '喂饭',
+    pet_furni_act_bath: '洗澡',
+    pet_furni_act_toilet: '上厕所',
 
     // species labels (data-defined in store.js, translated here)
     pet_species_cat: '猫',

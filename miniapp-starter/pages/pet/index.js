@@ -58,15 +58,23 @@ const RIG_PIVOTS = {
 // 落在 10~190vw,宠物在整个 2 倍宽的房间里漫游。深度范围拉大(远 0.58 / 近 1.0)=
 // 更强的近大远小透视感。
 const FLOOR = { xMin: 5, xMax: 95, yMin: 40, yMax: 86 }
-// 家具:宠物走过去「用」它时站的位置(脚底 scene%,在家具正前方稍下方)+ 到点播的动作。
-// 跟 wxss .furni-* 的 left% 对齐;y 取家具底部稍往前(下),让宠物站在家具前面。
+// 家具:宠物走过去「用」它时站的位置(脚底 scene%,跟 wxss .furni-* 的 left% 对齐)
+// + 到点播的动作 + 对应属性 + 菜单图标。点家具 → 弹菜单(免费用一下 / 买对应道具)。
 const FURNITURE = {
-  tv:     { x: 11, y: 50, anim: 'happy' },
-  sofa:   { x: 25, y: 54, anim: 'happy' },
-  bed:    { x: 43, y: 52, anim: 'happy' },
-  table:  { x: 61, y: 55, anim: 'eating' },
-  bath:   { x: 77, y: 51, anim: 'celebrating' },
-  toilet: { x: 90, y: 50, anim: 'happy' }
+  tv:         { x: 9,  y: 49, anim: 'happy',       stat: 'happiness',   emoji: '📺' },
+  sofa:       { x: 22, y: 53, anim: 'happy',       stat: 'happiness',   emoji: '🛋️' },
+  playground: { x: 35, y: 52, anim: 'celebrating', stat: 'happiness',   emoji: '🎠' },
+  bed:        { x: 48, y: 52, anim: 'happy',       stat: 'health',      emoji: '🛏️' },
+  table:      { x: 61, y: 55, anim: 'eating',      stat: 'fullness',    emoji: '🍽️' },
+  bath:       { x: 74, y: 51, anim: 'celebrating', stat: 'cleanliness', emoji: '🛁' },
+  toilet:     { x: 87, y: 50, anim: 'happy',       stat: 'cleanliness', emoji: '🚽' }
+}
+// 每个属性对应商店里的哪些道具(菜单里列出来给买)。
+const STAT_ITEMS = {
+  fullness:    [1, 2],
+  cleanliness: [3, 4],
+  happiness:   [5, 8],
+  health:      [6, 7]
 }
 const DEPTH_FAR = 0.58      // 脚底在 yMin(最远)时的身体缩放
 const DEPTH_NEAR = 1.0      // 脚底在 yMax(最近)时的身体缩放(放大 → 近大远小更明显)
@@ -154,6 +162,13 @@ Page({
     roomTheme: 'cozy',     // 房间背景主题:cozy 温馨小屋 / castle 城堡
     showRoomPicker: false, // 选房间背景的弹窗
     showShopPanel: false,  // 商店弹窗(经验一大坨隐藏后,商店挪到金币下按钮)
+    showFurniMenu: false,  // 点家具弹的菜单(免费用一下 / 买对应属性道具)
+    furniMenuKind: '',
+    furniMenuTitle: '',
+    furniMenuItems: [],
+    furniMenuCoins: '',
+    furniFreeAvail: true,
+    furniFreeLabel: '',
     reciteLeft: 0,         // 今天还能背几次(0 则菜单里不显示「背单词」)
     vocab: 0,              // 词汇量 = 已掌握单词数(浮窗展示)
     showBubble: false,
@@ -585,38 +600,72 @@ Page({
     }).exec()
   },
 
-  // 点家具 → 宠物走过去「用」它:走到家具前 → 播动作 + 冒泡说句应景的话。
-  // 纯互动 + 演出,不改任何属性(避免绕过商店白嫖清洁/饱腹等)。
-  useFurniture(e) {
+  // 点家具 → 弹菜单(跟书桌类似):上面「免费陪它用一下」(有冷却),下面买对应属性的商店道具。
+  openFurnitureMenu(e) {
     if (this.data.mode !== 'view' || !hasAnimRig(this.data.pet)) return
     if (this._oneShotActive) return
     if (this.data.showPetMenu) { this.closePetMenu(); return }
     const kind = e.currentTarget.dataset.kind
     const f = FURNITURE[kind]
     if (!f) return
+    const ids = STAT_ITEMS[f.stat] || []
+    const items = (this.data.shopItems || []).filter((it) => ids.indexOf(it.id) !== -1)
+    const left = store.furnitureCooldownLeft(kind)
+    this.setData({
+      showFurniMenu: true,
+      furniMenuKind: kind,
+      furniMenuTitle: f.emoji + ' ' + i18n.t('pet_furni_act_' + kind),
+      furniMenuItems: items,
+      furniMenuCoins: this.data.shopPanelCoins,
+      furniFreeAvail: left <= 0,
+      furniFreeLabel: left <= 0
+        ? i18n.t('pet_furni_free')
+        : i18n.t('pet_furni_cooldown', { t: this._fmtCooldown(left) })
+    })
+  },
+
+  closeFurnitureMenu() {
+    this.setData({ showFurniMenu: false })
+  },
+
+  // 菜单·免费陪它用一下:走过去用家具,免费回一点属性(有冷却)。冷却中只走过去蹭一下。
+  furnitureFreeUse() {
+    const kind = this.data.furniMenuKind
+    const f = FURNITURE[kind]
+    if (!f) return
+    this.setData({ showFurniMenu: false })
     if (this._wanderTimer) { clearTimeout(this._wanderTimer); this._wanderTimer = null }
     this._moveActorTo(f.x, f.y, () => {
       const r = store.useFurnitureItem(kind)
       let bubble = i18n.t('pet_furni_' + kind)
       if (r && r.ok) {
-        this.refreshState()                       // 属性条立即更新
-        this.queueAnim(f.anim)                     // 播完自己 _scheduleWander 恢复漫游
+        this.refreshState()
+        this.queueAnim(f.anim)
         this._spawnHearts(2)
-        if (r.amount > 0) {
-          wx.showToast({ title: i18n.t('pet_stat_' + r.stat) + ' +' + r.amount, icon: 'none' })
-        }
+        if (r.amount > 0) wx.showToast({ title: i18n.t('pet_stat_' + r.stat) + ' +' + r.amount, icon: 'none' })
       } else if (r && r.reason === 'cooldown') {
-        this.queueAnim('happy')                    // 冷却中也走过去蹭一下,只是不回属性
+        this.queueAnim('happy')
         bubble = i18n.t('pet_furni_cooldown', { t: this._fmtCooldown(r.remainingMs) })
       } else {
         this.queueAnim('happy')
       }
       this.setData({ showBubble: true, bubbleText: bubble })
       if (this._bubbleTimer) clearTimeout(this._bubbleTimer)
-      this._bubbleTimer = setTimeout(() => {
-        this.setData({ showBubble: false })
-        this._bubbleTimer = null
-      }, 2400)
+      this._bubbleTimer = setTimeout(() => { this.setData({ showBubble: false }); this._bubbleTimer = null }, 2400)
+    })
+  },
+
+  // 菜单里买道具:复用 handleBuyItem(它会刷新属性 + toast + 吃东西动画),买完刷新菜单金币/冷却。
+  buyFromFurniMenu(e) {
+    this.handleBuyItem(e)
+    const kind = this.data.furniMenuKind
+    const f = FURNITURE[kind]
+    if (!f) return
+    const left = store.furnitureCooldownLeft(kind)
+    this.setData({
+      furniMenuCoins: this.data.shopPanelCoins,
+      furniFreeAvail: left <= 0,
+      furniFreeLabel: left <= 0 ? i18n.t('pet_furni_free') : i18n.t('pet_furni_cooldown', { t: this._fmtCooldown(left) })
     })
   },
 

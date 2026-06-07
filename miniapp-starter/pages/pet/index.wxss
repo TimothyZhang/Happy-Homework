@@ -713,12 +713,23 @@
 }
 .furni-img { display: block; width: 100%; }
 .furni-press { opacity: 0.82; transform: translate(-50%, -100%) scale(0.96); }
-.furni-tv     { left: 11%; top: 41%;   z-index: 51; width: 158rpx; }
-.furni-sofa   { left: 25%; top: 45%;   z-index: 55; width: 196rpx; }
-.furni-bed    { left: 43%; top: 43%;   z-index: 53; width: 206rpx; }
-.furni-table  { left: 61%; top: 46%;   z-index: 56; width: 184rpx; }
-.furni-bath   { left: 77%; top: 42%;   z-index: 52; width: 184rpx; }
-.furni-toilet { left: 90%; top: 40.5%; z-index: 51; width: 138rpx; }
+.furni-tv         { left: 9%;  top: 41%;   z-index: 51; width: 150rpx; }
+.furni-sofa       { left: 22%; top: 45%;   z-index: 55; width: 188rpx; }
+.furni-playground { left: 35%; top: 44%;   z-index: 54; width: 176rpx; }
+.furni-bed        { left: 48%; top: 43%;   z-index: 53; width: 198rpx; }
+.furni-table      { left: 61%; top: 46%;   z-index: 56; width: 178rpx; }
+.furni-bath       { left: 74%; top: 42%;   z-index: 52; width: 178rpx; }
+.furni-toilet     { left: 87%; top: 40.5%; z-index: 51; width: 132rpx; }
+
+/* 家具菜单:顶部「免费陪它用一下」按钮 */
+.furni-menu { gap: 0; }
+.furni-free {
+  margin: 18rpx 0 6rpx; padding: 22rpx 20rpx; border-radius: 18rpx;
+  text-align: center; font-size: 28rpx; font-weight: 700;
+  background: linear-gradient(180deg, #ffe9c2 0%, #ffd591 100%); color: #9a5d12;
+}
+.furni-free-hover { opacity: 0.85; }
+.furni-free.off { background: #f1f3f6; color: #9aa3b0; font-weight: 600; }
 
 .room-desk {
   position: absolute; left: 1.5%; top: 40%;
