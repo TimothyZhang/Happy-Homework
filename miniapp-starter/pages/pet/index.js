@@ -608,26 +608,32 @@ Page({
     }).exec()
   },
 
-  // 点家具 → 在家具正上方「原地」弹一个小副窗(跟书桌菜单同款):
-  // 上面「免费陪它用一下」(有冷却),下面买对应属性的商店道具。
+  // 点家具 → 宠物先走过去,到了再在家具正上方「原地」弹小副窗(跟书桌菜单同款)。
   openFurnitureMenu(e) {
     if (this.data.mode !== 'view' || !hasAnimRig(this.data.pet)) return
     if (this._oneShotActive) return
     if (this.data.showPetMenu) { this.closePetMenu(); return }
+    if (this.data.showFurniMenu) return
     const kind = e.currentTarget.dataset.kind
     const f = FURNITURE[kind]
     if (!f) return
+    // 先冻住漫游 + 走到家具正前方,到点回调里再弹菜单
+    if (this._wanderTimer) { clearTimeout(this._wanderTimer); this._wanderTimer = null }
+    this._moveActorTo(f.x, f.y, () => this._showFurnitureMenu(kind))
+  },
+
+  // 到达家具后:量家具屏幕位置 → 副窗锚在它正上方(fixed 屏幕坐标,夹在视口内)。
+  _showFurnitureMenu(kind) {
+    const f = FURNITURE[kind]
+    if (!f || this.data.mode !== 'view') return
     const ids = STAT_ITEMS[f.stat] || []
     const items = (this.data.shopItems || []).filter((it) => ids.indexOf(it.id) !== -1)
     const left = store.furnitureCooldownLeft(kind)
     const fe = store.furnitureEffect(kind)
-    // 副窗开着时先冻住漫游(别让相机滑走、家具跑出副窗下方)
-    if (this._wanderTimer) { clearTimeout(this._wanderTimer); this._wanderTimer = null }
     const win = this._win || (this._win = wx.getSystemInfoSync())
     const sw = win.windowWidth || 375
     const sh = win.windowHeight || 667
     const halfPx = 180 * sw / 750 + 12
-    // 量一下被点家具的屏幕位置 → 副窗锚在它正上方(fixed 屏幕坐标,夹在视口内)
     wx.createSelectorQuery().select('.furni-' + kind).boundingClientRect((rect) => {
       let ax = sw / 2, ay = sh * 0.46
       if (rect && rect.width) {
