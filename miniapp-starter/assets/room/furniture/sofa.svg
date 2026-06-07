@@ -3,40 +3,65 @@
   <ellipse cx="60" cy="96" rx="46" ry="4.5" fill="rgba(40,25,8,0.18)"/>
 
   <!-- sofa legs (short, dark teal) -->
-  <rect x="22" y="88" width="8" height="7" rx="2" fill="#3d8a87"/>
-  <rect x="90" y="88" width="8" height="7" rx="2" fill="#3d8a87"/>
+  <rect x="22" y="88" width="7" height="6" rx="2" fill="#3d8a87"/>
+  <rect x="91" y="88" width="7" height="6" rx="2" fill="#3d8a87"/>
 
-  <!-- sofa base / seat platform -->
-  <rect x="14" y="72" width="92" height="22" rx="6" fill="#5bb0ac"/>
+  <!-- === SOFA BASE PLATFORM === -->
+  <!-- base RIGHT side face (darker) -->
+  <path d="M100 72 L106 67 L106 84 L100 89 Z" fill="#3d8a87"/>
+  <!-- base FRONT face -->
+  <rect x="14" y="72" width="86" height="17" rx="5" fill="#5bb0ac"/>
+  <!-- base TOP face (lighter strip) -->
+  <path d="M14 72 L20 67 L106 67 L100 72 Z" fill="#7ecac6"/>
 
-  <!-- seat cushions (two, slightly lighter) -->
-  <rect x="18" y="68" width="38" height="20" rx="5" fill="#7ec9c5"/>
-  <rect x="64" y="68" width="38" height="20" rx="5" fill="#7ec9c5"/>
+  <!-- === BACKREST === -->
+  <!-- backrest RIGHT side face (darker) -->
+  <path d="M100 48 L106 43 L106 67 L100 72 Z" fill="#3d8a87"/>
+  <!-- backrest FRONT face -->
+  <rect x="14" y="48" width="86" height="24" rx="5" fill="#5bb0ac"/>
+  <!-- backrest TOP face (lighter) -->
+  <path d="M14 48 L20 43 L106 43 L100 48 Z" fill="#7ecac6"/>
+  <!-- backrest top highlight strip (front edge) -->
+  <rect x="14" y="48" width="86" height="7" rx="5" fill="#6dbfbb"/>
 
-  <!-- cushion crease lines (subtle darker shade) -->
-  <rect x="36" y="70" width="3" height="16" rx="1.5" fill="#5bb0ac"/>
-  <rect x="82" y="70" width="3" height="16" rx="1.5" fill="#5bb0ac"/>
+  <!-- === LEFT ARMREST (3D) === -->
+  <!-- left armrest FRONT face -->
+  <rect x="8" y="56" width="16" height="30" rx="5" fill="#4a9e9a"/>
+  <!-- left armrest TOP cap (lighter) -->
+  <rect x="8" y="56" width="16" height="7" rx="5" fill="#7ecac6"/>
 
-  <!-- backrest -->
-  <rect x="14" y="48" width="92" height="26" rx="6" fill="#5bb0ac"/>
-  <!-- backrest top highlight strip -->
-  <rect x="14" y="48" width="92" height="8" rx="6" fill="#6dbfbb"/>
+  <!-- === RIGHT ARMREST (3D) === -->
+  <!-- right armrest RIGHT side face (darker) -->
+  <path d="M100 56 L106 51 L106 79 L100 84 Z" fill="#3d8a87"/>
+  <!-- right armrest FRONT face -->
+  <rect x="94" y="56" width="16" height="30" rx="5" fill="#4a9e9a"/>
+  <!-- right armrest TOP cap (lighter) -->
+  <rect x="94" y="56" width="16" height="7" rx="5" fill="#7ecac6"/>
 
-  <!-- left armrest -->
-  <rect x="8" y="58" width="18" height="32" rx="6" fill="#4a9e9a"/>
-  <!-- left armrest top cap -->
-  <rect x="8" y="58" width="18" height="7" rx="5" fill="#6dbfbb"/>
+  <!-- === SEAT CUSHIONS (3D) === -->
+  <!-- left cushion RIGHT side mini-face -->
+  <path d="M56 67 L61 63 L61 83 L56 87 Z" fill="#5bb0ac"/>
+  <!-- left cushion TOP face (lighter) -->
+  <path d="M18 67 L23 63 L61 63 L56 67 Z" fill="#9ad6d2"/>
+  <!-- left cushion FRONT face -->
+  <rect x="18" y="67" width="38" height="20" rx="4" fill="#7ec9c5"/>
+  <!-- left cushion crease -->
+  <rect x="35" y="69" width="3" height="16" rx="1.5" fill="#5bb0ac"/>
 
-  <!-- right armrest -->
-  <rect x="94" y="58" width="18" height="32" rx="6" fill="#4a9e9a"/>
-  <!-- right armrest top cap -->
-  <rect x="94" y="58" width="18" height="7" rx="5" fill="#6dbfbb"/>
+  <!-- right cushion RIGHT side mini-face -->
+  <path d="M100 67 L106 63 L106 83 L100 87 Z" fill="#5bb0ac"/>
+  <!-- right cushion TOP face (lighter) -->
+  <path d="M64 67 L70 63 L106 63 L100 67 Z" fill="#9ad6d2"/>
+  <!-- right cushion FRONT face -->
+  <rect x="64" y="67" width="36" height="20" rx="4" fill="#7ec9c5"/>
+  <!-- right cushion crease -->
+  <rect x="80" y="69" width="3" height="16" rx="1.5" fill="#5bb0ac"/>
 
   <!-- throw pillow left (cream) -->
-  <rect x="22" y="52" width="22" height="16" rx="5" fill="#fff4e2"/>
-  <rect x="32" y="54" width="2" height="12" rx="1" fill="#e8d6be"/>
+  <rect x="20" y="50" width="22" height="16" rx="5" fill="#fff4e2"/>
+  <rect x="30" y="52" width="2" height="12" rx="1" fill="#e8d6be"/>
 
   <!-- throw pillow right (coral accent) -->
-  <rect x="76" y="52" width="22" height="16" rx="5" fill="#e8866b"/>
-  <rect x="86" y="54" width="2" height="12" rx="1" fill="#d06e55"/>
+  <rect x="74" y="50" width="22" height="16" rx="5" fill="#e8866b"/>
+  <rect x="84" y="52" width="2" height="12" rx="1" fill="#d06e55"/>
 </svg>

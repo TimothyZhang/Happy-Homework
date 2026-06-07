@@ -1,46 +1,64 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100">
   <!-- contact shadow -->
-  <ellipse cx="60" cy="97" rx="42" ry="4.5" fill="rgba(40,25,8,0.18)"/>
+  <ellipse cx="60" cy="97" rx="45" ry="4.5" fill="rgba(40,25,8,0.18)"/>
 
-  <!-- chair behind table -->
-  <!-- chair legs (peeking behind table) -->
-  <rect x="48" y="56" width="5" height="8" rx="1.5" fill="#b08e5e"/>
-  <rect x="67" y="56" width="5" height="8" rx="1.5" fill="#b08e5e"/>
-  <!-- chair seat -->
-  <rect x="44" y="50" width="32" height="8" rx="2.5" fill="#c79e68"/>
-  <!-- chair back slats -->
-  <rect x="47" y="33" width="5" height="18" rx="2" fill="#b08e5e"/>
-  <rect x="55" y="33" width="5" height="18" rx="2" fill="#b08e5e"/>
-  <rect x="63" y="33" width="5" height="18" rx="2" fill="#b08e5e"/>
-  <!-- chair top rail -->
-  <rect x="44" y="30" width="32" height="6" rx="3" fill="#c79e68"/>
-  <rect x="44" y="30" width="32" height="3" rx="2" fill="#e0c193"/>
+  <!-- ========== CHAIR BEHIND TABLE (peeking above tabletop) ========== -->
+  <!-- Chair seat peeking just above tabletop -->
+  <rect x="44" y="48" width="30" height="6" rx="2" fill="#c79e68"/>
+  <!-- Chair back slats -->
+  <rect x="47" y="31" width="4" height="18" rx="2" fill="#b08e5e"/>
+  <rect x="55" y="31" width="4" height="18" rx="2" fill="#b08e5e"/>
+  <rect x="63" y="31" width="4" height="18" rx="2" fill="#b08e5e"/>
+  <!-- Chair top rail -->
+  <rect x="44" y="28" width="30" height="6" rx="3" fill="#c79e68"/>
+  <rect x="44" y="28" width="30" height="3" rx="2" fill="#e0c193"/>
 
-  <!-- table legs -->
-  <rect x="20" y="72" width="9" height="25" rx="2" fill="#b08e5e"/>
-  <rect x="91" y="72" width="9" height="25" rx="2" fill="#b08e5e"/>
+  <!-- ========== TABLE LEGS (angled for 3D) ========== -->
+  <!-- Back-left leg (shorter, angled) -->
+  <polygon points="29,72 34,72 31,94 26,94" fill="#9a7244"/>
+  <!-- Back-right leg (shorter, angled) -->
+  <polygon points="86,72 91,72 88,94 83,94" fill="#9a7244"/>
+  <!-- Front-left leg (full height, angled slightly) -->
+  <polygon points="21,76 26,76 23,94 18,94" fill="#b08e5e"/>
+  <!-- Front-right leg (full height) -->
+  <polygon points="94,76 99,76 96,94 91,94" fill="#b08e5e"/>
 
-  <!-- tabletop -->
-  <rect x="10" y="60" width="100" height="14" rx="3.5" fill="#c79e68"/>
-  <!-- tabletop highlight strip -->
-  <rect x="10" y="60" width="100" height="5" rx="2.5" fill="#e0c193"/>
+  <!-- ========== TABLETOP SIDE FACE (right side, darker) ========== -->
+  <polygon points="100,60 111,53 111,74 100,74" fill="#9a7244"/>
 
-  <!-- plate (cream ellipse on tabletop) -->
-  <ellipse cx="56" cy="63" rx="14" ry="5" fill="#fff4e2"/>
-  <ellipse cx="56" cy="63" rx="10" ry="3.5" fill="#ffefd5"/>
+  <!-- ========== TABLETOP FRONT FACE (base wood colour) ========== -->
+  <rect x="10" y="62" width="90" height="14" rx="3" fill="#c79e68"/>
+  <!-- Front face top strip -->
+  <rect x="10" y="62" width="90" height="4" rx="2" fill="#d4ae7a"/>
 
-  <!-- food: rice dome (warm white mound) -->
-  <ellipse cx="56" cy="60" rx="7.5" ry="3" fill="#f9f0e3"/>
-  <!-- carrot/veggie accent on rice -->
-  <ellipse cx="53" cy="59" rx="2.5" ry="1.2" fill="#f4a44e"/>
-  <ellipse cx="59" cy="59.5" rx="2" ry="1" fill="#3bbe7a"/>
+  <!-- ========== TABLETOP TOP FACE (parallelogram, lighter) ========== -->
+  <!-- Points: front-left, front-right, back-right, back-left -->
+  <polygon points="10,62 100,62 111,53 21,53" fill="#e0c193"/>
+  <!-- Subtle wood grain lines on top -->
+  <line x1="35" y1="62" x2="46" y2="53" stroke="rgba(160,120,60,0.15)" stroke-width="1"/>
+  <line x1="55" y1="62" x2="66" y2="53" stroke="rgba(160,120,60,0.15)" stroke-width="1"/>
+  <line x1="75" y1="62" x2="86" y2="53" stroke="rgba(160,120,60,0.15)" stroke-width="1"/>
 
-  <!-- cup (right side) -->
-  <rect x="80" y="57" width="10" height="10" rx="3" fill="#5b8def"/>
-  <rect x="80" y="57" width="10" height="3.5" rx="2" fill="#8ab4f8"/>
-  <!-- cup handle -->
-  <path d="M90 60.5 Q95 60.5 95 64 Q95 67 90 67" fill="none" stroke="#5b8def" stroke-width="2.2" stroke-linecap="round"/>
-  <!-- steam puffs -->
-  <path d="M83 55 Q84 52 83 49" fill="none" stroke="#d4c5b0" stroke-width="1.5" stroke-linecap="round"/>
-  <path d="M87 55 Q88 51.5 87 48.5" fill="none" stroke="#d4c5b0" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- ========== PLATE ON TOP FACE ========== -->
+  <!-- Plate sits on the top face surface — use skewed ellipse-like shape -->
+  <ellipse cx="52" cy="59" rx="13" ry="4.5" fill="#fff4e2"/>
+  <ellipse cx="52" cy="59" rx="9" ry="3" fill="#ffefd5"/>
+
+  <!-- ========== FOOD ON PLATE ========== -->
+  <!-- Rice dome -->
+  <ellipse cx="52" cy="57" rx="7" ry="2.5" fill="#f9f0e3"/>
+  <!-- Carrot accent -->
+  <ellipse cx="49" cy="56.5" rx="2.2" ry="1" fill="#f4a44e"/>
+  <!-- Green veggie -->
+  <ellipse cx="55" cy="57" rx="1.8" ry="0.9" fill="#3bbe7a"/>
+
+  <!-- ========== CUP ON TOP FACE (right side) ========== -->
+  <!-- Cup body -->
+  <rect x="78" y="54" width="9" height="9" rx="2.5" fill="#5b8def"/>
+  <rect x="78" y="54" width="9" height="3" rx="2" fill="#8ab4f8"/>
+  <!-- Cup handle -->
+  <path d="M87 57 Q92 57 92 60.5 Q92 64 87 64" fill="none" stroke="#5b8def" stroke-width="2" stroke-linecap="round"/>
+  <!-- Steam puffs -->
+  <path d="M81 52 Q82 49.5 81 47" fill="none" stroke="#d4c5b0" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M85 52 Q86 49 85 46.5" fill="none" stroke="#d4c5b0" stroke-width="1.5" stroke-linecap="round"/>
 </svg>

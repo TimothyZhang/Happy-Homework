@@ -1,27 +1,53 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100">
   <!-- contact shadow -->
-  <ellipse cx="60" cy="96" rx="50" ry="4.5" fill="rgba(40,25,8,0.18)"/>
-  <!-- headboard (wood, right/back end) -->
-  <rect x="95" y="32" width="16" height="58" rx="4" fill="#c79e68"/>
-  <rect x="95" y="32" width="16" height="6" rx="3" fill="#e0c193"/>
-  <rect x="98" y="41" width="10" height="20" rx="2.5" fill="#b08e5e"/>
-  <!-- footboard (wood, left/front end) -->
-  <rect x="9" y="52" width="11" height="38" rx="3.5" fill="#c79e68"/>
-  <rect x="9" y="52" width="11" height="5" rx="2.5" fill="#e0c193"/>
-  <!-- bed base / frame -->
-  <rect x="9" y="70" width="103" height="22" rx="4" fill="#c79e68"/>
-  <rect x="9" y="70" width="103" height="5" rx="3" fill="#e0c193"/>
-  <!-- mattress -->
-  <rect x="13" y="48" width="89" height="26" rx="4" fill="#fff4e2"/>
-  <rect x="13" y="48" width="89" height="5" rx="3" fill="#fff9f0"/>
-  <!-- blanket covering lower 60% of mattress -->
-  <rect x="13" y="60" width="70" height="14" rx="4" fill="#9ec8e8"/>
-  <rect x="13" y="60" width="70" height="5" rx="3" fill="#bdddf4"/>
-  <!-- blanket fold lines -->
-  <rect x="27" y="62" width="2.5" height="10" rx="1.2" fill="rgba(90,150,205,0.28)"/>
-  <rect x="47" y="62" width="2.5" height="10" rx="1.2" fill="rgba(90,150,205,0.28)"/>
-  <rect x="67" y="62" width="2.5" height="10" rx="1.2" fill="rgba(90,150,205,0.28)"/>
-  <!-- pillow (cream, at headboard/right end) -->
-  <rect x="76" y="50" width="20" height="13" rx="5" fill="#fff4e2"/>
-  <rect x="78" y="52" width="16" height="5" rx="2.5" fill="#fff9f4"/>
+  <ellipse cx="58" cy="96" rx="50" ry="4.5" fill="rgba(40,25,8,0.18)"/>
+
+  <!-- ========== BED FRAME FRONT FACE (base wood colour) ========== -->
+  <rect x="9" y="76" width="95" height="19" rx="4" fill="#c79e68"/>
+  <!-- Frame top face (parallelogram, lighter) -->
+  <polygon points="9,76 104,76 112,69 17,69" fill="#e0c193"/>
+  <!-- Frame front top highlight strip -->
+  <rect x="9" y="76" width="95" height="4" rx="2.5" fill="#d4ae7a"/>
+
+  <!-- ========== HEADBOARD BACK/SIDE FACE (darker) ========== -->
+  <polygon points="101,26 112,21 112,76 101,76" fill="#9a7244"/>
+  <!-- Headboard front face -->
+  <rect x="89" y="24" width="12" height="52" rx="4" fill="#c79e68"/>
+  <!-- Headboard top face (parallelogram) -->
+  <polygon points="89,24 101,24 112,19 100,19" fill="#e0c193"/>
+  <!-- Headboard cap highlight -->
+  <polygon points="89,24 101,24 112,19 100,19" fill="#f0d4a6" opacity="0.5"/>
+
+  <!-- ========== FOOTBOARD FRONT FACE ========== -->
+  <rect x="9" y="53" width="10" height="35" rx="3" fill="#c79e68"/>
+  <!-- Footboard top face -->
+  <polygon points="9,53 19,53 27,46 17,46" fill="#e0c193"/>
+
+  <!-- ========== MATTRESS FRONT FACE ========== -->
+  <rect x="12" y="52" width="89" height="28" rx="4" fill="#fff4e2"/>
+  <!-- Mattress top face (parallelogram, very light cream) -->
+  <polygon points="12,52 101,52 110,44 21,44" fill="#fff9f0"/>
+  <!-- Mattress top front edge highlight -->
+  <rect x="12" y="52" width="89" height="4" rx="2.5" fill="#fff9f8"/>
+
+  <!-- ========== BLANKET FRONT FACE ========== -->
+  <rect x="12" y="64" width="70" height="16" rx="4" fill="#9ec8e8"/>
+  <!-- Blanket top face (parallelogram, lighter blue) -->
+  <polygon points="12,64 82,64 91,56 21,56" fill="#bdddf4"/>
+  <!-- Blanket fold lines on front face -->
+  <rect x="26" y="66" width="2" height="12" rx="1" fill="rgba(90,150,205,0.25)"/>
+  <rect x="45" y="66" width="2" height="12" rx="1" fill="rgba(90,150,205,0.25)"/>
+  <rect x="64" y="66" width="2" height="12" rx="1" fill="rgba(90,150,205,0.25)"/>
+  <!-- Fold lines on top face -->
+  <line x1="33" y1="56" x2="26" y2="64" stroke="rgba(90,150,205,0.2)" stroke-width="1.5"/>
+  <line x1="52" y1="56" x2="45" y2="64" stroke="rgba(90,150,205,0.2)" stroke-width="1.5"/>
+  <line x1="71" y1="56" x2="64" y2="64" stroke="rgba(90,150,205,0.2)" stroke-width="1.5"/>
+
+  <!-- ========== PILLOW ON TOP FACE ========== -->
+  <!-- Pillow top surface (sits on mattress top, near headboard) -->
+  <polygon points="72,50 91,50 99,43 80,43" fill="#fff4e2"/>
+  <!-- Pillow front edge (tiny depth strip) -->
+  <rect x="72" y="50" width="19" height="3" rx="1.5" fill="#f0e0cc"/>
+  <!-- Pillow highlight top -->
+  <polygon points="75,49 89,49 96,44 82,44" fill="#fff9f4" opacity="0.7"/>
 </svg>

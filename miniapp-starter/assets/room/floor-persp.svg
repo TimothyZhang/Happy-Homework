@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+  <!-- 受 background-size:100% 100% 拉伸铺满地板。横向木板缝(plank rows),越往后(上)越密 →
+       透视纵深感;满宽横线,左右滚动不变。配合 wxss 竖向木纹 + 纵深渐变 = 木地板往里延伸。 -->
+  <g stroke="#6b3f17" stroke-opacity="0.16" stroke-width="0.5">
+    <line x1="0" y1="4"  x2="100" y2="4" />
+    <line x1="0" y1="9"  x2="100" y2="9" />
+    <line x1="0" y1="15" x2="100" y2="15" />
+    <line x1="0" y1="22" x2="100" y2="22" />
+    <line x1="0" y1="30" x2="100" y2="30" />
+    <line x1="0" y1="40" x2="100" y2="40" />
+    <line x1="0" y1="52" x2="100" y2="52" />
+    <line x1="0" y1="66" x2="100" y2="66" />
+    <line x1="0" y1="82" x2="100" y2="82" />
+  </g>
+</svg>

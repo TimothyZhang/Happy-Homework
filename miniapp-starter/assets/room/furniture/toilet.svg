@@ -2,43 +2,49 @@
   <!-- contact shadow -->
   <ellipse cx="60" cy="96" rx="26" ry="4.5" fill="rgba(40,25,8,0.18)"/>
 
-  <!-- base / pedestal foot -->
-  <rect x="46" y="83" width="28" height="12" rx="5" fill="#d4d4d4"/>
-  <!-- base top highlight -->
-  <rect x="46" y="83" width="28" height="5" rx="3.5" fill="#eeeeee"/>
+  <!-- ======= PEDESTAL ======= -->
+  <!-- side face (right, drawn first, slightly shifted right → back face shows) -->
+  <rect x="50" y="85" width="26" height="13" rx="5" fill="#bebebe"/>
+  <!-- front face covers most of side, leaving right strip visible -->
+  <rect x="47" y="83" width="26" height="13" rx="5" fill="#d4d4d4"/>
+  <!-- top face ellipse -->
+  <ellipse cx="60" cy="83" rx="13" ry="3" fill="#ececec"/>
 
-  <!-- bowl body -->
-  <rect x="38" y="62" width="44" height="26" rx="11" fill="#e4e4e4"/>
-  <!-- bowl depth shade (bottom) -->
-  <rect x="40" y="75" width="40" height="14" rx="8" fill="#cccccc"/>
-  <!-- bowl inner water oval -->
-  <ellipse cx="60" cy="81" rx="13" ry="8" fill="#bdd8e8"/>
-  <!-- bowl rim highlight -->
-  <rect x="38" y="62" width="44" height="7" rx="7" fill="#f4f4f4"/>
+  <!-- ======= BOWL ======= -->
+  <!-- side face (drawn first, offset right = 4px, slightly darker) -->
+  <rect x="41" y="65" width="44" height="22" rx="11" fill="#c8c8c8"/>
+  <!-- front face -->
+  <rect x="37" y="63" width="44" height="22" rx="11" fill="#e4e4e4"/>
+  <!-- top rim ellipse (lighter) -->
+  <ellipse cx="59" cy="63" rx="22" ry="5" fill="#f0f0f0"/>
+  <!-- inner water -->
+  <ellipse cx="59" cy="77" rx="13" ry="6" fill="#bdd8e8"/>
 
-  <!-- seat ring (open-top style, slightly cream-tinted) -->
-  <rect x="35" y="55" width="50" height="13" rx="8" fill="#eee8e8"/>
-  <!-- seat highlight -->
-  <rect x="37" y="56" width="46" height="5" rx="6" fill="#faf6f6"/>
-  <!-- seat underside shade -->
-  <rect x="35" y="62" width="50" height="5" rx="4" fill="#d6d0d0"/>
+  <!-- ======= SEAT RING ======= -->
+  <!-- side face (offset right 4px) -->
+  <rect x="38" y="57" width="50" height="12" rx="8" fill="#d2caca"/>
+  <!-- front face -->
+  <rect x="34" y="55" width="50" height="12" rx="8" fill="#eee8e8"/>
+  <!-- top face ellipse -->
+  <ellipse cx="59" cy="55" rx="25" ry="5" fill="#faf6f6"/>
 
-  <!-- lid (open/upright, warm white, angled look) -->
-  <rect x="40" y="36" width="40" height="23" rx="10" fill="#f0eeee"/>
-  <!-- lid top highlight -->
-  <rect x="42" y="38" width="36" height="8" rx="6" fill="#fafafa"/>
-  <!-- lid bottom shade (connects to seat) -->
-  <rect x="40" y="53" width="40" height="6" rx="5" fill="#d8d4d4"/>
+  <!-- ======= LID ======= -->
+  <!-- side face (offset right 4px) -->
+  <rect x="43" y="35" width="40" height="25" rx="10" fill="#d4d2d2"/>
+  <!-- front face -->
+  <rect x="39" y="33" width="40" height="25" rx="10" fill="#f0eeee"/>
+  <!-- top face ellipse -->
+  <ellipse cx="59" cy="33" rx="20" ry="4.5" fill="#fafafa"/>
 
-  <!-- tank body -->
-  <rect x="44" y="16" width="32" height="40" rx="8" fill="#e8e8e8"/>
-  <!-- tank face highlight -->
-  <rect x="46" y="18" width="28" height="11" rx="6" fill="#f6f6f6"/>
-  <!-- tank bottom shade (sits on lid) -->
-  <rect x="44" y="48" width="32" height="8" rx="6" fill="#d0d0d0"/>
+  <!-- ======= TANK ======= -->
+  <!-- side face (offset right 4px) -->
+  <rect x="48" y="16" width="30" height="42" rx="8" fill="#d0d0d0"/>
+  <!-- front face -->
+  <rect x="44" y="14" width="30" height="42" rx="8" fill="#e8e8e8"/>
+  <!-- top face ellipse -->
+  <ellipse cx="59" cy="14" rx="15" ry="3.5" fill="#f6f6f6"/>
 
-  <!-- flush button (top of tank) -->
-  <rect x="52" y="16" width="16" height="6" rx="3" fill="#d8d8d8"/>
-  <rect x="54" y="17" width="12" height="4" rx="2" fill="#e6e6e6"/>
-  <ellipse cx="60" cy="19" rx="4" ry="1.8" fill="#c8c8c8"/>
+  <!-- flush button -->
+  <ellipse cx="59" cy="13.5" rx="6" ry="2" fill="#d0d0d0"/>
+  <ellipse cx="59" cy="13" rx="4" ry="1.3" fill="#e4e4e4"/>
 </svg>

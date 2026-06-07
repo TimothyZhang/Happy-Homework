@@ -164,19 +164,20 @@
   position: absolute; left: 0; right: 0; top: 34%; height: 20rpx; margin-top: -20rpx;
   background: linear-gradient(180deg, #d3ab7c 0%, #c2965f 100%);
 }
-/* 木地板:竖向木缝 + 由远向近的暖色渐变 */
+/* 木地板:透视横向板缝(越往后越密)+ 竖向木纹 + 后暗前亮渐变 → 往里延伸的纵深感 */
 .room-floor {
   position: absolute; left: 0; right: 0; top: 34%; bottom: 0;
   background:
-    repeating-linear-gradient(90deg, rgba(120,80,40,0.12) 0, rgba(120,80,40,0.12) 2rpx, transparent 2rpx, transparent 96rpx),
-    linear-gradient(180deg, #e9c89c 0%, #d9b07c 55%, #cca06b 100%);
+    url('/assets/room/floor-persp.svg') left top / 100% 100% no-repeat,
+    repeating-linear-gradient(90deg, rgba(120,80,40,0.10) 0, rgba(120,80,40,0.10) 2rpx, transparent 2rpx, transparent 96rpx),
+    linear-gradient(180deg, #cca06b 0%, #ddb583 45%, #ecca9e 100%);
   box-shadow: inset 0 12rpx 24rpx rgba(120,80,40,0.20);
 }
-/* 透视加深:地板靠后(顶部)压暗,远处更暗 → 增强景深/透视感(两个主题通用) */
+/* 透视加深:地板靠后(顶部)压暗 → 增强景深(两个主题通用) */
 .room-floor::before {
   content: '';
   position: absolute; left: 0; right: 0; top: 0; bottom: 0;
-  background: linear-gradient(180deg, rgba(40,25,8,0.26) 0%, rgba(40,25,8,0.08) 16%, transparent 34%);
+  background: linear-gradient(180deg, rgba(40,25,8,0.30) 0%, rgba(40,25,8,0.10) 18%, transparent 40%);
   pointer-events: none;
 }
 /* 地毯 */
@@ -215,11 +216,12 @@
 .theme-castle .poster-line { color: #ffe9b8; text-shadow: 0 1rpx 0 rgba(0,0,0,0.3); }
 /* 踢脚线 → 金线 */
 .theme-castle .room-baseboard { background: linear-gradient(180deg, #f0d27a 0%, #cba23a 100%); }
-/* 抛光奶金大理石地 */
+/* 抛光奶金大理石地(后暗前亮 + 透视板缝) */
 .theme-castle .room-floor {
   background:
+    url('/assets/room/floor-persp.svg') left top / 100% 100% no-repeat,
     repeating-linear-gradient(90deg, rgba(170,130,50,0.10) 0, rgba(170,130,50,0.10) 2rpx, transparent 2rpx, transparent 118rpx),
-    linear-gradient(180deg, #f7ecd0 0%, #ecd9ad 55%, #ddc492 100%);
+    linear-gradient(180deg, #ddc492 0%, #ecd9ad 45%, #f7ecd0 100%);
   box-shadow: inset 0 12rpx 26rpx rgba(150,110,40,0.20);
 }
 /* 红毯(中间一条,金边) */
