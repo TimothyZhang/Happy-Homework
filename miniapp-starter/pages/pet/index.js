@@ -239,6 +239,7 @@ Page({
     }
     if (this._heartTimer) { clearTimeout(this._heartTimer); this._heartTimer = null }
     if (this.data.hearts && this.data.hearts.length) this.setData({ hearts: [] })
+    this._stopFurniCdTick()
     this._stopSceneEngine()
   },
 
@@ -248,6 +249,7 @@ Page({
       this._levelAnimTimer = null
     }
     if (this._heartTimer) { clearTimeout(this._heartTimer); this._heartTimer = null }
+    this._stopFurniCdTick()
     this._stopSceneEngine()
   },
 
@@ -636,20 +638,51 @@ Page({
         furniMenuTitle: f.emoji + ' ' + i18n.t('pet_furni_act_' + kind),
         furniMenuItems: items,
         furniFreeAvail: left <= 0,
-        furniFreeName: i18n.t('pet_furni_free'),
+        furniFreeName: i18n.t('pet_furni_freeitem_' + kind),
         furniFreeEffect: (left <= 0 && fe)
           ? (i18n.t('pet_stat_' + fe.stat) + ' +' + fe.amount)
-          : i18n.t('pet_furni_cooldown', { t: this._fmtCooldown(left) }),
+          : ('⏳ ' + this._fmtCountdown(left)),
         furniFreePrice: i18n.t('pet_shop_buy_btn', { price: 0 }),
         furniAnchorLeft: Math.round(ax),
         furniAnchorTop: Math.round(ay)
       })
+      // 冷却中 → 每秒刷新倒计时;到 0 自动变可用
+      this._stopFurniCdTick()
+      if (left > 0) this._startFurniCdTick(kind, fe)
     }).exec()
   },
 
   closeFurnitureMenu() {
+    this._stopFurniCdTick()
     this.setData({ showFurniMenu: false })
     if (this._engineOn) this._scheduleWander(500 + Math.random() * 600)   // 恢复漫游
+  },
+
+  // 冷却倒计时(每秒刷新副窗里「免费」那行的效果文案)
+  _fmtCountdown(ms) {
+    const s = Math.max(0, Math.ceil(ms / 1000))
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
+    const p = (n) => (n < 10 ? '0' : '') + n
+    return (h > 0 ? h + ':' : '') + p(m) + ':' + p(sec)
+  },
+  _startFurniCdTick(kind, fe) {
+    this._stopFurniCdTick()
+    this._furniCdTimer = setInterval(() => {
+      if (!this.data.showFurniMenu || this.data.furniMenuKind !== kind) { this._stopFurniCdTick(); return }
+      const left = store.furnitureCooldownLeft(kind)
+      if (left <= 0) {
+        this.setData({
+          furniFreeAvail: true,
+          furniFreeEffect: fe ? (i18n.t('pet_stat_' + fe.stat) + ' +' + fe.amount) : ''
+        })
+        this._stopFurniCdTick()
+        return
+      }
+      this.setData({ furniFreeEffect: '⏳ ' + this._fmtCountdown(left) })
+    }, 1000)
+  },
+  _stopFurniCdTick() {
+    if (this._furniCdTimer) { clearInterval(this._furniCdTimer); this._furniCdTimer = null }
   },
 
   // 菜单·免费陪它用一下:走过去用家具,免费回一点属性(有冷却)。冷却中只走过去蹭一下。
@@ -657,6 +690,7 @@ Page({
     const kind = this.data.furniMenuKind
     const f = FURNITURE[kind]
     if (!f) return
+    this._stopFurniCdTick()
     this.setData({ showFurniMenu: false })
     if (this._wanderTimer) { clearTimeout(this._wanderTimer); this._wanderTimer = null }
     this._moveActorTo(f.x, f.y, () => {
