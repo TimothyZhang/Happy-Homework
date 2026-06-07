@@ -2455,6 +2455,12 @@ function useFurnitureItem(kind) {
   return result
 }
 
+// 家具对应的属性 + 免费回多少(菜单里把「免费」做成一个价格 0 的道具展示用)。
+function furnitureEffect(kind) {
+  const e = FURNI_EFFECTS[kind]
+  return e ? { stat: e.stat, amount: e.amount } : null
+}
+
 // 家具冷却剩余 ms(UI 提示用);0 = 可用。
 function furnitureCooldownLeft(kind) {
   if (!FURNI_EFFECTS[kind]) return 0
@@ -3299,6 +3305,7 @@ module.exports = {
   renamePet,
   buyItem,
   useFurnitureItem,
+  furnitureEffect,
   furnitureCooldownLeft,
   FURNI_COOLDOWN_MS,
   levelUpPet,

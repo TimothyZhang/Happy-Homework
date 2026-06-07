@@ -219,18 +219,22 @@
   <view wx:if="{{showFurniMenu}}" class="popover-catch" bindtap="closeFurnitureMenu" catchtouchmove="noop">
     <view class="furni-popover" catchtap="" catchtouchmove="noop"
           style="left: {{furniAnchorLeft}}px; top: {{furniAnchorTop}}px;">
-      <view class="furni-pop-head">
-        <text class="furni-pop-title">{{furniMenuTitle}}</text>
-        <text class="furni-pop-coin">{{furniMenuCoins}}</text>
+      <view class="furni-pop-title">{{furniMenuTitle}}</view>
+      <!-- 免费用一下:做成价格 0 的道具(同款行) -->
+      <view class="furni-pop-item {{furniFreeAvail ? '' : 'off'}}">
+        <view class="fpi-text">
+          <text class="fpi-name">{{furniFreeName}}</text>
+          <text class="fpi-effect">{{furniFreeEffect}}</text>
+        </view>
+        <view class="fpi-buy {{furniFreeAvail ? '' : 'off'}}" catchtap="furnitureFreeUse" hover-class="fpi-buy-hover">{{furniFreePrice}}</view>
       </view>
-      <view class="furni-pop-free {{furniFreeAvail ? '' : 'off'}}" bindtap="furnitureFreeUse" hover-class="pet-popover-item-hover">{{furniFreeLabel}}</view>
-      <view class="pet-popover-divider"></view>
+      <!-- 买对应属性的商店道具 -->
       <view wx:for="{{furniMenuItems}}" wx:key="id" class="furni-pop-item">
         <view class="fpi-text">
           <text class="fpi-name">{{item.emoji}} {{item.name}}</text>
           <text class="fpi-effect">{{item.effect}}</text>
         </view>
-        <button class="mini-btn buy-btn" size="mini" data-id="{{item.id}}" bindtap="buyFromFurniMenu">{{item.buyLabel}}</button>
+        <view class="fpi-buy" catchtap="buyFromFurniMenu" data-id="{{item.id}}" hover-class="fpi-buy-hover">{{item.buyLabel}}</view>
       </view>
     </view>
   </view>

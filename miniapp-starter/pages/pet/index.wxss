@@ -735,25 +735,22 @@
   box-shadow: 0 14rpx 36rpx rgba(60, 40, 15, 0.28);
   animation: furni-pop 0.16s ease-out;
 }
-.furni-pop-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 8rpx 18rpx 6rpx;
-}
-.furni-pop-title { font-size: 26rpx; font-weight: 800; color: #1f2329; }
-.furni-pop-coin { font-size: 22rpx; font-weight: 700; color: #b9810f; }
-.furni-pop-free {
-  margin: 6rpx 8rpx; padding: 16rpx; border-radius: 14rpx; text-align: center;
-  font-size: 26rpx; font-weight: 700;
-  background: linear-gradient(180deg, #ffe9c2 0%, #ffd591 100%); color: #9a5d12;
-}
-.furni-pop-free.off { background: #f1f3f6; color: #9aa3b0; font-weight: 600; }
+.furni-pop-title { font-size: 26rpx; font-weight: 800; color: #1f2329; padding: 8rpx 18rpx; }
 .furni-pop-item {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 10rpx 16rpx;
+  padding: 12rpx 16rpx; border-radius: 14rpx;
 }
-.fpi-text { display: flex; flex-direction: column; min-width: 0; padding-right: 14rpx; }
-.fpi-name { font-size: 26rpx; color: #1f2329; font-weight: 600; white-space: nowrap; }
-.fpi-effect { font-size: 21rpx; color: #8a94a4; margin-top: 2rpx; }
+.furni-pop-item.off { opacity: 0.55; }
+.fpi-text { flex: 1; min-width: 0; display: flex; flex-direction: column; padding-right: 16rpx; }
+.fpi-name { font-size: 26rpx; color: #1f2329; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.fpi-effect { font-size: 21rpx; color: #8a94a4; margin-top: 2rpx; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.fpi-buy {
+  flex-shrink: 0; padding: 0 24rpx; height: 56rpx; line-height: 56rpx;
+  border-radius: 999rpx; background: #245bdb; color: #ffffff;
+  font-size: 24rpx; font-weight: 700; text-align: center;
+}
+.fpi-buy-hover { background: #1e4fc0; }
+.fpi-buy.off { background: #c3cad6; }
 
 .room-desk {
   position: absolute; left: 1.5%; top: 40%;

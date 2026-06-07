@@ -166,9 +166,10 @@ Page({
     furniMenuKind: '',
     furniMenuTitle: '',
     furniMenuItems: [],
-    furniMenuCoins: '',
     furniFreeAvail: true,
-    furniFreeLabel: '',
+    furniFreeName: '',
+    furniFreeEffect: '',
+    furniFreePrice: '',
     furniAnchorLeft: 0,
     furniAnchorTop: 0,
     reciteLeft: 0,         // 今天还能背几次(0 则菜单里不显示「背单词」)
@@ -615,6 +616,7 @@ Page({
     const ids = STAT_ITEMS[f.stat] || []
     const items = (this.data.shopItems || []).filter((it) => ids.indexOf(it.id) !== -1)
     const left = store.furnitureCooldownLeft(kind)
+    const fe = store.furnitureEffect(kind)
     // 副窗开着时先冻住漫游(别让相机滑走、家具跑出副窗下方)
     if (this._wanderTimer) { clearTimeout(this._wanderTimer); this._wanderTimer = null }
     const win = this._win || (this._win = wx.getSystemInfoSync())
@@ -633,11 +635,12 @@ Page({
         furniMenuKind: kind,
         furniMenuTitle: f.emoji + ' ' + i18n.t('pet_furni_act_' + kind),
         furniMenuItems: items,
-        furniMenuCoins: this.data.shopPanelCoins,
         furniFreeAvail: left <= 0,
-        furniFreeLabel: left <= 0
-          ? i18n.t('pet_furni_free')
+        furniFreeName: i18n.t('pet_furni_free'),
+        furniFreeEffect: (left <= 0 && fe)
+          ? (i18n.t('pet_stat_' + fe.stat) + ' +' + fe.amount)
           : i18n.t('pet_furni_cooldown', { t: this._fmtCooldown(left) }),
+        furniFreePrice: i18n.t('pet_shop_buy_btn', { price: 0 }),
         furniAnchorLeft: Math.round(ax),
         furniAnchorTop: Math.round(ay)
       })
@@ -676,18 +679,9 @@ Page({
     })
   },
 
-  // 菜单里买道具:复用 handleBuyItem(它会刷新属性 + toast + 吃东西动画),买完刷新菜单金币/冷却。
+  // 菜单里买道具:复用 handleBuyItem(它会刷新属性 + toast + 吃东西动画);副窗保持打开可继续买。
   buyFromFurniMenu(e) {
     this.handleBuyItem(e)
-    const kind = this.data.furniMenuKind
-    const f = FURNITURE[kind]
-    if (!f) return
-    const left = store.furnitureCooldownLeft(kind)
-    this.setData({
-      furniMenuCoins: this.data.shopPanelCoins,
-      furniFreeAvail: left <= 0,
-      furniFreeLabel: left <= 0 ? i18n.t('pet_furni_free') : i18n.t('pet_furni_cooldown', { t: this._fmtCooldown(left) })
-    })
   },
 
   // 冷却剩余的本地化短文案:≥1h 显示「Xh / X 小时」,否则「Xmin / X 分钟」。
