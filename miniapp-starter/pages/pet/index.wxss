@@ -639,11 +639,13 @@
   margin-bottom: 12rpx;
   transform: translateX(-50%);
   transform-origin: 50% 100%;
-  /* 单行不换行:气泡宽度跟文字走,不被「left 偏移后剩下的可用宽度」压窄
-     (否则 face-right 时 left:64% 只剩 ~86rpx,中文被挤成很窄很高)。
-     说话短句最长 8 字 ≈ 250rpx,远小于 max-width,不会溢出。 */
-  white-space: nowrap;
-  max-width: 460rpx;
+  /* 长句(尤其英文)自动换行,背景框跟着长高,文字不再超出框。max-width 是固定值
+     (不是 %),所以 face-right/left 的 left 偏移只挪位置、不会把气泡压窄。 */
+  white-space: normal;
+  max-width: 480rpx;
+  text-align: center;
+  word-break: break-word;
+  overflow-wrap: anywhere;
   background: rgba(255, 255, 255, 0.97);
   color: #1f2329;
   font-size: 26rpx;
