@@ -639,9 +639,10 @@
   margin-bottom: 12rpx;
   transform: translateX(-50%);
   transform-origin: 50% 100%;
-  /* 长句(尤其英文)自动换行,背景框跟着长高,文字不再超出框。max-width 是固定值
-     (不是 %),所以 face-right/left 的 left 偏移只挪位置、不会把气泡压窄。 */
+  /* width:max-content → 气泡按文字「不换行时的自然宽度」撑开(忽略父级很窄的可用宽),
+     短句紧凑、不会被压成细长条;再用固定 max-width 封顶,长句(尤其英文)在框内换行不溢出。 */
   white-space: normal;
+  width: max-content;
   max-width: 480rpx;
   text-align: center;
   word-break: break-word;
