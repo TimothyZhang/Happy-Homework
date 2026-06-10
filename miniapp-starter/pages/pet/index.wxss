@@ -718,14 +718,17 @@
 }
 .furni-img { display: block; width: 100%; }
 .furni-press { opacity: 0.82; transform: translate(-50%, -100%) scale(0.96); }
-/* 散落、多层次:靠墙的 top 小(36-40%)、前景的 top 大(52-58%);z=10+top% 管前后遮挡 */
-.furni-tv         { left: 10%; top: 37%; z-index: 47; width: 196rpx; }  /* 客厅:电视靠墙 */
-.furni-sofa       { left: 18%; top: 53%; z-index: 62; width: 256rpx; }  /* 客厅:沙发在电视前 */
-.furni-bed        { left: 50%; top: 39%; z-index: 49; width: 262rpx; }  /* 卧室:床靠墙 */
-.furni-playground { left: 34%; top: 59%; z-index: 68; width: 230rpx; }  /* 前景:游乐场 */
-.furni-table      { left: 64%; top: 55%; z-index: 64; width: 232rpx; }  /* 中景:餐桌 */
-.furni-bath       { left: 78%; top: 40%; z-index: 50; width: 232rpx; }  /* 卫生间:浴缸靠墙 */
-.furni-toilet     { left: 89%; top: 56%; z-index: 65; width: 172rpx; }  /* 卫生间:马桶在前 */
+/* 散落、多层次:靠墙的 top 小(36-40%)、前景的 top 大(52-59%)。
+   z-index 全部 > 宠物最大 z(10+86=96):家具永远画在宠物前面、也永远接住自己头上的
+   点击 —— 宠物只在「正贴着家具」时被盖住一点(正好就是你想点这件家具的时候)。
+   家具之间仍按 top% 排序(前景盖靠墙)。 */
+.furni-tv         { left: 10%; top: 37%; z-index: 100; width: 196rpx; }  /* 客厅:电视靠墙 */
+.furni-bed        { left: 50%; top: 39%; z-index: 101; width: 262rpx; }  /* 卧室:床靠墙 */
+.furni-bath       { left: 78%; top: 40%; z-index: 102; width: 232rpx; }  /* 卫生间:浴缸靠墙 */
+.furni-sofa       { left: 18%; top: 53%; z-index: 110; width: 256rpx; }  /* 客厅:沙发在电视前 */
+.furni-table      { left: 64%; top: 55%; z-index: 112; width: 232rpx; }  /* 中景:餐桌 */
+.furni-toilet     { left: 89%; top: 56%; z-index: 113; width: 172rpx; }  /* 卫生间:马桶在前 */
+.furni-playground { left: 34%; top: 59%; z-index: 115; width: 230rpx; }  /* 前景:游乐场 */
 
 /* 家具菜单:在家具正上方原地弹的小副窗(跟书桌菜单同款) */
 @keyframes furni-pop {
@@ -759,12 +762,11 @@
 .fpi-buy.off { background: #c3cad6; }
 
 .room-desk {
-  position: absolute; left: 1.5%; top: 40%;
+  position: absolute; left: 62%; top: 58%;   /* 房间中间、餐桌下方 */
   width: 168rpx;
+  transform: translateX(-50%);                 /* 以 left 为中心摆放 */
   display: flex; flex-direction: column; align-items: center;
-  /* z-index 跟深度挂钩(actorZ = 10 + y%):书桌底座 ≈ y49 → 58,宠物走到更近(y>49)
-     时 actorZ>58 盖住书桌,走到更远时被书桌挡 —— 符合 2.5D 前后关系。 */
-  z-index: 58;
+  z-index: 120;                                /* > 宠物 z,书桌永远画在前面、好点 */
 }
 .room-desk-art { width: 168rpx; height: 124rpx; display: block; }
 .room-desk-hover { opacity: 0.82; }
@@ -781,16 +783,17 @@
   50%      { transform: translateY(-4rpx); }
 }
 .desk-popover {
-  position: fixed; left: 24rpx; top: 26%;
+  position: fixed; left: 50%; top: 26%;
+  transform: translateX(-50%);
   min-width: 300rpx; max-width: 70%;
   background: #ffffff; border-radius: 24rpx; padding: 10rpx 6rpx;
   box-shadow: 0 14rpx 36rpx rgba(60, 40, 15, 0.26);
-  transform-origin: 18% 100%;
+  transform-origin: 50% 0;
   animation: desk-pop 0.18s ease-out;
 }
 @keyframes desk-pop {
-  0%   { opacity: 0; transform: scale(0.7); }
-  100% { opacity: 1; transform: scale(1); }
+  0%   { opacity: 0; transform: translateX(-50%) scale(0.7); }
+  100% { opacity: 1; transform: translateX(-50%) scale(1); }
 }
 .desk-popover-title {
   font-size: 23rpx; color: #8a94a4; font-weight: 700;

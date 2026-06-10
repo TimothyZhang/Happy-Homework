@@ -62,14 +62,16 @@ const FLOOR = { xMin: 5, xMax: 95, yMin: 40, yMax: 86 }
 // + 到点播的动作 + 对应属性 + 菜单图标。点家具 → 弹菜单(免费用一下 / 买对应道具)。
 // 散落布局(非一排):电视靠墙+沙发在它前面成「客厅」;床靠墙;浴缸靠墙+马桶在前成
 // 「卫生间」;餐桌、游乐场散在中前景。y = 宠物站到家具正前方(下方一点)。
+// y = 宠物走过去站的位置:取家具正下方再往前一点(留出空隙,别贴着家具),
+// 这样宠物不挡家具、家具也好点(配合 wxss 里家具 z 高于宠物)。
 const FURNITURE = {
-  tv:         { x: 10, y: 44, anim: 'happy',       stat: 'happiness',   emoji: '📺' },
-  sofa:       { x: 17, y: 59, anim: 'happy',       stat: 'happiness',   emoji: '🛋️' },
-  bed:        { x: 50, y: 46, anim: 'happy',       stat: 'health',      emoji: '🛏️' },
-  playground: { x: 35, y: 65, anim: 'celebrating', stat: 'happiness',   emoji: '🎠' },
-  table:      { x: 64, y: 61, anim: 'eating',      stat: 'fullness',    emoji: '🍽️' },
-  bath:       { x: 78, y: 47, anim: 'celebrating', stat: 'cleanliness', emoji: '🛁' },
-  toilet:     { x: 88, y: 62, anim: 'happy',       stat: 'cleanliness', emoji: '🚽' }
+  tv:         { x: 10, y: 50, anim: 'happy',       stat: 'happiness',   emoji: '📺' },
+  sofa:       { x: 17, y: 66, anim: 'happy',       stat: 'happiness',   emoji: '🛋️' },
+  bed:        { x: 50, y: 52, anim: 'happy',       stat: 'health',      emoji: '🛏️' },
+  playground: { x: 35, y: 72, anim: 'celebrating', stat: 'happiness',   emoji: '🎠' },
+  table:      { x: 64, y: 68, anim: 'eating',      stat: 'fullness',    emoji: '🍽️' },
+  bath:       { x: 78, y: 53, anim: 'celebrating', stat: 'cleanliness', emoji: '🛁' },
+  toilet:     { x: 88, y: 69, anim: 'happy',       stat: 'cleanliness', emoji: '🚽' }
 }
 // 每个属性对应商店里的哪些道具(菜单里列出来给买)。
 const STAT_ITEMS = {
