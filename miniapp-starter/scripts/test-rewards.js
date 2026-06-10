@@ -908,11 +908,11 @@ assert('[en] weekly all 7 → Daily',
   s.formatRecurrenceLabel({ mode: 'recurring', recurrence: { type: 'weekly', weekdays: [1, 2, 3, 4, 5, 6, 7] } }) === 'Daily')
 i18n.setLang('en')   // 恢复默认,后续场景按 en 跑
 
-// ===== Scenario O: 延期(overdue)补做不补发归属日 perfect-day 奖 =====
-// 用户反馈:1 号作业拖到 2 号才做完,1 号当天本身没全部完成,perfect 奖不该
-// 事后补发。tier.kind === 'overdue' 时跳过 dailyBonus / earlyBird / streak /
-// perfectDays push,只保留 overdue 单题奖(5)。
-console.log('\n[O] overdue 补做不补发归属日 perfect-day 奖')
+// ===== Scenario O: 迟做(overdue)补做也补发 perfect-day 奖,但带迟做折扣 =====
+// 用户反馈:把某天作业都做完了却没拿到 perfect 奖。改为:迟做也补发 perfect 基础奖
+// (= 当天各题实发金币之和,迟做单题本就 5,自带折扣),但不发早鸟、不发周奖、
+// 不延长连续 streak(迟做不算「连续打卡」)。
+console.log('\n[O] overdue 补做也补发 perfect(基础奖,带迟做折扣,不刷连击)')
 
 // 单一 overdue task:昨天的作业今天才做。
 const nbO = { id: 'nbO', name: yesterday, mode: 'one-shot', startDate: yesterday, endDate: yesterday, recurrence: null, createdAt: 1, order: 0 }
@@ -928,12 +928,13 @@ seed({
 const coinsBeforeO = st().coins
 s.finishTask('tk_overdue_solo', yesterday)
 const coinsAfterO = st().coins
-assert('overdue 补做:只发 overdue 单题奖(5),不补 perfect bonus',
-  coinsAfterO - coinsBeforeO === 5, `delta=${coinsAfterO - coinsBeforeO}`)
-assert('overdue 补做:perfectDays 不含归属日', !st().perfectDays.includes(yesterday))
-assert('overdue 补做:streakDays 仍为 0', st().streakDays === 0)
-assert('overdue 补做:bonusByDay 没条目', !(st().bonusByDay && st().bonusByDay[yesterday]))
-assert('overdue 补做:lastReward.dailyBonus === 0', st().lastReward && st().lastReward.dailyBonus === 0)
+assert('overdue 补做:per-task 5 + perfect base 5 = 10',
+  coinsAfterO - coinsBeforeO === 10, `delta=${coinsAfterO - coinsBeforeO}`)
+assert('overdue 补做:perfectDays 含归属日(补发 perfect)', st().perfectDays.includes(yesterday))
+assert('overdue 补做:streakDays 仍为 0(迟做不延长连击)', st().streakDays === 0)
+assert('overdue 补做:bonusByDay dailyBonus=5 / weeklyBonus=0',
+  st().bonusByDay[yesterday] && st().bonusByDay[yesterday].dailyBonus === 5 && st().bonusByDay[yesterday].weeklyBonus === 0)
+assert('overdue 补做:lastReward.dailyBonus === 5', st().lastReward && st().lastReward.dailyBonus === 5)
 assert('overdue 补做:lastReward.rewardKind === overdue',
   st().lastReward && st().lastReward.rewardKind === 'overdue')
 
@@ -947,12 +948,11 @@ seed({
       id: 'tk_overdue_mix_A', notebookId: 'nbO2', subject: '语', content: 'a',
       estimatedMinutes: 5, mode: 'one-shot', dueDate: yesterday, endDate: yesterday,
       order: 0, createdAt: 1,
-      // A 昨天当天就 done,带正常 10 金币的 today reward 痕迹。
-      occurrences: { [yesterday]: {
-        status: 'done', rewardPaid: 10, rewardKind: 'today',
-        completedAt: 1, actualMinutes: 5, accumulatedMs: 5 * 60000,
-        currentSegmentStartedAt: null
-      } }
+      // A 昨天当天就 done,带正常 10 金币的 today reward 痕迹(一次性 task 状态存
+      // 在 task 自身字段,不是 occurrences[date])。
+      status: 'done', rewardPaid: 10, rewardKind: 'today',
+      completedAt: 1, actualMinutes: 5, accumulatedMs: 5 * 60000,
+      currentSegmentStartedAt: null
     },
     {
       id: 'tk_overdue_mix_B', notebookId: 'nbO2', subject: '数', content: 'b',
@@ -965,12 +965,12 @@ seed({
 const coinsBeforeMix = st().coins
 s.finishTask('tk_overdue_mix_B', yesterday)
 const coinsAfterMix = st().coins
-assert('overdue 混合:allDone 但 overdue,只发 5 金币不补 perfect',
-  coinsAfterMix - coinsBeforeMix === 5, `delta=${coinsAfterMix - coinsBeforeMix}`)
-assert('overdue 混合:perfectDays 仍不含归属日', !st().perfectDays.includes(yesterday))
-assert('overdue 混合:streakDays 仍为 0', st().streakDays === 0)
-assert('overdue 混合:lastReward.dailyBonus === 0',
-  st().lastReward && st().lastReward.dailyBonus === 0)
+assert('overdue 混合:B per-task 5 + perfect base 15(A10+B5)= 20',
+  coinsAfterMix - coinsBeforeMix === 20, `delta=${coinsAfterMix - coinsBeforeMix}`)
+assert('overdue 混合:perfectDays 含归属日', st().perfectDays.includes(yesterday))
+assert('overdue 混合:streakDays 仍为 0(迟做不延长连击)', st().streakDays === 0)
+assert('overdue 混合:lastReward.dailyBonus === 15',
+  st().lastReward && st().lastReward.dailyBonus === 15)
 
 // 反例 sanity:today 当天最后一题完成 → perfect 该发的还是发(确认改动没把正常路径打坏)。
 const nbS = { id: 'nbS', name: today, mode: 'one-shot', startDate: today, endDate: today, recurrence: null, createdAt: 1, order: 0 }

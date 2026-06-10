@@ -565,17 +565,17 @@ s = store.getStateWithComputed()
 check('2 future all-done → coins = 60 (30 + 30)', s.coins, 60)
 check('  → lastReward.dailyBonus = 30',  s.lastReward.dailyBonus, 30)
 
-// Overdue all-done: 2 yesterday tasks finished today. Per-task: 2×5=10.
-// 补做(overdue)不补发归属日的 perfect-day 奖(store.js commit b26a735
-// 2026-05-26,反拖延:1 号的题拖到 2 号才做,不该事后补 1 号的全完成奖)。
-// 所以没有 daily-perfect bonus —— 只有 2×5 单题奖,dailyBonus = 0,总额 = 10。
+// Overdue all-done: 2 yesterday tasks finished today. Per-task: 2×5=10。
+// 迟做也补发 perfect 基础奖(用户反馈「作业都做完了没拿到 perfect」),但带迟做
+// 折扣:base = 各题实发金币之和 = 2×5 = 10,无早鸟/周奖/streak。总额 = 10 + 10 = 20。
 seedTasksOnDate(2, yesterday)
 store = freshStore()
 store.finishTask('t1', yesterday)
 store.finishTask('t2', yesterday)
 s = store.getStateWithComputed()
-check('2 overdue all-done → coins = 10 (5 + 5, overdue 不补 perfect)', s.coins, 10)
-check('  → lastReward.dailyBonus = 0 (overdue 不补发 perfect 奖)',  s.lastReward.dailyBonus, 0)
+check('2 overdue all-done → coins = 20 (单题 10 + perfect base 10)', s.coins, 20)
+check('  → lastReward.dailyBonus = 10 (迟做补发 perfect 基础奖)',  s.lastReward.dailyBonus, 10)
+check('  → streakDays = 0 (迟做不延长连击)',  s.streakDays, 0)
 
 // 25-task cap recap: same coin total (400) as before but verified the path
 // goes through sum(rewardPaid) instead of min(N,20)×10 — confirmed by the

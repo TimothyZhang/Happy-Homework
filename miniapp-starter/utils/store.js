@@ -2338,52 +2338,49 @@ function finishTask(taskId, dateStr) {
     const todayCleared = todayViewItems.length > 0 &&
       todayViewItems.every((it) => it.occurrence.status === 'done')
 
-    // 补做(overdue)不补发归属日的 perfect-day 奖:1 号的最后一题拖到 2 号才做,
-    // 1 号当天本身就没"全部完成",事后再判 perfect 等于鼓励拖延。只跳过 bonus
-    // 发放,task 自身的 overdue 单题奖(5)照常走。tier.kind 比 rewardKind 准 ——
-    // 后者在 20-cap 命中后会被改成 'capped',丢掉 overdue 信息。
-    if (allDone && tier.kind !== 'overdue') {
+    // 完成某天「全部作业」→ 发当天的 perfect-day 奖。准时(当天完成)走完整逻辑;
+    // 迟做(overdue,拖到之后才全做完)也补发 perfect 基础奖,但带迟做折扣:
+    //   - base = 当天各题实发金币之和(迟做单题本就只 5,自带折扣)
+    //   - 不发早鸟、不发周连击、不延长连续 streak(迟做不算「连续打卡」)
+    // 这样「我把这天作业都做完了」总能拿到 perfect,但越拖奖越少、刷不了连击。
+    if (allDone) {
       if (!Array.isArray(state.perfectDays)) state.perfectDays = []
       if (!state.perfectDays.includes(day)) {
-        // Daily-perfect base = sum of rewardPaid across this day's tasks (i.e.
-        // mirror whatever per-task coins were actually credited). Tasks beyond
-        // the 20-cap have rewardPaid=0 already, so the cap propagates here for
-        // free. Early-bird extra (flat +50/+30/+20) stacks on top. Weekly
-        // streak is tracked separately, not part of dailyBonus.
+        const onTime = tier.kind !== 'overdue'
+        // Daily-perfect base = sum of rewardPaid across this day's tasks(镜像
+        // 实发单题金币;超 20-cap 的题 rewardPaid=0,cap 自然传导)。
         const baseBonus = dayTasks.reduce(
           (sum, it) => sum + (it.occurrence.rewardPaid || 0),
           0
         )
-        dailyBonus = baseBonus + earlyBirdBonus(new Date(now))
+        // 早鸟只给准时完成(迟做的「当天」早就过了)。
+        dailyBonus = baseBonus + (onTime ? earlyBirdBonus(new Date(now)) : 0)
         reward += dailyBonus
 
-        // Snapshot streak BEFORE the increment so revertTask can restore it.
+        // Snapshot streak BEFORE any change so revertTask can restore it.
         const prevStreakDays = state.streakDays || 0
 
-        // Consecutive-day streak: if yesterday was also a perfect day, keep
-        // counting; otherwise reset to 1.
-        const yesterday = addDays(day, -1)
-        state.streakDays = state.perfectDays.includes(yesterday)
-          ? prevStreakDays + 1
-          : 1
+        // 连续 streak 只由准时完成驱动;迟做不动 streakDays(也不发周奖)。
+        if (onTime) {
+          const yesterday = addDays(day, -1)
+          state.streakDays = state.perfectDays.includes(yesterday)
+            ? prevStreakDays + 1
+            : 1
+        }
 
         state.perfectDays.push(day)
         // Prune to ~14 days of history — enough to span 2 weekly windows.
         const cutoff = addDays(day, -14)
         state.perfectDays = state.perfectDays.filter((d) => d >= cutoff).sort()
 
-        if (state.streakDays > 0 && state.streakDays % 7 === 0) {
+        if (onTime && state.streakDays > 0 && state.streakDays % 7 === 0) {
           weeklyBonus = REWARD_WEEKLY_STREAK
           reward += weeklyBonus
         }
 
         // Stash exact bonus paid + pre-update streak. revertTask refunds from
-        // this map so the refund matches the credit even if task count or
-        // streak state changes between finish and revert.
-        // ledgerEventId 在下面 applyCoinDelta 后回填 —— 标记这次 perfect
-        // 入账真的发生过(写进 coinLogs / pending queue)。revokePerfectDay
-        // 用它判断要不要发 task_refund:没标记的天数 = 老路径残留或 flush
-        // 丢失的虚账,只清 bonusByDay 不退款,避免 over-clawback。
+        // this map so the refund matches the credit. ledgerEventId 在下面
+        // applyCoinDelta 后回填,revokePerfectDay 据此判断是否退款。
         if (!state.bonusByDay || typeof state.bonusByDay !== 'object') state.bonusByDay = {}
         state.bonusByDay[day] = { dailyBonus, weeklyBonus, prevStreakDays }
       }
