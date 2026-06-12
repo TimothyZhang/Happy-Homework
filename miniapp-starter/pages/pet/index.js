@@ -65,13 +65,13 @@ const FLOOR = { xMin: 5, xMax: 95, yMin: 40, yMax: 86 }
 // y = 宠物走过去站的位置:取家具正下方再往前一点(留出空隙,别贴着家具),
 // 这样宠物不挡家具、家具也好点(配合 wxss 里家具 z 高于宠物)。
 const FURNITURE = {
-  tv:         { x: 10, y: 50, anim: 'happy',       stat: 'happiness',   emoji: '📺' },
-  sofa:       { x: 17, y: 66, anim: 'happy',       stat: 'happiness',   emoji: '🛋️' },
-  bed:        { x: 50, y: 52, anim: 'happy',       stat: 'health',      emoji: '🛏️' },
-  playground: { x: 35, y: 72, anim: 'celebrating', stat: 'happiness',   emoji: '🎠' },
-  table:      { x: 64, y: 68, anim: 'eating',      stat: 'fullness',    emoji: '🍽️' },
-  bath:       { x: 78, y: 53, anim: 'celebrating', stat: 'cleanliness', emoji: '🛁' },
-  toilet:     { x: 88, y: 69, anim: 'happy',       stat: 'cleanliness', emoji: '🚽' }
+  tv:         { x: 10, y: 53, anim: 'happy',       stat: 'happiness',   emoji: '📺' },
+  sofa:       { x: 17, y: 65, anim: 'happy',       stat: 'happiness',   emoji: '🛋️' },
+  bed:        { x: 50, y: 55, anim: 'happy',       stat: 'health',      emoji: '🛏️' },
+  playground: { x: 35, y: 70, anim: 'celebrating', stat: 'happiness',   emoji: '🎠' },
+  table:      { x: 64, y: 67, anim: 'eating',      stat: 'fullness',    emoji: '🍽️' },
+  bath:       { x: 78, y: 56, anim: 'celebrating', stat: 'cleanliness', emoji: '🛁' },
+  toilet:     { x: 88, y: 68, anim: 'happy',       stat: 'cleanliness', emoji: '🚽' }
 }
 // 每个属性对应商店里的哪些道具(菜单里列出来给买)。
 const STAT_ITEMS = {
@@ -666,7 +666,9 @@ Page({
       let ax = sw / 2, ay = sh * 0.46
       if (rect && rect.width) {
         ax = Math.min(Math.max(rect.left + rect.width / 2, halfPx), sw - halfPx)
-        ay = rect.top
+        // 副窗往家具上方弹;锚点别高过屏幕 ~42%,否则靠墙的家具在 iPad(屏更矮)上
+        // 副窗会顶出屏幕外点不到。高过这条线就把锚点压下来(副窗盖住家具一点,但够得着)。
+        ay = Math.max(rect.top, Math.round(sh * 0.42))
       }
       this.setData({
         showFurniMenu: true,

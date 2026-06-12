@@ -722,13 +722,13 @@
    z-index 全部 > 宠物最大 z(10+86=96):家具永远画在宠物前面、也永远接住自己头上的
    点击 —— 宠物只在「正贴着家具」时被盖住一点(正好就是你想点这件家具的时候)。
    家具之间仍按 top% 排序(前景盖靠墙)。 */
-.furni-tv         { left: 10%; top: 37%; z-index: 100; width: 196rpx; }  /* 客厅:电视靠墙 */
-.furni-bed        { left: 50%; top: 39%; z-index: 101; width: 262rpx; }  /* 卧室:床靠墙 */
-.furni-bath       { left: 78%; top: 40%; z-index: 102; width: 232rpx; }  /* 卫生间:浴缸靠墙 */
-.furni-sofa       { left: 18%; top: 53%; z-index: 110; width: 256rpx; }  /* 客厅:沙发在电视前 */
-.furni-table      { left: 64%; top: 55%; z-index: 112; width: 232rpx; }  /* 中景:餐桌 */
-.furni-toilet     { left: 89%; top: 56%; z-index: 113; width: 172rpx; }  /* 卫生间:马桶在前 */
-.furni-playground { left: 34%; top: 59%; z-index: 115; width: 230rpx; }  /* 前景:游乐场 */
+.furni-tv         { left: 10%; top: 45%; z-index: 100; width: 196rpx; }  /* 客厅:电视(靠后) */
+.furni-bed        { left: 50%; top: 47%; z-index: 101; width: 262rpx; }  /* 卧室:床(靠后) */
+.furni-bath       { left: 78%; top: 48%; z-index: 102; width: 232rpx; }  /* 卫生间:浴缸(靠后) */
+.furni-sofa       { left: 18%; top: 57%; z-index: 110; width: 256rpx; }  /* 客厅:沙发在电视前 */
+.furni-table      { left: 64%; top: 59%; z-index: 112; width: 232rpx; }  /* 中景:餐桌 */
+.furni-toilet     { left: 89%; top: 60%; z-index: 113; width: 172rpx; }  /* 卫生间:马桶在前 */
+.furni-playground { left: 34%; top: 62%; z-index: 115; width: 230rpx; }  /* 前景:游乐场 */
 
 /* 家具菜单:在家具正上方原地弹的小副窗(跟书桌菜单同款) */
 @keyframes furni-pop {
@@ -762,7 +762,7 @@
 .fpi-buy.off { background: #c3cad6; }
 
 .room-desk {
-  position: absolute; left: 62%; top: 58%;   /* 房间中间、餐桌下方 */
+  position: absolute; left: 62%; top: 63%;   /* 房间中间、餐桌下方 */
   width: 168rpx;
   transform: translateX(-50%);                 /* 以 left 为中心摆放 */
   display: flex; flex-direction: column; align-items: center;
