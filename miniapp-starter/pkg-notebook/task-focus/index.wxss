@@ -161,6 +161,23 @@
 /* 暂停时「建议休息 N 分钟」小提示 */
 .pause-hint { font-size: 22rpx; color: #8a94a3; margin-top: 4rpx; }
 
+/* 番茄倒计时进度条 */
+.pomo-bar-wrap {
+  align-self: center; width: 72%; max-width: 520rpx;
+  margin-bottom: 26rpx;
+  display: flex; flex-direction: column; align-items: center; gap: 10rpx;
+}
+.pomo-bar {
+  width: 100%; height: 14rpx; border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.10); overflow: hidden;
+}
+.pomo-bar-fill {
+  height: 100%; border-radius: 999rpx;
+  background: linear-gradient(90deg, #e0884a 0%, #c2924a 100%);
+  transition: width 0.9s linear;
+}
+.pomo-bar-text { font-size: 22rpx; color: #9aa3b2; font-weight: 600; letter-spacing: 1rpx; }
+
 /* 番茄钟药丸:点开设置面板 */
 .pomo-set {
   align-self: center; margin-bottom: 22rpx;

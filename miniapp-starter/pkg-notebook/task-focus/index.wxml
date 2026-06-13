@@ -22,6 +22,12 @@
     </view>
   </view>
 
+  <!-- 番茄倒计时进度条:本次专注进度 + 距休息剩余时间(暂停时收起) -->
+  <view wx:if="{{!isPaused}}" class="pomo-bar-wrap">
+    <view class="pomo-bar"><view class="pomo-bar-fill" style="width: {{pomoPercent}}%"></view></view>
+    <text class="pomo-bar-text">{{t.tfocus_pomo_left_pre}} {{pomoLeftDisplay}}</text>
+  </view>
+
   <!-- 番茄钟:点开设置(工作时长/短休息/长休息/努力阈值/统计时段) -->
   <view class="pomo-set" bindtap="openPomoSettings">{{workMinLabel}} ⚙</view>
 

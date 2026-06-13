@@ -68,6 +68,9 @@ Page({
     // 暂停后停留在本页:作业时间(elapsed)定格在上面,额外显示暂停时长
     isPaused: false,
     pausedDisplay: '00:00',
+    // 番茄倒计时进度条:本次专注进度(填充 %)+ 距离休息剩余时间
+    pomoPercent: 0,
+    pomoLeftDisplay: '',
     // 番茄钟(都可设置)
     workMin: 25,
     shortBreakMin: 5,
@@ -117,6 +120,9 @@ Page({
     })
     patch.pomoRows = rows
     patch.workMinLabel = i18n.t('tfocus_pomo_label', { n: patch.workMin })
+    const total = patch.workMin * 60000
+    patch.pomoPercent = total > 0 ? Math.min(100, (this._workSinceBreakMs || 0) / total * 100) : 0
+    patch.pomoLeftDisplay = formatBigClock(Math.max(0, total - (this._workSinceBreakMs || 0)))
     this.setData(patch)
   },
 
@@ -183,13 +189,20 @@ Page({
         }
       } else {
         const next = this.data.elapsedMs + 1000
-        this.setData({ elapsedMs: next, elapsedDisplay: formatBigClock(next) })
-        // 连续写作业满 workMin 分钟 → 滴滴滴提醒休息,然后重新计时
+        // 连续写作业满 workMin 分钟 → 滴滴滴提醒休息,然后重新计时(进度条归零重来)
         this._workSinceBreakMs = (this._workSinceBreakMs || 0) + 1000
-        if (this._workSinceBreakMs >= this.data.workMin * 60000) {
+        const total = this.data.workMin * 60000
+        if (this._workSinceBreakMs >= total) {
           this._workSinceBreakMs = 0
           this._remind('rest')
         }
+        const leftMs = Math.max(0, total - this._workSinceBreakMs)
+        this.setData({
+          elapsedMs: next,
+          elapsedDisplay: formatBigClock(next),
+          pomoPercent: total > 0 ? Math.min(100, this._workSinceBreakMs / total * 100) : 0,
+          pomoLeftDisplay: formatBigClock(leftMs)
+        })
       }
     }, 1000)
   },
