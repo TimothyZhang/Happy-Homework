@@ -91,12 +91,12 @@ Page({
   onLoad(options) {
     const opts = options || {}
     this.setData({ taskId: opts.id || '', date: opts.date || '' })
-    this._pomoAnchor = Date.now()  // 番茄钟「本段专注从何时算」锚点(墙钟 → 后台恢复也对)
     this._lastBreakBeepMark = 0    // 暂停已提醒到第几个 break
-    this._segStart = null          // 当前作业段起点(暂停/完成时入日志)
-    this._loadPomo()
+    this._lastPomoCycle = 0        // 番茄已跨过第几个周期(防重复响铃;退出重进会按段重算)
+    this._segStart = null          // 当前作业段起点 = store 的 currentSegmentStartedAt(番茄钟也用它,退出/重进/后台都不丢)
     this._positionPomoBtn()
-    if (!this.refresh()) return
+    if (!this.refresh()) return    // 先 refresh 设好 _segStart + isPaused
+    this._loadPomo()
     this.startTicker()
   },
 
@@ -118,9 +118,9 @@ Page({
   onShow() {
     this.setData({ t: i18n.dict() })
     wx.setNavigationBarTitle({ title: i18n.t('tfocus_navtitle') })
-    this._loadPomo()   // 语言/设置可能变了,刷新参数 + 文案
     if (!this.data.taskId) return
-    if (!this.refresh()) return
+    if (!this.refresh()) return   // 先 refresh 设好 _segStart + isPaused
+    this._loadPomo()              // 再按当前作业段算番茄进度(+刷新参数文案)
     this.startTicker()
   },
 
@@ -146,21 +146,23 @@ Page({
     this.setData(patch)
   },
 
-  // 番茄倒计时当前状态(按墙钟锚点算 → 后台恢复也对)。
-  // 专注满一个周期则把锚点归零(allowBeep 时顺带响铃提醒休息)。
-  _pomoState(totalMs, allowBeep) {
-    if (this.data.isPaused || !this._pomoAnchor || totalMs <= 0) {
-      return { percent: 0, leftDisplay: formatBigClock(totalMs) }
+  // 番茄倒计时当前状态:从当前作业段起点(store 的 currentSegmentStartedAt)按 cycle=workMin 取模循环算。
+  // → 退出专注(不暂停/完成)再回来、以及后台恢复,都不重置(段起点不变)。跨过周期边界时响铃(allowBeep)。
+  _pomoState(cycleMs, allowBeep) {
+    const seg = this._segStart
+    if (this.data.isPaused || !seg || cycleMs <= 0) {
+      return { percent: 0, leftDisplay: formatBigClock(cycleMs) }
     }
-    let workSince = Math.max(0, Date.now() - this._pomoAnchor)
-    if (workSince >= totalMs) {
-      this._pomoAnchor = Date.now()
+    const segmentMs = Math.max(0, Date.now() - seg)
+    const cyclesPassed = Math.floor(segmentMs / cycleMs)
+    if (cyclesPassed > (this._lastPomoCycle || 0)) {
       if (allowBeep) this._remind('rest')
-      workSince = 0
+      this._lastPomoCycle = cyclesPassed
     }
+    const workSince = segmentMs - cyclesPassed * cycleMs
     return {
-      percent: Math.min(100, workSince / totalMs * 100),
-      leftDisplay: formatBigClock(Math.max(0, totalMs - workSince))
+      percent: Math.min(100, workSince / cycleMs * 100),
+      leftDisplay: formatBigClock(Math.max(0, cycleMs - workSince))
     }
   },
 
@@ -271,8 +273,8 @@ Page({
     if (!this.data.taskId) return
     store.resumeTask(this.data.taskId, this.data.date || '')
     this._pausedAt = null
-    this._pomoAnchor = Date.now()
-    this._segStart = Date.now()
+    this._segStart = Date.now()    // 新作业段(番茄也跟着从这里重新算)
+    this._lastPomoCycle = 0
     this.setData({ isPaused: false })
     this.startTicker()
   },
@@ -293,7 +295,7 @@ Page({
     if (!p) return
     const val = p.opts[Number(e.detail.value)] || p.def
     try { wx.setStorageSync(p.sk, val) } catch (err) {}
-    if (key === 'workMin') this._pomoAnchor = Date.now()
+    if (key === 'workMin') this._lastPomoCycle = 0   // 周期长度变了,重新数已过周期(不补响)
     this._loadPomo()
     this._beep()   // 改完预览一下提醒音
   },
