@@ -19,7 +19,7 @@ module.exports = {
     pet_desk_hint: '📖 Study',
 
     // top HUD
-    pet_hud_coins: 'Coins {n}',
+    pet_hud_coins: '🪙 {n}',
     pet_hud_shop: '⚙️ Settings',
     pet_hud_levelup: '⬆️ Level Up',
 
@@ -202,7 +202,7 @@ module.exports = {
     pet_desk_hint: '📖 背单词',
 
     // top HUD
-    pet_hud_coins: '金币 {n}',
+    pet_hud_coins: '🪙 {n}',
     pet_hud_shop: '⚙️ 设置',
     pet_hud_levelup: '⬆️ 可升级',
 
