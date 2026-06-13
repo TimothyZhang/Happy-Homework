@@ -31,6 +31,10 @@ module.exports = {
     pet_xp_rule_word: 'Every word you get right in dictation or the word challenge gives +1 EXP.',
     pet_xp_rule_levelup: 'When the EXP bar fills up, tap Level Up to raise your pet a level.',
     pet_xp_rules_close: 'Got it',
+    pet_vocab_rules_title: 'How vocab works',
+    pet_vocab_rule_what: 'Vocab is how many words your pet has fully mastered.',
+    pet_vocab_rule_master: 'Get a word right 4 times in a row (in dictation or the word challenge) and it becomes mastered — vocab +1.',
+    pet_vocab_rule_review: 'Getting a word wrong lowers its mastery, so keep reviewing to hold onto it.',
 
     // status HUD
     pet_age_days: '{n} days old',
@@ -133,6 +137,7 @@ module.exports = {
 
     // shown when today's homework isn't done yet (pet stays put, won't play)
     pet_busy_homework: 'Finish your homework first, then come play~',
+    pet_say_hungry: 'I\'m so hungry…',
 
     // furniture interaction lines (tap a furniture → pet walks over & says this)
     pet_furni_tv: 'Cartoon time~ 📺',
@@ -223,6 +228,10 @@ module.exports = {
     pet_xp_rule_word: '听写或单词挑战里,每答对一个单词 +1 经验。',
     pet_xp_rule_levelup: '经验条攒满后,点「升级」按钮就能升一级。',
     pet_xp_rules_close: '知道了',
+    pet_vocab_rules_title: '词汇量怎么来',
+    pet_vocab_rule_what: '词汇量 = 宠物已经完全掌握的单词数。',
+    pet_vocab_rule_master: '在听写或单词挑战里,把一个单词连续答对 4 次,它就算「掌握」,词汇量 +1。',
+    pet_vocab_rule_review: '答错会降低掌握度,要常复习才能保持掌握。',
 
     // status HUD
     pet_age_days: '{n} 天大',
@@ -325,6 +334,7 @@ module.exports = {
 
     // 今天作业还没做完时(宠物待在原地、不玩)
     pet_busy_homework: '做完作业再来玩哦~',
+    pet_say_hungry: '我好饿…',
 
     // furniture interaction lines
     pet_furni_tv: '看会儿动画~ 📺',

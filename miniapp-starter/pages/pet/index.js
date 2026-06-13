@@ -203,8 +203,10 @@ Page({
     // 升级动画覆盖层:点击升级按钮 → 触发 LEVEL_UP_ANIM_MS 的全屏动画。
     showLevelUpAnim: false,
     levelUpToLevel: 0,
-    // 经验值规则弹窗:点等级徽章 / 经验条弹出。
+    // 经验值规则弹窗:点等级 / 经验条弹出。
     showXpRules: false,
+    // 词汇量规则弹窗:点金币下面的词汇量弹出。
+    showVocabRules: false,
     // i18n dict injected into template
     t: {},
     // computed i18n strings that need dynamic interpolation
@@ -288,9 +290,14 @@ Page({
     const renameCost = store.PET_RENAME_COST
     const switchCost = store.PET_SWITCH_COST
     const roomTheme = pet.roomTheme || 'cozy'
-    // 清洁度越低,身上泥巴越多越浓:>=60 干净,60→35→15 三档脏。
+    // 清洁度 → 泥块数量:>=60 净(0);40-60 一块;20-40 两块;1-20 三块;0 四块。
     const clean = pet.cleanliness | 0
-    const dirtTier = !isSetup ? 0 : clean >= 60 ? 0 : clean >= 35 ? 1 : clean >= 15 ? 2 : 3
+    const dirtTier = !isSetup ? 0
+      : clean >= 60 ? 0
+      : clean >= 40 ? 1
+      : clean >= 20 ? 2
+      : clean >= 1 ? 3
+      : 4
     this.setData({
       t: i18n.dict(),
       pet,
@@ -412,7 +419,12 @@ Page({
     // dy 加权:纵向位移按竖屏比例放大,duration 变长 → 纵向速度慢下来。
     const dyW = dy * VERTICAL_WEIGHT
     const dist = Math.sqrt(dx * dx + dyW * dyW)
-    const dur = Math.round(clampNum(dist / WALK_SPEED_PCT_PER_S * 1000, WALK_MIN_MS, WALK_MAX_MS))
+    // 饥饿影响速度:full=0 → 10% 速度,full=100 → 100%,线性插值。
+    // 速度越低 → 同一段位移 duration 越长(慢吞吞),clamp 上限也按比例放宽。
+    const full = clampNum((this.data.pet || {}).fullness | 0, 0, 100)
+    const speedMult = 0.10 + 0.90 * (full / 100)
+    const effSpeed = WALK_SPEED_PCT_PER_S * speedMult
+    const dur = Math.round(clampNum(dist / effSpeed * 1000, WALK_MIN_MS, Math.round(WALK_MAX_MS / speedMult)))
     this.setData({
       actorX: Math.round(tx * 10) / 10,
       actorY: Math.round(ty * 10) / 10,
@@ -423,12 +435,27 @@ Page({
       moveDurMs: dur,
       cameraTx: this._cameraTx(tx)   // 相机用同样的时长(dur)平滑跟到目标,屏幕不会比宠物快
     })
+    // 饿了(full<60)边走边喊「我好饿」(节流,别刷屏)
+    if (full < 60) this._sayHungry()
     if (this._arriveTimer) clearTimeout(this._arriveTimer)
     this._arriveTimer = setTimeout(() => {
       this._arriveTimer = null
       this.setData({ actorMoving: false, moveDurMs: 0 })
       if (typeof after === 'function') after()
     }, dur)
+  },
+
+  // 饿了边走边喊一句,节流 6s 防刷屏(复用同一个 _bubbleTimer)。
+  _sayHungry() {
+    const now = Date.now()
+    if (this._lastHungryAt && now - this._lastHungryAt < 6000) return
+    this._lastHungryAt = now
+    this.setData({ showBubble: true, bubbleText: i18n.t('pet_say_hungry') })
+    if (this._bubbleTimer) clearTimeout(this._bubbleTimer)
+    this._bubbleTimer = setTimeout(() => {
+      this.setData({ showBubble: false })
+      this._bubbleTimer = null
+    }, 2200)
   },
 
   // Public: 原地一次性动作(eating from shop / celebrating from home+升级 /
@@ -776,6 +803,12 @@ Page({
   },
   closeXpRules() {
     this.setData({ showXpRules: false })
+  },
+  showVocabRules() {
+    this.setData({ showVocabRules: true })
+  },
+  closeVocabRules() {
+    this.setData({ showVocabRules: false })
   },
 
   // 升级:XP 满才能点。点击直接升 — 没有 modal,直接播全屏升级动画 + 庆祝姿势。

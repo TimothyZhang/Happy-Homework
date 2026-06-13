@@ -116,10 +116,8 @@
       <view class="hud-name-wrap">
         <view class="hud-name-row">
           <text class="hud-name">{{pet.name}}</text>
-          <view wx:if="{{pet.species}}" class="hud-level" catchtap="showXpRules">
-            <text>Lv.{{pet.level}}</text>
-            <text wx:if="{{levelBadge}}" class="hud-level-badge">{{levelBadge}}</text>
-          </view>
+          <text wx:if="{{pet.species}}" class="hud-level" catchtap="showXpRules">Lv.{{pet.level}}</text>
+          <text wx:if="{{pet.species}}" class="hud-age">{{hudAgeDays}}</text>
         </view>
         <view wx:if="{{pet.species}}" class="hud-xp" catchtap="showXpRules">
           <text class="hud-xp-label">{{t.pet_xp_label}}</text>
@@ -139,18 +137,15 @@
             <text class="coin-chev">›</text>
           </view>
         </view>
+        <view wx:if="{{pet.species}}" class="hud-vocab" catchtap="showVocabRules">{{hudVocab}}</view>
         <view wx:if="{{canLevelUp}}" class="hud-btns">
           <view class="hud-btn levelup-btn" catchtap="handleLevelUp">{{t.pet_hud_levelup}}</view>
         </view>
       </view>
     </view>
 
-    <!-- 透明状态浮窗:紧凑 4 条状态条,半透明浮在房间上 -->
+    <!-- 透明状态浮窗:紧凑 4 条状态条,半透明浮在房间上(年龄移到名字后、词汇移到金币下) -->
     <view class="status-hud">
-      <view class="status-meta">
-        <text>{{hudAgeDays}}</text>
-      </view>
-      <view class="status-know-line">{{hudVocab}}</view>
       <view class="svrow">
         <text class="svlabel">{{t.pet_stat_happiness}}</text>
         <view class="sbar"><view class="sbar-fill" style="width: {{pet.happiness}}%; background: #ffb648"></view></view>
@@ -332,6 +327,19 @@
         <view class="xp-rule-row"><text class="xp-rule-ic">⬆️</text><text class="xp-rule-tx">{{t.pet_xp_rule_levelup}}</text></view>
       </view>
       <view class="xp-rules-close" bindtap="closeXpRules">{{t.pet_xp_rules_close}}</view>
+    </view>
+  </view>
+
+  <!-- 词汇量规则说明:点金币下方的词汇量弹出 -->
+  <view wx:if="{{showVocabRules}}" class="xp-rules-mask" bindtap="closeVocabRules" catchtouchmove="noop">
+    <view class="xp-rules" catchtap="" catchtouchmove="noop">
+      <view class="xp-rules-title">{{t.pet_vocab_rules_title}}</view>
+      <view class="xp-rules-body">
+        <view class="xp-rule-row"><text class="xp-rule-ic">📚</text><text class="xp-rule-tx">{{t.pet_vocab_rule_what}}</text></view>
+        <view class="xp-rule-row"><text class="xp-rule-ic">✅</text><text class="xp-rule-tx">{{t.pet_vocab_rule_master}}</text></view>
+        <view class="xp-rule-row"><text class="xp-rule-ic">🔁</text><text class="xp-rule-tx">{{t.pet_vocab_rule_review}}</text></view>
+      </view>
+      <view class="xp-rules-close" bindtap="closeVocabRules">{{t.pet_xp_rules_close}}</view>
     </view>
   </view>
 </view>

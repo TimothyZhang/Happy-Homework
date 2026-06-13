@@ -377,14 +377,15 @@
   font-size: 34rpx; font-weight: 800; color: #5a3d1e;
   text-shadow: 0 1rpx 0 rgba(255,255,255,0.6);
 }
+/* 等级:纯文字(去掉图标+背景),后面跟年龄 */
 .hud-level {
-  display: flex; align-items: center; gap: 2rpx;
-  height: 36rpx; padding: 0 14rpx; border-radius: 999rpx;
-  font-size: 22rpx; font-weight: 800; line-height: 1; color: #ffffff;
-  background: linear-gradient(135deg, #ffb648 0%, #f0902a 100%);
-  box-shadow: 0 3rpx 8rpx rgba(240,144,42,0.3);
+  font-size: 24rpx; font-weight: 800; color: #5a3d1e;
+  text-shadow: 0 1rpx 0 rgba(255,255,255,0.6);
 }
-.hud-level-badge { font-size: 22rpx; }
+.hud-age {
+  font-size: 22rpx; font-weight: 600; color: #9a7b56;
+  text-shadow: 0 1rpx 0 rgba(255,255,255,0.6);
+}
 /* 经验值:EXP 标签 | 进度条(数字在条里) | 增长速度,点一下弹规则 */
 .hud-xp { display: flex; align-items: center; gap: 10rpx; }
 .hud-xp-label {
@@ -452,6 +453,12 @@
 }
 .hud-coin-text { font-size: 26rpx; color: #e0a010; font-weight: 800; }
 .hud-coin .coin-chev { color: #e0a010; margin-left: 4rpx; }
+/* 词汇量:金币下面、加大一点点,点一下弹「词汇规则」 */
+.hud-vocab {
+  margin-top: 10rpx;
+  font-size: 26rpx; font-weight: 800; color: #7a5af0;
+  text-shadow: 0 1rpx 0 rgba(255,255,255,0.6);
+}
 
 /* === 控制卡片层(盖在房间上,可滚) === */
 .sheet { position: relative; z-index: 10; }
@@ -569,18 +576,22 @@
 /* 清洁度低 → 身上叠泥巴(dirtTier 1~3,越脏越多越浓) */
 .actor-dirt { position: absolute; left: 0; top: 0; width: 240rpx; height: 240rpx; pointer-events: none; }
 .actor-dirt .mud {
-  position: absolute; border-radius: 50%;
+  position: absolute; display: none; border-radius: 50%;
   background: radial-gradient(ellipse at 38% 32%, #8a5a30 0%, #5e3c1f 62%, rgba(94,60,31,0) 100%);
 }
 .actor-dirt .mud-a { width: 48rpx; height: 38rpx; left: 92rpx;  top: 126rpx; transform: rotate(-14deg); }
 .actor-dirt .mud-b { width: 40rpx; height: 30rpx; left: 138rpx; top: 150rpx; transform: rotate(10deg); }
 .actor-dirt .mud-c { width: 34rpx; height: 28rpx; left: 78rpx;  top: 158rpx; transform: rotate(6deg); }
 .actor-dirt .mud-d { width: 30rpx; height: 24rpx; left: 124rpx; top: 116rpx; transform: rotate(-6deg); }
-.actor-dirt.dirt-1 { opacity: 0.55; }
-.actor-dirt.dirt-1 .mud-c, .actor-dirt.dirt-1 .mud-d { display: none; }
-.actor-dirt.dirt-2 { opacity: 0.82; }
-.actor-dirt.dirt-2 .mud-d { display: none; }
-.actor-dirt.dirt-3 { opacity: 1; }
+/* 泥块数量 = 档位:1→1块、2→2块、3→3块、4→4块(越脏越多越浓) */
+.actor-dirt.dirt-1 { opacity: 0.82; }
+.actor-dirt.dirt-2 { opacity: 0.88; }
+.actor-dirt.dirt-3 { opacity: 0.94; }
+.actor-dirt.dirt-4 { opacity: 1; }
+.actor-dirt.dirt-1 .mud-a,
+.actor-dirt.dirt-2 .mud-a, .actor-dirt.dirt-2 .mud-b,
+.actor-dirt.dirt-3 .mud-a, .actor-dirt.dirt-3 .mud-b, .actor-dirt.dirt-3 .mud-c,
+.actor-dirt.dirt-4 .mud-a, .actor-dirt.dirt-4 .mud-b, .actor-dirt.dirt-4 .mud-c, .actor-dirt.dirt-4 .mud-d { display: block; }
 
 /* —— 待机 —— 呼吸 + 慢点头 + 尾巴轻摆 + 偶尔眨眼 */
 .pet-rig.idle .cr-body     { animation: cat-breath 2.8s ease-in-out infinite; }
