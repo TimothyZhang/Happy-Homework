@@ -94,6 +94,19 @@
   font-family: "Menlo", "Monaco", "Helvetica Neue", sans-serif;
 }
 
+/* 暂停时:作业时间(上面大数字)定格,这里额外显示暂停时长(小一号) */
+.pause-block {
+  margin-top: 20rpx;
+  display: flex; flex-direction: column; align-items: center; gap: 4rpx;
+}
+.pause-label { font-size: 24rpx; color: #8a94a3; letter-spacing: 3rpx; }
+.pause-num {
+  font-size: 60rpx; font-weight: 700; line-height: 1.05;
+  color: #c2924a; letter-spacing: 3rpx;
+  font-variant-numeric: tabular-nums;
+  font-family: "Menlo", "Monaco", "Helvetica Neue", sans-serif;
+}
+
 /* 按钮在 page 横向 48rpx padding 内,跟 tasks / pet / home 一致的全屏宽 pill 形。
    之前实验过"贯穿屏幕 + border-radius 0"的方案,但跟其他页全屏宽 pill 不一致,
    回退到这个版本(Tim 指示:做成圆角的,全屏宽,保持和其他页面一致)。 */
@@ -140,4 +153,7 @@
 }
 .finish-action {
   background: #0a4126;
+}
+.resume-action {
+  background: #16406e;
 }

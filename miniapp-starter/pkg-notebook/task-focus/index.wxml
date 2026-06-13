@@ -14,12 +14,21 @@
   <view class="clock-block">
     <text class="clock-label">{{t.tfocus_clock_label}}</text>
     <text class="clock-num">{{elapsedDisplay}}</text>
+    <!-- 暂停后:作业时间(上面)定格,额外显示暂停时长 -->
+    <view wx:if="{{isPaused}}" class="pause-block">
+      <text class="pause-label">{{t.tfocus_paused_label}}</text>
+      <text class="pause-num">{{pausedDisplay}}</text>
+    </view>
   </view>
 
   <view class="actions">
-    <button class="action-btn pause-action" bindtap="handlePause">
+    <button wx:if="{{!isPaused}}" class="action-btn pause-action" bindtap="handlePause">
       <text class="action-icon">❚❚</text>
       <text class="action-label">{{t.tfocus_pause}}</text>
+    </button>
+    <button wx:else class="action-btn resume-action" bindtap="handleResume">
+      <text class="action-icon">▶</text>
+      <text class="action-label">{{t.tfocus_resume}}</text>
     </button>
     <button class="action-btn finish-action" bindtap="handleFinish">
       <text class="action-icon">✓</text>
