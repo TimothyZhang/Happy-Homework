@@ -157,3 +157,12 @@
 .resume-action {
   background: #16406e;
 }
+
+/* 番茄钟间隔设置:暗色小药丸,点开选择器 */
+.pomo-picker { align-self: center; margin-bottom: 22rpx; }
+.pomo-set {
+  padding: 12rpx 28rpx; border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.07);
+  color: #9aa3b2; font-size: 24rpx; font-weight: 600;
+  text-align: center; white-space: nowrap;
+}

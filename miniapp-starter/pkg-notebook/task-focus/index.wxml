@@ -21,6 +21,11 @@
     </view>
   </view>
 
+  <!-- 番茄钟:连续写作业满 N 分钟滴滴滴提醒休息(可点这里改 N) -->
+  <picker class="pomo-picker" mode="selector" range="{{workOptionsLabels}}" value="{{workMinIndex}}" bindchange="handleWorkMinChange">
+    <view class="pomo-set">{{workMinLabel}} ›</view>
+  </picker>
+
   <view class="actions">
     <button wx:if="{{!isPaused}}" class="action-btn pause-action" bindtap="handlePause">
       <text class="action-icon">❚❚</text>
