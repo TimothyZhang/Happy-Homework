@@ -178,13 +178,11 @@
 }
 .pomo-bar-text { font-size: 22rpx; color: #9aa3b2; font-weight: 600; letter-spacing: 1rpx; }
 
-/* 番茄钟药丸:点开设置面板 */
-.pomo-set {
-  align-self: center; margin-bottom: 22rpx;
-  padding: 12rpx 28rpx; border-radius: 999rpx;
-  background: rgba(255, 255, 255, 0.07);
-  color: #9aa3b2; font-size: 24rpx; font-weight: 600;
-  text-align: center; white-space: nowrap;
+/* 番茄钟设置图标:右上角(位置/尺寸由内联 pomoBtnStyle 给出,贴胶囊左侧) */
+.pomo-icon-btn {
+  z-index: 30; border-radius: 50%; text-align: center;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 30rpx;
 }
 
 /* 番茄钟设置面板 */

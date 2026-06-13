@@ -80,6 +80,7 @@ Page({
     workMinLabel: '',
     breakMin: 5,              // 本次暂停建议休息几分钟(暂停时按近期作业量算出)
     breakHint: '',            // 「建议休息 N 分钟」提示文案
+    pomoBtnStyle: '',         // 右上角番茄设置图标位置(对齐胶囊左侧,动态算)
     showPomoSettings: false,
     pomoRows: []              // 设置面板各行 {key,label,optionLabels,index,valueLabel}
   },
@@ -91,8 +92,24 @@ Page({
     this._lastBreakBeepMark = 0    // 暂停已提醒到第几个 break
     this._segStart = null          // 当前作业段起点(暂停/完成时入日志)
     this._loadPomo()
+    this._positionPomoBtn()
     if (!this.refresh()) return
     this.startTicker()
+  },
+
+  // 右上角番茄设置图标:贴着小程序胶囊左侧、与之等高对齐(custom 导航,胶囊不可遮挡)
+  _positionPomoBtn() {
+    try {
+      const cap = wx.getMenuButtonBoundingClientRect()
+      const sys = wx.getSystemInfoSync()
+      const winW = (sys && sys.windowWidth) || 375
+      const rightPx = Math.max(8, winW - cap.left + 8)
+      this.setData({
+        pomoBtnStyle: 'position:fixed; top:' + cap.top + 'px; right:' + rightPx + 'px; width:' + cap.height + 'px; height:' + cap.height + 'px; line-height:' + cap.height + 'px;'
+      })
+    } catch (e) {
+      this.setData({ pomoBtnStyle: 'position:fixed; top:calc(env(safe-area-inset-top) + 36rpx); right:200rpx; width:60rpx; height:60rpx; line-height:60rpx;' })
+    }
   },
 
   onShow() {

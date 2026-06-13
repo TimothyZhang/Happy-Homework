@@ -1,5 +1,7 @@
 <view class="focus-page">
   <view class="back-btn" bindtap="handleClose">←</view>
+  <!-- 番茄钟设置:右上角一个图标(贴着胶囊左侧) -->
+  <view class="pomo-icon-btn" style="{{pomoBtnStyle}}" bindtap="openPomoSettings">🍅</view>
 
   <view class="info-block">
     <view class="chips">
@@ -27,9 +29,6 @@
     <view class="pomo-bar"><view class="pomo-bar-fill" style="width: {{pomoPercent}}%"></view></view>
     <text class="pomo-bar-text">{{t.tfocus_pomo_left_pre}} {{pomoLeftDisplay}}</text>
   </view>
-
-  <!-- 番茄钟:点开设置(工作时长/短休息/长休息/努力阈值/统计时段) -->
-  <view class="pomo-set" bindtap="openPomoSettings">{{workMinLabel}} ⚙</view>
 
   <view class="actions">
     <button wx:if="{{!isPaused}}" class="action-btn pause-action" bindtap="handlePause">
