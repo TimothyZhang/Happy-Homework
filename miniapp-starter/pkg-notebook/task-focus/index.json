@@ -1,4 +1,5 @@
 {
   "navigationStyle": "custom",
-  "navigationBarTitleText": "进行中"
+  "navigationBarTitleText": "进行中",
+  "pageOrientation": "auto"
 }

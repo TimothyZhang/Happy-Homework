@@ -171,6 +171,8 @@ Page({
     this.stopTicker()
     try { if (this._sfx) { this._sfx.destroy(); this._sfx = null } } catch (e) {}
   },
+  // 横竖屏切换:胶囊位置变了,重新把番茄设置图标贴到它左侧
+  onResize() { this._positionPomoBtn() },
 
   // 拉最新 task,装到 data。返回 false 表示 task 不再 doing(或不存在),
   // 此时已 navigateBack。

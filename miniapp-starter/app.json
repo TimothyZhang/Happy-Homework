@@ -47,12 +47,14 @@
       "packages": ["pkg-notebook"]
     }
   },
+  "resizable": true,
   "window": {
     "navigationBarTitleText": "作业小管家",
     "navigationBarBackgroundColor": "#eef4ff",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f5f7fb",
-    "backgroundTextStyle": "light"
+    "backgroundTextStyle": "light",
+    "pageOrientation": "portrait"
   },
   "networkTimeout": {
     "request": 60000,

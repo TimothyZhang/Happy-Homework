@@ -256,3 +256,21 @@
   margin-top: 22rpx; height: 76rpx; line-height: 76rpx; text-align: center;
   border-radius: 999rpx; font-size: 28rpx; font-weight: 700; color: #ffffff; background: #16406e;
 }
+
+/* iPad / 横屏适配:宽短屏 —— 压缩竖向占用,按钮保持整行(宽屏下自然变宽);
+   番茄设置图标位置在 onResize 里按胶囊重算,不会再被挡 */
+@media (orientation: landscape) {
+  .focus-page {
+    padding: calc(env(safe-area-inset-top) + 20rpx) 80rpx calc(env(safe-area-inset-bottom) + 24rpx);
+  }
+  .info-block { margin-top: 14rpx; gap: 8rpx; }
+  .content { font-size: 40rpx; }
+  .date { font-size: 24rpx; }
+  .clock-block { gap: 10rpx; }
+  .clock-num { font-size: 116rpx; }
+  .pause-num { font-size: 46rpx; }
+  .pomo-bar-wrap { margin-bottom: 16rpx; }
+  .actions { gap: 16rpx; }
+  .action-btn { height: 92rpx; }
+  .action-label { font-size: 36rpx; }
+}
