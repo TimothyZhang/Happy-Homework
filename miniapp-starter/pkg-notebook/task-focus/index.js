@@ -83,6 +83,7 @@ Page({
     breakHint: '',            // 「建议休息 N 分钟」提示文案
     pomoBtnStyle: '',         // 右上角番茄设置图标位置(对齐胶囊左侧,动态算)
     isLandscape: false,       // 横屏(JS 判定 —— WeChat 的 @media orientation 不可靠)
+    isWide: false,            // 宽横屏(iPad)→ 按钮/大钟加大
     showPomoSettings: false,
     // 时间记录(开始/暂停/继续/完成)
     showTimeline: false,
@@ -115,7 +116,8 @@ Page({
       const cap = wx.getMenuButtonBoundingClientRect()
       const sys = wx.getSystemInfoSync()
       const winW = (sys && sys.windowWidth) || 375
-      const rightPx = Math.max(8, winW - cap.left + 8)
+      // 贴胶囊左侧,再往左挪一个图标宽度(+间隙),离胶囊更远不挤
+      const rightPx = Math.max(8, winW - cap.left + cap.height + 16)
       this.setData({
         pomoBtnStyle: 'position:fixed; top:' + cap.top + 'px; right:' + rightPx + 'px; width:' + cap.height + 'px; height:' + cap.height + 'px; line-height:' + cap.height + 'px;'
       })
@@ -201,7 +203,8 @@ Page({
         w = s.windowWidth; h = s.windowHeight
       } catch (e) {}
     }
-    if (w && h) this.setData({ isLandscape: w > h })
+    // isWide:横屏且够宽(≈iPad,>=1000px)→ 按钮/大钟用更大尺寸
+    if (w && h) this.setData({ isLandscape: w > h, isWide: w > h && w >= 1000 })
   },
 
   // 拉最新 task,装到 data。返回 false 表示 task 不再 doing(或不存在),
