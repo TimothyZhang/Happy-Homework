@@ -446,26 +446,8 @@ page {
 }
 
 
-/* === 横屏左右两栏(提高空间利用率)===
-   竖屏:.home-cols 是普通块,home-left / home-right 全宽堆叠 = 原布局不变。
-   横屏:左=hero(日期/宠物/奖励),右=作业列表(更多条可见)。 */
-.home-cols.is-landscape {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 24rpx;
-}
-.home-cols.is-landscape .home-left {
-  width: 38%;
-  flex-shrink: 0;
-  position: sticky;   /* 列表滚动时左栏信息固定(部分机型不支持则跟随滚动,可接受) */
-  top: 0;
-}
-.home-cols.is-landscape .home-right {
-  flex: 1;
-  min-width: 0;
-}
-/* 右栏首个 section-card 紧贴顶部,跟左栏 hero 对齐 */
-.home-cols.is-landscape .home-right > .section-card:first-child {
-  margin-top: 0;
+/* === 横屏(iPad):保持上下布局(home-cols/left/right 块堆叠就是原样),
+   只把底部为 tab 预留的空间按「减半的 tab 高度」收一下,多腾出内容区。 === */
+.page.is-landscape {
+  padding-bottom: calc(50rpx + env(safe-area-inset-bottom));
 }

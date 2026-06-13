@@ -31,3 +31,7 @@
 .tab-item.is-active .tab-text {
   font-weight: 600;
 }
+
+/* iPad 横屏:tab 高度减半,把空间让给内容 */
+.tab-bar.landscape .tab-item { height: 50rpx; }
+.tab-bar.landscape .tab-text { font-size: 24rpx; }
