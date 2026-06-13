@@ -1597,9 +1597,11 @@
 .page.landscape .furni { transform: translate(-50%, -100%) scale(0.667); transform-origin: 50% 100%; }
 .page.landscape .furni-press { transform: translate(-50%, -100%) scale(0.64); }
 
-/* 书桌:横屏改用「深度 z-index」(≈10+top%)。宠物走到书桌下方(y 更大 → z 更大)
-   时画在书桌前面 = 真正「走到书桌下方」;同时缩小书桌、露出更多地板。 */
-.page.landscape .room-desk { transform: translateX(-50%) scale(0.667); transform-origin: 50% 100%; z-index: 73; }
+/* 书桌:横屏屏幕矮,rpx 家具按屏宽算 → 书桌实际很高,几乎占满书桌到屏底的地板,
+   宠物没地方站到它下方。解法:(1) 书桌再缩小(0.55)且绕「顶边」缩(origin 50% 0)
+   → 底边抬到约 68% 露出下方地板;(2) 深度 z(≈10+底边%)让宠物走到下方时画在书桌前。
+   配合 JS 把横屏 yMax 收到 88(避开底部 tab),宠物可在约 68%~88% 这段地板走到书桌下方。 */
+.page.landscape .room-desk { top: 52%; transform: translateX(-50%) scale(0.55); transform-origin: 50% 0; z-index: 76; }
 
 /* 沙发:横屏往下挪到前景(落点 57%→82%,≈下移 1/4~1/3 屏);z 跟随深度(10+82) */
 .page.landscape .furni-sofa { top: 82%; z-index: 92; }
