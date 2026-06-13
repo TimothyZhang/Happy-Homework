@@ -1248,6 +1248,21 @@ function getTaskState(task, dateStr) {
   return occ ? { ...defaultOccurrence(), ...occ } : defaultOccurrence()
 }
 
+// 某天还没做完的「下一项作业」(排除指定 id),按用户拖动顺序(order)取第一个。
+// 给「完成后直接做下一项」用。返回 {taskId, date, content} 或 null。
+function nextPendingTaskOnDate(excludeTaskId, dateStr) {
+  const state = getStateWithComputed()
+  const day = dateStr || todayStr()
+  const items = tasksForDate(state, day) || []
+  const pending = items
+    .filter((it) => it.task && it.task.id !== excludeTaskId &&
+      !(it.occurrence && it.occurrence.status === 'done'))
+    .sort((a, b) => (a.task.order || 0) - (b.task.order || 0))
+  if (!pending.length) return null
+  const it = pending[0]
+  return { taskId: it.task.id, date: it.occurrenceDate || day, content: it.task.content || '' }
+}
+
 // 往事件序列追加一条(开始/暂停/继续/完成),封顶 200 条防无限增长。
 function appendEvent(events, type, at) {
   const arr = Array.isArray(events) ? events.slice() : []
@@ -3336,6 +3351,7 @@ module.exports = {
   isRecurringTask,
   getTaskState,
   getTaskTimelineRows,
+  nextPendingTaskOnDate,
   formatRecurrenceLabel,
   // organization
   DEFAULT_ORGANIZATIONS,

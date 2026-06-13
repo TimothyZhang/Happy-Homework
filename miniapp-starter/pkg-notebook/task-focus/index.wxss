@@ -26,7 +26,6 @@
 }
 
 .info-block {
-  margin-top: 56rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -67,10 +66,12 @@
   color: #6b7785;
 }
 
+/* 中段:竖屏上下排(内容/计时居中 + 按钮在底),横屏改左右两栏(见底部 media query) */
+.focus-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.focus-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 26rpx; }
+
 /* 大数字时间 — 焦点页的视觉主体 */
 .clock-block {
-  margin-top: auto;
-  margin-bottom: auto;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -259,18 +260,19 @@
 
 /* iPad / 横屏适配:宽短屏 —— 压缩竖向占用,按钮保持整行(宽屏下自然变宽);
    番茄设置图标位置在 onResize 里按胶囊重算,不会再被挡 */
+/* 横屏(手机/iPad):宽短屏 → 左右两栏,左=内容/计时/进度条,右=按钮竖排。
+   解决「横屏看不到按钮」:按钮独立成右栏、垂直居中,一定在可视区内。 */
 @media (orientation: landscape) {
   .focus-page {
-    padding: calc(env(safe-area-inset-top) + 20rpx) 80rpx calc(env(safe-area-inset-bottom) + 24rpx);
+    padding: calc(env(safe-area-inset-top) + 16rpx) 56rpx calc(env(safe-area-inset-bottom) + 16rpx);
   }
-  .info-block { margin-top: 14rpx; gap: 8rpx; }
+  .focus-body { flex-direction: row; align-items: center; gap: 40rpx; }
+  .focus-stage { flex: 1; min-width: 0; }
+  .actions { flex-direction: column; width: 340rpx; flex-shrink: 0; gap: 18rpx; }
+  .action-btn { height: 96rpx; }
+  .info-block { margin-top: 0; }
   .content { font-size: 40rpx; }
-  .date { font-size: 24rpx; }
-  .clock-block { gap: 10rpx; }
-  .clock-num { font-size: 116rpx; }
-  .pause-num { font-size: 46rpx; }
-  .pomo-bar-wrap { margin-bottom: 16rpx; }
-  .actions { gap: 16rpx; }
-  .action-btn { height: 92rpx; }
-  .action-label { font-size: 36rpx; }
+  .clock-num { font-size: 132rpx; }
+  .pause-num { font-size: 48rpx; }
+  .pomo-bar-wrap { margin-bottom: 0; margin-top: 8rpx; }
 }

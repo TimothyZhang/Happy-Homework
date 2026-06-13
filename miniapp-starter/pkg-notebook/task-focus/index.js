@@ -326,7 +326,24 @@ Page({
     if (this._segStart) appendWorkSeg(this._segStart, Date.now(), this.data.windowMin * 60000)
     this._segStart = null
     store.finishTask(this.data.taskId, this.data.date || '')
-    wx.navigateBack()
+    // 完成后:还有没做完的作业 → 问要不要直接做下一项
+    const next = store.nextPendingTaskOnDate(this.data.taskId, this.data.date || '')
+    if (!next) { wx.navigateBack(); return }
+    wx.showModal({
+      title: i18n.t('tfocus_next_title'),
+      content: i18n.t('tfocus_next_content', { name: next.content }),
+      confirmText: i18n.t('tfocus_next_confirm'),
+      cancelText: i18n.t('tfocus_next_cancel'),
+      success: (res) => {
+        if (res.confirm) {
+          store.startTask(next.taskId, next.date)
+          wx.redirectTo({ url: `/pkg-notebook/task-focus/index?id=${next.taskId}&date=${next.date}` })
+        } else {
+          wx.navigateBack()
+        }
+      },
+      fail: () => wx.navigateBack()
+    })
   },
 
   handleClose() {
