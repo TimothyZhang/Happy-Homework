@@ -51,9 +51,11 @@
         </block>
         <view wx:for="{{countBars}}" wx:key="date" class="bar-col">
           <view class="bar-stack" style="height: {{barAreaRpx}}rpx;">
-            <text wx:if="{{item.value > 0}}" class="bar-value">{{item.value}}</text>
-            <view class="bar bar-count {{item.isToday ? 'is-today' : ''}}"
-                  style="height: {{item.heightRpx}}rpx;"></view>
+            <text wx:if="{{item.total > 0}}" class="bar-value">{{item.done}}/{{item.total}}</text>
+            <view wx:if="{{item.restHeightRpx > 0}}" class="bar bar-count-rest"
+                  style="height: {{item.restHeightRpx}}rpx;"></view>
+            <view class="bar bar-count-done {{item.restHeightRpx > 0 ? 'flat-top' : ''}} {{item.isToday ? 'is-today' : ''}}"
+                  style="height: {{item.doneHeightRpx}}rpx;"></view>
           </view>
           <text class="bar-label {{item.isToday ? 'is-today' : ''}}">{{item.label}}</text>
         </view>

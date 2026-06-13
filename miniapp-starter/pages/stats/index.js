@@ -70,6 +70,18 @@ function aggregateTasks(state) {
   return { counts, minutes, estimated }
 }
 
+// 每天「应做总数 / 实际完成数」(按计划日 tasksForDate,不是完成日)——
+// 给「作业数量」堆叠柱用:总数(浅)+ 实际完成(深)叠一根。
+function aggregateScheduled(state, dates) {
+  const total = {}, done = {}
+  for (const d of dates) {
+    const items = store.tasksForDate(state, d) || []
+    total[d] = items.length
+    done[d] = items.filter((it) => it.occurrence && it.occurrence.status === 'done').length
+  }
+  return { total, done }
+}
+
 // 每天的"完成时间":取该日所有 done 任务里最晚的 completedAt(=当天最后一笔
 // 作业完成的时刻)。返回 { dateStr: maxTs }。
 function aggregateFinishTimes(state) {
@@ -201,13 +213,21 @@ function buildCharts(state, period, todayLabel) {
     : 0
   const finishTimeAvgLabel = finishTimeAvgMin > 0 ? fmtHM(finishTimeAvgMin) : '—'
 
+  const sched = aggregateScheduled(state, dates)
   const countBars = dates.map((d, i) => ({
     date: d,
     label: labelFor(d, period, today, i, total, todayLabel),
     isToday: d === today,
-    value: counts[d] || 0
+    total: sched.total[d] || 0,
+    done: sched.done[d] || 0,
+    value: sched.total[d] || 0   // 按总数缩放
   }))
   const countMax = scaleBars(countBars, 'value')
+  // 堆叠:实际完成(底,深)+ 未完成(顶,浅),合起来 = 总数
+  countBars.forEach((b) => {
+    b.doneHeightRpx = countMax > 0 ? Math.round((b.done / countMax) * BAR_AREA_RPX) : 0
+    b.restHeightRpx = countMax > 0 ? Math.round(((b.total - b.done) / countMax) * BAR_AREA_RPX) : 0
+  })
 
   const minutesBars = dates.map((d, i) => {
     const act = minutes[d] || 0
@@ -246,7 +266,7 @@ function buildCharts(state, period, todayLabel) {
     countBars,
     minutesBars,
     coinBars,
-    countTotal: countBars.reduce((s, b) => s + b.value, 0),
+    countTotal: countBars.reduce((s, b) => s + b.done, 0),
     minutesTotal: minutesBars.reduce((s, b) => s + b.act, 0),
     estimatedTotal: minutesBars.reduce((s, b) => s + b.est, 0),
     coinGainTotal: coinBars.reduce((s, b) => s + b.gain, 0),

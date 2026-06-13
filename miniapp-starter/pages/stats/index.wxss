@@ -105,8 +105,15 @@
   border-radius: 4rpx 4rpx 0 0;
 }
 
-.bar-count {
+/* 作业数量:实际完成(底,深蓝)+ 未完成(顶,浅蓝)堆叠一根 = 应做总数 */
+.bar-count-done {
   background: linear-gradient(180deg, #5b8def 0%, #245bdb 100%);
+  border-radius: 8rpx 8rpx 0 0;
+}
+.bar-count-done.flat-top { border-radius: 0; }
+.bar-count-rest {
+  background: #d6e0f5;
+  border-radius: 8rpx 8rpx 0 0;
 }
 
 .bar-minutes {
