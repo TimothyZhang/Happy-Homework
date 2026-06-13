@@ -46,11 +46,10 @@ page {
   max-height: 100%;
   min-height: 0;
   box-sizing: border-box;
-  /* 24rpx 视觉留白由 scroll-view 自己撑出来,这样屏幕边缘 0-24rpx 那条
-     窄带也是 scroll-view 的命中区(padding 在 hit-test 里属于元素自身)。
-     calendar 页一直这么做,首页之前漏抄。 */
-  padding: 24rpx;
-  padding-bottom: 0;
+  /* Tim 要求去掉首页 scroll-view 上方/左右的留白 → 内容贴边铺满。
+     scroll-view 元素本身仍占满整屏(flex 子项,父 .page 宽 100%),
+     所以屏幕边缘的命中区不丢,照常滚。卡片自带圆角/内边距,贴边即全宽卡片。 */
+  padding: 0;
 }
 
 .card {
