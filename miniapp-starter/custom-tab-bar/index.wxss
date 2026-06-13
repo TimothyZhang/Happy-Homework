@@ -32,6 +32,6 @@
   font-weight: 600;
 }
 
-/* iPad 横屏:tab 高度减半,把空间让给内容 */
-.tab-bar.landscape .tab-item { height: 50rpx; }
-.tab-bar.landscape .tab-text { font-size: 24rpx; }
+/* iPad 横屏:tab 高度再压低(在原减半基础上再 -1/3 → 34rpx),把空间让给内容 */
+.tab-bar.landscape .tab-item { height: 34rpx; }
+.tab-bar.landscape .tab-text { font-size: 22rpx; }
