@@ -112,7 +112,24 @@
   </view>
 
   <view class="actions">
+    <view wx:if="{{isEdit}}" class="tl-view-btn" bindtap="showTimeline">{{t.tfocus_tl_view}}</view>
     <button class="primary-btn" bindtap="handleSave">{{isEdit ? t.tedit_btn_save_edit : t.tedit_btn_save_new}}</button>
     <button wx:if="{{isEdit}}" class="ghost-btn delete-btn" bindtap="handleDelete">{{t.tedit_btn_delete}}</button>
+  </view>
+
+  <!-- 时间记录:开始/暂停/继续/完成 的时刻 -->
+  <view wx:if="{{showTimeline}}" class="tl-mask" bindtap="closeTimeline" catchtouchmove="noop">
+    <view class="tl-panel" catchtap="" catchtouchmove="noop">
+      <view class="tl-title">{{t.tfocus_tl_title}}</view>
+      <scroll-view wx:if="{{timelineRows.length}}" scroll-y class="tl-list" style="max-height: 50vh;">
+        <view wx:for="{{timelineRows}}" wx:key="index" class="tl-row tl-{{item.t}}">
+          <view class="tl-dot"></view>
+          <text class="tl-label">{{item.label}}</text>
+          <text class="tl-time">{{item.time}}</text>
+        </view>
+      </scroll-view>
+      <view wx:else class="tl-empty">{{t.tfocus_tl_empty}}</view>
+      <view class="tl-close" bindtap="closeTimeline">{{t.tfocus_tl_close}}</view>
+    </view>
   </view>
 </view>

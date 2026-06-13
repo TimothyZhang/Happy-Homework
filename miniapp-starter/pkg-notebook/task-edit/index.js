@@ -58,6 +58,9 @@ Page({
     // 已完成作业才显示:手动修正实际用时(分钟)
     isDoneEdit: false,
     formActualMinutes: '',
+    // 时间记录(开始/暂停/继续/完成)查看
+    showTimeline: false,
+    timelineRows: [],
     formSubject: '语文',
     formSubjectIndex: 0,
     subjectOptions: SUBJECT_OPTIONS,
@@ -294,6 +297,16 @@ Page({
   handleActualMinutesInput(e) {
     this.setData({ formActualMinutes: e.detail.value })
   },
+
+  // 查看时间记录:一次性作业读 task 自身;编辑此次读该天 occurrence
+  showTimeline() {
+    const d = this.data
+    const taskId = d.isInstanceDetach ? d.originalTaskId : d.taskId
+    const date = d.isInstanceDetach ? d.instanceDate : ''
+    const rows = store.getTaskTimelineRows(taskId, date)
+    this.setData({ timelineRows: rows, showTimeline: true })
+  },
+  closeTimeline() { this.setData({ showTimeline: false }) },
 
   handleSubjectChange(e) {
     const idx = Number(e.detail.value)

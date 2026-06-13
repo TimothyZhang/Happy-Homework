@@ -173,3 +173,36 @@
   font-size: 28rpx;
   border: none;
 }
+
+/* 时间记录:查看按钮(ghost)+ 浅色弹窗 */
+.tl-view-btn {
+  width: 100%; height: 88rpx; line-height: 88rpx; text-align: center;
+  border-radius: 999rpx; margin-bottom: 14rpx;
+  font-size: 28rpx; font-weight: 600; color: #245bdb; background: #eef4ff;
+}
+.tl-mask {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(31, 35, 41, 0.45);
+  display: flex; align-items: center; justify-content: center; padding: 60rpx;
+}
+.tl-panel {
+  width: 100%; max-width: 600rpx;
+  background: #ffffff; border-radius: 28rpx; padding: 30rpx 28rpx 24rpx;
+  box-shadow: 0 20rpx 60rpx rgba(31, 35, 41, 0.2);
+}
+.tl-title { font-size: 30rpx; font-weight: 800; color: #1f2329; text-align: center; margin-bottom: 16rpx; }
+.tl-list { width: 100%; }
+.tl-row { display: flex; align-items: center; padding: 14rpx 6rpx; border-top: 2rpx solid #f0f2f5; }
+.tl-dot { width: 14rpx; height: 14rpx; border-radius: 50%; margin-right: 16rpx; flex-shrink: 0; background: #b0b8c4; }
+.tl-start .tl-dot { background: #07c160; }
+.tl-pause .tl-dot { background: #f5a623; }
+.tl-resume .tl-dot { background: #245bdb; }
+.tl-done .tl-dot { background: #07c160; }
+.tl-label { flex: 1; font-size: 26rpx; color: #44505e; }
+.tl-time { font-size: 26rpx; color: #1f2329; font-weight: 700; }
+.tl-empty { padding: 50rpx 0; text-align: center; color: #8a94a4; font-size: 26rpx; }
+.tl-close {
+  margin-top: 22rpx; height: 80rpx; line-height: 80rpx; text-align: center;
+  border-radius: 999rpx; font-size: 28rpx; font-weight: 700; color: #ffffff;
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+}

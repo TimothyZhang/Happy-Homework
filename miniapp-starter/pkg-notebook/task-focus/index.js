@@ -82,6 +82,9 @@ Page({
     breakHint: '',            // 「建议休息 N 分钟」提示文案
     pomoBtnStyle: '',         // 右上角番茄设置图标位置(对齐胶囊左侧,动态算)
     showPomoSettings: false,
+    // 时间记录(开始/暂停/继续/完成)
+    showTimeline: false,
+    timelineRows: [],
     pomoRows: []              // 设置面板各行 {key,label,optionLabels,index,valueLabel}
   },
 
@@ -273,6 +276,13 @@ Page({
     this.setData({ isPaused: false })
     this.startTicker()
   },
+
+  // 时间记录:计时旁的图标点开
+  showTimeline() {
+    const rows = store.getTaskTimelineRows(this.data.taskId, this.data.date || '')
+    this.setData({ timelineRows: rows, showTimeline: true })
+  },
+  closeTimeline() { this.setData({ showTimeline: false }) },
 
   // 番茄钟设置面板
   openPomoSettings() { this.setData({ showPomoSettings: true }) },

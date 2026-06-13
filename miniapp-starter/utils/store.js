@@ -1219,7 +1219,9 @@ function defaultOccurrence() {
     // varies by overdue/today/future and by the 20-cap status). null means
     // unfinished or paid before this field existed (legacy → treat as 0).
     rewardPaid: null,
-    rewardKind: null
+    rewardKind: null,
+    // 时间记录:开始/暂停/继续/完成 事件序列 [{ t:'start'|'pause'|'resume'|'done', at: ms }]
+    events: []
   }
 }
 
@@ -1238,11 +1240,43 @@ function getTaskState(task, dateStr) {
       completedAt: task.completedAt || null,
       actualMinutes: task.actualMinutes || null,
       rewardPaid: task.rewardPaid != null ? task.rewardPaid : null,
-      rewardKind: task.rewardKind || null
+      rewardKind: task.rewardKind || null,
+      events: Array.isArray(task.events) ? task.events : []
     }
   }
   const occ = (task.occurrences || {})[dateStr]
   return occ ? { ...defaultOccurrence(), ...occ } : defaultOccurrence()
+}
+
+// 往事件序列追加一条(开始/暂停/继续/完成),封顶 200 条防无限增长。
+function appendEvent(events, type, at) {
+  const arr = Array.isArray(events) ? events.slice() : []
+  arr.push({ t: type, at: at })
+  return arr.length > 200 ? arr.slice(-200) : arr
+}
+
+// 给 UI 用:某项作业(某天 occurrence)的时间记录,已格式化。行 = { t, label, time }。
+// label/time 走 i18n(惰性 require 防循环依赖)。同一天只显示时分秒,跨天前面带月-日。
+function getTaskTimelineRows(taskId, dateStr) {
+  const i18n = require('./i18n')
+  const state = loadState()
+  const task = (state.tasks || []).find((t) => t.id === taskId)
+  if (!task) return []
+  const occ = getTaskState(task, dateStr || todayStr())
+  const events = Array.isArray(occ.events) ? occ.events : []
+  const pad = (n) => (n < 10 ? '0' + n : '' + n)
+  const now = new Date()
+  return events.map((ev) => {
+    const d = new Date(ev.at)
+    const hms = pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds())
+    const sameDay = d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() && d.getDate() === now.getDate()
+    return {
+      t: ev.t,
+      label: i18n.t('tfocus_ev_' + ev.t),
+      time: sameDay ? hms : ((d.getMonth() + 1) + '-' + d.getDate() + ' ' + hms)
+    }
+  })
 }
 
 function applyTaskState(task, dateStr, patch) {
@@ -2028,7 +2062,8 @@ function pauseInPlace(occ, now) {
     ...occ,
     status: 'paused',
     accumulatedMs: (occ.accumulatedMs || 0) + segMs,
-    currentSegmentStartedAt: null
+    currentSegmentStartedAt: null,
+    events: appendEvent(occ.events, 'pause', now)
   }
 }
 
@@ -2073,7 +2108,8 @@ function startTask(taskId, dateStr) {
       status: 'doing',
       startedAt: cur.startedAt || now,
       currentSegmentStartedAt: now,
-      accumulatedMs: cur.accumulatedMs || 0
+      accumulatedMs: cur.accumulatedMs || 0,
+      events: appendEvent(cur.events, 'start', now)
     }
     state.tasks = state.tasks.map((t) =>
       t.id === taskId ? applyTaskState(t, day, patch) : t
@@ -2105,7 +2141,11 @@ function resumeTask(taskId, dateStr) {
     if (!task) return state
     const cur = getTaskState(task, day)
     if (cur.status !== 'paused') return state
-    const patch = { status: 'doing', currentSegmentStartedAt: now }
+    const patch = {
+      status: 'doing',
+      currentSegmentStartedAt: now,
+      events: appendEvent(cur.events, 'resume', now)
+    }
     state.tasks = state.tasks.map((t) =>
       t.id === taskId ? applyTaskState(t, day, patch) : t
     )
@@ -2325,7 +2365,8 @@ function finishTask(taskId, dateStr) {
       actualMinutes: Math.max(1, Math.round(totalMs / 60000)),
       currentSegmentStartedAt: null,
       rewardPaid: taskReward,
-      rewardKind
+      rewardKind,
+      events: appendEvent(cur.events, 'done', now)
     }
     state.tasks = state.tasks.map((t) =>
       t.id === taskId ? applyTaskState(t, day, patch) : t
@@ -3294,6 +3335,7 @@ module.exports = {
   isTaskActiveOn,
   isRecurringTask,
   getTaskState,
+  getTaskTimelineRows,
   formatRecurrenceLabel,
   // organization
   DEFAULT_ORGANIZATIONS,

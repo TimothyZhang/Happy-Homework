@@ -221,3 +221,38 @@
   border-radius: 999rpx; font-size: 28rpx; font-weight: 700; color: #ffffff;
   background: #16406e;
 }
+
+/* 计时旁的「!」图标:点开时间记录 */
+.clock-label-row { display: flex; align-items: center; gap: 12rpx; }
+.clock-info-btn {
+  width: 34rpx; height: 34rpx; line-height: 34rpx; text-align: center;
+  border-radius: 50%; font-size: 24rpx; font-weight: 800;
+  color: #aeb6c2; background: rgba(255, 255, 255, 0.10);
+}
+
+/* 时间记录弹窗(暗色) */
+.tl-mask {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex; align-items: center; justify-content: center; padding: 60rpx;
+}
+.tl-panel {
+  width: 100%; max-width: 600rpx;
+  background: #1b1f27; border: 2rpx solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx; padding: 30rpx 28rpx 24rpx;
+}
+.tl-title { font-size: 30rpx; font-weight: 800; color: #d6dae2; text-align: center; margin-bottom: 16rpx; }
+.tl-list { width: 100%; }
+.tl-row { display: flex; align-items: center; padding: 14rpx 6rpx; border-top: 2rpx solid rgba(255, 255, 255, 0.06); }
+.tl-dot { width: 14rpx; height: 14rpx; border-radius: 50%; margin-right: 16rpx; flex-shrink: 0; background: #8a94a3; }
+.tl-start .tl-dot { background: #3ea06a; }
+.tl-pause .tl-dot { background: #c2924a; }
+.tl-resume .tl-dot { background: #5b8cff; }
+.tl-done .tl-dot { background: #2e9e5b; }
+.tl-label { flex: 1; font-size: 26rpx; color: #aeb6c2; }
+.tl-time { font-size: 26rpx; color: #d6dae2; font-weight: 700; }
+.tl-empty { padding: 50rpx 0; text-align: center; color: #7a838f; font-size: 26rpx; }
+.tl-close {
+  margin-top: 22rpx; height: 76rpx; line-height: 76rpx; text-align: center;
+  border-radius: 999rpx; font-size: 28rpx; font-weight: 700; color: #ffffff; background: #16406e;
+}

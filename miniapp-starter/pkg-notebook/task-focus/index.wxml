@@ -14,7 +14,10 @@
   </view>
 
   <view class="clock-block">
-    <text class="clock-label">{{t.tfocus_clock_label}}</text>
+    <view class="clock-label-row">
+      <text class="clock-label">{{t.tfocus_clock_label}}</text>
+      <text class="clock-info-btn" catchtap="showTimeline">!</text>
+    </view>
     <text class="clock-num">{{elapsedDisplay}}</text>
     <!-- 暂停后:作业时间(上面)定格,额外显示暂停时长 + 建议休息多久 -->
     <view wx:if="{{isPaused}}" class="pause-block">
@@ -57,6 +60,22 @@
       </view>
       <view class="pomo-panel-hint">{{t.tfocus_set_hint}}</view>
       <view class="pomo-panel-close" bindtap="closePomoSettings">{{t.tfocus_set_close}}</view>
+    </view>
+  </view>
+
+  <!-- 时间记录:开始/暂停/继续/完成 的时刻 -->
+  <view wx:if="{{showTimeline}}" class="tl-mask" bindtap="closeTimeline" catchtouchmove="noop">
+    <view class="tl-panel" catchtap="" catchtouchmove="noop">
+      <view class="tl-title">{{t.tfocus_tl_title}}</view>
+      <scroll-view wx:if="{{timelineRows.length}}" scroll-y class="tl-list" style="max-height: 46vh;">
+        <view wx:for="{{timelineRows}}" wx:key="index" class="tl-row tl-{{item.t}}">
+          <view class="tl-dot"></view>
+          <text class="tl-label">{{item.label}}</text>
+          <text class="tl-time">{{item.time}}</text>
+        </view>
+      </scroll-view>
+      <view wx:else class="tl-empty">{{t.tfocus_tl_empty}}</view>
+      <view class="tl-close" bindtap="closeTimeline">{{t.tfocus_tl_close}}</view>
     </view>
   </view>
 </view>
