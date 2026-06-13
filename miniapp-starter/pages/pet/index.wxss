@@ -1592,3 +1592,7 @@
 .page.landscape .hud-right { transform: scale(0.82); transform-origin: top right; }
 /* 左侧状态浮窗整体缩小 */
 .page.landscape .status-hud { transform: scale(0.82); transform-origin: top left; }
+
+/* 横屏:整个场景(房间/宠物/家具)缩小一点,顺带把地板抬到 sheet 上方
+   → 配合 JS 把 yMax 放宽到 94,宠物能走到书桌下方 */
+.page.landscape .scene-clip { transform: scale(0.85); transform-origin: center center; }

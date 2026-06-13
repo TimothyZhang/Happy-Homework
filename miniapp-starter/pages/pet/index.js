@@ -416,8 +416,9 @@ Page({
         this._scheduleWander(IDLE_MIN_MS + Math.random() * (IDLE_MAX_MS - IDLE_MIN_MS))
         return
       }
+      const yMax = this.data.isLandscape ? 94 : FLOOR.yMax   // 横屏地板矮,放宽下界让宠物能走到书桌下方
       const tx = FLOOR.xMin + Math.random() * (FLOOR.xMax - FLOOR.xMin)
-      const ty = FLOOR.yMin + Math.random() * (FLOOR.yMax - FLOOR.yMin)
+      const ty = FLOOR.yMin + Math.random() * (yMax - FLOOR.yMin)
       this._moveActorTo(tx, ty, () => {
         this._scheduleWander(IDLE_MIN_MS + Math.random() * (IDLE_MAX_MS - IDLE_MIN_MS))
       })
@@ -427,7 +428,7 @@ Page({
   // 走到 (tx,ty)(scene %)。算方向 + 距离 → transition 时长,到点回调。
   _moveActorTo(tx, ty, after) {
     tx = clampNum(tx, FLOOR.xMin, FLOOR.xMax)
-    ty = clampNum(ty, FLOOR.yMin, FLOOR.yMax)
+    ty = clampNum(ty, FLOOR.yMin, this.data.isLandscape ? 94 : FLOOR.yMax)   // 横屏放宽下界
     const dx = tx - this.data.actorX
     const dy = ty - this.data.actorY
     if (Math.abs(dx) < 1.5 && Math.abs(dy) < 1.5) { if (typeof after === 'function') after(); return }

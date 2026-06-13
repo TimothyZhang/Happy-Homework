@@ -153,6 +153,7 @@
 }
 
 .primary-btn {
+  display: block;        /* 确保 width:100% 在 iPad 上也撑满整行(不被 button 默认内容宽限制) */
   width: 100%;
   white-space: nowrap;
   border-radius: 999rpx;
@@ -163,6 +164,8 @@
   color: #ffffff;
   box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
 }
+/* iPad:Add Homework 按钮背景加大(撑满整行 + 更高更醒目) */
+.page.is-pad .primary-btn { height: 128rpx; line-height: 128rpx; font-size: 36rpx; }
 
 .ghost-btn.delete-btn {
   width: 100%;

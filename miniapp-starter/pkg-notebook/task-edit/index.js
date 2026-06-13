@@ -45,6 +45,7 @@ const INFER_DEBOUNCE_MS = 300
 Page({
   data: {
     isEdit: false,
+    isPad: false,   // iPad（短边≥700px）→ Add Homework 按钮加大
     // 飞书日程式 "编辑此次" 模式:从 recurring task 的某一日 occurrence 进来,
     // 保存时先 detachOccurrence 拆出独立 one-shot task,再 updateTask 应用表单。
     // 取消则不 detach,原 recurring 完全不动。
@@ -99,6 +100,12 @@ Page({
   },
 
   onLoad(options) {
+    try {
+      const s = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
+      if (s.windowWidth && s.windowHeight) {
+        this.setData({ isPad: Math.min(s.windowWidth, s.windowHeight) >= 700 })
+      }
+    } catch (e) {}
     const opts = options || {}
     const taskId = opts.id || ''
     const instance = opts.instance || ''
