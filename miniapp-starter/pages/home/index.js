@@ -147,6 +147,7 @@ const TASK_THROTTLE_MS = 600
 Page({
   data: {
     selectedDate: '',
+    isLandscape: false,   // 横屏 → 左右两栏(右侧作业列表),提高空间利用率
     isToday: true,
     // 'today' | 'tomorrow' | 'day-after' | 'calendar' — drives segment highlight.
     activeSegment: 'today',
@@ -192,9 +193,23 @@ Page({
     allDoneSubtitle: ''
   },
 
+  onResize(res) { this._updateOrientation(res) },
+  _updateOrientation(res) {
+    let w = 0, h = 0
+    if (res && res.size) { w = res.size.windowWidth; h = res.size.windowHeight }
+    if (!w || !h) {
+      try {
+        const s = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
+        w = s.windowWidth; h = s.windowHeight
+      } catch (e) {}
+    }
+    if (w && h) this.setData({ isLandscape: w > h })
+  },
+
   onShow() {
     const stamp = perf.markPageShow('home')
     this.setData({ t: i18n.dict() })
+    this._updateOrientation()
     wx.setNavigationBarTitle({ title: i18n.t('home_navtitle') })
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 0 })

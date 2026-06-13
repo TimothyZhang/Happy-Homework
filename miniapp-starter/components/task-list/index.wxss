@@ -311,3 +311,10 @@
   background: #245bdb; color: #ffffff; font-size: 30rpx; font-weight: 700; border-radius: 16rpx;
 }
 .est-confirm-hover { background: #1e4fc0; }
+
+/* === 紧凑模式(横屏 compact):压低 row 高度,一屏多显示几条作业 === */
+.task-list.compact { gap: 8rpx; }
+.task-list.compact .task-row { padding: 10rpx 16rpx 10rpx 24rpx; gap: 12rpx; }
+.task-list.compact .row-content { font-size: 26rpx; line-height: 1.3; }
+.task-list.compact .row-chips { margin-top: 6rpx; gap: 6rpx; }
+.task-list.compact .chip { padding: 2rpx 12rpx; font-size: 18rpx; }

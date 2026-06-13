@@ -48,7 +48,9 @@ Component({
     // 是否启用「右滑顺延到下一天」。只对一次性未完成 row 生效(组件内再判)。
     enablePostpone: { type: Boolean, value: true },
     // Optional row variant class (e.g. 'is-overdue') applied to every row.
-    rowVariant: { type: String, value: '' }
+    rowVariant: { type: String, value: '' },
+    // 紧凑模式(横屏用):压低 row 高度,一屏多显示几条
+    compact: { type: Boolean, value: false }
   },
   data: {
     t: {},

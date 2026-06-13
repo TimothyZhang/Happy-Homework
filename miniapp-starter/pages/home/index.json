@@ -1,5 +1,6 @@
 {
   "navigationBarTitleText": "首页",
+  "pageOrientation": "auto",
   "usingComponents": {
     "task-list": "/components/task-list/index",
     "reward-toast": "/components/reward-toast/index",

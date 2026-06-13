@@ -1,4 +1,4 @@
-<view class="task-list {{dragId ? 'is-dragging-mode' : ''}}">
+<view class="task-list {{dragId ? 'is-dragging-mode' : ''}} {{compact ? 'compact' : ''}}">
   <block wx:for="{{list}}" wx:key="id">
     <view class="task-row-swipable {{swipeId === item.id ? 'is-swiping' : ''}} {{swipeOpenId === item.id ? 'is-open' : ''}} {{postponeId === item.id ? 'is-postpone-row' : ''}} {{postponeDragging && postponeId === item.id ? 'is-postponing' : ''}}"
           data-id="{{item.id}}">
