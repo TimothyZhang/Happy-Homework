@@ -20,7 +20,7 @@ module.exports = {
 
     // top HUD
     pet_hud_coins: 'Coins {n}',
-    pet_hud_shop: '🛒 Shop',
+    pet_hud_shop: '⚙️ Settings',
     pet_hud_levelup: '⬆️ Level Up',
 
     // status HUD
@@ -46,7 +46,7 @@ module.exports = {
     pet_desk_wordbooks: 'My Word Books',
 
     // shop panel
-    pet_shop_panel_title: '🛒 Shop · Manage',
+    pet_shop_panel_title: '⚙️ Settings',
     pet_shop_panel_coins: 'Coins {n}',
     pet_shop_section_care: 'Spend coins to care for it',
     pet_shop_section_manage: 'Manage',
@@ -203,7 +203,7 @@ module.exports = {
 
     // top HUD
     pet_hud_coins: '金币 {n}',
-    pet_hud_shop: '🛒 商店',
+    pet_hud_shop: '⚙️ 设置',
     pet_hud_levelup: '⬆️ 可升级',
 
     // status HUD
@@ -229,7 +229,7 @@ module.exports = {
     pet_desk_wordbooks: '我的单词本',
 
     // shop panel
-    pet_shop_panel_title: '🛒 商店 · 管理',
+    pet_shop_panel_title: '⚙️ 设置',
     pet_shop_panel_coins: '金币 {n}',
     pet_shop_section_care: '用金币照顾它',
     pet_shop_section_manage: '管理',
