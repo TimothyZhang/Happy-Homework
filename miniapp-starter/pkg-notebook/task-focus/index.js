@@ -97,7 +97,7 @@ Page({
   onLoad(options) {
     const opts = options || {}
     this.setData({ taskId: opts.id || '', date: opts.date || '' })
-    this._lastBreakBeepMark = 0    // 暂停已提醒到第几个 break
+    this._lastBreakBeepMark = -1   // 休息到点后已提醒到第几分钟
     this._lastOvertimeBeep = null  // 到点后已提醒到第几分钟(防重复响铃)
     this._pomoDismissed = false    // 是否已手动停止闪烁/提醒
     this._segStart = null          // 当前作业段起点 = store 的 currentSegmentStartedAt(工时日志用)
@@ -259,12 +259,15 @@ Page({
         // 暂停中:作业时间定格,只走「暂停时长」
         const ms = Math.max(0, Date.now() - (this._pausedAt || Date.now()))
         this.setData({ pausedDisplay: formatBigClock(ms) })
-        // 暂停满「建议休息时长」(5 或 20 分钟)→ 滴滴滴提醒继续,之后每隔同样时长再提醒
+        // 建议休息时长到了 → 之后每分钟滴滴滴提醒继续作业(跟「专注到点」一致)
         const breakMs = this._breakMs || (this.data.shortBreakMin * 60000)
-        const mark = Math.floor(ms / breakMs)
-        if (mark > (this._lastBreakBeepMark || 0)) {
-          this._lastBreakBeepMark = mark
-          this._remind('resume')
+        if (ms >= breakMs) {
+          const overMin = Math.floor((ms - breakMs) / 60000)
+          if (overMin > (this._lastBreakBeepMark == null ? -1 : this._lastBreakBeepMark)) {
+            this._lastBreakBeepMark = overMin
+            if (overMin === 0) this._remind('resume')   // 第一次:响铃 + toast
+            else this._beep()                            // 之后每分钟:只响铃
+          }
         }
       } else {
         const next = this.data.elapsedMs + 1000
@@ -298,7 +301,7 @@ Page({
     this._breakMs = breakMin * 60000
     store.pauseTask(this.data.taskId, this.data.date || '')
     this._pausedAt = now
-    this._lastBreakBeepMark = 0
+    this._lastBreakBeepMark = -1   // 休息到点后从第 0 分钟起每分钟提醒
     this.setData({
       isPaused: true,
       pausedDisplay: '00:00',
