@@ -88,7 +88,7 @@ Page({
   onLoad(options) {
     const opts = options || {}
     this.setData({ taskId: opts.id || '', date: opts.date || '' })
-    this._workSinceBreakMs = 0     // 连续写作业累计(满 workMin 提醒休息;暂停/继续会重置)
+    this._pomoAnchor = Date.now()  // 番茄钟「本段专注从何时算」锚点(墙钟 → 后台恢复也对)
     this._lastBreakBeepMark = 0    // 暂停已提醒到第几个 break
     this._segStart = null          // 当前作业段起点(暂停/完成时入日志)
     this._loadPomo()
@@ -137,10 +137,28 @@ Page({
     })
     patch.pomoRows = rows
     patch.workMinLabel = i18n.t('tfocus_pomo_label', { n: patch.workMin })
-    const total = patch.workMin * 60000
-    patch.pomoPercent = total > 0 ? Math.min(100, (this._workSinceBreakMs || 0) / total * 100) : 0
-    patch.pomoLeftDisplay = formatBigClock(Math.max(0, total - (this._workSinceBreakMs || 0)))
+    const ps = this._pomoState(patch.workMin * 60000, false)   // 后台恢复时按墙钟重算(不响铃)
+    patch.pomoPercent = ps.percent
+    patch.pomoLeftDisplay = ps.leftDisplay
     this.setData(patch)
+  },
+
+  // 番茄倒计时当前状态(按墙钟锚点算 → 后台恢复也对)。
+  // 专注满一个周期则把锚点归零(allowBeep 时顺带响铃提醒休息)。
+  _pomoState(totalMs, allowBeep) {
+    if (this.data.isPaused || !this._pomoAnchor || totalMs <= 0) {
+      return { percent: 0, leftDisplay: formatBigClock(totalMs) }
+    }
+    let workSince = Math.max(0, Date.now() - this._pomoAnchor)
+    if (workSince >= totalMs) {
+      this._pomoAnchor = Date.now()
+      if (allowBeep) this._remind('rest')
+      workSince = 0
+    }
+    return {
+      percent: Math.min(100, workSince / totalMs * 100),
+      leftDisplay: formatBigClock(Math.max(0, totalMs - workSince))
+    }
   },
 
   onHide() { this.stopTicker() },
@@ -206,19 +224,13 @@ Page({
         }
       } else {
         const next = this.data.elapsedMs + 1000
-        // 连续写作业满 workMin 分钟 → 滴滴滴提醒休息,然后重新计时(进度条归零重来)
-        this._workSinceBreakMs = (this._workSinceBreakMs || 0) + 1000
-        const total = this.data.workMin * 60000
-        if (this._workSinceBreakMs >= total) {
-          this._workSinceBreakMs = 0
-          this._remind('rest')
-        }
-        const leftMs = Math.max(0, total - this._workSinceBreakMs)
+        // 番茄倒计时按墙钟锚点算(后台恢复也对);满一个周期 → 响铃提醒休息 + 归零重来
+        const ps = this._pomoState(this.data.workMin * 60000, true)
         this.setData({
           elapsedMs: next,
           elapsedDisplay: formatBigClock(next),
-          pomoPercent: total > 0 ? Math.min(100, this._workSinceBreakMs / total * 100) : 0,
-          pomoLeftDisplay: formatBigClock(leftMs)
+          pomoPercent: ps.percent,
+          pomoLeftDisplay: ps.leftDisplay
         })
       }
     }, 1000)
@@ -256,7 +268,7 @@ Page({
     if (!this.data.taskId) return
     store.resumeTask(this.data.taskId, this.data.date || '')
     this._pausedAt = null
-    this._workSinceBreakMs = 0
+    this._pomoAnchor = Date.now()
     this._segStart = Date.now()
     this.setData({ isPaused: false })
     this.startTicker()
@@ -271,7 +283,7 @@ Page({
     if (!p) return
     const val = p.opts[Number(e.detail.value)] || p.def
     try { wx.setStorageSync(p.sk, val) } catch (err) {}
-    if (key === 'workMin') this._workSinceBreakMs = 0
+    if (key === 'workMin') this._pomoAnchor = Date.now()
     this._loadPomo()
     this._beep()   // 改完预览一下提醒音
   },
