@@ -22,6 +22,8 @@ module.exports = {
     pet_hud_coins: '🪙 {n}',
     pet_hud_shop: '⚙️ Settings',
     pet_hud_levelup: '⬆️ Level Up',
+    pet_hud_xp: 'EXP {xp}/{need}',
+    pet_hud_xp_max: '✨ MAX',
 
     // status HUD
     pet_age_days: '{n} days old',
@@ -205,6 +207,8 @@ module.exports = {
     pet_hud_coins: '🪙 {n}',
     pet_hud_shop: '⚙️ 设置',
     pet_hud_levelup: '⬆️ 可升级',
+    pet_hud_xp: '经验 {xp}/{need}',
+    pet_hud_xp_max: '✨ 满级',
 
     // status HUD
     pet_age_days: '{n} 天大',

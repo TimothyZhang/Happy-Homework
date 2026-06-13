@@ -81,12 +81,6 @@ const STAT_ITEMS = {
   health:      [6, 7]
 }
 
-// 今天作业还没做完 → 宠物「待在原地、不玩」。今天没作业 = 不锁。
-function todayHomeworkLocked(state) {
-  const items = store.tasksForDate(state, store.todayStr()) || []
-  if (!items.length) return false
-  return items.some((it) => !(it.occurrence && it.occurrence.status === 'done'))
-}
 const DEPTH_FAR = 0.58      // 脚底在 yMin(最远)时的身体缩放
 const DEPTH_NEAR = 1.0      // 脚底在 yMax(最近)时的身体缩放(放大 → 近大远小更明显)
 const WALK_SPEED_PCT_PER_S = 24   // 行走速度(room% / 秒)→ 每段 transition 时长
@@ -213,6 +207,7 @@ Page({
     // computed i18n strings that need dynamic interpolation
     hudCoins: '',
     hudAgeDays: '',
+    hudXp: '',
     hudVocab: '',
     shopPanelCoins: '',
     manageRenameSub: '',
@@ -289,13 +284,9 @@ Page({
     const renameCost = store.PET_RENAME_COST
     const switchCost = store.PET_SWITCH_COST
     const roomTheme = pet.roomTheme || 'cozy'
-    // 今天作业没做完 → 锁住:宠物待在原地不漫游,点它/点地/点家具只会说「做完作业再来玩」
-    const hwLocked = isSetup ? todayHomeworkLocked(state) : false
-    this._hwLocked = hwLocked
     this.setData({
       t: i18n.dict(),
       pet,
-      hwLocked,
       coins,
       shopItems: translateShopItems(state.shopItems),
       speciesOptions: translateSpecies(store.PET_SPECIES),
@@ -319,6 +310,7 @@ Page({
       // Computed interpolated strings
       hudCoins: i18n.t('pet_hud_coins', { n: coins }),
       hudAgeDays: i18n.t('pet_age_days', { n: ageDays }),
+      hudXp: isMaxLevel ? i18n.t('pet_hud_xp_max') : i18n.t('pet_hud_xp', { xp, need: xpNeeded }),
       hudVocab: i18n.t('pet_vocab', { n: vocab }),
       shopPanelCoins: i18n.t('pet_shop_panel_coins', { n: coins }),
       manageRenameSub: i18n.t('pet_manage_rename_sub', { cost: renameCost }),
@@ -333,8 +325,7 @@ Page({
     // pet at a sensible spot and measures the scene rect (for tap-to-walk).
     if (isSetup && hasAnimRig(pet)) {
       if (!this._actorReady) { this._initActor(); this._actorReady = true }
-      if (hwLocked) this._stopSceneEngine()   // 锁住:待在原地不漫游
-      else this._startSceneEngine()
+      this._startSceneEngine()
     } else {
       this._stopSceneEngine()
     }
@@ -385,7 +376,6 @@ Page({
     this._wanderTimer = setTimeout(() => {
       this._wanderTimer = null
       if (!this._engineOn || !hasAnimRig(this.data.pet)) return
-      if (this._hwLocked) return   // 作业没做完,待在原地不漫游
       if (this.data.showFurniMenu) { this._scheduleWander(800); return }   // 家具副窗开着,冻住漫游(别让相机滑走)
       if (this._oneShotActive) { this._scheduleWander(500); return }
       const pet = this.data.pet
@@ -512,19 +502,8 @@ Page({
 
   handleTapPet() {
     if (this.data.mode !== 'view') return
-    if (this._hwLocked) { this._sayBusy(); return }   // 作业没做完 → 不互动,只说一句
     // 点宠物 = 直接摸摸它(挤一下 + 飘爱心 + 说句话)。学习菜单已挪到书桌,不再弹宠物菜单。
     this.menuTouchPet()
-  },
-
-  // 作业没做完时的「待机话」:站着不动,只冒一句「做完作业再来玩」。
-  _sayBusy() {
-    this.setData({ showBubble: true, bubbleText: i18n.t('pet_busy_homework') })
-    if (this._bubbleTimer) clearTimeout(this._bubbleTimer)
-    this._bubbleTimer = setTimeout(() => {
-      this.setData({ showBubble: false })
-      this._bubbleTimer = null
-    }, 2400)
   },
 
   closePetMenu() {
@@ -618,7 +597,6 @@ Page({
   handleSceneTap(e) {
     if (this.data.mode !== 'view' || !hasAnimRig(this.data.pet)) return
     if (this.data.showPetMenu) { this.closePetMenu(); return }
-    if (this._hwLocked) { this._sayBusy(); return }   // 作业没做完 → 不走动
     if (this._oneShotActive) return
     const t = (e.changedTouches && e.changedTouches[0]) || (e.touches && e.touches[0])
     const cx = t && t.clientX != null ? t.clientX : (e.detail && e.detail.x)
@@ -638,7 +616,6 @@ Page({
   // 点家具 → 宠物先走过去,到了再在家具正上方「原地」弹小副窗(跟书桌菜单同款)。
   openFurnitureMenu(e) {
     if (this.data.mode !== 'view' || !hasAnimRig(this.data.pet)) return
-    if (this._hwLocked) { this._sayBusy(); return }   // 作业没做完 → 不去玩家具
     if (this._oneShotActive) return
     if (this.data.showPetMenu) { this.closePetMenu(); return }
     if (this.data.showFurniMenu) return

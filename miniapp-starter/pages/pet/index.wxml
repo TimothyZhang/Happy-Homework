@@ -104,9 +104,18 @@
     </view>
     </view>
 
-    <!-- 固定顶栏:名字 + 等级徽章 + 金币;金币下面是 商店 + (可升级时)升级 按钮 -->
+    <!-- 固定顶栏:名字 + 右侧等级徽章,名字下面一行当前经验值;右边金币 + 设置/升级 按钮 -->
     <view class="top-hud">
-      <text class="hud-name">{{pet.name}} {{levelBadge}}</text>
+      <view class="hud-name-wrap">
+        <view class="hud-name-row">
+          <text class="hud-name">{{pet.name}}</text>
+          <view wx:if="{{pet.species}}" class="hud-level">
+            <text>Lv.{{pet.level}}</text>
+            <text wx:if="{{levelBadge}}" class="hud-level-badge">{{levelBadge}}</text>
+          </view>
+        </view>
+        <view wx:if="{{pet.species}}" class="hud-xp">{{hudXp}}</view>
+      </view>
       <view class="hud-right">
         <view class="hud-coin" catchtap="handleOpenCoinHistory">
           <text class="hud-coin-text">{{hudCoins}}</text>
@@ -122,7 +131,7 @@
     <!-- 透明状态浮窗:紧凑 4 条状态条,半透明浮在房间上 -->
     <view class="status-hud">
       <view class="status-meta">
-        <text>Lv.{{pet.level}}</text><text class="dot">·</text><text>{{hudAgeDays}}</text>
+        <text>{{hudAgeDays}}</text>
       </view>
       <view class="status-know-line">{{hudVocab}}</view>
       <view class="svrow">

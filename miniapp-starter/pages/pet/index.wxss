@@ -371,9 +371,22 @@
   padding: calc(env(safe-area-inset-top) + 14rpx) 28rpx 16rpx;
   background: linear-gradient(180deg, rgba(252,232,210,0.94) 0%, rgba(252,232,210,0) 100%);
 }
+.hud-name-wrap { display: flex; flex-direction: column; gap: 4rpx; margin-top: 6rpx; }
+.hud-name-row { display: flex; align-items: center; gap: 12rpx; }
 .hud-name {
-  margin-top: 8rpx;
   font-size: 34rpx; font-weight: 800; color: #5a3d1e;
+  text-shadow: 0 1rpx 0 rgba(255,255,255,0.6);
+}
+.hud-level {
+  display: flex; align-items: center; gap: 2rpx;
+  height: 36rpx; padding: 0 14rpx; border-radius: 999rpx;
+  font-size: 22rpx; font-weight: 800; line-height: 1; color: #ffffff;
+  background: linear-gradient(135deg, #ffb648 0%, #f0902a 100%);
+  box-shadow: 0 3rpx 8rpx rgba(240,144,42,0.3);
+}
+.hud-level-badge { font-size: 22rpx; }
+.hud-xp {
+  font-size: 22rpx; font-weight: 700; color: #9a6b3a;
   text-shadow: 0 1rpx 0 rgba(255,255,255,0.6);
 }
 /* 右侧:金币在上,商店/升级按钮在下 */
