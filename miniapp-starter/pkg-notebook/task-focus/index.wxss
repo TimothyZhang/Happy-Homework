@@ -275,16 +275,24 @@
 /* 横屏(JS 判定加 .landscape;WeChat @media orientation 不可靠):左右两栏,
    左=内容/计时/进度条,右=按钮竖排 → 矮屏下按钮也一定在可视区。 */
 .focus-page.landscape {
-  padding: calc(env(safe-area-inset-top) + 14rpx) 40rpx calc(env(safe-area-inset-bottom) + 14rpx);
+  padding: calc(env(safe-area-inset-top) + 8rpx) 28rpx calc(env(safe-area-inset-bottom) + 8rpx);
 }
-.focus-page.landscape .focus-body { flex-direction: row; align-items: center; gap: 28rpx; }
-.focus-page.landscape .focus-stage { flex: 1; min-width: 0; gap: 14rpx; }
-.focus-page.landscape .actions { flex-direction: column; width: 280rpx; flex-shrink: 0; gap: 16rpx; }
-.focus-page.landscape .action-btn { height: 92rpx; }
-.focus-page.landscape .action-label { font-size: 34rpx; }
+.focus-page.landscape .back-btn { width: 56rpx; height: 56rpx; line-height: 56rpx; font-size: 36rpx; }
+.focus-page.landscape .focus-body { flex-direction: row; align-items: center; gap: 22rpx; }
+.focus-page.landscape .focus-stage { flex: 1; min-width: 0; gap: 8rpx; }
+.focus-page.landscape .actions { flex-direction: column; width: 240rpx; flex-shrink: 0; gap: 12rpx; }
+.focus-page.landscape .action-btn { height: 72rpx; }
+.focus-page.landscape .action-icon { font-size: 28rpx; }
+.focus-page.landscape .action-label { font-size: 28rpx; }
 .focus-page.landscape .info-block { margin-top: 0; }
-.focus-page.landscape .content { font-size: 36rpx; }
-.focus-page.landscape .clock-label { font-size: 24rpx; }
-.focus-page.landscape .clock-num { font-size: 92rpx; }
-.focus-page.landscape .pause-num { font-size: 42rpx; }
-.focus-page.landscape .pomo-bar-wrap { margin: 4rpx 0 0; width: 88%; }
+.focus-page.landscape .content { font-size: 28rpx; }
+.focus-page.landscape .clock-label { font-size: 20rpx; letter-spacing: 2rpx; }
+.focus-page.landscape .clock-info-btn { width: 30rpx; height: 30rpx; line-height: 30rpx; font-size: 22rpx; }
+.focus-page.landscape .clock-num { font-size: 64rpx; letter-spacing: 2rpx; }
+.focus-page.landscape .pause-block { margin-top: 6rpx; }
+.focus-page.landscape .pause-num { font-size: 32rpx; }
+.focus-page.landscape .pause-label, .focus-page.landscape .pause-hint { font-size: 18rpx; }
+.focus-page.landscape .pomo-bar-wrap { margin: 2rpx 0 0; width: 94%; gap: 6rpx; }
+.focus-page.landscape .pomo-bar { height: 12rpx; }
+.focus-page.landscape .pomo-bar-text, .focus-page.landscape .pomo-done { font-size: 18rpx; }
+.focus-page.landscape .pomo-stop-btn { font-size: 18rpx; padding: 4rpx 14rpx; }
