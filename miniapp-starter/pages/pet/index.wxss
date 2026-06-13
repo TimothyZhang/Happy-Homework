@@ -1583,3 +1583,12 @@
   font-size: 28rpx; font-weight: 700; color: #ffffff;
   background: linear-gradient(135deg, #5b8cff 0%, #245bdb 100%);
 }
+
+/* === iPad 横屏:UI 整体缩小 + 露出更多地板(宠物能走到书桌下方)=== */
+/* 把控制卡片再往下推,露出整块地板(到 FLOOR yMax 86% 都可见可点)→ 能走到书桌下方 */
+.page.landscape .sheet .sheet-first { margin-top: 92vh; }
+/* 顶栏左右两块各自缩小、贴边不动 */
+.page.landscape .hud-name-wrap { transform: scale(0.82); transform-origin: top left; }
+.page.landscape .hud-right { transform: scale(0.82); transform-origin: top right; }
+/* 左侧状态浮窗整体缩小 */
+.page.landscape .status-hud { transform: scale(0.82); transform-origin: top left; }

@@ -134,6 +134,7 @@ Page({
   data: {
     pet: {},
     coins: 0,
+    isLandscape: false,   // iPad 横屏 → 缩小 UI + 露出更多地板(宠物能走到书桌下方)
     dirtTier: 0,
     shopItems: [],
     speciesOptions: store.PET_SPECIES,
@@ -222,11 +223,25 @@ Page({
     switchSheetSub: ''
   },
 
+  onResize(res) { this._updateOrientation(res) },
+  _updateOrientation(res) {
+    let w = 0, h = 0
+    if (res && res.size) { w = res.size.windowWidth; h = res.size.windowHeight }
+    if (!w || !h) {
+      try {
+        const s = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
+        w = s.windowWidth; h = s.windowHeight
+      } catch (e) {}
+    }
+    if (w && h) this.setData({ isLandscape: w > h })
+  },
+
   onShow() {
     const stamp = perf.markPageShow('pet')
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
     if (tb) tb.setData({ selected: 1 })
     wx.setNavigationBarTitle({ title: i18n.t('pet_navtitle') })
+    this._updateOrientation()
     this.refreshState(stamp)
     // Consume celebration flag from home page (set in maybeShowReward).
     const app = getApp()
