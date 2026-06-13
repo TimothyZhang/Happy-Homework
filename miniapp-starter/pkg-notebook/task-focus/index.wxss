@@ -272,17 +272,19 @@
    番茄设置图标位置在 onResize 里按胶囊重算,不会再被挡 */
 /* 横屏(手机/iPad):宽短屏 → 左右两栏,左=内容/计时/进度条,右=按钮竖排。
    解决「横屏看不到按钮」:按钮独立成右栏、垂直居中,一定在可视区内。 */
-@media (orientation: landscape) {
-  .focus-page {
-    padding: calc(env(safe-area-inset-top) + 16rpx) 56rpx calc(env(safe-area-inset-bottom) + 16rpx);
-  }
-  .focus-body { flex-direction: row; align-items: center; gap: 40rpx; }
-  .focus-stage { flex: 1; min-width: 0; }
-  .actions { flex-direction: column; width: 340rpx; flex-shrink: 0; gap: 18rpx; }
-  .action-btn { height: 96rpx; }
-  .info-block { margin-top: 0; }
-  .content { font-size: 40rpx; }
-  .clock-num { font-size: 132rpx; }
-  .pause-num { font-size: 48rpx; }
-  .pomo-bar-wrap { margin-bottom: 0; margin-top: 8rpx; }
+/* 横屏(JS 判定加 .landscape;WeChat @media orientation 不可靠):左右两栏,
+   左=内容/计时/进度条,右=按钮竖排 → 矮屏下按钮也一定在可视区。 */
+.focus-page.landscape {
+  padding: calc(env(safe-area-inset-top) + 14rpx) 40rpx calc(env(safe-area-inset-bottom) + 14rpx);
 }
+.focus-page.landscape .focus-body { flex-direction: row; align-items: center; gap: 28rpx; }
+.focus-page.landscape .focus-stage { flex: 1; min-width: 0; gap: 14rpx; }
+.focus-page.landscape .actions { flex-direction: column; width: 280rpx; flex-shrink: 0; gap: 16rpx; }
+.focus-page.landscape .action-btn { height: 92rpx; }
+.focus-page.landscape .action-label { font-size: 34rpx; }
+.focus-page.landscape .info-block { margin-top: 0; }
+.focus-page.landscape .content { font-size: 36rpx; }
+.focus-page.landscape .clock-label { font-size: 24rpx; }
+.focus-page.landscape .clock-num { font-size: 92rpx; }
+.focus-page.landscape .pause-num { font-size: 42rpx; }
+.focus-page.landscape .pomo-bar-wrap { margin: 4rpx 0 0; width: 88%; }

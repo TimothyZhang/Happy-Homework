@@ -82,6 +82,7 @@ Page({
     breakMin: 5,              // 本次暂停建议休息几分钟(暂停时按近期作业量算出)
     breakHint: '',            // 「建议休息 N 分钟」提示文案
     pomoBtnStyle: '',         // 右上角番茄设置图标位置(对齐胶囊左侧,动态算)
+    isLandscape: false,       // 横屏(JS 判定 —— WeChat 的 @media orientation 不可靠)
     showPomoSettings: false,
     // 时间记录(开始/暂停/继续/完成)
     showTimeline: false,
@@ -96,6 +97,7 @@ Page({
     this._lastOvertimeBeep = null  // 到点后已提醒到第几分钟(防重复响铃)
     this._pomoDismissed = false    // 是否已手动停止闪烁/提醒
     this._segStart = null          // 当前作业段起点 = store 的 currentSegmentStartedAt(番茄钟也用它,退出/重进/后台都不丢)
+    this._updateOrientation()
     this._positionPomoBtn()
     if (!this.refresh()) return    // 先 refresh 设好 _segStart + isPaused
     this._loadPomo()
@@ -120,6 +122,7 @@ Page({
   onShow() {
     this.setData({ t: i18n.dict() })
     wx.setNavigationBarTitle({ title: i18n.t('tfocus_navtitle') })
+    this._updateOrientation()
     if (!this.data.taskId) return
     if (!this.refresh()) return   // 先 refresh 设好 _segStart + isPaused
     this._loadPomo()              // 再按当前作业段算番茄进度(+刷新参数文案)
@@ -182,8 +185,19 @@ Page({
     this.stopTicker()
     try { if (this._sfx) { this._sfx.destroy(); this._sfx = null } } catch (e) {}
   },
-  // 横竖屏切换:胶囊位置变了,重新把番茄设置图标贴到它左侧
-  onResize() { this._positionPomoBtn() },
+  // 横竖屏切换:更新横屏标记(切左右两栏布局)+ 重新把番茄设置图标贴到胶囊左侧
+  onResize(res) { this._updateOrientation(res); this._positionPomoBtn() },
+  _updateOrientation(res) {
+    let w = 0, h = 0
+    if (res && res.size) { w = res.size.windowWidth; h = res.size.windowHeight }
+    if (!w || !h) {
+      try {
+        const s = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync()
+        w = s.windowWidth; h = s.windowHeight
+      } catch (e) {}
+    }
+    if (w && h) this.setData({ isLandscape: w > h })
+  },
 
   // 拉最新 task,装到 data。返回 false 表示 task 不再 doing(或不存在),
   // 此时已 navigateBack。

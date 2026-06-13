@@ -1,4 +1,4 @@
-<view class="focus-page">
+<view class="focus-page {{isLandscape ? 'landscape' : ''}}">
   <view class="back-btn" bindtap="handleClose">←</view>
   <!-- 番茄钟设置:右上角一个图标(贴着胶囊左侧) -->
   <view class="pomo-icon-btn" style="{{pomoBtnStyle}}" bindtap="openPomoSettings">🍅</view>
