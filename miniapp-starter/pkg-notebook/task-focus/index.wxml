@@ -4,13 +4,7 @@
   <view class="pomo-icon-btn" style="{{pomoBtnStyle}}" bindtap="openPomoSettings">🍅</view>
 
   <view class="info-block">
-    <view class="chips">
-      <text wx:if="{{subject}}" class="chip subject-chip">{{subject}}</text>
-      <text wx:if="{{isRecurring}}" class="chip recurring-chip">{{recurrenceLabel}}</text>
-      <text class="chip est-chip">{{estChip}}</text>
-    </view>
     <text class="content">{{content}}</text>
-    <text wx:if="{{occurrenceDate}}" class="date">{{occurrenceDate}}</text>
   </view>
 
   <view class="clock-block">
