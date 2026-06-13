@@ -154,6 +154,7 @@
 
 .primary-btn {
   width: 100%;
+  white-space: nowrap;
   border-radius: 999rpx;
   font-size: 30rpx;
   font-weight: 600;

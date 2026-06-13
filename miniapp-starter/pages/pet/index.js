@@ -134,6 +134,7 @@ Page({
   data: {
     pet: {},
     coins: 0,
+    dirtTier: 0,
     shopItems: [],
     speciesOptions: store.PET_SPECIES,
     switchCost: store.PET_SWITCH_COST,
@@ -202,6 +203,8 @@ Page({
     // 升级动画覆盖层:点击升级按钮 → 触发 LEVEL_UP_ANIM_MS 的全屏动画。
     showLevelUpAnim: false,
     levelUpToLevel: 0,
+    // 经验值规则弹窗:点等级徽章 / 经验条弹出。
+    showXpRules: false,
     // i18n dict injected into template
     t: {},
     // computed i18n strings that need dynamic interpolation
@@ -284,10 +287,14 @@ Page({
     const renameCost = store.PET_RENAME_COST
     const switchCost = store.PET_SWITCH_COST
     const roomTheme = pet.roomTheme || 'cozy'
+    // 清洁度越低,身上泥巴越多越浓:>=60 干净,60→35→15 三档脏。
+    const clean = pet.cleanliness | 0
+    const dirtTier = !isSetup ? 0 : clean >= 60 ? 0 : clean >= 35 ? 1 : clean >= 15 ? 2 : 3
     this.setData({
       t: i18n.dict(),
       pet,
       coins,
+      dirtTier,
       shopItems: translateShopItems(state.shopItems),
       speciesOptions: translateSpecies(store.PET_SPECIES),
       mode: isSetup ? 'view' : 'setup',
@@ -759,6 +766,14 @@ Page({
 
   handleOpenCoinHistory() {
     wx.navigateTo({ url: '/pkg-notebook/coin-history/index' })
+  },
+
+  // 经验值规则说明:点等级徽章 / 经验条弹出。
+  showXpRules() {
+    this.setData({ showXpRules: true })
+  },
+  closeXpRules() {
+    this.setData({ showXpRules: false })
   },
 
   // 升级:XP 满才能点。点击直接升 — 没有 modal,直接播全屏升级动画 + 庆祝姿势。

@@ -24,6 +24,11 @@ module.exports = {
     pet_hud_levelup: '⬆️ Level Up',
     pet_hud_xp: 'EXP {xp}/{need}',
     pet_hud_xp_max: '✨ MAX',
+    pet_xp_rules_title: 'How EXP works',
+    pet_xp_rule_idle: 'EXP grows on its own over time — the happier, fuller, cleaner, healthier and harder-working your pet is, the faster it grows (up to 10/hour when every stat is full).',
+    pet_xp_rule_word: 'Every word you get right in dictation or the word challenge gives +1 EXP.',
+    pet_xp_rule_levelup: 'When the EXP bar fills up, tap Level Up to raise your pet a level.',
+    pet_xp_rules_close: 'Got it',
 
     // status HUD
     pet_age_days: '{n} days old',
@@ -209,6 +214,11 @@ module.exports = {
     pet_hud_levelup: '⬆️ 可升级',
     pet_hud_xp: '经验 {xp}/{need}',
     pet_hud_xp_max: '✨ 满级',
+    pet_xp_rules_title: '经验值怎么来',
+    pet_xp_rule_idle: '经验值会随时间自动增长 —— 宠物越开心、越饱、越干净、越健康、越努力,涨得越快(五项全满时约 10 点/小时)。',
+    pet_xp_rule_word: '听写或单词挑战里,每答对一个单词 +1 经验。',
+    pet_xp_rule_levelup: '经验条攒满后,点「升级」按钮就能升一级。',
+    pet_xp_rules_close: '知道了',
 
     // status HUD
     pet_age_days: '{n} 天大',

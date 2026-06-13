@@ -1254,6 +1254,28 @@ function applyTaskState(task, dateStr, patch) {
   return { ...task, occurrences }
 }
 
+// 手动修正「已完成作业」记录的实际用时(分钟)。一次性作业写在 task 上;
+// 重复作业写在该天 occurrence 上(dateStr)。只允许改已完成(status==='done')的记录;
+// 不重算奖励(奖励在完成那刻已结算),仅修正用时统计(影响后续工时预估)。
+function setActualMinutes(taskId, dateStr, minutes) {
+  const m = Math.min(1440, Math.max(1, Math.round(Number(minutes) || 0)))
+  let ok = false
+  updateState((state) => {
+    const task = (state.tasks || []).find((t) => t.id === taskId)
+    if (!task) return state
+    const rec = task.mode === 'recurring'
+      ? (task.occurrences && task.occurrences[dateStr])
+      : task
+    if (!rec || rec.status !== 'done') return state
+    state.tasks = state.tasks.map((t) =>
+      t.id === taskId ? applyTaskState(t, dateStr, { actualMinutes: m }) : t
+    )
+    ok = true
+    return state
+  })
+  return ok
+}
+
 // Tasks visible on a given date.
 // For today and past days: scheduled-that-day + actually-finished-that-day
 //   (so a task scheduled last week but cleared today still shows on today's
@@ -3262,6 +3284,7 @@ module.exports = {
   pauseTask,
   resumeTask,
   finishTask,
+  setActualMinutes,
   revertTask,
   // queries
   tasksForDate,

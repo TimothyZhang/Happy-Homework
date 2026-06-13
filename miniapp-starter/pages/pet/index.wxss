@@ -385,12 +385,30 @@
   box-shadow: 0 3rpx 8rpx rgba(240,144,42,0.3);
 }
 .hud-level-badge { font-size: 22rpx; }
-.hud-xp {
+/* 经验值:细进度条 + 文字,点一下弹规则 */
+.hud-xp { display: flex; align-items: center; gap: 10rpx; }
+.hud-xp-bar {
+  width: 132rpx; height: 12rpx; border-radius: 999rpx;
+  background: rgba(120,90,50,0.18); overflow: hidden;
+}
+.hud-xp-fill {
+  height: 100%; border-radius: 999rpx;
+  background: linear-gradient(90deg, #5b8cff 0%, #245bdb 100%);
+}
+.hud-xp-text {
   font-size: 22rpx; font-weight: 700; color: #9a6b3a;
   text-shadow: 0 1rpx 0 rgba(255,255,255,0.6);
 }
-/* 右侧:金币在上,商店/升级按钮在下 */
+/* 右侧:第一行 [设置图标][金币],下面是升级按钮 */
 .hud-right { display: flex; flex-direction: column; align-items: flex-end; }
+.hud-top-row { display: flex; align-items: center; gap: 12rpx; }
+.hud-icon-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 60rpx; height: 60rpx; border-radius: 50%;
+  font-size: 32rpx; line-height: 1;
+  background: rgba(255,255,255,0.9);
+  box-shadow: 0 4rpx 12rpx rgba(120,90,50,0.16);
+}
 .hud-btns { display: flex; gap: 10rpx; margin-top: 10rpx; }
 .hud-btn {
   display: flex; align-items: center;
@@ -415,8 +433,14 @@
   border-radius: 999rpx; padding: 8rpx 20rpx;
   box-shadow: 0 4rpx 12rpx rgba(120,90,50,0.16);
 }
-.hud-coin-text { font-size: 26rpx; color: #c8862a; font-weight: 700; }
-.hud-coin .coin-chev { color: #d9b48a; margin-left: 4rpx; }
+/* 金色硬币(CSS 画的金币,不依赖 emoji 颜色) */
+.coin-dot {
+  width: 28rpx; height: 28rpx; border-radius: 50%; margin-right: 8rpx; flex-shrink: 0;
+  background: radial-gradient(circle at 36% 30%, #fff0b0 0%, #ffd34d 42%, #e8a417 100%);
+  box-shadow: inset 0 0 0 2rpx rgba(176,120,16,0.55), 0 1rpx 2rpx rgba(150,100,10,0.3);
+}
+.hud-coin-text { font-size: 26rpx; color: #e0a010; font-weight: 800; }
+.hud-coin .coin-chev { color: #e0a010; margin-left: 4rpx; }
 
 /* === 控制卡片层(盖在房间上,可滚) === */
 .sheet { position: relative; z-index: 10; }
@@ -530,6 +554,22 @@
 .pet-actor.anim-sad .pet-rig   { filter: grayscale(0.3); }
 .pet-actor.anim-dirty .pet-rig { filter: brightness(0.9); }
 .pet-actor.anim-sick .pet-rig  { filter: hue-rotate(-30deg) brightness(0.92); }
+
+/* 清洁度低 → 身上叠泥巴(dirtTier 1~3,越脏越多越浓) */
+.actor-dirt { position: absolute; left: 0; top: 0; width: 240rpx; height: 240rpx; pointer-events: none; }
+.actor-dirt .mud {
+  position: absolute; border-radius: 50%;
+  background: radial-gradient(ellipse at 38% 32%, #8a5a30 0%, #5e3c1f 62%, rgba(94,60,31,0) 100%);
+}
+.actor-dirt .mud-a { width: 48rpx; height: 38rpx; left: 92rpx;  top: 126rpx; transform: rotate(-14deg); }
+.actor-dirt .mud-b { width: 40rpx; height: 30rpx; left: 138rpx; top: 150rpx; transform: rotate(10deg); }
+.actor-dirt .mud-c { width: 34rpx; height: 28rpx; left: 78rpx;  top: 158rpx; transform: rotate(6deg); }
+.actor-dirt .mud-d { width: 30rpx; height: 24rpx; left: 124rpx; top: 116rpx; transform: rotate(-6deg); }
+.actor-dirt.dirt-1 { opacity: 0.55; }
+.actor-dirt.dirt-1 .mud-c, .actor-dirt.dirt-1 .mud-d { display: none; }
+.actor-dirt.dirt-2 { opacity: 0.82; }
+.actor-dirt.dirt-2 .mud-d { display: none; }
+.actor-dirt.dirt-3 { opacity: 1; }
 
 /* —— 待机 —— 呼吸 + 慢点头 + 尾巴轻摆 + 偶尔眨眼 */
 .pet-rig.idle .cr-body     { animation: cat-breath 2.8s ease-in-out infinite; }
@@ -731,17 +771,17 @@
 }
 .furni-img { display: block; width: 100%; }
 .furni-press { opacity: 0.82; transform: translate(-50%, -100%) scale(0.96); }
-/* 散落、多层次:靠墙的 top 小(36-40%)、前景的 top 大(52-59%)。
-   z-index 全部 > 宠物最大 z(10+86=96):家具永远画在宠物前面、也永远接住自己头上的
-   点击 —— 宠物只在「正贴着家具」时被盖住一点(正好就是你想点这件家具的时候)。
-   家具之间仍按 top% 排序(前景盖靠墙)。 */
-.furni-tv         { left: 10%; top: 45%; z-index: 100; width: 196rpx; }  /* 客厅:电视(靠后) */
-.furni-bed        { left: 50%; top: 47%; z-index: 101; width: 262rpx; }  /* 卧室:床(靠后) */
-.furni-bath       { left: 78%; top: 48%; z-index: 102; width: 232rpx; }  /* 卫生间:浴缸(靠后) */
-.furni-sofa       { left: 18%; top: 57%; z-index: 110; width: 256rpx; }  /* 客厅:沙发在电视前 */
-.furni-table      { left: 64%; top: 59%; z-index: 112; width: 232rpx; }  /* 中景:餐桌 */
-.furni-toilet     { left: 89%; top: 60%; z-index: 113; width: 172rpx; }  /* 卫生间:马桶在前 */
-.furni-playground { left: 34%; top: 62%; z-index: 115; width: 230rpx; }  /* 前景:游乐场 */
+/* 散落、多层次:靠墙的 top 小、前景的 top 大。
+   z-index = 10 + top%(脚底落点),跟宠物 actorZ = zForY(actorY) = 10+round(y) 同一套
+   深度标尺 → 宠物站在家具「下方(更近)」时 z 更大、画在家具前面不被挡;站在家具
+   「上方(更远)」时被家具挡住。家具之间也按 top% 自动前后排序。 */
+.furni-tv         { left: 10%; top: 45%; z-index: 55; width: 196rpx; }  /* 客厅:电视(靠后) */
+.furni-bed        { left: 50%; top: 47%; z-index: 57; width: 262rpx; }  /* 卧室:床(靠后) */
+.furni-bath       { left: 78%; top: 48%; z-index: 58; width: 232rpx; }  /* 卫生间:浴缸(靠后) */
+.furni-sofa       { left: 18%; top: 57%; z-index: 67; width: 256rpx; }  /* 客厅:沙发在电视前 */
+.furni-table      { left: 64%; top: 59%; z-index: 69; width: 232rpx; }  /* 中景:餐桌 */
+.furni-toilet     { left: 89%; top: 60%; z-index: 70; width: 172rpx; }  /* 卫生间:马桶在前 */
+.furni-playground { left: 34%; top: 62%; z-index: 72; width: 230rpx; }  /* 前景:游乐场 */
 
 /* 家具菜单:在家具正上方原地弹的小副窗(跟书桌菜单同款) */
 @keyframes furni-pop {
@@ -772,6 +812,9 @@
   font-size: 24rpx; font-weight: 700; text-align: center;
 }
 .fpi-buy-hover { background: #1e4fc0; }
+/* 免费道具按钮:绿色(跟付费蓝色区分) */
+.fpi-buy-free { background: #07c160; }
+.fpi-buy-free-hover { background: #06a850; }
 .fpi-buy.off { background: #c3cad6; }
 
 .room-desk {
@@ -1489,4 +1532,32 @@
 @keyframes switch-slide {
   0%   { transform: translateY(100%); }
   100% { transform: translateY(0); }
+}
+
+/* === 经验值规则弹窗 === */
+.xp-rules-mask {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+  padding: 60rpx;
+}
+.xp-rules {
+  width: 100%; max-width: 560rpx;
+  background: #ffffff; border-radius: 28rpx;
+  padding: 32rpx 32rpx 24rpx;
+  box-shadow: 0 20rpx 60rpx rgba(31,35,41,0.28);
+}
+.xp-rules-title {
+  font-size: 32rpx; font-weight: 800; color: #1f2329;
+  text-align: center; margin-bottom: 20rpx;
+}
+.xp-rules-body { display: flex; flex-direction: column; gap: 18rpx; }
+.xp-rule-row { display: flex; align-items: flex-start; gap: 14rpx; }
+.xp-rule-ic { font-size: 34rpx; line-height: 1.3; flex-shrink: 0; }
+.xp-rule-tx { flex: 1; font-size: 26rpx; line-height: 1.5; color: #44505e; }
+.xp-rules-close {
+  margin-top: 26rpx; height: 80rpx; line-height: 80rpx;
+  border-radius: 999rpx; text-align: center;
+  font-size: 28rpx; font-weight: 700; color: #ffffff;
+  background: linear-gradient(135deg, #5b8cff 0%, #245bdb 100%);
 }

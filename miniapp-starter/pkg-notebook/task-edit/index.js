@@ -55,6 +55,9 @@ Page({
     // 基本信息
     formContent: '',
     formMinutes: '',
+    // 已完成作业才显示:手动修正实际用时(分钟)
+    isDoneEdit: false,
+    formActualMinutes: '',
     formSubject: '语文',
     formSubjectIndex: 0,
     subjectOptions: SUBJECT_OPTIONS,
@@ -166,6 +169,9 @@ Page({
       this.setData({
         isEdit: true,
         taskId,
+        // 一次性作业完成后(status==='done')可手动修正实际用时
+        isDoneEdit: task.status === 'done',
+        formActualMinutes: task.actualMinutes ? String(task.actualMinutes) : '',
         formContent: task.content || '',
         formMinutes: task.estimatedMinutes ? String(task.estimatedMinutes) : '',
         formSubject: SUBJECT_OPTIONS[subjIdx],
@@ -285,6 +291,10 @@ Page({
     this.setData({ formMinutes: e.detail.value, estAutoFilled: false })
   },
 
+  handleActualMinutesInput(e) {
+    this.setData({ formActualMinutes: e.detail.value })
+  },
+
   handleSubjectChange(e) {
     const idx = Number(e.detail.value)
     this._userSelectedSubject = true
@@ -396,6 +406,10 @@ Page({
       wx.showToast({ title: i18n.t('tedit_toast_detached'), icon: 'success' })
     } else if (d.isEdit) {
       store.updateTask(d.taskId, payload)
+      // 已完成作业:把手动修正的实际用时写回(为空则不动)
+      if (d.isDoneEdit && d.formActualMinutes !== '' && Number(d.formActualMinutes) > 0) {
+        store.setActualMinutes(d.taskId, '', d.formActualMinutes)
+      }
       wx.showToast({ title: i18n.t('tedit_toast_saved'), icon: 'success' })
     } else {
       store.addTask(payload)
