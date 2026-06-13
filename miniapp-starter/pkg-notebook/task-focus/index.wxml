@@ -24,10 +24,15 @@
         </view>
       </view>
 
-      <!-- 番茄倒计时进度条:本次专注进度 + 距休息剩余时间(暂停时收起) -->
+      <!-- 番茄倒计时进度条:本次专注进度 + 距休息剩余时间(暂停时收起)。
+           到点后停在 0,进度条缓慢闪烁、每分钟提醒,可点「停止」关掉 -->
       <view wx:if="{{!isPaused}}" class="pomo-bar-wrap">
-        <view class="pomo-bar"><view class="pomo-bar-fill" style="width: {{pomoPercent}}%"></view></view>
-        <text class="pomo-bar-text">{{t.tfocus_pomo_left_pre}} {{pomoLeftDisplay}}</text>
+        <view class="pomo-bar {{pomoAlerting ? 'pomo-blink' : ''}}"><view class="pomo-bar-fill" style="width: {{pomoPercent}}%"></view></view>
+        <view class="pomo-bar-row">
+          <text wx:if="{{pomoAlerting}}" class="pomo-bar-text pomo-done">{{t.tfocus_pomo_done}}</text>
+          <text wx:else class="pomo-bar-text">{{t.tfocus_pomo_left_pre}} {{pomoLeftDisplay}}</text>
+          <text wx:if="{{pomoAlerting}}" class="pomo-stop-btn" catchtap="handleDismissPomo">{{t.tfocus_pomo_stop}}</text>
+        </view>
       </view>
     </view>
 

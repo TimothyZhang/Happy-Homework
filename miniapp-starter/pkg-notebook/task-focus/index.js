@@ -71,6 +71,7 @@ Page({
     // 番茄倒计时进度条:本次专注进度(填充 %)+ 距离休息剩余时间
     pomoPercent: 0,
     pomoLeftDisplay: '',
+    pomoAlerting: false,      // 到点了:进度条闪烁 + 每分钟提醒(可手动停止)
     // 番茄钟(都可设置)
     workMin: 25,
     shortBreakMin: 5,
@@ -92,7 +93,8 @@ Page({
     const opts = options || {}
     this.setData({ taskId: opts.id || '', date: opts.date || '' })
     this._lastBreakBeepMark = 0    // 暂停已提醒到第几个 break
-    this._lastPomoCycle = 0        // 番茄已跨过第几个周期(防重复响铃;退出重进会按段重算)
+    this._lastOvertimeBeep = null  // 到点后已提醒到第几分钟(防重复响铃)
+    this._pomoDismissed = false    // 是否已手动停止闪烁/提醒
     this._segStart = null          // 当前作业段起点 = store 的 currentSegmentStartedAt(番茄钟也用它,退出/重进/后台都不丢)
     this._positionPomoBtn()
     if (!this.refresh()) return    // 先 refresh 设好 _segStart + isPaused
@@ -143,27 +145,36 @@ Page({
     const ps = this._pomoState(patch.workMin * 60000, false)   // 后台恢复时按墙钟重算(不响铃)
     patch.pomoPercent = ps.percent
     patch.pomoLeftDisplay = ps.leftDisplay
+    patch.pomoAlerting = ps.alerting
     this.setData(patch)
   },
 
-  // 番茄倒计时当前状态:从当前作业段起点(store 的 currentSegmentStartedAt)按 cycle=workMin 取模循环算。
-  // → 退出专注(不暂停/完成)再回来、以及后台恢复,都不重置(段起点不变)。跨过周期边界时响铃(allowBeep)。
+  // 番茄倒计时当前状态:从当前作业段起点(store 的 currentSegmentStartedAt)算,退出/后台都不重置。
+  // 到点后【不自动重置】:停在 0、进度条满格闪烁(alerting),每分钟滴滴滴提醒一次,直到手动停止。
   _pomoState(cycleMs, allowBeep) {
     const seg = this._segStart
     if (this.data.isPaused || !seg || cycleMs <= 0) {
-      return { percent: 0, leftDisplay: formatBigClock(cycleMs) }
+      return { percent: 0, leftDisplay: formatBigClock(cycleMs), alerting: false }
     }
     const segmentMs = Math.max(0, Date.now() - seg)
-    const cyclesPassed = Math.floor(segmentMs / cycleMs)
-    if (cyclesPassed > (this._lastPomoCycle || 0)) {
-      if (allowBeep) this._remind('rest')
-      this._lastPomoCycle = cyclesPassed
+    if (segmentMs < cycleMs) {
+      return {
+        percent: Math.min(100, segmentMs / cycleMs * 100),
+        leftDisplay: formatBigClock(cycleMs - segmentMs),
+        alerting: false
+      }
     }
-    const workSince = segmentMs - cyclesPassed * cycleMs
-    return {
-      percent: Math.min(100, workSince / cycleMs * 100),
-      leftDisplay: formatBigClock(Math.max(0, cycleMs - workSince))
+    // 到点了:停在 0,不自动重置。未手动停止 → 闪烁 + 每分钟提醒
+    const alerting = !this._pomoDismissed
+    if (allowBeep && alerting) {
+      const overMin = Math.floor((segmentMs - cycleMs) / 60000)
+      if (overMin > (this._lastOvertimeBeep == null ? -1 : this._lastOvertimeBeep)) {
+        this._lastOvertimeBeep = overMin
+        if (overMin === 0) this._remind('rest')   // 第一次:响铃 + toast
+        else this._beep()                          // 之后每分钟:只响铃
+      }
     }
+    return { percent: 100, leftDisplay: formatBigClock(0), alerting: alerting }
   },
 
   onHide() { this.stopTicker() },
@@ -237,7 +248,8 @@ Page({
           elapsedMs: next,
           elapsedDisplay: formatBigClock(next),
           pomoPercent: ps.percent,
-          pomoLeftDisplay: ps.leftDisplay
+          pomoLeftDisplay: ps.leftDisplay,
+          pomoAlerting: ps.alerting
         })
       }
     }, 1000)
@@ -276,8 +288,9 @@ Page({
     store.resumeTask(this.data.taskId, this.data.date || '')
     this._pausedAt = null
     this._segStart = Date.now()    // 新作业段(番茄也跟着从这里重新算)
-    this._lastPomoCycle = 0
-    this.setData({ isPaused: false })
+    this._lastOvertimeBeep = null
+    this._pomoDismissed = false
+    this.setData({ isPaused: false, pomoAlerting: false })
     this.startTicker()
   },
 
@@ -288,6 +301,12 @@ Page({
   },
   closeTimeline() { this.setData({ showTimeline: false }) },
 
+  // 手动停止「到点」闪烁 + 每分钟提醒(进度条停闪、不再响铃,倒计时仍停在 0)
+  handleDismissPomo() {
+    this._pomoDismissed = true
+    this.setData({ pomoAlerting: false })
+  },
+
   // 番茄钟设置面板
   openPomoSettings() { this.setData({ showPomoSettings: true }) },
   closePomoSettings() { this.setData({ showPomoSettings: false }) },
@@ -297,7 +316,7 @@ Page({
     if (!p) return
     const val = p.opts[Number(e.detail.value)] || p.def
     try { wx.setStorageSync(p.sk, val) } catch (err) {}
-    if (key === 'workMin') this._lastPomoCycle = 0   // 周期长度变了,重新数已过周期(不补响)
+    if (key === 'workMin') { this._lastOvertimeBeep = null; this._pomoDismissed = false }   // 周期变了,重新计
     this._loadPomo()
     this._beep()   // 改完预览一下提醒音
   },

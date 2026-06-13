@@ -178,6 +178,16 @@
   transition: width 0.9s linear;
 }
 .pomo-bar-text { font-size: 22rpx; color: #9aa3b2; font-weight: 600; letter-spacing: 1rpx; }
+/* 到点:进度条缓慢闪烁 + 行内「停止」按钮 */
+.pomo-bar.pomo-blink { animation: pomo-blink 1.8s ease-in-out infinite; }
+@keyframes pomo-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.18; } }
+.pomo-bar-row { display: flex; align-items: center; gap: 16rpx; }
+.pomo-done { color: #e0a84a; font-weight: 800; }
+.pomo-stop-btn {
+  font-size: 22rpx; font-weight: 700; color: #d6dae2;
+  padding: 6rpx 18rpx; border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.12);
+}
 
 /* 番茄钟设置图标:右上角(位置/尺寸由内联 pomoBtnStyle 给出,贴胶囊左侧) */
 .pomo-icon-btn {
