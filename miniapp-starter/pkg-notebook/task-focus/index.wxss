@@ -296,3 +296,28 @@
 .focus-page.landscape .pomo-bar { height: 12rpx; }
 .focus-page.landscape .pomo-bar-text, .focus-page.landscape .pomo-done { font-size: 18rpx; }
 .focus-page.landscape .pomo-stop-btn { font-size: 18rpx; padding: 4rpx 14rpx; }
+
+/* 完成后「做下一项?」自定义弹窗(暗色,跟设置/时间记录弹窗一致,替代 native showModal) */
+.next-mask {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex; align-items: center; justify-content: center; padding: 60rpx;
+}
+.next-panel {
+  width: 100%; max-width: 560rpx;
+  background: #1b1f27; border: 2rpx solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx; padding: 36rpx 32rpx 28rpx; text-align: center;
+}
+.next-title { font-size: 34rpx; font-weight: 800; color: #d6dae2; }
+.next-q { margin-top: 16rpx; font-size: 26rpx; color: #aeb6c2; }
+.next-name {
+  margin-top: 14rpx; font-size: 30rpx; font-weight: 700; color: #8fb2ff;
+  word-break: break-word; line-height: 1.4;
+}
+.next-btns { display: flex; gap: 18rpx; margin-top: 32rpx; }
+.next-btn {
+  flex: 1; height: 84rpx; line-height: 84rpx; text-align: center;
+  border-radius: 999rpx; font-size: 28rpx; font-weight: 700;
+}
+.next-cancel { background: rgba(255, 255, 255, 0.10); color: #aeb6c2; }
+.next-confirm { background: linear-gradient(135deg, #1e8e4e 0%, #0a6e3a 100%); color: #ffffff; }

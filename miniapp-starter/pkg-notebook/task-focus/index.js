@@ -87,6 +87,9 @@ Page({
     // 时间记录(开始/暂停/继续/完成)
     showTimeline: false,
     timelineRows: [],
+    // 完成后「是否做下一项」自定义弹窗(不用 native showModal)
+    showNextPrompt: false,
+    nextTask: null,
     pomoRows: []              // 设置面板各行 {key,label,optionLabels,index,valueLabel}
   },
 
@@ -96,7 +99,9 @@ Page({
     this._lastBreakBeepMark = 0    // 暂停已提醒到第几个 break
     this._lastOvertimeBeep = null  // 到点后已提醒到第几分钟(防重复响铃)
     this._pomoDismissed = false    // 是否已手动停止闪烁/提醒
-    this._segStart = null          // 当前作业段起点 = store 的 currentSegmentStartedAt(番茄钟也用它,退出/重进/后台都不丢)
+    this._segStart = null          // 当前作业段起点 = store 的 currentSegmentStartedAt(工时日志用)
+    // 番茄锚点:默认 = 作业段起点;「完成→继续下一项」时由上一项用 ps 参数带过来,实现「番茄时间不重置」
+    this._pomoStart = (opts.ps && Number(opts.ps)) ? Number(opts.ps) : null
     this._updateOrientation()
     this._positionPomoBtn()
     if (!this.refresh()) return    // 先 refresh 设好 _segStart + isPaused
@@ -155,7 +160,7 @@ Page({
   // 番茄倒计时当前状态:从当前作业段起点(store 的 currentSegmentStartedAt)算,退出/后台都不重置。
   // 到点后【不自动重置】:停在 0、进度条满格闪烁(alerting),每分钟滴滴滴提醒一次,直到手动停止。
   _pomoState(cycleMs, allowBeep) {
-    const seg = this._segStart
+    const seg = this._pomoStart
     if (this.data.isPaused || !seg || cycleMs <= 0) {
       return { percent: 0, leftDisplay: formatBigClock(cycleMs), alerting: false }
     }
@@ -221,7 +226,11 @@ Page({
       : 0
     const elapsedMs = (occState.accumulatedMs || 0) + segMs   // 作业时间(暂停时 seg=0 → 定格)
     if (isPaused) { if (!this._pausedAt) this._pausedAt = Date.now() }
-    else { this._pausedAt = null; this._segStart = occState.currentSegmentStartedAt || this._segStart || Date.now() }
+    else {
+      this._pausedAt = null
+      this._segStart = occState.currentSegmentStartedAt || this._segStart || Date.now()
+      if (this._pomoStart == null) this._pomoStart = this._segStart   // 没带 ps → 番茄锚点就是作业段起点
+    }
     const pausedMs = isPaused ? Math.max(0, Date.now() - this._pausedAt) : 0
     const estMins = Number(task.estimatedMinutes) || 0
     this.setData({
@@ -301,7 +310,8 @@ Page({
     if (!this.data.taskId) return
     store.resumeTask(this.data.taskId, this.data.date || '')
     this._pausedAt = null
-    this._segStart = Date.now()    // 新作业段(番茄也跟着从这里重新算)
+    this._segStart = Date.now()    // 新作业段
+    this._pomoStart = Date.now()   // 暂停=休息,番茄从头算
     this._lastOvertimeBeep = null
     this._pomoDismissed = false
     this.setData({ isPaused: false, pomoAlerting: false })
@@ -359,24 +369,26 @@ Page({
     if (this._segStart) appendWorkSeg(this._segStart, Date.now(), this.data.windowMin * 60000)
     this._segStart = null
     store.finishTask(this.data.taskId, this.data.date || '')
-    // 完成后:还有没做完的作业 → 问要不要直接做下一项
+    // 完成后:还有没做完的作业 → 自定义弹窗(跟专注页暗色风格一致),问要不要直接做下一项
     const next = store.nextPendingTaskOnDate(this.data.taskId, this.data.date || '')
     if (!next) { wx.navigateBack(); return }
-    wx.showModal({
-      title: i18n.t('tfocus_next_title'),
-      content: i18n.t('tfocus_next_content', { name: next.content }),
-      confirmText: i18n.t('tfocus_next_confirm'),
-      cancelText: i18n.t('tfocus_next_cancel'),
-      success: (res) => {
-        if (res.confirm) {
-          store.startTask(next.taskId, next.date)
-          wx.redirectTo({ url: `/pkg-notebook/task-focus/index?id=${next.taskId}&date=${next.date}` })
-        } else {
-          wx.navigateBack()
-        }
-      },
-      fail: () => wx.navigateBack()
-    })
+    this.stopTicker()
+    this.setData({ nextTask: next, showNextPrompt: true })
+  },
+
+  // 「开始下一项」→ 启动并跳到它的专注页(redirectTo 不堆返回栈)
+  confirmNext() {
+    const next = this.data.nextTask
+    if (!next) { wx.navigateBack(); return }
+    store.startTask(next.taskId, next.date)
+    // 把当前番茄锚点带给下一项 → 番茄时间不重置(继续倒计时)
+    const ps = this._pomoStart || Date.now()
+    wx.redirectTo({ url: `/pkg-notebook/task-focus/index?id=${next.taskId}&date=${next.date}&ps=${ps}` })
+  },
+  // 「先不用」→ 退回上一页
+  dismissNext() {
+    this.setData({ showNextPrompt: false })
+    wx.navigateBack()
   },
 
   handleClose() {

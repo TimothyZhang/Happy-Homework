@@ -82,4 +82,17 @@
       <view class="tl-close" bindtap="closeTimeline">{{t.tfocus_tl_close}}</view>
     </view>
   </view>
+
+  <!-- 完成后:是否直接做下一项(自定义弹窗,跟专注页暗色风格一致,不用 native showModal) -->
+  <view wx:if="{{showNextPrompt}}" class="next-mask" catchtouchmove="noop">
+    <view class="next-panel">
+      <view class="next-title">{{t.tfocus_next_title}}</view>
+      <view class="next-q">{{t.tfocus_next_q}}</view>
+      <view class="next-name">{{nextTask.content}}</view>
+      <view class="next-btns">
+        <view class="next-btn next-cancel" catchtap="dismissNext">{{t.tfocus_next_cancel}}</view>
+        <view class="next-btn next-confirm" catchtap="confirmNext">{{t.tfocus_next_confirm}}</view>
+      </view>
+    </view>
+  </view>
 </view>
