@@ -122,8 +122,12 @@
           </view>
         </view>
         <view wx:if="{{pet.species}}" class="hud-xp" catchtap="showXpRules">
-          <view class="hud-xp-bar"><view class="hud-xp-fill" style="width: {{xpPercent}}%"></view></view>
-          <text class="hud-xp-text">{{hudXp}}</text>
+          <text class="hud-xp-label">{{t.pet_xp_label}}</text>
+          <view class="hud-xp-bar">
+            <view class="hud-xp-fill" style="width: {{xpPercent}}%"></view>
+            <text class="hud-xp-num">{{hudXpNum}}</text>
+          </view>
+          <text wx:if="{{hudXpRate}}" class="hud-xp-rate">{{hudXpRate}}</text>
         </view>
       </view>
       <view class="hud-right">

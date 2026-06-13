@@ -210,7 +210,8 @@ Page({
     // computed i18n strings that need dynamic interpolation
     hudCoins: '',
     hudAgeDays: '',
-    hudXp: '',
+    hudXpNum: '',
+    hudXpRate: '',
     hudVocab: '',
     shopPanelCoins: '',
     manageRenameSub: '',
@@ -317,7 +318,8 @@ Page({
       // Computed interpolated strings
       hudCoins: i18n.t('pet_hud_coins', { n: coins }),
       hudAgeDays: i18n.t('pet_age_days', { n: ageDays }),
-      hudXp: isMaxLevel ? i18n.t('pet_hud_xp_max') : i18n.t('pet_hud_xp', { xp, need: xpNeeded }),
+      hudXpNum: isMaxLevel ? i18n.t('pet_hud_xp_max') : (xp + '/' + xpNeeded),
+      hudXpRate: isMaxLevel ? '' : i18n.t('pet_xp_rate', { n: xpPerHour }),
       hudVocab: i18n.t('pet_vocab', { n: vocab }),
       shopPanelCoins: i18n.t('pet_shop_panel_coins', { n: coins }),
       manageRenameSub: i18n.t('pet_manage_rename_sub', { cost: renameCost }),

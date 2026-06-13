@@ -385,18 +385,29 @@
   box-shadow: 0 3rpx 8rpx rgba(240,144,42,0.3);
 }
 .hud-level-badge { font-size: 22rpx; }
-/* 经验值:细进度条 + 文字,点一下弹规则 */
+/* 经验值:EXP 标签 | 进度条(数字在条里) | 增长速度,点一下弹规则 */
 .hud-xp { display: flex; align-items: center; gap: 10rpx; }
+.hud-xp-label {
+  font-size: 22rpx; font-weight: 800; color: #9a6b3a;
+  text-shadow: 0 1rpx 0 rgba(255,255,255,0.6);
+}
 .hud-xp-bar {
-  width: 132rpx; height: 12rpx; border-radius: 999rpx;
-  background: rgba(120,90,50,0.18); overflow: hidden;
+  position: relative;
+  width: 176rpx; height: 30rpx; border-radius: 999rpx;
+  background: rgba(120,90,50,0.20); overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
 }
 .hud-xp-fill {
-  height: 100%; border-radius: 999rpx;
+  position: absolute; left: 0; top: 0; height: 100%; border-radius: 999rpx;
   background: linear-gradient(90deg, #5b8cff 0%, #245bdb 100%);
 }
-.hud-xp-text {
-  font-size: 22rpx; font-weight: 700; color: #9a6b3a;
+.hud-xp-num {
+  position: relative; z-index: 1;
+  font-size: 20rpx; font-weight: 800; color: #3a2a14;
+  text-shadow: 0 0 3rpx rgba(255,255,255,0.9), 0 1rpx 1rpx rgba(255,255,255,0.8);
+}
+.hud-xp-rate {
+  font-size: 22rpx; font-weight: 800; color: #2e9e5b;
   text-shadow: 0 1rpx 0 rgba(255,255,255,0.6);
 }
 /* 右侧:第一行 [设置图标][金币],下面是升级按钮 */
