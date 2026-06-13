@@ -551,19 +551,30 @@ Page({
   handleSwipeStart() { this.setData({ disableScroll: true }) },
   handleSwipeEnd() { this.setData({ disableScroll: false }) },
 
-  // 顺延:把一次性 task 移到「当前查看日 ± 1」。dir=+1 右滑→下一天,dir=-1 左滑→
-  // 上一天。用 selectedDate 而非 row 的 occurrenceDate —— 逾期项也能正确移动,
-  // 不会"顺延后还留在原处"。组件已保证只有一次性未完成 row 会触发本事件。
+  // 顺延:把作业移到「当前查看日 ± 1」。dir=+1 右滑→下一天,dir=-1 左滑→上一天。
+  // 一次性:直接改三日期。重复性:先把当次 occurrence detach 成一次性(原重复任务
+  // 排除掉这天),再把新的一次性移到目标日 —— 只动这一次,不影响整条重复序列。
   handlePostpone(e) {
     const taskId = e.detail && e.detail.taskId
     if (!taskId) return
     const dir = (e.detail && e.detail.dir) || 1
+    const taskMode = (e.detail && e.detail.taskMode) || 'one-shot'
+    const occDate = (e.detail && e.detail.occurrenceDate) || ''
     const base = this.data.selectedDate || store.todayStr()
     const next = store.addDays(base, dir)
-    // 一次性 task 的 startDate=endDate=dueDate(见 normalizeScheduling)。只改
-    // dueDate 会被 effectiveDueDate 的 `due > endDate → 钳回 endDate` 拉回原日,
-    // 任务原地不动(toast 提示移了但还在当天)。三个日期一起移才生效。
-    store.updateTask(taskId, { dueDate: next, startDate: next, endDate: next })
+    if (taskMode === 'recurring') {
+      // detach 当次实例(用 row 自带的 occurrenceDate,精确锁定这一天的实例)。
+      const detachDate = occDate || base
+      const newId = store.detachOccurrence(taskId, detachDate)
+      if (newId) {
+        store.updateTask(newId, { dueDate: next, startDate: next, endDate: next })
+      }
+    } else {
+      // 一次性 task 的 startDate=endDate=dueDate(见 normalizeScheduling)。只改
+      // dueDate 会被 effectiveDueDate 的 `due > endDate → 钳回 endDate` 拉回原日,
+      // 任务原地不动(toast 提示移了但还在当天)。三个日期一起移才生效。
+      store.updateTask(taskId, { dueDate: next, startDate: next, endDate: next })
+    }
     this.refreshState()
     wx.showToast({ title: dir < 0 ? i18n.t('home_moved_prev') : i18n.t('home_moved_next'), icon: 'none' })
   },

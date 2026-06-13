@@ -220,10 +220,11 @@ Component({
             this._postponeEligible = false
           } else {
             this._swipeDir = dx > 0 ? 'right' : 'left'
-            // 顺延(右滑→下一天 / 左滑→上一天)只对「一次性 + 未完成」row 生效。
+            // 顺延(右滑→下一天 / 左滑→上一天)对「未完成」row 生效。一次性直接移动;
+            // 重复性由 home 把当次 occurrence detach 成一次性后再移动(见 handlePostpone)。
             const it = this.data.list.find((x) => x.id === rowId)
             let eligible = !!this.data.enablePostpone && !!it &&
-              it.status !== 'done' && it.taskMode !== 'recurring'
+              it.status !== 'done'
             // 左滑→上一天:仅当查看的是「未来日期」才允许。否则把今天的作业拉到
             // 昨天 = 立即逆期红显在今天,语义混乱。activeDate 空(首页今日)视为今天。
             if (eligible && this._swipeDir === 'left') {
@@ -363,9 +364,10 @@ Component({
           const item = this.data.list.find((it) => it.id === id)
           const taskId = (item && (item.taskId || item.id)) || ''
           const occurrenceDate = (item && item.occurrenceDate) || ''
+          const taskMode = (item && item.taskMode) || 'one-shot'
           this.setData({ postponeDragging: false, postponeDx: this._rowWidthRpx + 120 })
           setTimeout(() => {
-            this.triggerEvent('postpone', { taskId, occurrenceDate, dir: 1 })
+            this.triggerEvent('postpone', { taskId, occurrenceDate, taskMode, dir: 1 })
             this.setData({ postponeId: null, postponeDx: 0, postponeArmed: false, postponeColor: 'rgb(207,19,34)' })
           }, 200)
         } else if (id) {
@@ -386,9 +388,10 @@ Component({
           const item = this.data.list.find((it) => it.id === id)
           const taskId = (item && (item.taskId || item.id)) || ''
           const occurrenceDate = (item && item.occurrenceDate) || ''
+          const taskMode = (item && item.taskMode) || 'one-shot'
           this.setData({ postponeDragging: false, postponeDx: -(this._rowWidthRpx + 120) })
           setTimeout(() => {
-            this.triggerEvent('postpone', { taskId, occurrenceDate, dir: -1 })
+            this.triggerEvent('postpone', { taskId, occurrenceDate, taskMode, dir: -1 })
             this.setData({ postponeId: null, postponeDx: 0, postponeArmed: false, postponeColor: 'rgb(207,19,34)' })
           }, 200)
         } else {
