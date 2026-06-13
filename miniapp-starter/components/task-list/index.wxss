@@ -312,11 +312,12 @@
 }
 .est-confirm-hover { background: #1e4fc0; }
 
-/* === 紧凑模式(横屏 compact):row 压成一行,只显示作业内容一行字 === */
+/* === 紧凑模式(横屏 compact):row 压低,内容单行 + chip 行(字更小) === */
 .task-list.compact { gap: 8rpx; }
 .task-list.compact .task-row { padding: 8rpx 16rpx 8rpx 24rpx; gap: 12rpx; }
 .task-list.compact .row-content {
   font-size: 26rpx; line-height: 1.3;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.task-list.compact .row-chips { display: none; }   /* 只显示一行字:隐藏分类/时间等 chip 行 */
+.task-list.compact .row-chips { margin-top: 4rpx; gap: 6rpx; }
+.task-list.compact .chip { padding: 1rpx 10rpx; font-size: 16rpx; line-height: 1.4; }
