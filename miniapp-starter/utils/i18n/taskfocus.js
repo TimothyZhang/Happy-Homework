@@ -12,6 +12,15 @@ module.exports = {
     tfocus_pomo_label: '🍅 Break reminder · every {n} min',
     tfocus_remind_rest: 'Focused {n} min — take a short break! 🧘',
     tfocus_remind_resume: 'Break’s over — back to your homework! ✏️',
+    tfocus_break_hint: 'Suggested break: {n} min',
+    tfocus_set_title: '🍅 Pomodoro settings',
+    tfocus_set_work: 'Focus session',
+    tfocus_set_short: 'Short break',
+    tfocus_set_long: 'Long break',
+    tfocus_set_thresh: 'Hard-work threshold',
+    tfocus_set_window: 'Look-back window',
+    tfocus_set_hint: 'When you pause, if your work time within the look-back window is over the threshold, a long break is suggested; otherwise a short one.',
+    tfocus_set_close: 'Done',
     tfocus_toast_not_found: 'Task not found'
   },
   zh: {
@@ -26,6 +35,15 @@ module.exports = {
     tfocus_pomo_label: '🍅 番茄钟 · 每 {n} 分钟提醒',
     tfocus_remind_rest: '已专注 {n} 分钟,休息一下吧!🧘',
     tfocus_remind_resume: '休息够啦,继续写作业吧!✏️',
+    tfocus_break_hint: '建议休息 {n} 分钟',
+    tfocus_set_title: '🍅 番茄钟设置',
+    tfocus_set_work: '专注时长',
+    tfocus_set_short: '短休息',
+    tfocus_set_long: '长休息',
+    tfocus_set_thresh: '努力阈值',
+    tfocus_set_window: '统计时段',
+    tfocus_set_hint: '暂停时,如果「统计时段」内的作业时长超过「努力阈值」,就建议长休息,否则短休息。',
+    tfocus_set_close: '完成',
     tfocus_toast_not_found: '作业不存在'
   }
 }

@@ -14,17 +14,16 @@
   <view class="clock-block">
     <text class="clock-label">{{t.tfocus_clock_label}}</text>
     <text class="clock-num">{{elapsedDisplay}}</text>
-    <!-- 暂停后:作业时间(上面)定格,额外显示暂停时长 -->
+    <!-- 暂停后:作业时间(上面)定格,额外显示暂停时长 + 建议休息多久 -->
     <view wx:if="{{isPaused}}" class="pause-block">
       <text class="pause-label">{{t.tfocus_paused_label}}</text>
       <text class="pause-num">{{pausedDisplay}}</text>
+      <text class="pause-hint">{{breakHint}}</text>
     </view>
   </view>
 
-  <!-- 番茄钟:连续写作业满 N 分钟滴滴滴提醒休息(可点这里改 N) -->
-  <picker class="pomo-picker" mode="selector" range="{{workOptionsLabels}}" value="{{workMinIndex}}" bindchange="handleWorkMinChange">
-    <view class="pomo-set">{{workMinLabel}} ›</view>
-  </picker>
+  <!-- 番茄钟:点开设置(工作时长/短休息/长休息/努力阈值/统计时段) -->
+  <view class="pomo-set" bindtap="openPomoSettings">{{workMinLabel}} ⚙</view>
 
   <view class="actions">
     <button wx:if="{{!isPaused}}" class="action-btn pause-action" bindtap="handlePause">
@@ -39,5 +38,20 @@
       <text class="action-icon">✓</text>
       <text class="action-label">{{t.tfocus_finish}}</text>
     </button>
+  </view>
+
+  <!-- 番茄钟设置面板:工作时长 / 短休息 / 长休息 / 努力阈值 / 统计时段 都可调 -->
+  <view wx:if="{{showPomoSettings}}" class="pomo-mask" bindtap="closePomoSettings" catchtouchmove="noop">
+    <view class="pomo-panel" catchtap="" catchtouchmove="noop">
+      <view class="pomo-panel-title">{{t.tfocus_set_title}}</view>
+      <view wx:for="{{pomoRows}}" wx:key="key" class="pomo-row">
+        <text class="pomo-row-label">{{item.label}}</text>
+        <picker mode="selector" range="{{item.optionLabels}}" value="{{item.index}}" data-key="{{item.key}}" bindchange="handlePomoChange">
+          <view class="pomo-row-val">{{item.valueLabel}} ›</view>
+        </picker>
+      </view>
+      <view class="pomo-panel-hint">{{t.tfocus_set_hint}}</view>
+      <view class="pomo-panel-close" bindtap="closePomoSettings">{{t.tfocus_set_close}}</view>
+    </view>
   </view>
 </view>

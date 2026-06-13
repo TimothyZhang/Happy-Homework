@@ -158,11 +158,51 @@
   background: #16406e;
 }
 
-/* 番茄钟间隔设置:暗色小药丸,点开选择器 */
-.pomo-picker { align-self: center; margin-bottom: 22rpx; }
+/* 暂停时「建议休息 N 分钟」小提示 */
+.pause-hint { font-size: 22rpx; color: #8a94a3; margin-top: 4rpx; }
+
+/* 番茄钟药丸:点开设置面板 */
 .pomo-set {
+  align-self: center; margin-bottom: 22rpx;
   padding: 12rpx 28rpx; border-radius: 999rpx;
   background: rgba(255, 255, 255, 0.07);
   color: #9aa3b2; font-size: 24rpx; font-weight: 600;
   text-align: center; white-space: nowrap;
+}
+
+/* 番茄钟设置面板 */
+.pomo-mask {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex; align-items: center; justify-content: center;
+  padding: 60rpx;
+}
+.pomo-panel {
+  width: 100%; max-width: 600rpx;
+  background: #1b1f27; border: 2rpx solid rgba(255, 255, 255, 0.08);
+  border-radius: 28rpx; padding: 30rpx 28rpx 24rpx;
+  box-shadow: 0 24rpx 60rpx rgba(0, 0, 0, 0.5);
+}
+.pomo-panel-title {
+  font-size: 30rpx; font-weight: 800; color: #d6dae2;
+  text-align: center; margin-bottom: 18rpx;
+}
+.pomo-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16rpx 6rpx; border-top: 2rpx solid rgba(255, 255, 255, 0.06);
+}
+.pomo-row-label { font-size: 26rpx; color: #aeb6c2; }
+.pomo-row-val {
+  font-size: 26rpx; font-weight: 700; color: #8fb2ff;
+  padding: 6rpx 20rpx; border-radius: 999rpx;
+  background: rgba(127, 168, 255, 0.12);
+}
+.pomo-panel-hint {
+  margin-top: 16rpx; font-size: 21rpx; line-height: 1.5;
+  color: #7a838f; text-align: center;
+}
+.pomo-panel-close {
+  margin-top: 22rpx; height: 76rpx; line-height: 76rpx; text-align: center;
+  border-radius: 999rpx; font-size: 28rpx; font-weight: 700; color: #ffffff;
+  background: #16406e;
 }

@@ -1,17 +1,44 @@
 const store = require('../../utils/store')
 const i18n = require('../../utils/i18n')
 
-// 番茄钟:连续写作业满 workMin 分钟 → 滴滴滴提醒休息(可设置,默认 25)。
-// 暂停每满 5 分钟 → 滴滴滴提醒继续。
-const WORK_OPTIONS = [15, 20, 25, 30, 35, 40, 45, 50, 60]
-const WORK_MIN_DEFAULT = 25
-const WORK_MIN_KEY = 'focusWorkMin'
-const BREAK_REMIND_MS = 5 * 60 * 1000   // 暂停每 5 分钟提醒一次
+// 番茄钟参数(都可设置)。连续写作业满 workMin 分钟 → 提醒休息;
+// 暂停时按「近 windowMin 分钟作业时长」决定休息多久:> heavyThreshMin → 长休息,否则短休息。
+// 每项:data key、storage key、默认值、可选项(分钟)、i18n 标签。
+const POMO_PARAMS = [
+  { key: 'workMin',        sk: 'focusWorkMin',     def: 25,  opts: [15, 20, 25, 30, 35, 40, 45, 50, 60], label: 'tfocus_set_work' },
+  { key: 'shortBreakMin',  sk: 'focusShortBreak',  def: 5,   opts: [3, 5, 8, 10, 15],                    label: 'tfocus_set_short' },
+  { key: 'longBreakMin',   sk: 'focusLongBreak',   def: 20,  opts: [10, 15, 20, 25, 30, 45],             label: 'tfocus_set_long' },
+  { key: 'heavyThreshMin', sk: 'focusHeavyThresh', def: 100, opts: [60, 80, 100, 120, 150],              label: 'tfocus_set_thresh' },
+  { key: 'windowMin',      sk: 'focusWindow',      def: 120, opts: [60, 90, 120, 150, 180],              label: 'tfocus_set_window' }
+]
+const WORK_LOG_KEY = 'focusWorkLog'   // 全局作业段日志 [{s,e}],用于算「近 N 分钟作业时长」
 
-function loadWorkMin() {
-  let v = WORK_MIN_DEFAULT
-  try { v = Number(wx.getStorageSync(WORK_MIN_KEY)) || WORK_MIN_DEFAULT } catch (e) {}
-  return WORK_OPTIONS.indexOf(v) >= 0 ? v : WORK_MIN_DEFAULT
+function loadPomoParam(p) {
+  let v = p.def
+  try { v = Number(wx.getStorageSync(p.sk)) || p.def } catch (e) {}
+  return p.opts.indexOf(v) >= 0 ? v : p.def
+}
+function loadWorkLog() {
+  try { const a = wx.getStorageSync(WORK_LOG_KEY); return Array.isArray(a) ? a : [] } catch (e) { return [] }
+}
+// 追加一段已结束的作业 [s,e],顺手裁掉太老的(留够 window + 余量)
+function appendWorkSeg(s, e, windowMs) {
+  if (!(e > s)) return
+  const cutoff = e - Math.max(windowMs, 7200000) - 60000
+  const log = loadWorkLog().filter((seg) => seg && seg.e > cutoff)
+  log.push({ s: s, e: e })
+  try { wx.setStorageSync(WORK_LOG_KEY, log) } catch (err) {}
+}
+// 近 windowMs 内的作业总时长(各段与 [now-window, now] 的交叠之和)
+function recentWorkMs(windowMs, now) {
+  const lo = now - windowMs
+  let total = 0
+  for (const seg of loadWorkLog()) {
+    if (!seg) continue
+    const a = Math.max(seg.s, lo), b = Math.min(seg.e, now)
+    if (b > a) total += (b - a)
+  }
+  return total
 }
 
 // "进行中" 大数字格式:
@@ -41,19 +68,26 @@ Page({
     // 暂停后停留在本页:作业时间(elapsed)定格在上面,额外显示暂停时长
     isPaused: false,
     pausedDisplay: '00:00',
-    // 番茄钟:连续写作业 workMin 分钟提醒休息(可设置)
-    workMin: WORK_MIN_DEFAULT,
-    workMinIndex: 0,
-    workOptionsLabels: [],
-    workMinLabel: ''
+    // 番茄钟(都可设置)
+    workMin: 25,
+    shortBreakMin: 5,
+    longBreakMin: 20,
+    heavyThreshMin: 100,
+    windowMin: 120,
+    workMinLabel: '',
+    breakMin: 5,              // 本次暂停建议休息几分钟(暂停时按近期作业量算出)
+    breakHint: '',            // 「建议休息 N 分钟」提示文案
+    showPomoSettings: false,
+    pomoRows: []              // 设置面板各行 {key,label,optionLabels,index,valueLabel}
   },
 
   onLoad(options) {
     const opts = options || {}
     this.setData({ taskId: opts.id || '', date: opts.date || '' })
     this._workSinceBreakMs = 0     // 连续写作业累计(满 workMin 提醒休息;暂停/继续会重置)
-    this._lastPauseBeepMark = 0    // 暂停已提醒到第几个 5 分钟
-    this._applyWorkMin(loadWorkMin())
+    this._lastBreakBeepMark = 0    // 暂停已提醒到第几个 break
+    this._segStart = null          // 当前作业段起点(暂停/完成时入日志)
+    this._loadPomo()
     if (!this.refresh()) return
     this.startTicker()
   },
@@ -61,21 +95,29 @@ Page({
   onShow() {
     this.setData({ t: i18n.dict() })
     wx.setNavigationBarTitle({ title: i18n.t('tfocus_navtitle') })
-    this._applyWorkMin(this.data.workMin)   // 语言可能变了,刷新番茄钟文案
+    this._loadPomo()   // 语言/设置可能变了,刷新参数 + 文案
     if (!this.data.taskId) return
     if (!this.refresh()) return
     this.startTicker()
   },
 
-  // 应用番茄钟间隔(分钟):更新选择器值 + 文案
-  _applyWorkMin(min) {
-    const idx = Math.max(0, WORK_OPTIONS.indexOf(min))
-    this.setData({
-      workMin: min,
-      workMinIndex: idx,
-      workOptionsLabels: WORK_OPTIONS.map((n) => i18n.t('tfocus_pomo_min', { n })),
-      workMinLabel: i18n.t('tfocus_pomo_label', { n: min })
+  // 读取所有番茄钟参数 → data;构建设置面板行 + 药丸文案
+  _loadPomo() {
+    const patch = {}
+    const rows = POMO_PARAMS.map((p) => {
+      const val = loadPomoParam(p)
+      patch[p.key] = val
+      return {
+        key: p.key,
+        label: i18n.t(p.label),
+        optionLabels: p.opts.map((n) => i18n.t('tfocus_pomo_min', { n })),
+        index: Math.max(0, p.opts.indexOf(val)),
+        valueLabel: i18n.t('tfocus_pomo_min', { n: val })
+      }
     })
+    patch.pomoRows = rows
+    patch.workMinLabel = i18n.t('tfocus_pomo_label', { n: patch.workMin })
+    this.setData(patch)
   },
 
   onHide() { this.stopTicker() },
@@ -106,7 +148,7 @@ Page({
       : 0
     const elapsedMs = (occState.accumulatedMs || 0) + segMs   // 作业时间(暂停时 seg=0 → 定格)
     if (isPaused) { if (!this._pausedAt) this._pausedAt = Date.now() }
-    else { this._pausedAt = null }
+    else { this._pausedAt = null; this._segStart = occState.currentSegmentStartedAt || this._segStart || Date.now() }
     const pausedMs = isPaused ? Math.max(0, Date.now() - this._pausedAt) : 0
     const estMins = Number(task.estimatedMinutes) || 0
     this.setData({
@@ -132,10 +174,11 @@ Page({
         // 暂停中:作业时间定格,只走「暂停时长」
         const ms = Math.max(0, Date.now() - (this._pausedAt || Date.now()))
         this.setData({ pausedDisplay: formatBigClock(ms) })
-        // 暂停每满 5 分钟 → 滴滴滴提醒继续写作业
-        const mark = Math.floor(ms / BREAK_REMIND_MS)
-        if (mark > (this._lastPauseBeepMark || 0)) {
-          this._lastPauseBeepMark = mark
+        // 暂停满「建议休息时长」(5 或 20 分钟)→ 滴滴滴提醒继续,之后每隔同样时长再提醒
+        const breakMs = this._breakMs || (this.data.shortBreakMin * 60000)
+        const mark = Math.floor(ms / breakMs)
+        if (mark > (this._lastBreakBeepMark || 0)) {
+          this._lastBreakBeepMark = mark
           this._remind('resume')
         }
       } else {
@@ -154,34 +197,53 @@ Page({
     if (this.tickerId) { clearInterval(this.tickerId); this.tickerId = null }
   },
 
-  // 暂停:停留在本页,作业时间定格、开始计暂停时长
+  // 暂停:停留在本页,作业时间定格、开始计暂停时长。
+  // 按「近 windowMin 分钟作业时长」决定建议休息多久:> heavyThresh → 长休息,否则短休息。
   handlePause() {
     if (!this.data.taskId) return
+    const now = Date.now()
+    if (this._segStart) appendWorkSeg(this._segStart, now, this.data.windowMin * 60000)
+    this._segStart = null
+    const recentMs = recentWorkMs(this.data.windowMin * 60000, now)
+    const breakMin = recentMs > this.data.heavyThreshMin * 60000
+      ? this.data.longBreakMin
+      : this.data.shortBreakMin
+    this._breakMs = breakMin * 60000
     store.pauseTask(this.data.taskId, this.data.date || '')
-    this._pausedAt = Date.now()
-    this._lastPauseBeepMark = 0
-    this.setData({ isPaused: true, pausedDisplay: '00:00' })
+    this._pausedAt = now
+    this._lastBreakBeepMark = 0
+    this.setData({
+      isPaused: true,
+      pausedDisplay: '00:00',
+      breakMin: breakMin,
+      breakHint: i18n.t('tfocus_break_hint', { n: breakMin })
+    })
     this.startTicker()
   },
 
-  // 继续:作业时间接着走;番茄钟重新计(暂停 = 休息过了)
+  // 继续:作业时间接着走;连续计时重置(暂停 = 休息过了),开新作业段
   handleResume() {
     if (!this.data.taskId) return
     store.resumeTask(this.data.taskId, this.data.date || '')
     this._pausedAt = null
     this._workSinceBreakMs = 0
+    this._segStart = Date.now()
     this.setData({ isPaused: false })
     this.startTicker()
   },
 
-  // 设置番茄钟间隔(分钟),持久化 + 重新计时
-  handleWorkMinChange(e) {
-    const idx = Number(e.detail.value)
-    const min = WORK_OPTIONS[idx] || WORK_MIN_DEFAULT
-    try { wx.setStorageSync(WORK_MIN_KEY, min) } catch (err) {}
-    this._workSinceBreakMs = 0
-    this._applyWorkMin(min)
-    this._beep()   // 改完顺便预览一下提醒音
+  // 番茄钟设置面板
+  openPomoSettings() { this.setData({ showPomoSettings: true }) },
+  closePomoSettings() { this.setData({ showPomoSettings: false }) },
+  handlePomoChange(e) {
+    const key = e.currentTarget.dataset.key
+    const p = POMO_PARAMS.find((x) => x.key === key)
+    if (!p) return
+    const val = p.opts[Number(e.detail.value)] || p.def
+    try { wx.setStorageSync(p.sk, val) } catch (err) {}
+    if (key === 'workMin') this._workSinceBreakMs = 0
+    this._loadPomo()
+    this._beep()   // 改完预览一下提醒音
   },
 
   // 滴滴滴提醒(休息 / 继续):播音 + 震动 + 一句 toast
@@ -205,6 +267,8 @@ Page({
 
   handleFinish() {
     if (!this.data.taskId) return
+    if (this._segStart) appendWorkSeg(this._segStart, Date.now(), this.data.windowMin * 60000)
+    this._segStart = null
     store.finishTask(this.data.taskId, this.data.date || '')
     wx.navigateBack()
   },
