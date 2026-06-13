@@ -164,8 +164,14 @@
   color: #ffffff;
   box-shadow: 0 8rpx 24rpx rgba(36, 91, 219, 0.25);
 }
-/* iPad:Add Homework 按钮背景加大(撑满整行 + 更高更醒目) */
-.page.is-pad .primary-btn { height: 128rpx; line-height: 128rpx; font-size: 36rpx; }
+/* iPad:Add Homework 按钮做成「整屏宽」—— 撑满整行并突破 .page 的 24rpx 内边距,
+   贴到屏幕左右两边(width 比父容器多 48rpx,再用 -24rpx 负边距把左边拉到屏幕边)。 */
+.page.is-pad .primary-btn {
+  height: 128rpx; line-height: 128rpx; font-size: 36rpx;
+  width: calc(100% + 48rpx);
+  margin-left: -24rpx; margin-right: -24rpx;
+  border-radius: 28rpx;
+}
 
 .ghost-btn.delete-btn {
   width: 100%;
