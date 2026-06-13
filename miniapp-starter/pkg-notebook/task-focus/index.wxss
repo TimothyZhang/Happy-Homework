@@ -134,10 +134,10 @@
   flex-shrink: 0;
 }
 
-/* 暗色低亮度:按钮降饱和、降亮度,夜里不刺眼 */
+/* 暗色低亮度:按钮背景也压成深色,夜里不刺眼(留点色相区分暂停/完成) */
 .pause-action {
-  background: #9a6a16;
+  background: #56380d;
 }
 .finish-action {
-  background: #0a7a3e;
+  background: #0a4126;
 }
