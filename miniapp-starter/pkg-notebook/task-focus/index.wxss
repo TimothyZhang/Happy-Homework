@@ -118,13 +118,14 @@
 }
 
 .action-btn {
-  width: 100%;
-  height: 112rpx;
+  width: 60%;            /* 竖屏:按钮背景宽度 -40%(60%),align-self:center 居中。横屏覆盖回 100% 撑满列 */
+  align-self: center;
+  height: 90rpx;         /* 竖屏:高度 -20%(112→90) */
   border-radius: 999rpx;
   border: none;
   color: #ffffff;
-  /* WeChat <button> 必须 display:block 才会真正撑满整列;之前用 display:flex 会缩成
-     内容宽 → 渲染成椭圆、文字被切、列里两侧留白。内部居中交给 .action-inner。 */
+  /* action-btn 现在是 <view>(WeChat <button> 在 flex 列里 width:100% 不撑满 → 椭圆);
+     view 老实按宽度走。内部图标/文字居中交给 .action-inner。 */
   display: block;
   box-shadow: 0 12rpx 28rpx rgba(31, 35, 41, 0.16);
   box-sizing: border-box;
@@ -291,7 +292,7 @@
 .focus-page.landscape .focus-body { flex-direction: row; align-items: center; gap: 12rpx; }
 .focus-page.landscape .focus-stage { flex: 1; min-width: 0; gap: 8rpx; }
 .focus-page.landscape .actions { flex-direction: column; width: 320rpx; flex-shrink: 0; gap: 16rpx; }
-.focus-page.landscape .action-btn { height: 130rpx; }
+.focus-page.landscape .action-btn { height: 130rpx; width: 100%; align-self: stretch; }
 .focus-page.landscape .action-icon { font-size: 28rpx; }
 .focus-page.landscape .action-label { font-size: 28rpx; }
 .focus-page.landscape .info-block { margin-top: 0; }
@@ -337,8 +338,8 @@
    背景高度减半(200→100rpx)。 */
 /* 微调:按钮列 440→308(宽 -30%),左侧倒计时/进度条(focus-stage flex:1)随之 +~50%;
    按钮高 110→88(-20%);大钟 72→104 用上更宽的左栏;进度条是左栏的 94% 自动跟着加宽。 */
-.focus-page.landscape.wide .actions { width: 308rpx; gap: 20rpx; }
-.focus-page.landscape.wide .action-btn { height: 88rpx; }
+.focus-page.landscape.wide .actions { width: 216rpx; gap: 20rpx; }
+.focus-page.landscape.wide .action-btn { height: 70rpx; }
 .focus-page.landscape.wide .action-icon { font-size: 30rpx; }
 .focus-page.landscape.wide .action-label { font-size: 32rpx; }
 .focus-page.landscape.wide .clock-label { font-size: 26rpx; }
