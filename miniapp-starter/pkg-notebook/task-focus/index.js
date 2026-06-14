@@ -88,6 +88,8 @@ Page({
     // 时间记录(开始/暂停/继续/完成)
     showTimeline: false,
     timelineRows: [],
+    timelineSegs: [],
+    timelineHasBar: false,
     // 完成后「是否做下一项」自定义弹窗(不用 native showModal)
     showNextPrompt: false,
     nextTask: null,
@@ -327,8 +329,16 @@ Page({
 
   // 时间记录:计时旁的图标点开
   showTimeline() {
-    const rows = store.getTaskTimelineRows(this.data.taskId, this.data.date || '')
-    this.setData({ timelineRows: rows, showTimeline: true })
+    const taskId = this.data.taskId, date = this.data.date || ''
+    const rows = store.getTaskTimelineRows(taskId, date)
+    const seg = store.getTaskWorkBreakSegments(taskId, date, Date.now())
+    const total = seg.workMs + seg.breakMs
+    this.setData({
+      timelineRows: rows,
+      timelineSegs: seg.segments.map((s) => ({ type: s.type, ms: Math.max(1, Math.round(s.ms)) })),
+      timelineHasBar: total > 0,
+      showTimeline: true
+    })
   },
   closeTimeline() { this.setData({ showTimeline: false }) },
 

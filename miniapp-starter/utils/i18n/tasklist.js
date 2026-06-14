@@ -19,7 +19,9 @@ module.exports = {
     tl_edit_once:      'Edit this occurrence',
     tl_edit_all:       'Edit entire task',
     tl_toast_deduct:   'Deducted {n} coins',
-    tl_toast_enter_min:'Enter minutes'
+    tl_toast_enter_min:'Enter minutes',
+    tl_tlog_work:      'Work {t}',
+    tl_tlog_break:     'Break {t}'
   },
   zh: {
     tl_edit:           '编辑',
@@ -40,6 +42,8 @@ module.exports = {
     tl_edit_once:      '仅编辑此次',
     tl_edit_all:       '编辑整个作业',
     tl_toast_deduct:   '扣除 {n} 金币',
-    tl_toast_enter_min:'请输入分钟数'
+    tl_toast_enter_min:'请输入分钟数',
+    tl_tlog_work:      '作业 {t}',
+    tl_tlog_break:     '休息 {t}'
   }
 }

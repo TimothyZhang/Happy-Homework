@@ -62,6 +62,8 @@ Page({
     // 时间记录(开始/暂停/继续/完成)查看
     showTimeline: false,
     timelineRows: [],
+    timelineSegs: [],       // 作业/休息进度条区段(绿=work、红=break)
+    timelineHasBar: false,
     formSubject: '语文',
     formSubjectIndex: 0,
     subjectOptions: SUBJECT_OPTIONS,
@@ -311,7 +313,14 @@ Page({
     const taskId = d.isInstanceDetach ? d.originalTaskId : d.taskId
     const date = d.isInstanceDetach ? d.instanceDate : ''
     const rows = store.getTaskTimelineRows(taskId, date)
-    this.setData({ timelineRows: rows, showTimeline: true })
+    const seg = store.getTaskWorkBreakSegments(taskId, date, Date.now())
+    const total = seg.workMs + seg.breakMs
+    this.setData({
+      timelineRows: rows,
+      timelineSegs: seg.segments.map((s) => ({ type: s.type, ms: Math.max(1, Math.round(s.ms)) })),
+      timelineHasBar: total > 0,
+      showTimeline: true
+    })
   },
   closeTimeline() { this.setData({ showTimeline: false }) },
 

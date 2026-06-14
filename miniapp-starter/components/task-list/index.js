@@ -72,7 +72,14 @@ Component({
     estDate: '',
     estInput: '',
     estCurrent: 0,
-    estPresets: [5, 10, 15, 20, 25, 30, 40, 50, 60]
+    estPresets: [5, 10, 15, 20, 25, 30, 40, 50, 60],
+    // 点 elapsed-chip「实际用时」弹出的时间记录(timelog):进度条 + 事件列表
+    showTimelog: false,
+    timelogRows: [],
+    timelogSegs: [],
+    timelogHasBar: false,
+    timelogWorkLabel: '',
+    timelogBreakLabel: ''
   },
   observers: {
     'items': function (items) {
@@ -522,6 +529,25 @@ Component({
       })
     },
     closeEstPopup() { this.setData({ showEstPopup: false }) },
+
+    // === 点「实际用时」elapsed-chip → 弹时间记录(timelog):作业/休息进度条 + 事件列表 ===
+    openTimelog(e) {
+      const ds = e.currentTarget.dataset
+      const taskId = ds.taskId || ds.id
+      const date = ds.occurrenceDate || this.data.activeDate
+      const rows = store.getTaskTimelineRows(taskId, date)
+      const seg = store.getTaskWorkBreakSegments(taskId, date, Date.now())
+      const total = seg.workMs + seg.breakMs
+      this.setData({
+        showTimelog: true,
+        timelogRows: rows,
+        timelogSegs: seg.segments.map((s) => ({ type: s.type, ms: Math.max(1, Math.round(s.ms)) })),
+        timelogHasBar: total > 0,
+        timelogWorkLabel: i18n.t('tl_tlog_work', { t: formatElapsed(seg.workMs) }),
+        timelogBreakLabel: i18n.t('tl_tlog_break', { t: formatElapsed(seg.breakMs) })
+      })
+    },
+    closeTimelog() { this.setData({ showTimelog: false }) },
     onEstInput(e) { this.setData({ estInput: e.detail.value }) },
     pickEst(e) { this._applyEst(Number(e.currentTarget.dataset.min) || 0) },
     confirmEst() {

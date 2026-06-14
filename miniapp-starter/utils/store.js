@@ -1294,6 +1294,37 @@ function getTaskTimelineRows(taskId, dateStr) {
   })
 }
 
+// 给 timelog 进度条用:把事件序列拆成「作业(work)/休息(break)」交替的区段。
+// start/resume → 进入 work;pause → 进入 break;done → 结束。进行中(没 done)的
+// 最后一段补到 now。返回 { segments:[{type:'work'|'break', ms}], workMs, breakMs }。
+function getTaskWorkBreakSegments(taskId, dateStr, now) {
+  const empty = { segments: [], workMs: 0, breakMs: 0 }
+  const cur = loadState()
+  const task = (cur.tasks || []).find((t) => t.id === taskId)
+  if (!task) return empty
+  const occ = getTaskState(task, dateStr || todayStr())
+  const events = (Array.isArray(occ.events) ? occ.events : []).slice().sort((a, b) => a.at - b.at)
+  const segs = []
+  let prevAt = null, mode = null   // mode: 'work' | 'break' | null(结束)
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i]
+    if (prevAt != null && mode != null && ev.at > prevAt) {
+      segs.push({ type: mode, ms: ev.at - prevAt })
+    }
+    if (ev.t === 'start' || ev.t === 'resume') mode = 'work'
+    else if (ev.t === 'pause') mode = 'break'
+    else if (ev.t === 'done') mode = null
+    prevAt = ev.at
+  }
+  const tnow = now || Date.now()
+  if (mode != null && prevAt != null && tnow > prevAt) {
+    segs.push({ type: mode, ms: tnow - prevAt })   // 进行中:最后一段补到现在
+  }
+  let workMs = 0, breakMs = 0
+  segs.forEach((s) => { if (s.type === 'work') workMs += s.ms; else breakMs += s.ms })
+  return { segments: segs, workMs: workMs, breakMs: breakMs }
+}
+
 function applyTaskState(task, dateStr, patch) {
   if (task.mode !== 'recurring') {
     return { ...task, ...patch }
@@ -3351,6 +3382,7 @@ module.exports = {
   isRecurringTask,
   getTaskState,
   getTaskTimelineRows,
+  getTaskWorkBreakSegments,
   nextPendingTaskOnDate,
   formatRecurrenceLabel,
   // organization

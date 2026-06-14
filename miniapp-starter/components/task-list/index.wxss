@@ -317,6 +317,44 @@
 }
 .est-confirm-hover { background: #1e4fc0; }
 
+/* === timelog 弹窗(点 elapsed-chip 实际用时):作业/休息进度条 + 事件列表 === */
+.tlog-mask {
+  position: fixed; inset: 0; z-index: 9000;
+  background: rgba(20, 16, 10, 0.45);
+  display: flex; align-items: center; justify-content: center; padding: 50rpx;
+}
+.tlog-panel {
+  width: 100%; max-width: 600rpx; box-sizing: border-box;
+  background: #ffffff; border-radius: 28rpx; padding: 30rpx 28rpx 24rpx;
+  box-shadow: 0 20rpx 60rpx rgba(31, 35, 41, 0.2);
+}
+.tlog-title { font-size: 30rpx; font-weight: 800; color: #1f2329; text-align: center; margin-bottom: 18rpx; }
+/* 进度条:每段 flex-grow 正比于时长 → 自动归一到 100%。绿=作业、红=休息 */
+.tlog-bar { display: flex; width: 100%; height: 28rpx; border-radius: 999rpx; overflow: hidden; background: #eef1f5; }
+.tlog-seg { min-width: 4rpx; height: 100%; }
+.tlog-seg.tlog-work { background: #07c160; }
+.tlog-seg.tlog-break { background: #fa5151; }
+.tlog-legend { display: flex; gap: 28rpx; justify-content: center; margin: 14rpx 0 4rpx; }
+.tlog-leg { display: flex; align-items: center; gap: 8rpx; font-size: 24rpx; color: #44505e; }
+.tlog-dot { width: 16rpx; height: 16rpx; border-radius: 50%; }
+.tlog-dot.tlog-work { background: #07c160; }
+.tlog-dot.tlog-break { background: #fa5151; }
+.tlog-list { width: 100%; margin-top: 10rpx; }
+.tlog-row { display: flex; align-items: center; padding: 14rpx 6rpx; border-top: 2rpx solid #f0f2f5; }
+.tlog-rdot { width: 14rpx; height: 14rpx; border-radius: 50%; margin-right: 16rpx; flex-shrink: 0; background: #b0b8c4; }
+.tlog-row-start .tlog-rdot { background: #07c160; }
+.tlog-row-pause .tlog-rdot { background: #f5a623; }
+.tlog-row-resume .tlog-rdot { background: #245bdb; }
+.tlog-row-done .tlog-rdot { background: #07c160; }
+.tlog-label { flex: 1; font-size: 26rpx; color: #44505e; }
+.tlog-time { font-size: 26rpx; color: #1f2329; font-weight: 700; }
+.tlog-empty { padding: 50rpx 0; text-align: center; color: #8a94a4; font-size: 26rpx; }
+.tlog-close {
+  margin-top: 22rpx; height: 80rpx; line-height: 80rpx; text-align: center;
+  border-radius: 999rpx; font-size: 28rpx; font-weight: 700; color: #ffffff;
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+}
+
 /* === 紧凑模式(横屏 compact):row 压低,内容单行 + chip 行(字更小) === */
 .task-list.compact { gap: 8rpx; }
 .task-list.compact .task-row { padding: 8rpx 16rpx 8rpx 24rpx; gap: 12rpx; }

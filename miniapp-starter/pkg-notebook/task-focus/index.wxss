@@ -253,6 +253,11 @@
   border-radius: 28rpx; padding: 30rpx 28rpx 24rpx;
 }
 .tl-title { font-size: 30rpx; font-weight: 800; color: #d6dae2; text-align: center; margin-bottom: 16rpx; }
+/* 作业/休息进度条:每段 flex-grow 正比时长,绿=作业、红=休息(暗色轨道) */
+.tl-bar { display: flex; width: 100%; height: 24rpx; border-radius: 999rpx; overflow: hidden; background: rgba(255, 255, 255, 0.08); margin-bottom: 16rpx; }
+.tl-seg { min-width: 4rpx; height: 100%; }
+.tl-seg-work { background: #07c160; }
+.tl-seg-break { background: #fa5151; }
 .tl-list { width: 100%; }
 .tl-row { display: flex; align-items: center; padding: 14rpx 6rpx; border-top: 2rpx solid rgba(255, 255, 255, 0.06); }
 .tl-dot { width: 14rpx; height: 14rpx; border-radius: 50%; margin-right: 16rpx; flex-shrink: 0; background: #8a94a3; }

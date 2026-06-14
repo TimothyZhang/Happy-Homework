@@ -60,7 +60,11 @@
                   data-occurrence-date="{{item.occurrenceDate}}"
                   data-min="{{item.estimatedMinutes}}"
                   hover-class="est-chip-hover">{{item.estLabel}}</text>
-            <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip">{{item.elapsedLabel}}</text>
+            <text wx:if="{{item.elapsedDisplay}}" class="chip elapsed-chip elapsed-chip-tap"
+                  catchtap="openTimelog"
+                  data-task-id="{{item.taskId || item.id}}"
+                  data-occurrence-date="{{item.occurrenceDate}}"
+                  hover-class="est-chip-hover">{{item.elapsedLabel}}</text>
           </view>
         </view>
         <view wx:if="{{item.status !== 'done'}}" class="row-actions">
@@ -93,5 +97,30 @@
              bindinput="onEstInput" bindconfirm="confirmEst" confirm-type="done" />
       <view class="est-confirm" catchtap="confirmEst" hover-class="est-confirm-hover">{{t.tl_est_confirm}}</view>
     </view>
+  </view>
+</view>
+
+<!-- 时间记录(timelog):点 elapsed-chip「实际用时」弹出。进度条:绿=作业、红=休息;下面列出开始/暂停/继续/完成的时刻 -->
+<view wx:if="{{showTimelog}}" class="tlog-mask" catchtap="closeTimelog" catchtouchmove="noop">
+  <view class="tlog-panel" catchtap="noop" catchtouchmove="noop">
+    <view class="tlog-title">{{t.tfocus_tl_title}}</view>
+    <block wx:if="{{timelogHasBar}}">
+      <view class="tlog-bar">
+        <view wx:for="{{timelogSegs}}" wx:key="index" class="tlog-seg tlog-{{item.type}}" style="flex-grow: {{item.ms}}"></view>
+      </view>
+      <view class="tlog-legend">
+        <view class="tlog-leg"><view class="tlog-dot tlog-work"></view><text>{{timelogWorkLabel}}</text></view>
+        <view class="tlog-leg"><view class="tlog-dot tlog-break"></view><text>{{timelogBreakLabel}}</text></view>
+      </view>
+    </block>
+    <scroll-view wx:if="{{timelogRows.length}}" scroll-y class="tlog-list" style="max-height: 40vh;">
+      <view wx:for="{{timelogRows}}" wx:key="index" class="tlog-row tlog-row-{{item.t}}">
+        <view class="tlog-rdot"></view>
+        <text class="tlog-label">{{item.label}}</text>
+        <text class="tlog-time">{{item.time}}</text>
+      </view>
+    </scroll-view>
+    <view wx:else class="tlog-empty">{{t.tfocus_tl_empty}}</view>
+    <view class="tlog-close" catchtap="closeTimelog">{{t.tfocus_tl_close}}</view>
   </view>
 </view>

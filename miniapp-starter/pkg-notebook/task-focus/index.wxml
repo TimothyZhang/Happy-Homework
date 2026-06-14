@@ -71,6 +71,9 @@
   <view wx:if="{{showTimeline}}" class="tl-mask" bindtap="closeTimeline" catchtouchmove="noop">
     <view class="tl-panel" catchtap="" catchtouchmove="noop">
       <view class="tl-title">{{t.tfocus_tl_title}}</view>
+      <view wx:if="{{timelineHasBar}}" class="tl-bar">
+        <view wx:for="{{timelineSegs}}" wx:key="index" class="tl-seg tl-seg-{{item.type}}" style="flex-grow: {{item.ms}}"></view>
+      </view>
       <scroll-view wx:if="{{timelineRows.length}}" scroll-y class="tl-list" style="max-height: 46vh;">
         <view wx:for="{{timelineRows}}" wx:key="index" class="tl-row tl-{{item.t}}">
           <view class="tl-dot"></view>
