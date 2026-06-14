@@ -322,13 +322,15 @@
 .next-cancel { background: rgba(255, 255, 255, 0.10); color: #aeb6c2; }
 .next-confirm { background: linear-gradient(135deg, #1e8e4e 0%, #0a6e3a 100%); color: #ffffff; }
 
-/* 宽横屏(iPad):按钮背景加长(240→360rpx,+50%)、加高,大钟/内容也放大,利用大屏空间 */
-.focus-page.landscape.wide .actions { width: 360rpx; gap: 26rpx; }
-.focus-page.landscape.wide .action-btn { height: 150rpx; }
-.focus-page.landscape.wide .action-icon { font-size: 36rpx; }
-.focus-page.landscape.wide .action-label { font-size: 38rpx; }
+/* 宽横屏(iPad):左右两栏。大钟原 130rpx 在左栏(~312rpx 宽)里连 MM:SS 都会溢出到
+   屏外(H:MM:SS 更宽)→ 收到 84rpx 容下 H:MM:SS 不超屏;按钮(右栏纵向有富余空间)
+   加高到 200rpx + 字号放大,修「按钮背景太小」。 */
+.focus-page.landscape.wide .actions { width: 360rpx; gap: 28rpx; }
+.focus-page.landscape.wide .action-btn { height: 200rpx; }
+.focus-page.landscape.wide .action-icon { font-size: 40rpx; }
+.focus-page.landscape.wide .action-label { font-size: 42rpx; }
 .focus-page.landscape.wide .clock-label { font-size: 26rpx; }
-.focus-page.landscape.wide .clock-num { font-size: 130rpx; }
+.focus-page.landscape.wide .clock-num { font-size: 84rpx; }
 .focus-page.landscape.wide .pause-num { font-size: 56rpx; }
 .focus-page.landscape.wide .content { font-size: 42rpx; }
 .focus-page.landscape.wide .pomo-bar-text,
