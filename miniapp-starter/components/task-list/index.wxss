@@ -183,7 +183,7 @@
   top: 0;
   right: 0;
   bottom: 0;
-  width: 120rpx;
+  width: 84rpx;
   display: flex;
   align-items: stretch;
   /* 默认完全不绘 —— .task-row 自己有 22rpx border-radius,4 个圆角切掉的
@@ -201,7 +201,7 @@
 }
 
 .task-row-swipable .swipe-action.swipe-action-double {
-  width: 240rpx;
+  width: 168rpx;
 }
 
 .swipe-btn {

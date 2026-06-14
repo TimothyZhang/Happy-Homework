@@ -13,7 +13,7 @@ function formatElapsed(ms) {
 
 // undone row 只有 "编辑" 按钮(删除入口收进编辑页内) → 120rpx;
 // done row 有 "编辑" + "继续" → 240rpx。
-const SWIPE_MAX_RPX = { done: 240, undone: 120 }
+const SWIPE_MAX_RPX = { done: 168, undone: 84 }   // 图标化后单按钮 84rpx(原 120),双按钮 168(原 240)
 
 // 顺延色块随滑动进度从红→琥珀→绿渐变:让用户看出「再滑一点就生效」。
 // progress 0 = 刚起滑(红),1 = 到阈值(绿,松手即顺延);往回滑 progress 减小,颜色退回红。
