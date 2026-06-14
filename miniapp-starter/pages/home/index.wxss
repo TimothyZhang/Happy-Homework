@@ -298,6 +298,18 @@ page {
   justify-content: center;
 }
 
+/* 横屏(iPad):金币奖励规则弹窗的字号整体调小一档(竖屏的 26-34rpx 在大屏横屏显得过大) */
+.page.is-landscape .rules-sheet { max-width: 560rpx; padding: 24rpx 30rpx 20rpx; }
+.page.is-landscape .rules-scroll { max-height: 58vh; }
+.page.is-landscape .rules-title { font-size: 28rpx; margin-bottom: 12rpx; }
+.page.is-landscape .rules-subtitle { font-size: 21rpx; margin: 2rpx 0 6rpx; }
+.page.is-landscape .rules-row { padding: 9rpx 0; }
+.page.is-landscape .rules-row__name,
+.page.is-landscape .rules-row__amt { font-size: 21rpx; }
+.page.is-landscape .rules-hint { font-size: 19rpx; padding: 12rpx 16rpx; margin-top: 12rpx; }
+.page.is-landscape .rules-divider { margin: 12rpx 0 10rpx; }
+.page.is-landscape .rules-close { height: 64rpx; font-size: 24rpx; margin-top: 16rpx; }
+
 .section-header {
   display: flex;
   align-items: center;

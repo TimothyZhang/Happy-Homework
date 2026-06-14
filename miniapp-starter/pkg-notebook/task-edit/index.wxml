@@ -104,7 +104,7 @@
       <text class="field-label">{{t.tedit_label_weekdays}}</text>
       <view class="weekday-group">
         <view wx:for="{{weekdayOptions}}" wx:key="day"
-              class="weekday-btn {{formWeekdays.indexOf(item.day) >= 0 ? 'active' : ''}}"
+              class="weekday-btn {{item.on ? 'active' : ''}}"
               data-day="{{item.day}}"
               bindtap="handleToggleWeekday">{{item.label}}</view>
       </view>

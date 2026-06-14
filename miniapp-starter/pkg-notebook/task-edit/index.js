@@ -28,16 +28,15 @@ function buildRecurrenceTypeOptions() {
   ]
 }
 
-function buildWeekdayOptions() {
-  return [
-    { day: 1, label: i18n.t('tedit_wd_1') },
-    { day: 2, label: i18n.t('tedit_wd_2') },
-    { day: 3, label: i18n.t('tedit_wd_3') },
-    { day: 4, label: i18n.t('tedit_wd_4') },
-    { day: 5, label: i18n.t('tedit_wd_5') },
-    { day: 6, label: i18n.t('tedit_wd_6') },
-    { day: 7, label: i18n.t('tedit_wd_7') }
-  ]
+// selected = 当前已选 weekday 数组([1..7])。把「是否选中」预算成 on 布尔 ——
+// WXML 里不能调用 arr.indexOf() 这类方法(会恒为 false → 选中不高亮),必须在 JS 里算好。
+function buildWeekdayOptions(selected) {
+  const sel = Array.isArray(selected) ? selected : []
+  return [1, 2, 3, 4, 5, 6, 7].map((day) => ({
+    day: day,
+    label: i18n.t('tedit_wd_' + day),
+    on: sel.indexOf(day) >= 0
+  }))
 }
 
 const INFER_DEBOUNCE_MS = 300
@@ -97,7 +96,8 @@ Page({
       t: i18n.dict(),
       modeOptions: buildModeOptions(),
       recurrenceTypeOptions: buildRecurrenceTypeOptions(),
-      weekdayOptions: buildWeekdayOptions()
+      // 用当前已选 weekday 重建(否则每次 onShow 都把选中态清掉)
+      weekdayOptions: buildWeekdayOptions(this.data.formWeekdays)
     })
   },
 
@@ -199,7 +199,7 @@ Page({
         formWeekdays: weekdays,
         modeOptions,
         recurrenceTypeOptions,
-        weekdayOptions
+        weekdayOptions: buildWeekdayOptions(weekdays)
       }, () => this.recalcEstimate())
       wx.setNavigationBarTitle({ title: i18n.t('tedit_navtitle_edit') })
       return
@@ -371,7 +371,7 @@ Page({
     if (i >= 0) cur.splice(i, 1)
     else cur.push(day)
     cur.sort((a, b) => a - b)
-    this.setData({ formWeekdays: cur })
+    this.setData({ formWeekdays: cur, weekdayOptions: buildWeekdayOptions(cur) })
   },
 
   handleStartDateChange(e) {
