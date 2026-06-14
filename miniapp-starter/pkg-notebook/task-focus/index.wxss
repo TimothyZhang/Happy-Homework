@@ -335,12 +335,14 @@
 /* 宽横屏(iPad):沿用左右两栏(focus-body row、actions 竖排在右,继承自 .landscape)。
    右栏收窄到 320rpx → 左侧倒计时/进度条恢复宽度;按钮文字 -1/3(48→32/46→30)、
    背景高度减半(200→100rpx)。 */
-.focus-page.landscape.wide .actions { width: 440rpx; gap: 20rpx; }
-.focus-page.landscape.wide .action-btn { height: 110rpx; }
-.focus-page.landscape.wide .action-icon { font-size: 32rpx; }
-.focus-page.landscape.wide .action-label { font-size: 34rpx; }
-.focus-page.landscape.wide .clock-label { font-size: 24rpx; }
-.focus-page.landscape.wide .clock-num { font-size: 72rpx; }
+/* 微调:按钮列 440→308(宽 -30%),左侧倒计时/进度条(focus-stage flex:1)随之 +~50%;
+   按钮高 110→88(-20%);大钟 72→104 用上更宽的左栏;进度条是左栏的 94% 自动跟着加宽。 */
+.focus-page.landscape.wide .actions { width: 308rpx; gap: 20rpx; }
+.focus-page.landscape.wide .action-btn { height: 88rpx; }
+.focus-page.landscape.wide .action-icon { font-size: 30rpx; }
+.focus-page.landscape.wide .action-label { font-size: 32rpx; }
+.focus-page.landscape.wide .clock-label { font-size: 26rpx; }
+.focus-page.landscape.wide .clock-num { font-size: 104rpx; }
 .focus-page.landscape.wide .content { font-size: 34rpx; }
 .focus-page.landscape.wide .pause-num { font-size: 48rpx; }
 .focus-page.landscape.wide .pomo-bar-text,
