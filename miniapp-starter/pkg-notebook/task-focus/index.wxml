@@ -37,15 +37,15 @@
     </view>
 
     <view class="actions">
-      <button wx:if="{{!isPaused}}" class="action-btn pause-action" bindtap="handlePause">
+      <view wx:if="{{!isPaused}}" class="action-btn pause-action" hover-class="action-press" bindtap="handlePause">
         <view class="action-inner"><text class="action-icon">❚❚</text><text class="action-label">{{t.tfocus_pause}}</text></view>
-      </button>
-      <button wx:else class="action-btn resume-action" bindtap="handleResume">
+      </view>
+      <view wx:else class="action-btn resume-action" hover-class="action-press" bindtap="handleResume">
         <view class="action-inner"><text class="action-icon">▶</text><text class="action-label">{{t.tfocus_resume}}</text></view>
-      </button>
-      <button class="action-btn finish-action" bindtap="handleFinish">
+      </view>
+      <view class="action-btn finish-action" hover-class="action-press" bindtap="handleFinish">
         <view class="action-inner"><text class="action-icon">✓</text><text class="action-label">{{t.tfocus_finish}}</text></view>
-      </button>
+      </view>
     </view>
   </view>
 

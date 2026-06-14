@@ -137,6 +137,9 @@
 }
 
 .action-btn::after { border: none; }
+/* action-btn 改用 <view>(WeChat <button> 在 flex 列里死活不撑满 → 椭圆/圆、文字被切);
+   view 老老实实按 width:100% 撑满整列。按下反馈用 hover-class 代替原生 button 效果。 */
+.action-press { opacity: 0.82; }
 
 .action-icon {
   font-size: 36rpx;
