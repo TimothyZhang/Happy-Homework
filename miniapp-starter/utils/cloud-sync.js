@@ -70,16 +70,44 @@ function isReadOnly() { return _readOnly }
 // "用户没文档" → 调 createInitialDoc 在已有文档的用户上又新建一条,产生
 // duplicate(同 _openid 多条 doc)。fix:只在 error===null && doc===null 时才
 // 当作"首次用户"建初始 doc;有 error 时永远不 create。
+// 给一条 user_state doc 打「数据完整度」分:已完成作业数(一次性 done + 重复 occurrence
+// done)优先,其次 task 数,再次 updatedAt。用来在「同一 _openid 有多条重复 doc」时
+// 稳定挑「最全」的那条来读 —— 历史 bug 会留下重复 doc,随机读 res.data[0] 会读到旧的
+// 那条,导致完成记录/改动看着像被回退。纯读取层选择,不删除任何 doc(非破坏性)。
+function scoreDoc(doc) {
+  const st = (doc && doc.state) || {}
+  const tasks = Array.isArray(st.tasks) ? st.tasks : []
+  let done = 0
+  for (let i = 0; i < tasks.length; i++) {
+    const t = tasks[i]
+    if (t && t.status === 'done') done++
+    const occ = (t && t.occurrences) || {}
+    for (const k in occ) { if (occ[k] && occ[k].status === 'done') done++ }
+  }
+  return { done: done, tasks: tasks.length, updatedAt: (doc && doc.updatedAt) || 0 }
+}
+function pickPrimaryDoc(docs) {
+  if (!docs || !docs.length) return null
+  if (docs.length === 1) return docs[0]
+  console.warn('[cloud-sync] multiple user_state docs for this user:', docs.length, '— picking the most complete one')
+  return docs.slice().sort((a, b) => {
+    const sa = scoreDoc(a), sb = scoreDoc(b)
+    if (sb.done !== sa.done) return sb.done - sa.done       // 完成数最多优先
+    if (sb.tasks !== sa.tasks) return sb.tasks - sa.tasks   // task 最多
+    return (sb.updatedAt || 0) - (sa.updatedAt || 0)        // 最新
+  })[0]
+}
+
 async function fetchCloudDoc() {
   const d = db()
   if (!d) { _lastError = 'wx.cloud unavailable'; return { doc: null, error: _lastError } }
   try {
-    // _openid is auto-injected by collection ACL "creator-only", so .get()
-    // returns at most one doc — this user's (除非数据库里已经有重复,
-    // 那种情况就交给后端去重处理)。
+    // _openid auto-injected by creator-only ACL → 正常只返回本用户的 doc。但历史 bug
+    // 可能给同一 _openid 留了多条重复 doc。挑「数据最全」的那条读(pickPrimaryDoc),
+    // 而不是随机 res.data[0],避免读到旧 doc 把完成记录/改动覆盖掉。
     const res = await d.collection(COLLECTION).get()
     _lastError = null
-    return { doc: (res.data && res.data[0]) || null, error: null }
+    return { doc: pickPrimaryDoc((res && res.data) || []), error: null }
   } catch (e) {
     const msg = (e && e.errMsg) || String(e)
     _lastError = msg
