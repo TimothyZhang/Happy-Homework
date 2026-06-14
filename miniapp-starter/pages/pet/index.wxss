@@ -1584,24 +1584,24 @@
   background: linear-gradient(135deg, #5b8cff 0%, #245bdb 100%);
 }
 
-/* === iPad 横屏:UI 缩小 1/3 + 场景「内容」缩小,房间背景仍铺满屏 ===
-   关键:不再缩放 .scene-clip(那会把铺满屏的背景也缩小 → 四周留白)。改为
-   只缩小「住户」(家具 + 宠物),墙/地板继续铺满整屏 → 左右不再有空白。 */
-/* 顶栏左右两块、状态浮窗各自缩小到 ~2/3(贴边不动) */
-.page.landscape .hud-name-wrap { transform: scale(0.667); transform-origin: top left; }
-.page.landscape .hud-right { transform: scale(0.667); transform-origin: top right; }
-.page.landscape .status-hud { transform: scale(0.667); transform-origin: top left; }
+/* === iPad 横屏:UI/字体缩到 0.533(在 0.667 基础上再 -20%)、屏幕边距 -30%、家具重排 ===
+   不缩 .scene-clip(会把铺满屏背景一起缩 → 四周留白),只缩「住户」(家具+宠物),墙/地板铺满屏。 */
+/* 屏幕边距 -30%:top-hud 左右内边距 28→20rpx、上 14→10rpx */
+.page.landscape .top-hud { padding: calc(env(safe-area-inset-top) + 10rpx) 20rpx 12rpx; }
+/* 顶栏左右两块、状态浮窗各缩到 0.533(贴边);状态浮窗 左 20→14rpx、再上移一点 */
+.page.landscape .hud-name-wrap { transform: scale(0.533); transform-origin: top left; }
+.page.landscape .hud-right { transform: scale(0.533); transform-origin: top right; }
+.page.landscape .status-hud { transform: scale(0.533); transform-origin: top left; left: 14rpx; top: calc(env(safe-area-inset-top) + 52rpx); }
 
-/* 场景「缩小」= 缩小家具本身(绕各自落地点底部中心,落点 left/top 不变);
-   宠物缩放在 JS 里乘 LANDSCAPE_SCALE。房间墙/地板不缩 → 始终铺满屏,无留白。 */
-.page.landscape .furni { transform: translate(-50%, -100%) scale(0.667); transform-origin: 50% 100%; }
-.page.landscape .furni-press { transform: translate(-50%, -100%) scale(0.64); }
+/* 家具缩到 0.533(绕各自落地点底部中心,落点不变);宠物缩放在 JS 里乘 LANDSCAPE_SCALE */
+.page.landscape .furni { transform: translate(-50%, -100%) scale(0.533); transform-origin: 50% 100%; }
+.page.landscape .furni-press { transform: translate(-50%, -100%) scale(0.51); }
 
-/* 书桌:横屏屏幕矮,rpx 家具按屏宽算 → 书桌实际很高,几乎占满书桌到屏底的地板,
-   宠物没地方站到它下方。解法:(1) 书桌再缩小(0.55)且绕「顶边」缩(origin 50% 0)
-   → 底边抬到约 68% 露出下方地板;(2) 深度 z(≈10+底边%)让宠物走到下方时画在书桌前。
-   配合 JS 把横屏 yMax 收到 88(避开底部 tab),宠物可在约 68%~88% 这段地板走到书桌下方。 */
-.page.landscape .room-desk { top: 52%; transform: translateX(-50%) scale(0.55); transform-origin: 50% 0; z-index: 76; }
-
-/* 沙发:横屏往下挪到前景(落点 57%→82%,≈下移 1/4~1/3 屏);z 跟随深度(10+82) */
+/* 电视:右移到沙发(left 18%)上方 */
+.page.landscape .furni-tv { left: 18%; top: 56%; }
+/* 沙发:前景(落点 82%);z 跟随深度(10+82) */
 .page.landscape .furni-sofa { top: 82%; z-index: 92; }
+
+/* 书桌:右移到浴缸(left 78%)下方;缩到 0.44 且绕顶边缩(origin 50% 0)→ 底边抬高露出
+   下方地板,配合深度 z(76)+ JS yMax 88,宠物可走到书桌下方。 */
+.page.landscape .room-desk { top: 52%; left: 78%; transform: translateX(-50%) scale(0.44); transform-origin: 50% 0; z-index: 76; }

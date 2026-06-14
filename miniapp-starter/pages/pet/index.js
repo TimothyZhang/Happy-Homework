@@ -83,8 +83,9 @@ const STAT_ITEMS = {
 
 const DEPTH_FAR = 0.58      // 脚底在 yMin(最远)时的身体缩放
 const DEPTH_NEAR = 1.0      // 脚底在 yMax(最近)时的身体缩放(放大 → 近大远小更明显)
-// iPad 横屏:宠物(连同家具,见 wxss)整体缩小到 ~2/3,配合房间铺满屏不留白。
-const LANDSCAPE_SCALE = 0.667
+// iPad 横屏:宠物(连同家具,见 wxss)整体缩小,配合房间铺满屏不留白。
+// 0.533 = 在原 0.667 基础上再 -20%(Tim:横屏各 UI/字体再缩 20%)。
+const LANDSCAPE_SCALE = 0.533
 const WALK_SPEED_PCT_PER_S = 24   // 行走速度(room% / 秒)→ 每段 transition 时长
 // 竖屏里纵向 1% 跨的像素远多于横向(屏高≈屏宽×2.2),给 dy 加权,
 // 让纵向移动 duration 变长 → 纵向走得没那么快(横向不变)。
