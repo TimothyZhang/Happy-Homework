@@ -285,8 +285,8 @@
 .focus-page.landscape .back-btn { width: 56rpx; height: 56rpx; line-height: 56rpx; font-size: 36rpx; }
 .focus-page.landscape .focus-body { flex-direction: row; align-items: center; gap: 22rpx; }
 .focus-page.landscape .focus-stage { flex: 1; min-width: 0; gap: 8rpx; }
-.focus-page.landscape .actions { flex-direction: column; width: 240rpx; flex-shrink: 0; gap: 12rpx; }
-.focus-page.landscape .action-btn { height: 72rpx; }
+.focus-page.landscape .actions { flex-direction: column; width: 320rpx; flex-shrink: 0; gap: 16rpx; }
+.focus-page.landscape .action-btn { height: 130rpx; }
 .focus-page.landscape .action-icon { font-size: 28rpx; }
 .focus-page.landscape .action-label { font-size: 28rpx; }
 .focus-page.landscape .info-block { margin-top: 0; }
@@ -327,15 +327,14 @@
 .next-cancel { background: rgba(255, 255, 255, 0.10); color: #aeb6c2; }
 .next-confirm { background: linear-gradient(135deg, #1e8e4e 0%, #0a6e3a 100%); color: #ffffff; }
 
-/* 宽横屏(iPad):左右两栏。大钟原 130rpx 在左栏(~312rpx 宽)里连 MM:SS 都会溢出到
-   屏外(H:MM:SS 更宽)→ 收到 84rpx 容下 H:MM:SS 不超屏;按钮(右栏纵向有富余空间)
-   加高到 200rpx + 字号放大,修「按钮背景太小」。 */
-.focus-page.landscape.wide .actions { width: 360rpx; gap: 28rpx; }
+/* 宽横屏(iPad):左右两栏。按钮(右栏)在窄列里偏「短」→ 把右栏加宽到 460rpx,
+   左栏大钟相应收到 56rpx(只够容下 H:MM:SS 不超屏),让按钮又宽又高更醒目。 */
+.focus-page.landscape.wide .actions { width: 460rpx; gap: 30rpx; }
 .focus-page.landscape.wide .action-btn { height: 200rpx; }
-.focus-page.landscape.wide .action-icon { font-size: 40rpx; }
-.focus-page.landscape.wide .action-label { font-size: 42rpx; }
-.focus-page.landscape.wide .clock-label { font-size: 26rpx; }
-.focus-page.landscape.wide .clock-num { font-size: 84rpx; }
+.focus-page.landscape.wide .action-icon { font-size: 46rpx; }
+.focus-page.landscape.wide .action-label { font-size: 48rpx; }
+.focus-page.landscape.wide .clock-label { font-size: 24rpx; }
+.focus-page.landscape.wide .clock-num { font-size: 56rpx; }
 .focus-page.landscape.wide .pause-num { font-size: 56rpx; }
 .focus-page.landscape.wide .content { font-size: 42rpx; }
 .focus-page.landscape.wide .pomo-bar-text,
