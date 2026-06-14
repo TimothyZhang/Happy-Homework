@@ -327,15 +327,19 @@
 .next-cancel { background: rgba(255, 255, 255, 0.10); color: #aeb6c2; }
 .next-confirm { background: linear-gradient(135deg, #1e8e4e 0%, #0a6e3a 100%); color: #ffffff; }
 
-/* 宽横屏(iPad):左右两栏。按钮(右栏)在窄列里偏「短」→ 把右栏加宽到 460rpx,
-   左栏大钟相应收到 56rpx(只够容下 H:MM:SS 不超屏),让按钮又宽又高更醒目。 */
-.focus-page.landscape.wide .actions { width: 460rpx; gap: 30rpx; }
-.focus-page.landscape.wide .action-btn { height: 200rpx; }
-.focus-page.landscape.wide .action-icon { font-size: 46rpx; }
-.focus-page.landscape.wide .action-label { font-size: 48rpx; }
-.focus-page.landscape.wide .clock-label { font-size: 24rpx; }
-.focus-page.landscape.wide .clock-num { font-size: 56rpx; }
+/* 宽横屏(iPad):改「上下排」。之前左右两栏让倒计时/进度条(左)和按钮(右)互抢宽度,
+   两头都不够(左窄、按钮又高又窄文字被切)。改成:倒计时+进度条占满整行在上、两个按钮
+   横排一行在底 —— 倒计时恢复大而宽,按钮各占半屏够宽显示完整文字。屏高足够容下(~520rpx)。 */
+.focus-page.landscape.wide .focus-body { flex-direction: column; justify-content: center; align-items: stretch; gap: 18rpx; }
+.focus-page.landscape.wide .focus-stage { flex: 0 0 auto; width: 100%; min-width: 0; gap: 14rpx; }
+.focus-page.landscape.wide .actions { flex-direction: row; width: 100%; gap: 24rpx; flex-shrink: 0; }
+.focus-page.landscape.wide .action-btn { flex: 1; width: auto; height: 140rpx; }
+.focus-page.landscape.wide .action-icon { font-size: 40rpx; }
+.focus-page.landscape.wide .action-label { font-size: 44rpx; }
+.focus-page.landscape.wide .clock-label { font-size: 26rpx; }
+.focus-page.landscape.wide .clock-num { font-size: 96rpx; }
+.focus-page.landscape.wide .content { font-size: 34rpx; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .focus-page.landscape.wide .pause-num { font-size: 56rpx; }
-.focus-page.landscape.wide .content { font-size: 42rpx; }
+.focus-page.landscape.wide .pomo-bar-wrap { width: 76%; }
 .focus-page.landscape.wide .pomo-bar-text,
 .focus-page.landscape.wide .pomo-done { font-size: 24rpx; }
