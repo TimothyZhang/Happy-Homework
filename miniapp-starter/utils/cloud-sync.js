@@ -230,20 +230,31 @@ async function hydrate() {
       return { changed: false }
     }
 
-    // Conflict: another device holds the session.
+    // Conflict: another sessionId holds the doc.
+    // 数据安全第一条铁律:本机数据「不比云端旧」时,绝不能被云端覆盖。
+    // 直接夺回 session 并把本机 state 推上云。修一个真实的数据丢失:
+    // 之前这里只要 session 不匹配就进只读、静默不推 → 本机连着几天的新数据攒着
+    // 没传上云,最后用户点「使用此设备」拉了云端旧快照、把本机新数据全覆盖丢了。
+    const localUpdatedAt0 = _store.getUpdatedAt()
+    if (localUpdatedAt0 >= (doc.updatedAt || 0)) {
+      const localState = _store.getStateForSync()
+      await claimSession(doc._id, localSessionId, localState, localUpdatedAt0)
+      _readOnly = false
+      _conflictAcknowledged = false
+      return { changed: false }   // 本机更新 → 推上去,本机不变
+    }
+
+    // 只有云端「确实更新」(另一台设备写过更新的数据)才弹冲突框让用户定夺。
     if (_conflictAcknowledged) {
-      // User already chose read-only this session — don't nag.
       _readOnly = true
       return { changed: false }
     }
-
     const choice = await showConflictModal(true)
     if (choice === 'takeover') {
+      // 走到这里说明云端比本机新,夺回并拉云端是对的(本机本来就旧)。
       await claimSession(doc._id, localSessionId, null, doc.updatedAt)
       _readOnly = false
       _conflictAcknowledged = false
-      // Always pull cloud state on takeover — that's what "switch to this
-      // device" means semantically.
       applyRemoteState(doc.state, doc.updatedAt)
       return { changed: true }
     }
@@ -357,19 +368,25 @@ async function actuallyPush(state, updatedAt) {
 }
 
 async function handleKickedOnPush(remoteDoc, attemptedState, attemptedUpdatedAt) {
+  const localSessionId = getDeviceSessionId()
+  // 本机这次要 push 的数据「不比云端旧」→ 直接夺回并推上去,绝不丢本机改动。
+  // (同上铁律:本机更新就不能被云端旧数据盖。)
+  if ((attemptedUpdatedAt || 0) >= (remoteDoc.updatedAt || 0)) {
+    await claimSession(remoteDoc._id, localSessionId, attemptedState, attemptedUpdatedAt)
+    _readOnly = false
+    _conflictAcknowledged = false
+    return
+  }
+  // 云端确实更新 → 让用户决定。
   if (_modalShowing) {
-    // Already prompting; just stay read-only.
     _readOnly = true
     return
   }
   const choice = await showConflictModal(false)
   if (choice === 'takeover') {
-    const localSessionId = getDeviceSessionId()
     await claimSession(remoteDoc._id, localSessionId, null, remoteDoc.updatedAt)
     _readOnly = false
     _conflictAcknowledged = false
-    // Take over = adopt cloud state. The local edit that triggered this push
-    // is intentionally lost — user accepted the "cloud wins" framing.
     applyRemoteState(remoteDoc.state, remoteDoc.updatedAt)
   } else {
     _readOnly = true
@@ -453,6 +470,16 @@ async function reclaim() {
       _conflictAcknowledged = false
     }
     return ok
+  }
+  // 同铁律:本机数据「不比云端旧」→ 夺回并推本机(保住本机改动);否则才拉云端。
+  const localUpdatedAt = _store.getUpdatedAt()
+  if (localUpdatedAt >= (doc.updatedAt || 0)) {
+    const localState = _store.getStateForSync()
+    const okPush = await claimSession(doc._id, localSessionId, localState, localUpdatedAt)
+    if (okPush) { _readOnly = false; _conflictAcknowledged = false; _lastError = null }
+    else { _lastError = _lastError || 'claimSession failed' }
+    console.log('[cloud-sync] reclaim: local newer, pushed up, ok=', okPush)
+    return okPush
   }
   const ok = await claimSession(doc._id, localSessionId, null, doc.updatedAt)
   if (ok) {
