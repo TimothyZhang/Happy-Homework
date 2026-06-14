@@ -35,6 +35,6 @@
 /* iPad 横屏:tab 高度再压低(在原减半基础上再 -1/3 → 34rpx),把空间让给内容 */
 /* 原来 padding-bottom 留 safe-area → 34rpx 的 item 被顶在 bar 上半截、文字不居中。
    改成把 safe-area 计入 min-height 并 align-items:center → item 在整条 bar 垂直居中。 */
-.tab-bar.landscape { padding-bottom: 0; min-height: calc(34rpx + env(safe-area-inset-bottom)); align-items: center; }
-.tab-bar.landscape .tab-item { height: 34rpx; }
-.tab-bar.landscape .tab-text { font-size: 22rpx; }
+.tab-bar.landscape { padding-bottom: 0; min-height: calc(48rpx + env(safe-area-inset-bottom)); align-items: center; }
+.tab-bar.landscape .tab-item { height: 48rpx; }
+.tab-bar.landscape .tab-text { font-size: 24rpx; }
