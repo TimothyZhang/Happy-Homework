@@ -38,16 +38,13 @@
 
     <view class="actions">
       <button wx:if="{{!isPaused}}" class="action-btn pause-action" bindtap="handlePause">
-        <text class="action-icon">❚❚</text>
-        <text class="action-label">{{t.tfocus_pause}}</text>
+        <view class="action-inner"><text class="action-icon">❚❚</text><text class="action-label">{{t.tfocus_pause}}</text></view>
       </button>
       <button wx:else class="action-btn resume-action" bindtap="handleResume">
-        <text class="action-icon">▶</text>
-        <text class="action-label">{{t.tfocus_resume}}</text>
+        <view class="action-inner"><text class="action-icon">▶</text><text class="action-label">{{t.tfocus_resume}}</text></view>
       </button>
       <button class="action-btn finish-action" bindtap="handleFinish">
-        <text class="action-icon">✓</text>
-        <text class="action-label">{{t.tfocus_finish}}</text>
+        <view class="action-inner"><text class="action-icon">✓</text><text class="action-label">{{t.tfocus_finish}}</text></view>
       </button>
     </view>
   </view>
