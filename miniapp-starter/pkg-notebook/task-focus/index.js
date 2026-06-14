@@ -203,8 +203,9 @@ Page({
         w = s.windowWidth; h = s.windowHeight
       } catch (e) {}
     }
-    // isWide:横屏且够宽(≈iPad,>=1000px)→ 按钮/大钟用更大尺寸
-    if (w && h) this.setData({ isLandscape: w > h, isWide: w > h && w >= 1000 })
+    // isWide:横屏 iPad(短边≥700,跟别处 isPad 口径一致;原来卡 w>=1000,
+    // 部分 iPad 横屏宽度不够 1000 → 没套上 .wide,按钮退回小尺寸偏短)→ 按钮/大钟加大
+    if (w && h) this.setData({ isLandscape: w > h, isWide: w > h && Math.min(w, h) >= 700 })
   },
 
   // 拉最新 task,装到 data。返回 false 表示 task 不再 doing(或不存在),

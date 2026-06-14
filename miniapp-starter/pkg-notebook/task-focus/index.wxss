@@ -323,8 +323,8 @@
 .next-confirm { background: linear-gradient(135deg, #1e8e4e 0%, #0a6e3a 100%); color: #ffffff; }
 
 /* 宽横屏(iPad):按钮背景加长(240→360rpx,+50%)、加高,大钟/内容也放大,利用大屏空间 */
-.focus-page.landscape.wide .actions { width: 360rpx; gap: 20rpx; }
-.focus-page.landscape.wide .action-btn { height: 104rpx; }
+.focus-page.landscape.wide .actions { width: 360rpx; gap: 26rpx; }
+.focus-page.landscape.wide .action-btn { height: 150rpx; }
 .focus-page.landscape.wide .action-icon { font-size: 36rpx; }
 .focus-page.landscape.wide .action-label { font-size: 38rpx; }
 .focus-page.landscape.wide .clock-label { font-size: 26rpx; }
