@@ -217,6 +217,8 @@
 .revert-swipe-btn { background: #245bdb; }
 .edit-swipe-btn { background: #44505e; }
 .delete-swipe-btn { background: #e54545; }
+/* 左滑菜单改用图标(不用文字):放大字号、白色继承自 .swipe-btn */
+.swipe-ico { font-size: 48rpx; line-height: 1; }
 
 .task-row-swipable .task-row {
   position: relative;
@@ -290,7 +292,10 @@
   padding: 34rpx 28rpx 30rpx;
 }
 .est-title { font-size: 32rpx; font-weight: 800; color: #1f2329; text-align: center; }
-.est-grid { margin-top: 24rpx; display: flex; flex-wrap: wrap; gap: 16rpx; }
+/* 预设网格放进 scroll-view 并限高 → 横屏矮屏不会把下面的「确认」按钮顶出屏外
+   (弹窗用 scroll-view + max-height 才稳,见踩坑记录) */
+.est-grid-scroll { margin-top: 24rpx; max-height: 46vh; }
+.est-grid { display: flex; flex-wrap: wrap; gap: 16rpx; }
 .est-opt {
   width: calc((100% - 32rpx) / 3);
   box-sizing: border-box; height: 92rpx; border-radius: 18rpx;

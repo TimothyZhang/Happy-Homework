@@ -10,7 +10,7 @@
               data-task-id="{{item.taskId || item.id}}"
               data-occurrence-date="{{item.occurrenceDate}}"
               data-task-mode="{{item.taskMode}}"
-              catchtap="handleEdit">{{t.tl_edit}}</view>
+              catchtap="handleEdit"><text class="swipe-ico">✎</text></view>
       </view>
       <view wx:else class="swipe-action swipe-action-double">
         <view class="swipe-btn edit-swipe-btn"
@@ -18,12 +18,12 @@
               data-task-id="{{item.taskId || item.id}}"
               data-occurrence-date="{{item.occurrenceDate}}"
               data-task-mode="{{item.taskMode}}"
-              catchtap="handleEdit">{{t.tl_edit}}</view>
+              catchtap="handleEdit"><text class="swipe-ico">✎</text></view>
         <view class="swipe-btn revert-swipe-btn"
               data-id="{{item.id}}"
               data-task-id="{{item.taskId || item.id}}"
               data-occurrence-date="{{item.occurrenceDate}}"
-              catchtap="handleRevert">{{t.tl_resume}}</view>
+              catchtap="handleRevert"><text class="swipe-ico">↺</text></view>
       </view>
 
       <!-- 顺延色块:垫在 row 底层,卡片滑动露出。右滑→下一天(文字靠左)、左滑→
@@ -81,11 +81,13 @@
 <view wx:if="{{showEstPopup}}" class="est-mask" catchtap="closeEstPopup" catchtouchmove="noop">
   <view class="est-sheet" catchtap="noop" catchtouchmove="noop">
     <view class="est-title">{{t.tl_est_title}}</view>
-    <view class="est-grid">
-      <view wx:for="{{estPresets}}" wx:key="*this"
-            class="est-opt {{estCurrent === item ? 'on' : ''}}"
-            data-min="{{item}}" catchtap="pickEst" hover-class="est-opt-hover">{{item}}<text class="est-unit">{{t.tl_est_unit}}</text></view>
-    </view>
+    <scroll-view scroll-y class="est-grid-scroll">
+      <view class="est-grid">
+        <view wx:for="{{estPresets}}" wx:key="*this"
+              class="est-opt {{estCurrent === item ? 'on' : ''}}"
+              data-min="{{item}}" catchtap="pickEst" hover-class="est-opt-hover">{{item}}<text class="est-unit">{{t.tl_est_unit}}</text></view>
+      </view>
+    </scroll-view>
     <view class="est-custom">
       <input class="est-input" type="number" placeholder="{{t.tl_est_placeholder}}" value="{{estInput}}"
              bindinput="onEstInput" bindconfirm="confirmEst" confirm-type="done" />
