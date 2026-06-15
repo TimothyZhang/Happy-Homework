@@ -80,6 +80,10 @@ Page({
     const drafts = (job.drafts || []).map((draft) => ({
       ...draft,
       dueDate: draft.dueDate || today,
+      // WXML {{}} 不支持 subjectOptions.indexOf(...) 方法调用(静默求值失败 → picker
+      // 永远停在第 0 项)。在 JS 里预算好 subjectIndex,WXML 直接读字段。
+      // 识别出的 subject 不在选项里(含空串)→ -1,WXML 兜底回 0(未识别)。
+      subjectIndex: subjectOptions.indexOf(draft.subject),
       confidenceClass: getConfidenceClass(draft.confidence)
     }))
 
@@ -108,9 +112,15 @@ Page({
 
   handleSubjectChange(event) {
     const { index } = event.currentTarget.dataset
-    const value = subjectOptions[event.detail.value]
+    const optIndex = Number(event.detail.value)
+    const value = subjectOptions[optIndex]
     const nextPath = value === '未识别' ? '' : value
-    this.setData({ [`drafts[${index}].subject`]: nextPath })
+    // subject 改了,subjectIndex 跟着改(picker 的 detail.value 就是选中下标),
+    // 否则下次渲染 picker 又回到旧 index。
+    this.setData({
+      [`drafts[${index}].subject`]: nextPath,
+      [`drafts[${index}].subjectIndex`]: optIndex
+    })
   },
 
   handleContentInput(event) {
@@ -141,6 +151,7 @@ Page({
     const drafts = this.data.drafts.concat({
       id: `draft-${Date.now()}`,
       subject: '',
+      subjectIndex: 0,
       content: '',
       rawText: '',
       dueDate: store.todayStr(),

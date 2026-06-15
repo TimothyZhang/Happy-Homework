@@ -39,7 +39,7 @@
 
       <view class="field field-inline">
         <text class="field-label">{{t.ocrres_subject_label}}</text>
-        <picker class="field-control" mode="selector" range="{{subjectOptions}}" value="{{item.subject ? subjectOptions.indexOf(item.subject) : 0}}" data-index="{{index}}" bindchange="handleSubjectChange">
+        <picker class="field-control" mode="selector" range="{{subjectOptions}}" value="{{item.subjectIndex >= 0 ? item.subjectIndex : 0}}" data-index="{{index}}" bindchange="handleSubjectChange">
           <view class="picker draft-picker">{{item.subject || t.ocrres_subject_placeholder}}</view>
         </picker>
       </view>
