@@ -1267,6 +1267,8 @@ function backupLocalState(reason) {
   }
   writeBackups(list)
   _lastAutoBackupMs = at
+  // 这份是「新的」快照(没被去重) → 也推一份上云(best-effort),设备丢了能恢复。
+  try { require('./cloud-backup').pushBackup(rec) } catch (e) { /* 静默,绝不阻塞 */ }
   return rec
 }
 
@@ -1289,9 +1291,16 @@ function restoreBackup(at) {
   const list = readBackups()
   const rec = list.find((r) => r.at === at)
   if (!rec || !rec.state) return false
+  return restoreFromState(rec.state)
+}
+
+// 用一份任意来源的 synced-fields 快照覆盖当前(本地备份 / 云端备份都走这条)。
+// 覆盖前先备份当前(pre-restore,可反悔),bump updatedAt 让它赢 last-write 推上云。
+function restoreFromState(syncFields) {
+  if (!syncFields || typeof syncFields !== 'object') return false
   backupLocalState('pre-restore')
   const cur = loadState()
-  const next = Object.assign({}, cur, rec.state, { updatedAt: Date.now() })
+  const next = Object.assign({}, cur, syncFields, { updatedAt: Date.now() })
   saveState(next)
   return true
 }
@@ -3557,6 +3566,7 @@ module.exports = {
   backupLocalState,
   listBackups,
   restoreBackup,
+  restoreFromState,
   // reward rules (read-only constants exposed for UI display + tests)
   REWARD_TASK_OVERDUE,
   REWARD_TASK_TODAY,

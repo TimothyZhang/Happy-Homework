@@ -73,6 +73,11 @@ const DICT = {
     bk_restore_content: 'This overwrites current data with the snapshot. Current data is backed up first so you can undo. Continue?',
     bk_restore_confirm: 'Restore',
     bk_restored: 'Restored',
+    // cloud backups (survive device loss / reinstall)
+    cbk_title: 'Cloud backups',
+    cbk_sub: 'Also saved to the cloud — restore even after reinstalling or switching devices.',
+    cbk_empty: 'No cloud backups yet',
+    cbk_restore_title: 'Restore from this cloud backup?',
     // login history (settings + admin)
     ll_title: 'Login history',
     ll_sub: 'Recent logins on this account — time / version / device.',
@@ -147,6 +152,11 @@ const DICT = {
     bk_restore_content: '会用这份快照覆盖当前数据。覆盖前会自动再备份当前数据，可以再恢复回来。继续？',
     bk_restore_confirm: '恢复',
     bk_restored: '已恢复',
+    // 云端备份(换设备 / 重装也能恢复)
+    cbk_title: '云端备份',
+    cbk_sub: '同时存到云端 —— 换设备 / 重装登录后也能恢复。',
+    cbk_empty: '暂无云端备份',
+    cbk_restore_title: '从云端恢复这份?',
     // 登录记录(设置 + admin)
     ll_title: '登录记录',
     ll_sub: '本账号最近的登录 —— 时间 / 版本 / 设备。',

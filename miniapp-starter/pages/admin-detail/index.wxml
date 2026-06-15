@@ -115,6 +115,22 @@
       </view>
     </view>
 
+    <!-- 云端备份(该用户) -->
+    <view class="card section-card">
+      <view class="section-header">
+        <text class="section-title">☁️ {{t.cbk_title}}</text>
+      </view>
+      <view wx:if="{{cloudBackups.length === 0}}" class="empty-block">{{t.cbk_empty}}</view>
+      <view wx:else class="log-list">
+        <view wx:for="{{cloudBackups}}" wx:key="at" class="login-row">
+          <view class="login-main">
+            <text class="login-time">{{item.timeLabel}}</text>
+            <text class="login-meta">{{item.reasonLabel}} · {{item.metaLabel}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
     <!-- 调整金币 -->
     <view class="card section-card">
       <view class="section-header">

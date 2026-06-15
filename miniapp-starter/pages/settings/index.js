@@ -1,6 +1,7 @@
 const i18n = require('../../utils/i18n')
 const cloudSync = require('../../utils/cloud-sync')
 const store = require('../../utils/store')
+const cloudBackup = require('../../utils/cloud-backup')
 
 function pad2(n) { return `${n}`.padStart(2, '0') }
 // 时间显示成「MM-DD HH:mm」—— 备份/登录可能是几天前的,相对时间不够明确。
@@ -23,6 +24,9 @@ Page({
     syncStatus: { status: 'unknown', readOnly: false, lastSyncDisplay: '', lastError: null },
     syncing: false,
     backups: [],
+    cloudBackups: [],
+    cloudBackupsLoading: false,
+    cloudBackupsLoaded: false,
     logins: [],
     loginsLoading: false,
     loginsLoaded: false
@@ -36,8 +40,55 @@ Page({
     })
     wx.setNavigationBarTitle({ title: i18n.t('set_title') })
     this.refreshBackups()
+    if (!this.data.cloudBackupsLoaded) this.loadCloudBackups()
     if (!this.data.loginsLoaded) this.loadLogins()
     cloudSync.hydrateIfStale().then(() => this.refreshSyncStatus()).catch(() => {})
+  },
+
+  // 拉云端备份列表(元数据)。
+  loadCloudBackups() {
+    if (this.data.cloudBackupsLoading) return
+    this.setData({ cloudBackupsLoading: true })
+    const reasonKey = { 'pre-sync': 'bk_reason_presync', 'daily': 'bk_reason_daily', 'pre-restore': 'bk_reason_prerestore', 'manual': 'bk_reason_manual' }
+    cloudBackup.listMine(30).then((rows) => {
+      const list = (rows || []).map((r) => ({
+        id: r._id,
+        timeLabel: fmtBackupTime(r.at || r.clientAt || 0),
+        reasonLabel: i18n.t(reasonKey[r.reason] || 'bk_reason_manual'),
+        metaLabel: i18n.t('bk_meta', { tasks: r.taskCount || 0, done: r.doneCount || 0 })
+      }))
+      this.setData({ cloudBackups: list, cloudBackupsLoaded: true, cloudBackupsLoading: false })
+    }).catch(() => this.setData({ cloudBackupsLoaded: true, cloudBackupsLoading: false }))
+  },
+
+  handleRefreshCloudBackups() {
+    this.loadCloudBackups()
+  },
+
+  handleRestoreCloudBackup(e) {
+    const id = e.currentTarget.dataset.id
+    if (!id) return
+    wx.showModal({
+      title: i18n.t('cbk_restore_title'),
+      content: i18n.t('bk_restore_content'),
+      confirmText: i18n.t('bk_restore_confirm'),
+      cancelText: i18n.t('prof_cancel'),
+      success: (r) => {
+        if (!r.confirm) return
+        wx.showLoading({ title: i18n.t('ll_loading'), mask: true })
+        cloudBackup.getMine(id).then((backup) => {
+          wx.hideLoading()
+          const okState = backup && backup.state
+          const ok = okState ? store.restoreFromState(backup.state) : false
+          this.refreshBackups()
+          this.refreshSyncStatus()
+          wx.showToast({ title: ok ? i18n.t('bk_restored') : i18n.t('prof_unknown_err'), icon: ok ? 'success' : 'none', duration: 1800 })
+        }).catch(() => {
+          wx.hideLoading()
+          wx.showToast({ title: i18n.t('prof_unknown_err'), icon: 'none' })
+        })
+      }
+    })
   },
 
   // 拉自己的登录记录(adminPanel.listMyLogins,best-effort)。

@@ -47,6 +47,9 @@ const LIST_LIMIT_MAX = 1000
 const LOGIN_LIST_LIMIT_DEFAULT = 50
 // 去重窗口:同一 openid+sessionId+envVersion 10 分钟内只记一条,挡反复切前台刷屏。
 const LOGIN_DEDUP_MS = 10 * 60 * 1000
+const BACKUP_COLLECTION = 'state_backups'  // 云端备份:本地快照也存一份上云,设备丢了能恢复
+const BACKUP_KEEP_CLOUD = 12               // 每用户最多留几份(state 可能不小,别堆太多)
+const BACKUP_LIST_LIMIT_DEFAULT = 30
 const DELTA_MAX_ABS = 1000000
 const INBOX_CLAIM_LIMIT = 200       // 单次 claim 最多拉多少条 inbox 记录
 
@@ -127,6 +130,20 @@ exports.main = async (event = {}) => {
     }
   }
 
+  // 云端备份:存一份 / 看自己的列表 / 取某份完整 state(恢复用)。任何用户对自己的。
+  if (action === 'saveBackup') {
+    try { return await saveBackup({ openid: callerOpenid, backup: event.backup }) }
+    catch (e) { console.error('[adminPanel] saveBackup failed', e); return { ok: false, reason: 'internal_error', message: (e && e.errMsg) || String(e) } }
+  }
+  if (action === 'listMyBackups') {
+    try { return await listMyBackups(callerOpenid, event) }
+    catch (e) { console.error('[adminPanel] listMyBackups failed', e); return { ok: false, reason: 'internal_error', message: (e && e.errMsg) || String(e) } }
+  }
+  if (action === 'getMyBackup') {
+    try { return await getBackupOwned(callerOpenid, event) }
+    catch (e) { console.error('[adminPanel] getMyBackup failed', e); return { ok: false, reason: 'internal_error', message: (e && e.errMsg) || String(e) } }
+  }
+
   if (!isAdmin(callerOpenid)) {
     return { ok: false, reason: 'not_admin' }
   }
@@ -156,6 +173,12 @@ exports.main = async (event = {}) => {
     }
     if (action === 'listLogins') {
       return await listLogins(event)
+    }
+    if (action === 'listUserBackups') {
+      return await listUserBackups(event)
+    }
+    if (action === 'getUserBackup') {
+      return await getUserBackup(event)
     }
     return { ok: false, reason: 'unknown_action' }
   } catch (e) {
@@ -649,4 +672,105 @@ async function listLogins(event) {
     if (c && typeof c.total === 'number') total = c.total
   } catch (e) { /* count 失败不阻塞 */ }
   return { ok: true, rows, total, limit, skip }
+}
+
+// === 云端备份 ===
+// 客户端每生成一份「新的」本地快照(同步前 / 每日 / 手动),也把它推一份上云。
+// 设备丢了 / 重装,登录后还能从云端把历史快照捞回来恢复。注意:pre-sync 那份是
+// 「被覆盖前的本机数据」,云端 user_state 里并没有,所以必须客户端把 state 传上来,
+// 不能让云函数去 copy user_state(那会拿到覆盖后的新数据,正好弄反)。
+const BACKUP_META_FIELDS = { at: true, updatedAt: true, reason: true, taskCount: true, doneCount: true, clientAt: true, _openid: true }
+
+async function saveBackup({ openid, backup }) {
+  if (!openid) return { ok: false, reason: 'no_openid' }
+  const b = backup || {}
+  if (!b.state || typeof b.state !== 'object') return { ok: false, reason: 'invalid_args' }
+  await ensureCollection(BACKUP_COLLECTION)
+  const db = cloud.database()
+  const updatedAt = Number(b.updatedAt) || 0
+  // 去重:同一 _openid + updatedAt(= 同一份 state 版本)存过就跳过。
+  try {
+    const dup = await db.collection(BACKUP_COLLECTION).where({ _openid: openid, updatedAt }).count()
+    if (dup && dup.total > 0) { await trimBackups(openid); return { ok: true, deduped: true } }
+  } catch (e) { /* count 失败就照常存 */ }
+  await db.collection(BACKUP_COLLECTION).add({
+    data: {
+      _openid: openid,
+      at: Date.now(),
+      updatedAt,
+      reason: cleanFeedbackStr(b.reason, 20),
+      taskCount: Number(b.taskCount) || 0,
+      doneCount: Number(b.doneCount) || 0,
+      clientAt: Number(b.clientAt) || 0,
+      state: b.state
+    }
+  })
+  try { await trimBackups(openid) } catch (e) { /* 裁剪失败不致命 */ }
+  return { ok: true }
+}
+
+// 只保留每用户最近 BACKUP_KEEP_CLOUD 份,超出的(最老的)删掉。
+async function trimBackups(openid) {
+  const db = cloud.database()
+  const res = await db.collection(BACKUP_COLLECTION)
+    .where({ _openid: openid })
+    .orderBy('at', 'desc')
+    .skip(BACKUP_KEEP_CLOUD)
+    .limit(200)
+    .field({ _id: true })
+    .get()
+  const rows = res.data || []
+  for (const r of rows) {
+    try { await db.collection(BACKUP_COLLECTION).doc(r._id).remove() } catch (e) { /* ignore */ }
+  }
+}
+
+async function listMyBackups(openid, event) {
+  if (!openid) return { ok: false, reason: 'no_openid' }
+  await ensureCollection(BACKUP_COLLECTION)
+  const db = cloud.database()
+  const limit = Math.min(50, Math.max(1, Number(event.limit) || BACKUP_LIST_LIMIT_DEFAULT))
+  const res = await db.collection(BACKUP_COLLECTION)
+    .where({ _openid: openid })
+    .orderBy('at', 'desc')
+    .field(BACKUP_META_FIELDS)   // 列表不回传 heavy state
+    .limit(limit)
+    .get()
+  return { ok: true, rows: res.data || [] }
+}
+
+// 取自己某份备份的完整 state(恢复用)。云函数 admin SDK 绕过 ACL,必须手动校验属主。
+async function getBackupOwned(openid, event) {
+  if (!openid) return { ok: false, reason: 'no_openid' }
+  const id = (event.id || '').trim()
+  if (!id) return { ok: false, reason: 'invalid_args' }
+  const db = cloud.database()
+  let d = null
+  try { const res = await db.collection(BACKUP_COLLECTION).doc(id).get(); d = res && res.data } catch (e) { return { ok: false, reason: 'not_found' } }
+  if (!d) return { ok: false, reason: 'not_found' }
+  if (d._openid !== openid) return { ok: false, reason: 'forbidden' }
+  return { ok: true, backup: { at: d.at, updatedAt: d.updatedAt, reason: d.reason, taskCount: d.taskCount, doneCount: d.doneCount, state: d.state } }
+}
+
+// 管理员看某用户的云端备份列表(元数据,巡检 / 诊断)。
+async function listUserBackups(event) {
+  await ensureCollection(BACKUP_COLLECTION)
+  const db = cloud.database()
+  const target = (event.targetOpenid || '').trim()
+  const limit = Math.min(100, Math.max(1, Number(event.limit) || BACKUP_LIST_LIMIT_DEFAULT))
+  let q = db.collection(BACKUP_COLLECTION)
+  if (target) q = q.where({ _openid: target })
+  const res = await q.orderBy('at', 'desc').field(BACKUP_META_FIELDS).limit(limit).get()
+  return { ok: true, rows: res.data || [] }
+}
+
+// 管理员取某份备份完整内容(诊断用)。
+async function getUserBackup(event) {
+  const id = (event.id || '').trim()
+  if (!id) return { ok: false, reason: 'invalid_args' }
+  const db = cloud.database()
+  let d = null
+  try { const res = await db.collection(BACKUP_COLLECTION).doc(id).get(); d = res && res.data } catch (e) { return { ok: false, reason: 'not_found' } }
+  if (!d) return { ok: false, reason: 'not_found' }
+  return { ok: true, backup: d }
 }

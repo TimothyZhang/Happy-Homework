@@ -76,6 +76,7 @@ Page({
     ledgerTotal: 0,
     ledgerLoading: false,
     logins: [],
+    cloudBackups: [],
     t: {},
     canUseCloud: typeof wx.cloud !== 'undefined'
   },
@@ -102,7 +103,7 @@ Page({
     }
     this.setData({ loading: true, error: '' })
     try {
-      const [userRes, logRes, ledgerRes, loginRes] = await Promise.all([
+      const [userRes, logRes, ledgerRes, loginRes, cbkRes] = await Promise.all([
         wx.cloud.callFunction({
           name: 'adminPanel',
           data: { action: 'getUser', openid: this.data.openid }
@@ -118,6 +119,10 @@ Page({
         wx.cloud.callFunction({
           name: 'adminPanel',
           data: { action: 'listLogins', targetOpenid: this.data.openid, limit: 50 }
+        }),
+        wx.cloud.callFunction({
+          name: 'adminPanel',
+          data: { action: 'listUserBackups', targetOpenid: this.data.openid, limit: 30 }
         })
       ])
 
@@ -182,11 +187,21 @@ Page({
         sessionShort: shortenOpenid(r.sessionId || '')
       }))
 
+      const REASON_KEYS = { 'pre-sync': 'bk_reason_presync', 'daily': 'bk_reason_daily', 'pre-restore': 'bk_reason_prerestore', 'manual': 'bk_reason_manual' }
+      const cbkResult = (cbkRes && cbkRes.result) || {}
+      const cloudBackups = (cbkResult.rows || []).map((r) => ({
+        at: r.at,
+        timeLabel: formatAbsTime(r.at || r.clientAt),
+        reasonLabel: i18n.t(REASON_KEYS[r.reason] || 'bk_reason_manual'),
+        metaLabel: i18n.t('bk_meta', { tasks: r.taskCount || 0, done: r.doneCount || 0 })
+      }))
+
       this.setData({
         loading: false,
         summary,
         state,
         logins,
+        cloudBackups,
         sessionId: userResult.sessionId || '',
         updatedAtDisplay: formatAbsTime(userResult.updatedAt),
         claimedAtDisplay: formatAbsTime(userResult.claimedAt),
