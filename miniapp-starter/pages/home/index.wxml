@@ -1,5 +1,11 @@
 <page-meta disable-scroll="true" />
 <view class="page {{isLandscape ? 'is-landscape' : ''}}">
+  <view wx:if="{{syncBanner.show}}"
+        class="sync-banner {{syncBanner.status}}"
+        hover-class="sync-banner-hover"
+        bindtap="handleSyncBannerTap">
+    <text class="sync-banner-text">{{syncBanner.busy ? t.home_sync_fixing : syncBanner.text}}</text>
+  </view>
   <scroll-view scroll-y="{{!disableScroll && !swipeMenuOpen}}"
                class="scroll-area"
                show-scrollbar="{{false}}">

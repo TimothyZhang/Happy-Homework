@@ -1,5 +1,6 @@
 const store = require('../../utils/store')
 const i18n = require('../../utils/i18n')
+const cloudSync = require('../../utils/cloud-sync')
 
 const SUBJECT_OPTIONS = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
 
@@ -403,12 +404,42 @@ Page({
     wx.redirectTo({ url: '/pages/ocr-import/index' })
   },
 
+  // 只读守卫:此设备只读(数据正在另一台设备上使用)时,先让用户「切回此设备」
+  // 再编辑 —— 否则改动只落本地、用户以为存上了,之后可能被覆盖(2026-06 丢数据
+  // 的场景)。切回(reclaim)按铁律:本机不旧于云端就把本机推上去,否则才拉云端
+  // (拉之前 store 会自动备份本机)。切回成功后再继续保存。
+  _guardWritable(proceed) {
+    if (!cloudSync.isReadOnly()) { proceed(); return }
+    wx.showModal({
+      title: i18n.t('prof_switch_title'),
+      content: i18n.t('prof_switch_content'),
+      confirmText: i18n.t('prof_switch_confirm'),
+      cancelText: i18n.t('prof_cancel'),
+      success: async (r) => {
+        if (!r.confirm) return
+        let ok = false
+        try { ok = await cloudSync.reclaim() } catch (e) { ok = false }
+        if (ok && !cloudSync.isReadOnly()) {
+          proceed()
+        } else {
+          wx.showToast({ title: i18n.t('prof_switch_fail'), icon: 'none', duration: 2000 })
+        }
+      }
+    })
+  },
+
   handleSave() {
     const d = this.data
     if (!d.formContent || !d.formContent.trim()) {
       wx.showToast({ title: i18n.t('tedit_toast_no_content'), icon: 'none' })
       return
     }
+    // 空内容校验放在守卫前(不让无效输入先弹切回框);通过校验后再守卫 + 落库。
+    this._guardWritable(() => this._doSave())
+  },
+
+  _doSave() {
+    const d = this.data
     const payload = {
       content: d.formContent.trim(),
       estimatedMinutes: d.formMinutes ? Number(d.formMinutes) : 0,
@@ -449,6 +480,11 @@ Page({
 
   handleDelete() {
     if (!this.data.isEdit) return
+    // 删除也是写操作 —— 只读时先切回此设备(守卫一次,再走正常的删除确认框)。
+    this._guardWritable(() => this._doDelete())
+  },
+
+  _doDelete() {
     // "编辑此次"模式:只删该天的 occurrence,原 recurring 不动。
     if (this.data.isInstanceDetach) {
       const taskId = this.data.originalTaskId

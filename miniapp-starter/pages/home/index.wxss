@@ -52,6 +52,21 @@ page {
   padding: 0;
 }
 
+/* === 同步告警横幅(只读 / 出错 / 未上传)=== 置顶、可点一键修。
+   flex-shrink:0 保证它不被 scroll-area 挤没;scroll-area 是 flex:0 1 auto
+   会自动让出这条的高度。 */
+.sync-banner {
+  flex-shrink: 0;
+  padding: 18rpx 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sync-banner-text { font-size: 25rpx; font-weight: 700; line-height: 1.35; text-align: center; }
+.sync-banner.readonly, .sync-banner.error { background: #fff1f0; color: #d4380d; box-shadow: inset 0 -2rpx 0 rgba(212, 56, 13, 0.12); }
+.sync-banner.unsynced { background: #fff7e6; color: #ad6800; box-shadow: inset 0 -2rpx 0 rgba(173, 104, 0, 0.12); }
+.sync-banner-hover { opacity: 0.82; }
+
 .card {
   background: #ffffff;
   border-radius: 28rpx;

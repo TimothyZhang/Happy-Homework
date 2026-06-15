@@ -1147,6 +1147,13 @@ function loadState() {
 function saveState(state) {
   _stateCache = state
   wx.setStorageSync(STORAGE_KEY, state)
+  // 每天至少留一份本地快照(12h 节流,纯内存判断不额外读存储)。首次保存时
+  // _lastAutoBackupMs=0 会先备一份,等于每次启动也留底。
+  const nowMs = Date.now()
+  if (nowMs - _lastAutoBackupMs > 12 * 60 * 60 * 1000) {
+    _lastAutoBackupMs = nowMs   // 先占位防重入(backupLocalState 不回调 saveState)
+    try { backupLocalState('daily') } catch (e) { console.warn('daily backup failed', e) }
+  }
   // Push synced subset to cloud (debounced inside cloud-sync). coins 现在
   // 在 SYNC_FIELDS 里,随 state 一起整包推。
   cloudSync.pushState(pickSyncFields(state), state.updatedAt)
@@ -1165,6 +1172,9 @@ function pickSyncFields(state) {
 // 客户端 = truth 架构下,hydrate 只在"另一台设备写过 / 本机 storage 被清"
 // 时才会接到云端比本地新的 state — 那种情况就用云端的 snapshot 覆盖本地。
 function applyHydratedState(remoteSyncedFields, remoteUpdatedAt) {
+  // 覆盖前先备份当前本地 state —— 这是本地数据「唯一」被云端整包覆盖的入口。
+  // 万一拉下来的是旧快照盖了本机新数据,用户可在「我」Tab → 数据备份里恢复。
+  try { backupLocalState('pre-sync') } catch (e) { console.warn('pre-sync backup failed', e) }
   const cur = loadState()
   const next = {
     ...cur,
@@ -1181,6 +1191,109 @@ function getStateForSync() {
 
 function getUpdatedAt() {
   return loadState().updatedAt || 0
+}
+
+// === Local backup safety net === //
+//
+// 同步前先备份。applyHydratedState 是本地数据「唯一」会被云端整包覆盖的地方,
+// 覆盖前先把当前本地 state 存一份滚动快照 —— 万一云端拉下来的是旧快照把本机新
+// 数据盖了(2026-06 那次丢数据就是这样),还能从备份里捞回来(我 Tab → 数据备份)。
+// 另外 saveState 里每 12h 至少再留一份('daily'),防本地存储损坏等其它丢数据路径。
+const BACKUP_STORAGE_KEY = STORAGE_KEY + '_synced_backups'
+const BACKUP_KEEP = 15
+let _lastAutoBackupMs = 0
+
+function countDoneInState(state) {
+  const tasks = Array.isArray(state && state.tasks) ? state.tasks : []
+  let done = 0
+  for (const t of tasks) {
+    if (t && t.status === 'done') done++
+    const occ = (t && t.occurrences) || {}
+    for (const k in occ) { if (occ[k] && occ[k].status === 'done') done++ }
+  }
+  return done
+}
+
+function readBackups() {
+  try {
+    const arr = wx.getStorageSync(BACKUP_STORAGE_KEY)
+    return Array.isArray(arr) ? arr : []
+  } catch (_) { return [] }
+}
+
+function writeBackups(arr) {
+  try { wx.setStorageSync(BACKUP_STORAGE_KEY, arr) } catch (e) { console.warn('writeBackups failed', e) }
+}
+
+// Snapshot current local synced fields into the rolling backup list (newest
+// first). Dedup: if the newest existing backup is identical (same updatedAt +
+// taskCount + doneCount) we just refresh its timestamp instead of growing the
+// list. Returns the stored record.
+function backupLocalState(reason) {
+  const state = loadState()
+  const list = readBackups()
+  const top = list[0]
+  const snapUpd = state.updatedAt || 0
+  const snapTaskCount = Array.isArray(state.tasks) ? state.tasks.length : 0
+  const snapDone = countDoneInState(state)
+  if (top && top.updatedAt === snapUpd && top.taskCount === snapTaskCount && top.doneCount === snapDone) {
+    // 与最新快照完全一致(updatedAt 每次保存都会变,相等 = 状态没动)→ 不增长、
+    // 也不动它的 `at`(否则之前返回的 at 句柄会失效)。只更新节流时间戳。
+    _lastAutoBackupMs = Date.now()
+    return top
+  }
+  // `at` 既是显示时间也是恢复主键 —— 用严格递增保证唯一(快速连续调用同毫秒时 +1)。
+  let at = Date.now()
+  if (top && at <= top.at) at = top.at + 1
+  const rec = {
+    at,
+    reason: reason || 'manual',
+    updatedAt: snapUpd,
+    taskCount: snapTaskCount,
+    doneCount: snapDone,
+    state: clone(pickSyncFields(state))
+  }
+  list.unshift(rec)
+  // 超额裁剪时,优先淘汰最老的「非关键」备份(daily/manual),尽量保住
+  // pre-sync / pre-restore —— 那两类是「数据被覆盖前的最后一份」,最值钱,
+  // 不能被频繁开 app 产生的 daily 快照挤掉。
+  while (list.length > BACKUP_KEEP) {
+    let idx = -1
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i].reason === 'daily' || list[i].reason === 'manual') { idx = i; break }
+    }
+    if (idx === -1) idx = list.length - 1   // 全是关键备份 → 只能删最老的
+    list.splice(idx, 1)
+  }
+  writeBackups(list)
+  _lastAutoBackupMs = at
+  return rec
+}
+
+// Lightweight metadata for the settings UI (omit the heavy `state` blob).
+function listBackups() {
+  return readBackups().map((r) => ({
+    at: r.at,
+    reason: r.reason,
+    updatedAt: r.updatedAt || 0,
+    taskCount: r.taskCount || 0,
+    doneCount: r.doneCount || 0
+  }))
+}
+
+// Restore a backup by its `at` timestamp. Backs up the CURRENT state first
+// (reason 'pre-restore') so an accidental restore is itself reversible, then
+// overlays the snapshot, bumps updatedAt to now so it wins last-write-wins and
+// pushes up to cloud. Returns true on success.
+function restoreBackup(at) {
+  const list = readBackups()
+  const rec = list.find((r) => r.at === at)
+  if (!rec || !rec.state) return false
+  backupLocalState('pre-restore')
+  const cur = loadState()
+  const next = Object.assign({}, cur, rec.state, { updatedAt: Date.now() })
+  saveState(next)
+  return true
 }
 
 // === Task scheduling === //
@@ -3440,6 +3553,10 @@ module.exports = {
   getStateForSync,
   getUpdatedAt,
   consumeV2V3MigrationFlag,
+  // local backup safety net (同步前先备份 + 每日快照 + 恢复)
+  backupLocalState,
+  listBackups,
+  restoreBackup,
   // reward rules (read-only constants exposed for UI display + tests)
   REWARD_TASK_OVERDUE,
   REWARD_TASK_TODAY,

@@ -25,6 +25,9 @@ let _conflictAcknowledged = false  // user dismissed conflict modal this session
 let _modalShowing = false          // dedup overlapping modal triggers
 let _lastHydrateAt = 0
 let _lastPushAt = 0          // ms — most recent successful actuallyPush
+let _cloudUpdatedAt = 0      // updatedAt value we KNOW is on cloud (learned via
+                             // fetch, or set when we write/pull). local > this
+                             // ⇒ local edits not yet on cloud ("未同步").
 let _lastError = null        // last push/hydrate error message; null = healthy
 let _pushTimer = null
 let _pendingPushState = null
@@ -107,7 +110,9 @@ async function fetchCloudDoc() {
     // 而不是随机 res.data[0],避免读到旧 doc 把完成记录/改动覆盖掉。
     const res = await d.collection(COLLECTION).get()
     _lastError = null
-    return { doc: pickPrimaryDoc((res && res.data) || []), error: null }
+    const picked = pickPrimaryDoc((res && res.data) || [])
+    if (picked) _cloudUpdatedAt = picked.updatedAt || 0   // 学到云端当前 updatedAt
+    return { doc: picked, error: null }
   } catch (e) {
     const msg = (e && e.errMsg) || String(e)
     _lastError = msg
@@ -130,6 +135,7 @@ async function createInitialDoc(localSessionId, state, updatedAt) {
     })
     _lastError = null
     _lastPushAt = Date.now()
+    _cloudUpdatedAt = updatedAt || 0
     return true
   } catch (e) {
     _lastError = (e && e.errMsg) || String(e)
@@ -150,6 +156,7 @@ async function claimSession(docId, localSessionId, state, updatedAt) {
         ...(state ? { state, updatedAt } : {})
       }
     })
+    if (state) { _cloudUpdatedAt = updatedAt || 0; _lastPushAt = Date.now() }  // 推了新 state 上云
     return true
   } catch (e) {
     _lastError = (e && e.errMsg) || String(e)
@@ -191,6 +198,7 @@ function showConflictModal(initial) {
 function applyRemoteState(remote, remoteUpdatedAt) {
   if (!_store || !remote) return
   _store.applyHydratedState(remote, remoteUpdatedAt)
+  _cloudUpdatedAt = remoteUpdatedAt || 0   // 拉了云端 → 本地=云端,已对齐
 }
 
 async function hydrate() {
@@ -358,6 +366,7 @@ async function actuallyPush(state, updatedAt) {
       }
       _lastError = null
       _lastPushAt = Date.now()
+      _cloudUpdatedAt = updatedAt || 0   // 这份 updatedAt 已落云端 → 本地与云端对齐
     } catch (e) {
       _lastError = (e && e.errMsg) || String(e)
       console.warn('[cloud-sync] push failed', e)
@@ -413,18 +422,35 @@ function formatRelativeTime(ts) {
   return `${d.getMonth() + 1}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+// 本地是否有「还没成功推上云」的改动。local updatedAt 比已知云端 updatedAt 新 = 有。
+// 注意:每次编辑后 200ms~1s 内本来就会短暂 unsynced(push 在途),这是正常的,
+// 不该报警 —— 所以「需要提醒」(needsAttention)只在持续没同步上(>30s 没成功
+// push / 推送报错 / 只读被踢)时才为真,避免每次打勾都闪 banner。
+function hasUnsyncedLocal() {
+  const localUpd = (_store && typeof _store.getUpdatedAt === 'function') ? _store.getUpdatedAt() : 0
+  return localUpd > _cloudUpdatedAt
+}
+
 function getSyncStatus() {
+  const unsynced = hasUnsyncedLocal()
+  const lastSyncTs = Math.max(_lastPushAt, _lastHydrateAt)
+  // 有改动、且距离上次成功同步已超过 30s(说明不是「在途」而是真卡住了)。
+  const staleUnsynced = unsynced && lastSyncTs > 0 && (Date.now() - lastSyncTs > 30000)
   let status = 'healthy'
   if (_readOnly) status = 'readonly'
   else if (_lastError) status = 'error'
+  else if (staleUnsynced) status = 'unsynced'
   else if (!_lastPushAt && !_lastHydrateAt) status = 'unknown'
+  const needsAttention = status === 'readonly' || status === 'error' || status === 'unsynced'
   return {
     status,
+    needsAttention,
     readOnly: _readOnly,
+    unsynced,
     lastHydrateAt: _lastHydrateAt,
     lastPushAt: _lastPushAt,
     lastError: _lastError,
-    lastSyncDisplay: formatRelativeTime(Math.max(_lastPushAt, _lastHydrateAt)),
+    lastSyncDisplay: formatRelativeTime(lastSyncTs),
     inflight: !!_hydrateInflight || !!_pushInflight || !!_pushTimer
   }
 }

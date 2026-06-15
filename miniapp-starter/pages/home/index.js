@@ -147,6 +147,9 @@ const TASK_THROTTLE_MS = 600
 Page({
   data: {
     selectedDate: '',
+    // 同步告警横幅:只读 / 同步出错 / 改动未上传时醒目提示 + 一键修。
+    // { show, status: 'readonly'|'error'|'unsynced', text, busy }
+    syncBanner: { show: false, status: '', text: '', busy: false },
     isLandscape: false,   // 横屏 → 左右两栏(右侧作业列表),提高空间利用率
     isToday: true,
     // 'today' | 'tomorrow' | 'day-after' | 'calendar' — drives segment highlight.
@@ -222,10 +225,12 @@ Page({
     // _lastSeenRewardAt dedupe,onShow 反复触发也不会 double-pop。
     this.refreshState({ perfStamp: stamp, maybeCelebrate: true })
     this._maybeShowSwipeGuide()
+    this.refreshSyncBanner()
     // Background-check cloud (debounced 30s). Repaint if remote was newer.
     cloudSync.hydrateIfStale().then((r) => {
       if (r && r.changed) this.refreshState()
-    }).catch(() => {})
+      this.refreshSyncBanner()
+    }).catch(() => { this.refreshSyncBanner() })
     // Pull pending share-save rewards (throttled in the helper). Silent on
     // failure — cloud function may not be deployed in dev. Skip claim in
     // read-only mode so we don't lose rewards on a state we can't write.
@@ -251,6 +256,42 @@ Page({
         const label = t > 0 ? i18n.t('home_admin_award', { t }) : i18n.t('home_admin_deduct', { t: Math.abs(t) })
         wx.showToast({ title: label, icon: 'none', duration: 2400 })
       }).catch(() => {})
+    }
+  },
+
+  // 同步告警横幅:只读 / 同步出错 / 改动未上传(>30s 没推上去)时才显示,
+  // 避免每次打勾都因「在途 push」短暂闪 banner(needsAttention 内部已过滤)。
+  refreshSyncBanner() {
+    const s = cloudSync.getSyncStatus()
+    let text = ''
+    if (s.status === 'readonly') text = i18n.t('home_sync_readonly')
+    else if (s.status === 'error') text = i18n.t('home_sync_error')
+    else if (s.status === 'unsynced') text = i18n.t('home_sync_unsynced')
+    this.setData({ syncBanner: { show: !!s.needsAttention, status: s.status, text, busy: false } })
+  },
+
+  // 一键修:只读 → 切回此设备(reclaim,内部按「本机不旧于云端就推本机」铁律,
+  // 不会丢本机改动;若云端确实更新才拉云端,而拉之前 applyHydratedState 已自动备份)。
+  // 其它(出错 / 未上传)→ 立即同步。
+  async handleSyncBannerTap() {
+    if (this.data.syncBanner.busy) return
+    this.setData({ 'syncBanner.busy': true })
+    try {
+      if (cloudSync.isReadOnly()) {
+        const ok = await cloudSync.reclaim()
+        wx.showToast({
+          title: ok ? i18n.t('prof_switch_done') : i18n.t('prof_switch_fail'),
+          icon: ok ? 'success' : 'none',
+          duration: 1800
+        })
+      } else {
+        await cloudSync.forceSync()
+      }
+      this.refreshState()
+    } catch (e) {
+      console.warn('[home] sync banner action failed', e)
+    } finally {
+      this.refreshSyncBanner()
     }
   },
 

@@ -24,7 +24,8 @@
       <text class="sync-pill {{syncStatus.status}}">{{
         syncStatus.status === 'healthy' ? t.sync_synced :
         syncStatus.status === 'readonly' ? t.sync_readonly :
-        syncStatus.status === 'error' ? t.sync_error : t.sync_none
+        syncStatus.status === 'error' ? t.sync_error :
+        syncStatus.status === 'unsynced' ? t.sync_unsynced : t.sync_none
       }}</text>
     </view>
 
@@ -44,6 +45,25 @@
               loading="{{syncing}}"
               disabled="{{syncing}}"
               bindtap="handleForceSync">{{t.sync_now}}</button>
+    </view>
+  </view>
+
+  <!-- 本地备份(同步前 / 每天自动留底,丢数据可恢复) -->
+  <view class="card bk-card">
+    <view class="section-header">
+      <text class="section-title">{{t.bk_title}}</text>
+      <text class="bk-now" hover-class="bk-now-hover" bindtap="handleBackupNow">{{t.bk_backup_now}}</text>
+    </view>
+    <text class="bk-sub">{{t.bk_sub}}</text>
+    <view wx:if="{{backups.length === 0}}" class="bk-empty">{{t.bk_empty}}</view>
+    <view wx:else class="bk-list">
+      <view wx:for="{{backups}}" wx:key="at" class="bk-item">
+        <view class="bk-item-main">
+          <text class="bk-item-time">{{item.timeLabel}}</text>
+          <text class="bk-item-meta">{{item.reasonLabel}} · {{item.metaLabel}}</text>
+        </view>
+        <view class="bk-item-btn" hover-class="bk-item-btn-hover" data-at="{{item.at}}" bindtap="handleRestoreBackup">{{t.bk_restore}}</view>
+      </view>
     </view>
   </view>
 </view>

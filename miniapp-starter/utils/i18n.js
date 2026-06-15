@@ -52,6 +52,25 @@ const DICT = {
     sync_last: 'Last sync: ',
     sync_now: 'Sync now', sync_reclaim: 'Use this device',
     sync_readonlyWarn: 'This device is read-only; changes won\'t save to the cloud.',
+    sync_unsynced: 'Not uploaded',
+    // home sync-warning banner (loud, tappable)
+    home_sync_readonly: '⚠️ Read-only on this device — changes won\'t be saved. Tap to switch back.',
+    home_sync_unsynced: '⚠️ Changes not uploaded to the cloud. Tap to sync now.',
+    home_sync_error: '⚠️ Sync error — tap to retry.',
+    home_sync_fixing: 'Working…',
+    // local backups (settings → restore lost data)
+    bk_title: 'Local backups',
+    bk_sub: 'Auto-saved before every sync and once a day. Restore here if data is ever lost.',
+    bk_empty: 'No backups yet',
+    bk_restore: 'Restore',
+    bk_backup_now: 'Back up now',
+    bk_backed_up: 'Backed up',
+    bk_meta: '{tasks} tasks · {done} done',
+    bk_reason_presync: 'before sync', bk_reason_daily: 'daily', bk_reason_prerestore: 'before restore', bk_reason_manual: 'manual',
+    bk_restore_title: 'Restore this backup?',
+    bk_restore_content: 'This overwrites current data with the snapshot. Current data is backed up first so you can undo. Continue?',
+    bk_restore_confirm: 'Restore',
+    bk_restored: 'Restored',
     set_count_suffix: ''
   },
   zh: {
@@ -98,6 +117,25 @@ const DICT = {
     sync_last: '上次同步：',
     sync_now: '立即同步', sync_reclaim: '切回此设备',
     sync_readonlyWarn: '本机当前为只读，写操作不会保存到云端。',
+    sync_unsynced: '未上传',
+    // 首页同步告警横幅(醒目、可点)
+    home_sync_readonly: '⚠️ 此设备只读，改动不会保存。点此切回此设备',
+    home_sync_unsynced: '⚠️ 有改动还没上传到云端，点此立即同步',
+    home_sync_error: '⚠️ 同步出错，点此重试',
+    home_sync_fixing: '处理中…',
+    // 本地备份(设置 → 丢数据可恢复)
+    bk_title: '本地备份',
+    bk_sub: '每次同步前 / 每天自动留底。万一数据丢了可在此恢复。',
+    bk_empty: '暂无备份',
+    bk_restore: '恢复',
+    bk_backup_now: '立即备份',
+    bk_backed_up: '已备份',
+    bk_meta: '{tasks} 项作业 · {done} 已完成',
+    bk_reason_presync: '同步前', bk_reason_daily: '每日', bk_reason_prerestore: '恢复前', bk_reason_manual: '手动',
+    bk_restore_title: '恢复这份备份？',
+    bk_restore_content: '会用这份快照覆盖当前数据。覆盖前会自动再备份当前数据，可以再恢复回来。继续？',
+    bk_restore_confirm: '恢复',
+    bk_restored: '已恢复',
     set_count_suffix: ' 个'
   }
 }
