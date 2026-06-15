@@ -1,0 +1,54 @@
+/* === 数据同步 === */
+.sync-card { margin-bottom: 24rpx; }
+.sync-pill { padding: 6rpx 18rpx; border-radius: 999rpx; font-size: 22rpx; font-weight: 600; }
+.sync-pill.healthy { background: #e8f7ee; color: #067647; }
+.sync-pill.readonly { background: #fff5e6; color: #b26a00; }
+.sync-pill.error { background: #fff1f0; color: #e54545; }
+.sync-pill.unsynced { background: #eef4ff; color: #245bdb; }
+.sync-pill.unknown { background: #edf0f3; color: #5f6b7a; }
+.sync-meta { margin-top: 18rpx; display: flex; flex-direction: column; gap: 8rpx; }
+.sync-meta-line { font-size: 24rpx; color: #6b7785; line-height: 1.5; word-break: break-all; }
+.sync-meta-line.warn { color: #b26a00; }
+.sync-meta-line.err { color: #e54545; }
+.sync-actions { margin-top: 22rpx; display: flex; gap: 16rpx; }
+.sync-btn {
+  flex: 1; height: 76rpx; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 999rpx; font-size: 28rpx; font-weight: 600; border: none; margin: 0; line-height: 1;
+}
+.sync-btn.primary {
+  background: linear-gradient(135deg, #245bdb 0%, #1546b5 100%);
+  color: #ffffff; box-shadow: 0 6rpx 18rpx rgba(36, 91, 219, 0.22);
+}
+.sync-btn.ghost { background: #eef4ff; color: #245bdb; }
+.sync-btn[disabled] { opacity: 0.6; }
+
+/* === 备份(本地 + 云端共用) === */
+.bk-card { margin-bottom: 24rpx; }
+.bk-now { font-size: 24rpx; font-weight: 600; color: #245bdb; padding: 6rpx 16rpx; border-radius: 999rpx; background: #eef4ff; }
+.bk-now-hover { background: #dbe7ff; }
+.bk-sub { display: block; margin-top: 10rpx; font-size: 23rpx; color: #8a94a0; line-height: 1.5; }
+.bk-empty { margin-top: 24rpx; text-align: center; font-size: 25rpx; color: #a6aeb9; padding: 20rpx 0; }
+.bk-list { margin-top: 18rpx; display: flex; flex-direction: column; }
+.bk-item { display: flex; align-items: center; padding: 18rpx 0; border-top: 1rpx solid #f0f2f6; }
+.bk-item:first-child { border-top: none; }
+.bk-item-main { flex: 1; display: flex; flex-direction: column; min-width: 0; gap: 6rpx; }
+.bk-item-time { font-size: 27rpx; font-weight: 700; color: #1f2329; }
+.bk-item-meta { font-size: 22rpx; color: #8a94a0; }
+.bk-item-btn {
+  flex-shrink: 0; margin-left: 18rpx; padding: 12rpx 28rpx; border-radius: 999rpx;
+  background: #eef4ff; color: #245bdb; font-size: 26rpx; font-weight: 600;
+}
+.bk-item-btn-hover { background: #dbe7ff; }
+
+/* === 登录记录 === */
+.ll-card { margin-bottom: 24rpx; }
+.ll-item { display: flex; align-items: center; padding: 18rpx 0; border-top: 1rpx solid #f0f2f6; }
+.ll-item:first-child { border-top: none; }
+.ll-item-main { flex: 1; display: flex; flex-direction: column; min-width: 0; gap: 6rpx; }
+.ll-item-time { font-size: 27rpx; font-weight: 700; color: #1f2329; }
+.ll-item-meta { font-size: 22rpx; color: #8a94a0; word-break: break-all; }
+.ll-env { flex-shrink: 0; margin-left: 18rpx; padding: 6rpx 16rpx; border-radius: 999rpx; font-size: 22rpx; font-weight: 600; background: #edf0f3; color: #5f6b7a; }
+.ll-env.ll-env-trial { background: #fff7e6; color: #ad6800; }     /* 体验版:琥珀 */
+.ll-env.ll-env-release { background: #e8f7ee; color: #067647; }   /* 正式版:绿 */
+.ll-env.ll-env-develop { background: #eef4ff; color: #245bdb; }   /* 开发版:蓝 */

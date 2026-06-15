@@ -17,95 +17,12 @@
     <text class="set-entry-chev">›</text>
   </view>
 
-  <!-- 数据同步 -->
-  <view class="card sync-card">
-    <view class="section-header">
-      <text class="section-title">{{t.set_sync}}</text>
-      <text class="sync-pill {{syncStatus.status}}">{{
-        syncStatus.status === 'healthy' ? t.sync_synced :
-        syncStatus.status === 'readonly' ? t.sync_readonly :
-        syncStatus.status === 'error' ? t.sync_error :
-        syncStatus.status === 'unsynced' ? t.sync_unsynced : t.sync_none
-      }}</text>
+  <!-- 数据恢复(同步 / 本地+云端备份 / 恢复 / 登录记录) -->
+  <view class="card set-entry" bindtap="goDataRecovery" hover-class="set-entry-hover">
+    <view class="set-entry-text">
+      <text class="set-entry-title">{{t.set_dataRecovery}}</text>
+      <text class="set-entry-sub">{{t.set_dataRecoverySub}}</text>
     </view>
-
-    <view class="sync-meta">
-      <text class="sync-meta-line">{{t.sync_last}}{{syncStatus.lastSyncDisplay}}</text>
-      <text wx:if="{{syncStatus.cloudInfo.line}}" class="sync-meta-line">☁️ {{t.sync_cloud_short}}：{{syncStatus.cloudInfo.line}} · {{syncStatus.cloudInfo.time}}</text>
-      <text wx:if="{{syncStatus.localInfo.line}}" class="sync-meta-line">📱 {{t.sync_local_short}}：{{syncStatus.localInfo.line}} · {{syncStatus.localInfo.time}}</text>
-      <text wx:if="{{syncStatus.lastError}}" class="sync-meta-line err">{{syncStatus.lastError}}</text>
-      <text wx:if="{{syncStatus.readOnly}}" class="sync-meta-line warn">{{t.sync_readonlyWarn}}</text>
-    </view>
-
-    <view class="sync-actions">
-      <button wx:if="{{syncStatus.readOnly}}"
-              class="sync-btn primary"
-              loading="{{syncing}}"
-              disabled="{{syncing}}"
-              bindtap="handleReclaim">{{t.sync_reclaim}}</button>
-      <button class="sync-btn {{syncStatus.readOnly ? 'ghost' : 'primary'}}"
-              loading="{{syncing}}"
-              disabled="{{syncing}}"
-              bindtap="handleForceSync">{{t.sync_now}}</button>
-    </view>
-  </view>
-
-  <!-- 本地备份(同步前 / 每天自动留底,丢数据可恢复) -->
-  <view class="card bk-card">
-    <view class="section-header">
-      <text class="section-title">{{t.bk_title}}</text>
-      <text class="bk-now" hover-class="bk-now-hover" bindtap="handleBackupNow">{{t.bk_backup_now}}</text>
-    </view>
-    <text class="bk-sub">{{t.bk_sub}}</text>
-    <view wx:if="{{backups.length === 0}}" class="bk-empty">{{t.bk_empty}}</view>
-    <view wx:else class="bk-list">
-      <view wx:for="{{backups}}" wx:key="at" class="bk-item">
-        <view class="bk-item-main">
-          <text class="bk-item-time">{{item.timeLabel}}</text>
-          <text class="bk-item-meta">{{item.reasonLabel}} · {{item.metaLabel}}</text>
-        </view>
-        <view class="bk-item-btn" hover-class="bk-item-btn-hover" data-at="{{item.at}}" bindtap="handleRestoreBackup">{{t.bk_restore}}</view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 云端备份(换设备 / 重装也能恢复) -->
-  <view class="card bk-card">
-    <view class="section-header">
-      <text class="section-title">☁️ {{t.cbk_title}}</text>
-      <text class="bk-now" hover-class="bk-now-hover" bindtap="handleRefreshCloudBackups">{{t.ll_refresh}}</text>
-    </view>
-    <text class="bk-sub">{{t.cbk_sub}}</text>
-    <view wx:if="{{cloudBackupsLoading && cloudBackups.length === 0}}" class="bk-empty">{{t.ll_loading}}</view>
-    <view wx:elif="{{cloudBackups.length === 0}}" class="bk-empty">{{t.cbk_empty}}</view>
-    <view wx:else class="bk-list">
-      <view wx:for="{{cloudBackups}}" wx:key="id" class="bk-item">
-        <view class="bk-item-main">
-          <text class="bk-item-time">{{item.timeLabel}}</text>
-          <text class="bk-item-meta">{{item.reasonLabel}} · {{item.metaLabel}}</text>
-        </view>
-        <view class="bk-item-btn" hover-class="bk-item-btn-hover" data-id="{{item.id}}" bindtap="handleRestoreCloudBackup">{{t.bk_restore}}</view>
-      </view>
-    </view>
-  </view>
-
-  <!-- 登录记录(本账号最近登录:时间 / 版本 / 设备) -->
-  <view class="card ll-card">
-    <view class="section-header">
-      <text class="section-title">{{t.ll_title}}</text>
-      <text class="bk-now" hover-class="bk-now-hover" bindtap="handleRefreshLogins">{{t.ll_refresh}}</text>
-    </view>
-    <text class="bk-sub">{{t.ll_sub}}</text>
-    <view wx:if="{{loginsLoading && logins.length === 0}}" class="bk-empty">{{t.ll_loading}}</view>
-    <view wx:elif="{{logins.length === 0}}" class="bk-empty">{{t.ll_empty}}</view>
-    <view wx:else class="bk-list">
-      <view wx:for="{{logins}}" wx:key="at" class="ll-item">
-        <view class="ll-item-main">
-          <text class="ll-item-time">{{item.timeLabel}}</text>
-          <text class="ll-item-meta">{{item.device}}{{item.buildVersion ? ' · ' + item.buildVersion : ''}}</text>
-        </view>
-        <text class="ll-env ll-env-{{item.env}}">{{item.envLabel}}</text>
-      </view>
-    </view>
+    <text class="set-entry-chev">›</text>
   </view>
 </view>

@@ -11,6 +11,7 @@
     "pages/pet/index",
     "pages/profile/index",
     "pages/settings/index",
+    "pages/data-recovery/index",
     "pages/feedback/index",
     "pages/admin-feedback/index",
     "pages/org-tags/index",
