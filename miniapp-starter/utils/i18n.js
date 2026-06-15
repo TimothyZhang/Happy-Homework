@@ -53,6 +53,8 @@ const DICT = {
     sync_now: 'Sync now', sync_reclaim: 'Use this device',
     sync_readonlyWarn: 'This device is read-only; changes won\'t save to the cloud.',
     sync_unsynced: 'Not uploaded',
+    sync_cloud_label: 'Cloud data', sync_local_label: 'This device',
+    sync_cloud_short: 'Cloud', sync_local_short: 'Local',
     // home sync-warning banner (loud, tappable)
     home_sync_readonly: '⚠️ Read-only on this device — changes won\'t be saved. Tap to switch back.',
     home_sync_unsynced: '⚠️ Changes not uploaded to the cloud. Tap to sync now.',
@@ -125,6 +127,8 @@ const DICT = {
     sync_now: '立即同步', sync_reclaim: '切回此设备',
     sync_readonlyWarn: '本机当前为只读，写操作不会保存到云端。',
     sync_unsynced: '未上传',
+    sync_cloud_label: '云端数据', sync_local_label: '本机数据',
+    sync_cloud_short: '云端', sync_local_short: '本机',
     // 首页同步告警横幅(醒目、可点)
     home_sync_readonly: '⚠️ 此设备只读，改动不会保存。点此切回此设备',
     home_sync_unsynced: '⚠️ 有改动还没上传到云端，点此立即同步',

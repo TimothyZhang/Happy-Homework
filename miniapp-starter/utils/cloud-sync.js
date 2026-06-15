@@ -13,6 +13,8 @@
 // - Never block the UI for a network round-trip. Failures are silent + retry
 //   on next mutation.
 
+const deviceInfo = require('./device-info')
+
 const COLLECTION = 'user_state'
 const HYDRATE_DEBOUNCE_MS = 30000  // page onShow re-check throttle
 const PUSH_DEBOUNCE_MS = 200       // batch rapid setData ticks (drag, ticker)
@@ -28,6 +30,8 @@ let _lastPushAt = 0          // ms — most recent successful actuallyPush
 let _cloudUpdatedAt = 0      // updatedAt value we KNOW is on cloud (learned via
                              // fetch, or set when we write/pull). local > this
                              // ⇒ local edits not yet on cloud ("未同步").
+let _cloudWriter = null      // {envVersion,buildVersion,model,sessionId,at} —
+                             // 云端那份数据是哪台设备/哪个版本/何时写的(doc.writer)。
 let _lastError = null        // last push/hydrate error message; null = healthy
 let _pushTimer = null
 let _pendingPushState = null
@@ -56,6 +60,19 @@ function getDeviceSessionId() {
     try { wx.setStorageSync(SESSION_STORAGE_KEY, id) } catch (_) {}
   }
   return id
+}
+
+// 本机写云端时附带的「写入者」元信息 —— 哪台设备会话、哪个版本、什么时候写的。
+// 另一台设备拉到 doc 后,就能从 doc.writer 看出「云端这份数据是谁写的」。
+function writerMeta(at) {
+  const d = deviceInfo.get() || {}
+  return {
+    envVersion: d.envVersion || '',
+    buildVersion: d.buildVersion || '',
+    model: d.model || '',
+    sessionId: getDeviceSessionId(),
+    at: at || 0
+  }
 }
 
 function init(store) {
@@ -111,7 +128,10 @@ async function fetchCloudDoc() {
     const res = await d.collection(COLLECTION).get()
     _lastError = null
     const picked = pickPrimaryDoc((res && res.data) || [])
-    if (picked) _cloudUpdatedAt = picked.updatedAt || 0   // 学到云端当前 updatedAt
+    if (picked) {
+      _cloudUpdatedAt = picked.updatedAt || 0       // 学到云端当前 updatedAt
+      _cloudWriter = picked.writer || null          // ...以及云端这份是谁写的
+    }
     return { doc: picked, error: null }
   } catch (e) {
     const msg = (e && e.errMsg) || String(e)
@@ -130,7 +150,8 @@ async function createInitialDoc(localSessionId, state, updatedAt) {
         state,
         sessionId: localSessionId,
         claimedAt: Date.now(),
-        updatedAt
+        updatedAt,
+        writer: writerMeta(updatedAt)
       }
     })
     _lastError = null
@@ -153,10 +174,10 @@ async function claimSession(docId, localSessionId, state, updatedAt) {
         sessionId: localSessionId,
         claimedAt: Date.now(),
         // Don't bump updatedAt unless we're actually writing newer state.
-        ...(state ? { state, updatedAt } : {})
+        ...(state ? { state, updatedAt, writer: writerMeta(updatedAt) } : {})
       }
     })
-    if (state) { _cloudUpdatedAt = updatedAt || 0; _lastPushAt = Date.now() }  // 推了新 state 上云
+    if (state) { _cloudUpdatedAt = updatedAt || 0; _lastPushAt = Date.now(); _cloudWriter = writerMeta(updatedAt) }  // 推了新 state 上云
     return true
   } catch (e) {
     _lastError = (e && e.errMsg) || String(e)
@@ -165,19 +186,27 @@ async function claimSession(docId, localSessionId, state, updatedAt) {
   }
 }
 
-function showConflictModal(initial) {
+function showConflictModal(initial, doc) {
   // initial=true → first hydrate detects another device owns it
   // initial=false → mid-session push got rejected (kicked)
   return new Promise((resolve) => {
     if (_modalShowing) { resolve('cancel'); return }
     _modalShowing = true
+    const i18n = require('./i18n')
+    // 把「云端这份数据是谁/哪个版本/什么时候写的」+「本机数据的版本/时间」摆出来,
+    // 让用户切换前看清两边,别盲目用旧数据盖了新数据(2026-06 丢数据的教训)。
+    const cloud = describeWriter((doc && doc.writer) || _cloudWriter, (doc && doc.updatedAt) || _cloudUpdatedAt)
+    const local = localWriterDescribe()
+    const detail =
+      `${i18n.t('sync_cloud_label')}：${cloud.line || '—'} · ${cloud.time}\n` +
+      `${i18n.t('sync_local_label')}：${local.line || '—'} · ${local.time}\n\n`
     // confirmText/cancelText capped at 4 chars — exceeding the limit makes
     // wx.showModal silently no-op on iOS.
     wx.showModal({
       title: initial ? '数据正在另一台设备上使用' : '已在其他设备登录',
-      content: initial
+      content: detail + (initial
         ? '切换到此设备会让对方退出，并以云端最新数据为准。是否切换？'
-        : '此设备已被踢下线。切换回来会以云端最新数据覆盖本机未保存的改动。',
+        : '此设备已被踢下线。切换回来会以云端最新数据覆盖本机未保存的改动。'),
       // confirmText must be ≤4 chars — wx.showModal silently fails to render
       // when exceeded, which would auto-resolve to 'cancel' and trap the user
       // in read-only mode with no visible prompt.
@@ -257,7 +286,7 @@ async function hydrate() {
       _readOnly = true
       return { changed: false }
     }
-    const choice = await showConflictModal(true)
+    const choice = await showConflictModal(true, doc)
     if (choice === 'takeover') {
       // 走到这里说明云端比本机新,夺回并拉云端是对的(本机本来就旧)。
       await claimSession(doc._id, localSessionId, null, doc.updatedAt)
@@ -342,7 +371,7 @@ async function actuallyPush(state, updatedAt) {
     try {
       const res = await d.collection(COLLECTION)
         .where({ sessionId: localSessionId })
-        .update({ data: { state, updatedAt } })
+        .update({ data: { state, updatedAt, writer: writerMeta(updatedAt) } })
       const updated = (res && res.stats && res.stats.updated) || 0
       if (updated === 0) {
         // Either no doc yet (race with init) or we've been kicked. Probe to
@@ -367,6 +396,7 @@ async function actuallyPush(state, updatedAt) {
       _lastError = null
       _lastPushAt = Date.now()
       _cloudUpdatedAt = updatedAt || 0   // 这份 updatedAt 已落云端 → 本地与云端对齐
+      _cloudWriter = writerMeta(updatedAt)
     } catch (e) {
       _lastError = (e && e.errMsg) || String(e)
       console.warn('[cloud-sync] push failed', e)
@@ -391,7 +421,7 @@ async function handleKickedOnPush(remoteDoc, attemptedState, attemptedUpdatedAt)
     _readOnly = true
     return
   }
-  const choice = await showConflictModal(false)
+  const choice = await showConflictModal(false, remoteDoc)
   if (choice === 'takeover') {
     await claimSession(remoteDoc._id, localSessionId, null, remoteDoc.updatedAt)
     _readOnly = false
@@ -420,6 +450,35 @@ function formatRelativeTime(ts) {
   const d = new Date(ts)
   const pad = (n) => `${n}`.padStart(2, '0')
   return `${d.getMonth() + 1}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function envLabel(env) {
+  const i18n = require('./i18n')
+  if (env === 'develop') return i18n.t('ll_env_develop')
+  if (env === 'trial') return i18n.t('ll_env_trial')
+  if (env === 'release') return i18n.t('ll_env_release')
+  return i18n.t('ll_env_unknown')
+}
+
+// 把一份 writer 元信息描述成 { line, time, at }。
+// line 例:"体验版 · iPad13,4 · 1.0.0.26061354";time 走相对时间。
+function describeWriter(writer, fallbackAt) {
+  const parts = []
+  let at = fallbackAt || 0
+  if (writer) {
+    parts.push(envLabel(writer.envVersion))
+    if (writer.model) parts.push(writer.model)
+    if (writer.buildVersion) parts.push(writer.buildVersion)
+    if (writer.at) at = writer.at
+  }
+  return { line: parts.filter(Boolean).join(' · '), time: formatRelativeTime(at), at }
+}
+
+// 本机当前「写入者」描述:版本取当前运行的 build(故 Tim 说的「预计」),时间取本地 updatedAt。
+function localWriterDescribe() {
+  const d = deviceInfo.get() || {}
+  const localAt = (_store && typeof _store.getUpdatedAt === 'function') ? _store.getUpdatedAt() : 0
+  return describeWriter({ envVersion: d.envVersion, buildVersion: d.buildVersion, model: d.model, at: localAt }, localAt)
 }
 
 // 本地是否有「还没成功推上云」的改动。local updatedAt 比已知云端 updatedAt 新 = 有。
@@ -451,7 +510,10 @@ function getSyncStatus() {
     lastPushAt: _lastPushAt,
     lastError: _lastError,
     lastSyncDisplay: formatRelativeTime(lastSyncTs),
-    inflight: !!_hydrateInflight || !!_pushInflight || !!_pushTimer
+    inflight: !!_hydrateInflight || !!_pushInflight || !!_pushTimer,
+    // 云端那份数据 / 本机数据 各自的「设备·版本·时间」描述,给同步界面展示。
+    cloudInfo: describeWriter(_cloudWriter, _cloudUpdatedAt),
+    localInfo: localWriterDescribe()
   }
 }
 

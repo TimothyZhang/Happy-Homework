@@ -31,6 +31,8 @@
 
     <view class="sync-meta">
       <text class="sync-meta-line">{{t.sync_last}}{{syncStatus.lastSyncDisplay}}</text>
+      <text wx:if="{{syncStatus.cloudInfo.line}}" class="sync-meta-line">☁️ {{t.sync_cloud_short}}：{{syncStatus.cloudInfo.line}} · {{syncStatus.cloudInfo.time}}</text>
+      <text wx:if="{{syncStatus.localInfo.line}}" class="sync-meta-line">📱 {{t.sync_local_short}}：{{syncStatus.localInfo.line}} · {{syncStatus.localInfo.time}}</text>
       <text wx:if="{{syncStatus.lastError}}" class="sync-meta-line err">{{syncStatus.lastError}}</text>
       <text wx:if="{{syncStatus.readOnly}}" class="sync-meta-line warn">{{t.sync_readonlyWarn}}</text>
     </view>
