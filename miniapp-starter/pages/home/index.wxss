@@ -46,10 +46,12 @@ page {
   max-height: 100%;
   min-height: 0;
   box-sizing: border-box;
-  /* Tim 要求去掉首页 scroll-view 上方/左右的留白 → 内容贴边铺满。
-     scroll-view 元素本身仍占满整屏(flex 子项,父 .page 宽 100%),
-     所以屏幕边缘的命中区不丢,照常滚。卡片自带圆角/内边距,贴边即全宽卡片。 */
-  padding: 0;
+  /* 顶部仍贴边(去掉上方留白);左右留一点点(12rpx≈6px)别完全顶到屏幕边。
+     padding 放在 .scroll-area(scroll-view 内,box-sizing:border-box → 元素本身
+     仍占满整屏宽),所以屏幕边缘命中区不丢、照常滚;只是内容(卡片)往里缩了一点。
+     不要把这个 padding 挪到 .page —— 那会让最左/右一条落在 .page padding 区,
+     touch 不进 scroll-view 滚不动(历史踩过)。 */
+  padding: 0 12rpx;
 }
 
 /* === 同步告警横幅(只读 / 出错 / 未上传)=== 置顶、可点一键修。
@@ -391,8 +393,8 @@ page {
 }
 
 /* === bottom share action (navigates to /pages/share/index) === //
-   .scroll-area 自带 24rpx side padding,这里走 0 横向 margin 即在 padding 之内
-   离屏边各 24rpx,配 pill 圆角看着像 CTA。 */
+   .scroll-area 自带 12rpx side padding,这里走 0 横向 margin 即在 padding 之内,
+   配 pill 圆角看着像 CTA。 */
 .home-share-action {
   margin: 36rpx 0 24rpx;
   height: 96rpx;
