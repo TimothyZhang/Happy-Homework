@@ -98,6 +98,23 @@
       </view>
     </view>
 
+    <!-- 登录记录(时间 / 版本 / 设备 / 同步会话) -->
+    <view class="card section-card">
+      <view class="section-header">
+        <text class="section-title">{{t.ll_title}}</text>
+      </view>
+      <view wx:if="{{logins.length === 0}}" class="empty-block">{{t.ll_empty}}</view>
+      <view wx:else class="log-list">
+        <view wx:for="{{logins}}" wx:key="at" class="login-row">
+          <view class="login-main">
+            <text class="login-time">{{item.timeLabel}}</text>
+            <text class="login-meta">{{item.device}}{{item.buildVersion ? ' · ' + item.buildVersion : ''}}{{item.sessionShort ? ' · ' + item.sessionShort : ''}}</text>
+          </view>
+          <text class="login-env login-env-{{item.env}}">{{item.envLabel}}</text>
+        </view>
+      </view>
+    </view>
+
     <!-- 调整金币 -->
     <view class="card section-card">
       <view class="section-header">

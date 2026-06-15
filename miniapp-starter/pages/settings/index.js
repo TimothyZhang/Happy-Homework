@@ -3,10 +3,17 @@ const cloudSync = require('../../utils/cloud-sync')
 const store = require('../../utils/store')
 
 function pad2(n) { return `${n}`.padStart(2, '0') }
-// 备份时间显示成「MM-DD HH:mm」—— 备份可能是几天前的,相对时间不够明确。
+// 时间显示成「MM-DD HH:mm」—— 备份/登录可能是几天前的,相对时间不够明确。
 function fmtBackupTime(ts) {
   const d = new Date(ts)
   return `${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`
+}
+
+function envLabelKey(env) {
+  if (env === 'develop') return 'll_env_develop'
+  if (env === 'trial') return 'll_env_trial'
+  if (env === 'release') return 'll_env_release'
+  return 'll_env_unknown'
 }
 
 Page({
@@ -15,7 +22,10 @@ Page({
     lang: 'en',
     syncStatus: { status: 'unknown', readOnly: false, lastSyncDisplay: '', lastError: null },
     syncing: false,
-    backups: []
+    backups: [],
+    logins: [],
+    loginsLoading: false,
+    loginsLoaded: false
   },
 
   onShow() {
@@ -26,7 +36,36 @@ Page({
     })
     wx.setNavigationBarTitle({ title: i18n.t('set_title') })
     this.refreshBackups()
+    if (!this.data.loginsLoaded) this.loadLogins()
     cloudSync.hydrateIfStale().then(() => this.refreshSyncStatus()).catch(() => {})
+  },
+
+  // 拉自己的登录记录(adminPanel.listMyLogins,best-effort)。
+  loadLogins() {
+    if (this.data.loginsLoading) return
+    if (typeof wx === 'undefined' || !wx.cloud || !wx.cloud.callFunction) {
+      this.setData({ loginsLoaded: true, logins: [] })
+      return
+    }
+    this.setData({ loginsLoading: true })
+    wx.cloud.callFunction({ name: 'adminPanel', data: { action: 'listMyLogins', limit: 50 } })
+      .then((res) => {
+        const r = (res && res.result) || {}
+        const rows = (r.rows || []).map((x) => ({
+          at: x.at,
+          timeLabel: fmtBackupTime(x.at),
+          env: x.envVersion || '',
+          envLabel: i18n.t(envLabelKey(x.envVersion)),
+          device: [x.brand, x.model].filter(Boolean).join(' ') || x.system || '—',
+          buildVersion: x.buildVersion || ''
+        }))
+        this.setData({ logins: rows, loginsLoaded: true, loginsLoading: false })
+      })
+      .catch(() => this.setData({ loginsLoaded: true, loginsLoading: false }))
+  },
+
+  handleRefreshLogins() {
+    this.loadLogins()
   },
 
   refreshBackups() {

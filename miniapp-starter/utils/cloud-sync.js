@@ -528,6 +528,8 @@ module.exports = {
   hydrateIfStale,
   pushState,
   isReadOnly,
+  // device session id (登录日志用,把一条登录和它对同步的「设备会话」对上)
+  getDeviceSessionId,
   // manual sync
   getSyncStatus,
   forceSync,

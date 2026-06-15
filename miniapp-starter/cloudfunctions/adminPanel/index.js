@@ -41,8 +41,12 @@ const AUDIT_COLLECTION = 'coin_adjustments'
 const INBOX_COLLECTION = 'admin_coin_inbox'
 const RATE_COLLECTION = 'admin_action_rate'
 const LEDGER_COLLECTION = 'coin_ledger'    // 和 coinLedger 云函数共用
+const LOGIN_COLLECTION = 'login_logs'      // 登录日志:每次冷启动记一条
 const LIST_LIMIT_DEFAULT = 100
 const LIST_LIMIT_MAX = 1000
+const LOGIN_LIST_LIMIT_DEFAULT = 50
+// 去重窗口:同一 openid+sessionId+envVersion 10 分钟内只记一条,挡反复切前台刷屏。
+const LOGIN_DEDUP_MS = 10 * 60 * 1000
 const DELTA_MAX_ABS = 1000000
 const INBOX_CLAIM_LIMIT = 200       // 单次 claim 最多拉多少条 inbox 记录
 
@@ -103,6 +107,26 @@ exports.main = async (event = {}) => {
     }
   }
 
+  // logLogin 任何用户都能调（记一条自己的登录日志,服务端权威时间 + 设备 + 版本）。
+  if (action === 'logLogin') {
+    try {
+      return await logLogin({ ...event, openid: callerOpenid })
+    } catch (e) {
+      console.error('[adminPanel] logLogin failed', e)
+      return { ok: false, reason: 'internal_error', message: (e && e.errMsg) || String(e) }
+    }
+  }
+
+  // listMyLogins 任何用户都能调（看自己的登录记录,设置页用）。
+  if (action === 'listMyLogins') {
+    try {
+      return await listMyLogins(callerOpenid, event)
+    } catch (e) {
+      console.error('[adminPanel] listMyLogins failed', e)
+      return { ok: false, reason: 'internal_error', message: (e && e.errMsg) || String(e) }
+    }
+  }
+
   if (!isAdmin(callerOpenid)) {
     return { ok: false, reason: 'not_admin' }
   }
@@ -129,6 +153,9 @@ exports.main = async (event = {}) => {
     }
     if (action === 'listFeedback') {
       return await listFeedback(event)
+    }
+    if (action === 'listLogins') {
+      return await listLogins(event)
     }
     return { ok: false, reason: 'unknown_action' }
   } catch (e) {
@@ -534,6 +561,91 @@ async function listFeedback(event) {
   let total = rows.length + skip
   try {
     const c = await db.collection(FEEDBACK_COLLECTION).count()
+    if (c && typeof c.total === 'number') total = c.total
+  } catch (e) { /* count 失败不阻塞 */ }
+  return { ok: true, rows, total, limit, skip }
+}
+
+// === 登录日志 ===
+// 每次客户端冷启动调一次 logLogin,记下「服务端时间 + 设备 + 版本(体验/正式/开发)
+// + cloud-sync 设备会话 id」。这串信息正好对得上「多版本 = 多 session 抢同步」那个
+// 丢数据根因 —— 在设置/admin 里翻登录记录,就能看出哪台设备、哪个版本、什么时候上来过。
+
+// 记一条登录。同一 openid+sessionId+envVersion 10 分钟内去重(切前台不重复刷)。
+async function logLogin({ openid, device, version }) {
+  if (!openid) return { ok: false, reason: 'no_openid' }
+  await ensureCollection(LOGIN_COLLECTION)
+  const db = cloud.database()
+  const now = Date.now()
+  const dev = device || {}
+  const ver = version || {}
+  const sessionId = cleanFeedbackStr(dev.sessionId, 64)
+  const envVersion = cleanFeedbackStr(ver.envVersion, 20)
+  try {
+    if (sessionId) {
+      const since = now - LOGIN_DEDUP_MS
+      const dup = await db.collection(LOGIN_COLLECTION)
+        .where({ _openid: openid, sessionId, envVersion, at: db.command.gt(since) })
+        .count()
+      if (dup && dup.total > 0) return { ok: true, deduped: true }
+    }
+  } catch (e) { /* count 失败就照常记 */ }
+  let nickname = ''
+  try {
+    const u = await db.collection(USER_COLLECTION).where({ _openid: openid }).field({ state: true }).limit(1).get()
+    const p = u.data && u.data[0] && u.data[0].state && u.data[0].state.profile
+    if (p && p.nickname) nickname = cleanFeedbackStr(p.nickname, 40)
+  } catch (e) { /* ignore */ }
+  await db.collection(LOGIN_COLLECTION).add({
+    data: {
+      _openid: openid,
+      at: now,                                       // 服务端权威时间
+      clientAt: Number(dev.clientAt) || 0,
+      envVersion,                                    // develop / trial / release
+      buildVersion: cleanFeedbackStr(ver.buildVersion, 40),
+      sdkVersion: cleanFeedbackStr(dev.sdkVersion, 24),
+      brand: cleanFeedbackStr(dev.brand, 40),
+      model: cleanFeedbackStr(dev.model, 80),
+      system: cleanFeedbackStr(dev.system, 48),
+      platform: cleanFeedbackStr(dev.platform, 24),
+      sessionId,
+      scene: Number(dev.scene) || 0,
+      nickname
+    }
+  })
+  return { ok: true }
+}
+
+// 看自己的登录记录(设置页)。靠 _openid 过滤,任何用户可调。
+async function listMyLogins(openid, event) {
+  if (!openid) return { ok: false, reason: 'no_openid' }
+  await ensureCollection(LOGIN_COLLECTION)
+  const db = cloud.database()
+  const limit = Math.min(200, Math.max(1, Number(event.limit) || LOGIN_LIST_LIMIT_DEFAULT))
+  const res = await db.collection(LOGIN_COLLECTION)
+    .where({ _openid: openid })
+    .orderBy('at', 'desc')
+    .limit(limit)
+    .get()
+  return { ok: true, rows: res.data || [] }
+}
+
+// 管理员看登录记录:不传 targetOpenid → 全局倒序(巡检多设备/多版本);传了只看那人。
+async function listLogins(event) {
+  await ensureCollection(LOGIN_COLLECTION)
+  const db = cloud.database()
+  const limit = Math.min(LIST_LIMIT_MAX, Math.max(1, Number(event.limit) || LOGIN_LIST_LIMIT_DEFAULT))
+  const skip = Math.max(0, Number(event.skip) || 0)
+  const target = (event.targetOpenid || '').trim()
+  let q = db.collection(LOGIN_COLLECTION)
+  if (target) q = q.where({ _openid: target })
+  const res = await q.orderBy('at', 'desc').skip(skip).limit(limit).get()
+  const rows = res.data || []
+  let total = rows.length + skip
+  try {
+    let cq = db.collection(LOGIN_COLLECTION)
+    if (target) cq = cq.where({ _openid: target })
+    const c = await cq.count()
     if (c && typeof c.total === 'number') total = c.total
   } catch (e) { /* count 失败不阻塞 */ }
   return { ok: true, rows, total, limit, skip }

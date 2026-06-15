@@ -15,6 +15,14 @@ function shortenOpenid(openid) {
   return `${openid.slice(0, 6)}…${openid.slice(-4)}`
 }
 
+// 复用主字典里的环境版本标签(develop/trial/release → 开发版/体验版/正式版)。
+function envLabelKey(env) {
+  if (env === 'develop') return 'll_env_develop'
+  if (env === 'trial') return 'll_env_trial'
+  if (env === 'release') return 'll_env_release'
+  return 'll_env_unknown'
+}
+
 // coin_ledger.kind → 标签。新增 kind 时在这里加一行即可。
 const LEDGER_KIND_KEYS = {
   task_reward: 'admind_kindTaskReward',
@@ -67,6 +75,7 @@ Page({
     ledger: [],
     ledgerTotal: 0,
     ledgerLoading: false,
+    logins: [],
     t: {},
     canUseCloud: typeof wx.cloud !== 'undefined'
   },
@@ -93,7 +102,7 @@ Page({
     }
     this.setData({ loading: true, error: '' })
     try {
-      const [userRes, logRes, ledgerRes] = await Promise.all([
+      const [userRes, logRes, ledgerRes, loginRes] = await Promise.all([
         wx.cloud.callFunction({
           name: 'adminPanel',
           data: { action: 'getUser', openid: this.data.openid }
@@ -105,6 +114,10 @@ Page({
         wx.cloud.callFunction({
           name: 'adminPanel',
           data: { action: 'listCoinLedger', targetOpenid: this.data.openid, limit: 100 }
+        }),
+        wx.cloud.callFunction({
+          name: 'adminPanel',
+          data: { action: 'listLogins', targetOpenid: this.data.openid, limit: 50 }
         })
       ])
 
@@ -158,10 +171,22 @@ Page({
 
       const ledgerTotal = typeof ledgerResult.total === 'number' ? ledgerResult.total : ledger.length
 
+      const loginResult = (loginRes && loginRes.result) || {}
+      const logins = (loginResult.rows || []).map((r) => ({
+        at: r.at,
+        timeLabel: formatAbsTime(r.at),
+        env: r.envVersion || '',
+        envLabel: i18n.t(envLabelKey(r.envVersion)),
+        device: [r.brand, r.model].filter(Boolean).join(' ') || r.system || '—',
+        buildVersion: r.buildVersion || '',
+        sessionShort: shortenOpenid(r.sessionId || '')
+      }))
+
       this.setData({
         loading: false,
         summary,
         state,
+        logins,
         sessionId: userResult.sessionId || '',
         updatedAtDisplay: formatAbsTime(userResult.updatedAt),
         claimedAtDisplay: formatAbsTime(userResult.claimedAt),

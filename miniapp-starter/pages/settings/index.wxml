@@ -66,4 +66,24 @@
       </view>
     </view>
   </view>
+
+  <!-- 登录记录(本账号最近登录:时间 / 版本 / 设备) -->
+  <view class="card ll-card">
+    <view class="section-header">
+      <text class="section-title">{{t.ll_title}}</text>
+      <text class="bk-now" hover-class="bk-now-hover" bindtap="handleRefreshLogins">{{t.ll_refresh}}</text>
+    </view>
+    <text class="bk-sub">{{t.ll_sub}}</text>
+    <view wx:if="{{loginsLoading && logins.length === 0}}" class="bk-empty">{{t.ll_loading}}</view>
+    <view wx:elif="{{logins.length === 0}}" class="bk-empty">{{t.ll_empty}}</view>
+    <view wx:else class="bk-list">
+      <view wx:for="{{logins}}" wx:key="at" class="ll-item">
+        <view class="ll-item-main">
+          <text class="ll-item-time">{{item.timeLabel}}</text>
+          <text class="ll-item-meta">{{item.device}}{{item.buildVersion ? ' · ' + item.buildVersion : ''}}</text>
+        </view>
+        <text class="ll-env ll-env-{{item.env}}">{{item.envLabel}}</text>
+      </view>
+    </view>
+  </view>
 </view>

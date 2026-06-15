@@ -60,3 +60,15 @@
   background: #eef4ff; color: #245bdb; font-size: 26rpx; font-weight: 600;
 }
 .bk-item-btn-hover { background: #dbe7ff; }
+
+/* === 登录记录 === */
+.ll-card { margin-bottom: 24rpx; }
+.ll-item { display: flex; align-items: center; padding: 18rpx 0; border-top: 1rpx solid #f0f2f6; }
+.ll-item:first-child { border-top: none; }
+.ll-item-main { flex: 1; display: flex; flex-direction: column; min-width: 0; gap: 6rpx; }
+.ll-item-time { font-size: 27rpx; font-weight: 700; color: #1f2329; }
+.ll-item-meta { font-size: 22rpx; color: #8a94a0; word-break: break-all; }
+.ll-env { flex-shrink: 0; margin-left: 18rpx; padding: 6rpx 16rpx; border-radius: 999rpx; font-size: 22rpx; font-weight: 600; background: #edf0f3; color: #5f6b7a; }
+.ll-env.ll-env-trial { background: #fff7e6; color: #ad6800; }     /* 体验版:琥珀 */
+.ll-env.ll-env-release { background: #e8f7ee; color: #067647; }   /* 正式版:绿 */
+.ll-env.ll-env-develop { background: #eef4ff; color: #245bdb; }   /* 开发版:蓝 */

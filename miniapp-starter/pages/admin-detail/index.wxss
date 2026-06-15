@@ -259,6 +259,22 @@
 .log-row.tight {
   gap: 4rpx;
 }
+/* 登录记录行:左侧时间+设备,右侧环境版本 pill */
+.login-row {
+  background: #f7f9fc;
+  border-radius: 16rpx;
+  padding: 16rpx;
+  margin-top: 14rpx;
+  display: flex;
+  align-items: center;
+}
+.login-main { flex: 1; display: flex; flex-direction: column; min-width: 0; gap: 6rpx; }
+.login-time { font-size: 26rpx; font-weight: 700; color: #1f2329; }
+.login-meta { font-size: 21rpx; color: #8a94a0; word-break: break-all; }
+.login-env { flex-shrink: 0; margin-left: 16rpx; padding: 6rpx 16rpx; border-radius: 999rpx; font-size: 21rpx; font-weight: 600; background: #edf0f3; color: #5f6b7a; }
+.login-env.login-env-trial { background: #fff7e6; color: #ad6800; }
+.login-env.login-env-release { background: #e8f7ee; color: #067647; }
+.login-env.login-env-develop { background: #eef4ff; color: #245bdb; }
 .log-line {
   display: flex;
   justify-content: space-between;

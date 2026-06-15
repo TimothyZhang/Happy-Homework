@@ -71,6 +71,13 @@ const DICT = {
     bk_restore_content: 'This overwrites current data with the snapshot. Current data is backed up first so you can undo. Continue?',
     bk_restore_confirm: 'Restore',
     bk_restored: 'Restored',
+    // login history (settings + admin)
+    ll_title: 'Login history',
+    ll_sub: 'Recent logins on this account — time / version / device.',
+    ll_empty: 'No login records yet',
+    ll_loading: 'Loading…',
+    ll_refresh: 'Refresh',
+    ll_env_develop: 'Dev', ll_env_trial: 'Trial', ll_env_release: 'Release', ll_env_unknown: '—',
     set_count_suffix: ''
   },
   zh: {
@@ -136,6 +143,13 @@ const DICT = {
     bk_restore_content: '会用这份快照覆盖当前数据。覆盖前会自动再备份当前数据，可以再恢复回来。继续？',
     bk_restore_confirm: '恢复',
     bk_restored: '已恢复',
+    // 登录记录(设置 + admin)
+    ll_title: '登录记录',
+    ll_sub: '本账号最近的登录 —— 时间 / 版本 / 设备。',
+    ll_empty: '暂无登录记录',
+    ll_loading: '加载中…',
+    ll_refresh: '刷新',
+    ll_env_develop: '开发版', ll_env_trial: '体验版', ll_env_release: '正式版', ll_env_unknown: '未知',
     set_count_suffix: ' 个'
   }
 }
