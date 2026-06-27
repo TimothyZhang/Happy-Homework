@@ -35,6 +35,12 @@ module.exports = {
     home_undone_title_est: 'To do ({n} tasks, est. {hm})',
     // done section title (computed in JS)
     home_done_title: 'Done ({n})',
+    // undone-list sort toolbar
+    home_sort_manual: 'Manual',
+    home_sort_subject: 'Subject',
+    home_sort_org: 'Group',
+    home_sort_oneshot: 'One-time',
+    home_sort_created: 'Created',
     // empty-tip variants
     home_empty_today_done: 'All done today — tap + to add more',
     home_empty_other_done: 'All done on this day',
@@ -96,6 +102,11 @@ module.exports = {
     home_undone_title: '未完成 ({n}项)',
     home_undone_title_est: '未完成 ({n}项，预计{hm})',
     home_done_title: '已完成 ({n})',
+    home_sort_manual: '手动',
+    home_sort_subject: '学科',
+    home_sort_org: '分组',
+    home_sort_oneshot: '一次性',
+    home_sort_created: '创建时间',
     home_empty_today_done: '今天全部完成,点 + 可继续添加',
     home_empty_other_done: '这一天全部完成',
     home_empty_today_none: '今日没有待办，点右上角 + 新建',

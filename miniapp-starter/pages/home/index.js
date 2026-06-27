@@ -8,6 +8,23 @@ const i18n = require('../../utils/i18n')
 
 const formatDuration = homeTips.formatDuration
 
+// 未完成区的排序模式。default = 用户手动拖拽的 rowOrder(保留原行为);其余四种
+// 自动排序按「主键提到最前 + 其余维持基准顺序 [学科,一次性,分组,创建时间]」生成。
+const SORT_MODES = [
+  { key: 'default',      labelKey: 'home_sort_manual' },
+  { key: 'subject',      labelKey: 'home_sort_subject' },
+  { key: 'organization', labelKey: 'home_sort_org' },
+  { key: 'oneshot',      labelKey: 'home_sort_oneshot' },
+  { key: 'created',      labelKey: 'home_sort_created' }
+]
+
+function buildLocalizedSortModes() {
+  return SORT_MODES.map((m) => ({ key: m.key, label: i18n.t(m.labelKey) }))
+}
+
+// 学科基准顺序 = task-edit picker 的顺序;未知学科排到末尾再按中文名。
+const SUBJECT_ORDER = ['语文', '数学', '英语', '科学', '道法', '美术', '其他']
+
 // 紧凑时长(按 Tim 例子 "1h20m"):h/m;不足 1 小时只 "Xm",整点 "Xh",0 返空串。
 function fmtHm(min) {
   min = Math.round(Number(min) || 0)
@@ -114,20 +131,71 @@ function decorateItem(item, now) {
   }
 }
 
-// Sort undone purely by user-controlled rowOrder. Overdue / virtual /
-// today rows all live in the same orderable pool now — the user is free
-// to interleave a missed-Monday recurring row between today's tasks.
-//
-// 不再做"同 subject 推到末尾"的二次重排 — 那个会让用户拖动 reorder 的
-// 结果失效:同 subject 的卡片(比如 Tim 的两张"语文")被强制分开,后者一
-// 律推末尾,看起来"拖了没生效"。用户拖完位置就是最终位置。
-function sortUndone(items) {
-  return items.sort((a, b) => {
-    const oa = a.rowOrder || 0
-    const ob = b.rowOrder || 0
-    if (oa !== ob) return oa - ob
-    return (a.createdAt || 0) - (b.createdAt || 0)
-  })
+// === 未完成区排序 === //
+// default 模式纯按用户拖拽的 rowOrder(overdue / 重复 / 今日 row 同一个可排序
+// 池,用户可把漏掉的周一重复行插到今日任务中间);其余模式按维度优先级链自动排。
+// 不在 default 里做"同 subject 推末尾"的二次重排 — 那会让拖动 reorder 失效。
+
+function subjectRank(s) {
+  const i = SUBJECT_ORDER.indexOf(s || '')
+  return i < 0 ? SUBJECT_ORDER.length : i
+}
+
+// 各维度比较器。学科按预设顺序、未知排末尾再按中文名;一次性排在重复性前面;
+// 创建时间老→新;分组按「我」Tab 配置的标签顺序,未在列表里的(老 task 残留)排末尾。
+function cmpSubject(a, b) {
+  const ra = subjectRank(a.subject)
+  const rb = subjectRank(b.subject)
+  if (ra !== rb) return ra - rb
+  return (a.subject || '').localeCompare(b.subject || '', 'zh')
+}
+function cmpOneshot(a, b) {
+  const ra = a.taskMode === 'recurring' ? 1 : 0
+  const rb = b.taskMode === 'recurring' ? 1 : 0
+  return ra - rb
+}
+function cmpCreated(a, b) {
+  return (a.createdAt || 0) - (b.createdAt || 0)
+}
+function makeCmpOrg(orgOrder) {
+  return (a, b) => {
+    const ia = orgOrder.indexOf(a.organization)
+    const ib = orgOrder.indexOf(b.organization)
+    const ra = ia < 0 ? Number.MAX_SAFE_INTEGER : ia
+    const rb = ib < 0 ? Number.MAX_SAFE_INTEGER : ib
+    if (ra !== rb) return ra - rb
+    return (a.organization || '').localeCompare(b.organization || '', 'zh')
+  }
+}
+
+// mode → 维度优先级链。规则:主键提到最前,其余维持基准顺序 [学科,一次性,分组,创建时间]。
+function undoneComparator(mode, orgOrder) {
+  const cmpOrg = makeCmpOrg(orgOrder)
+  const chains = {
+    subject:      [cmpSubject, cmpOneshot, cmpOrg, cmpCreated],
+    organization: [cmpOrg, cmpSubject, cmpOneshot, cmpCreated],
+    oneshot:      [cmpOneshot, cmpSubject, cmpOrg, cmpCreated],
+    created:      [cmpCreated, cmpSubject, cmpOneshot, cmpOrg]
+  }
+  const chain = chains[mode]
+  if (!chain) return null
+  return (a, b) => {
+    for (const c of chain) { const r = c(a, b); if (r) return r }
+    return (a.id || '').localeCompare(b.id || '')
+  }
+}
+
+function sortUndone(items, mode, orgOrder) {
+  const cmp = undoneComparator(mode, orgOrder || [])
+  if (!cmp) {
+    return items.sort((a, b) => {
+      const oa = a.rowOrder || 0
+      const ob = b.rowOrder || 0
+      if (oa !== ob) return oa - ob
+      return (a.createdAt || 0) - (b.createdAt || 0)
+    })
+  }
+  return items.sort(cmp)
 }
 
 // Done sorted by most recent completion first.
@@ -169,6 +237,9 @@ Page({
     calendarLabel: '日历',
     overview: { totalCount: 0, pendingCount: 0, doneCount: 0 },
     remainingMinutesDisplay: '—',
+    // 未完成区排序:'default'(手动拖拽) | 'subject' | 'organization' | 'oneshot' | 'created'
+    sortMode: 'default',
+    sortModes: [],
     undoneItems: [],
     doneItems: [],
     showSwipeGuide: false,   // 作业卡片左右滑改日期的一次性新手引导
@@ -196,6 +267,13 @@ Page({
     allDoneSubtitle: ''
   },
 
+  onLoad() {
+    let mode = 'default'
+    try { mode = wx.getStorageSync('home_undone_sort_v1') || 'default' } catch (e) {}
+    if (!SORT_MODES.some((m) => m.key === mode)) mode = 'default'
+    this.setData({ sortMode: mode })
+  },
+
   onResize(res) { this._updateOrientation(res) },
   _updateOrientation(res) {
     let w = 0, h = 0
@@ -211,7 +289,7 @@ Page({
 
   onShow() {
     const stamp = perf.markPageShow('home')
-    this.setData({ t: i18n.dict() })
+    this.setData({ t: i18n.dict(), sortModes: buildLocalizedSortModes() })
     this._updateOrientation()
     wx.setNavigationBarTitle({ title: i18n.t('home_navtitle') })
     const tb = typeof this.getTabBar === 'function' && this.getTabBar()
@@ -305,7 +383,9 @@ Page({
     const now = Date.now()
     const raw = store.tasksForDate(state, selectedDate)
     const decorated = raw.map((it) => decorateItem(it, now))
-    const undoneItems = sortUndone(decorated.filter((it) => it.status !== 'done'))
+    const sortMode = this.data.sortMode || 'default'
+    const orgOrder = store.getOrganizations()
+    const undoneItems = sortUndone(decorated.filter((it) => it.status !== 'done'), sortMode, orgOrder)
     const doneItems = sortDone(decorated.filter((it) => it.status === 'done'))
     const total = decorated.length
     const remainingMinutes = undoneItems
@@ -638,6 +718,15 @@ Page({
     // 默认日期跟随首页当前选中(今天/明天/后天/日历选的日子)。
     const date = this.data.selectedDate || store.todayStr()
     wx.navigateTo({ url: `/pkg-notebook/task-edit/index?date=${date}` })
+  },
+
+  // 切换未完成区排序模式。default 恢复手动拖拽,其余自动排序并禁用拖拽。
+  handleSortChange(e) {
+    const key = e.currentTarget.dataset.key
+    if (!key || key === this.data.sortMode) return
+    this.setData({ sortMode: key })
+    try { wx.setStorageSync('home_undone_sort_v1', key) } catch (err) {}
+    this.refreshState()
   },
 
   handleNavigateToShare() {

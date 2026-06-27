@@ -370,6 +370,31 @@ page {
   box-shadow: 0 4rpx 12rpx rgba(36, 91, 219, 0.25);
 }
 
+/* 未完成区排序 toolbar:横向可滚的 chip 行,放在 section-header 和列表之间。 */
+.sort-bar {
+  margin-bottom: 16rpx;
+  white-space: nowrap;
+}
+.sort-bar-inner {
+  display: inline-flex;
+  gap: 12rpx;
+  padding-bottom: 2rpx;
+}
+.sort-chip {
+  flex: 0 0 auto;
+  font-size: 22rpx;
+  line-height: 1;
+  padding: 10rpx 20rpx;
+  border-radius: 999rpx;
+  background: #f3f6fa;
+  color: #6b7785;
+}
+.sort-chip.active {
+  background: #eaf2ff;
+  color: #245bdb;
+  font-weight: 700;
+}
+
 .done-section .section-title { color: #067647; }
 .section-count.done-count {
   background: #e8f7ee;

@@ -69,6 +69,18 @@
         <view class="add-task-btn" bindtap="handleAddTask">+</view>
       </view>
 
+      <scroll-view wx:if="{{undoneItems.length > 0}}"
+                   class="sort-bar"
+                   scroll-x="{{true}}"
+                   show-scrollbar="{{false}}">
+        <view class="sort-bar-inner">
+          <view wx:for="{{sortModes}}" wx:key="key"
+                class="sort-chip {{sortMode === item.key ? 'active' : ''}}"
+                data-key="{{item.key}}"
+                bindtap="handleSortChange">{{item.label}}</view>
+        </view>
+      </scroll-view>
+
       <view wx:if="{{undoneItems.length === 0}}" class="empty-tip">
         <text class="empty-emoji">{{doneItems.length > 0 ? '🎉' : '📝'}}</text>
         <text class="empty-text">{{emptyTipText}}</text>
@@ -78,6 +90,7 @@
                  items="{{undoneItems}}"
                  active-date="{{selectedDate}}"
                  compact="{{isLandscape}}"
+                 enable-drag="{{sortMode === 'default'}}"
                  enable-postpone="{{true}}"
                  bind:dragstart="handleDragStart"
                  bind:dragend="handleDragEnd"
